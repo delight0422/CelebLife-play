@@ -660,7 +660,8 @@ function coAlbum(s, g, o) {
   // 매출: 앨범 + 음원(차트 밖이어도 점수만큼 조금은 들어온다) + 차트 순위
   const rev = albums * 14000 + Math.pow(Math.max(0, sc - 45), 2) * 10e4 + (peak ? (101 - peak) * 300e4 : 0);
   coIn(t, rev, '앨범·음원');
-  const pay = coSettle(s, t, g, rev);
+  const debt0 = g.debt, pay = coSettle(s, t, g, rev), rec = debt0 - g.debt;
+  const card = coAlbumCard(s, t, g, o, { sc, peak, wins, gs: gain.kr + gain.jp + gain.us, rev, pay, rec, cfB: cScoreB(cf), tired });
   if (o.mine) { addCatalog(s, o.title, '작곡', sc, 0.7, 'agency'); cmGain(s, o.c, 4); useSkill(s, p, 'compose', 2); addWork(s, { type: '작곡', title: o.title, by: g.name, sc, note: chartText(peak) }); }
   const repD = U.clamp((sc - 55) / 6, -2.5, 4) + (peak === 1 ? 2 : 0) + (debut ? 1 : 0);
   // 그룹이 많을수록 앨범 하나가 회사 평판에 주는 영향은 작다
@@ -670,17 +671,35 @@ function coAlbum(s, g, o) {
   g.flops = sc < 50 ? g.flops + 1 : Math.max(0, g.flops - 1);
   g.yearBest = Math.max(g.yearBest, sc); g.best = Math.max(g.best, sc);
   g.peakF = Math.max(g.peakF, coGFans(g)); t.peakF = Math.max(t.peakF, g.peakF);
-  g.disc.push({ y: calY(s), title: o.title, c: o.c, sc: Math.round(sc), peak, mine: !!o.mine });
+  g.disc.push({ y: calY(s), title: o.title, c: o.c, sc: Math.round(sc), peak, mine: !!o.mine, card });
   if (g.disc.length > 30) g.disc.shift();
   if (peak === 1 && !t.no1) { t.no1 = true; milestone(s, `${age(s)}세에 우리 회사 「${g.name}」의 「${o.title}」가 음원 차트 1위를 했다.`); }
-  return { sc, peak, wins, albums, gain, rev, pay, repD, debut, cm: comments(sc, '') };
+  return { sc, peak, wins, albums, gain, rev, pay, repD, debut, cm: comments(sc, ''), card };
+}
+// 회사 그룹 앨범 결과 카드 (v119): 내 그룹 곡 카드(v118 UI C1)와 같은 틀. 정산서는 회사 쪽에서 본 것
+// (멤버 몫에서 연습생 · 제작 비용을 먼저 회수하고, 다 회수한 뒤부터 멤버들에게 나간다)
+function coAlbumCard(s, t, g, o, r) {
+  const pw = coPower(s, g);
+  const F = [g.kind === 'band' ? { z: (pw - 48) / 18, g: ['연주가 탄탄하다', '합주가 귀에 착 붙는다'], b: ['연주가 아직 덜 여물었다', '라이브가 조금 불안하다'] } : { z: (pw - 45) / 18, g: ['퍼포먼스가 눈을 못 떼게 한다', '라이브가 안정적이다'], b: ['라이브가 조금 불안하다', '무대가 아직 덜 여물었다'] },
+    RX.q(o.q), RX.fans(coGFans(g), r.gs), RX.trend(o.c === s.trend), RX.cf(r.cfB), RX.promo(t.f.music.tier), { z: (g.star - 50) / 25, g: ['멤버들 얼굴이 화면을 꽉 채운다'], b: ['눈에 확 띄는 멤버가 없다'] }];
+  if (r.tired > 1) F.push({ z: -r.tired / 4, g: ['오래 봐도 질리지 않는다'], b: ['예전만큼 새롭지는 않다'] });
+  if (o.c === g.sig) F.push({ z: 0.5, g: ['역시 이 그룹다운 콘셉트다'], b: ['늘 하던 콘셉트라 뻔하다'] });
+  const mem = Math.round(r.rev * (1 - g.cut)), rows = [['앨범 · 음원 매출', Math.round(r.rev)], [`멤버 몫 (${Math.round((1 - g.cut) * 100)}%)`, -mem]];
+  if (r.rec > 0) rows.push(['멤버 몫에서 비용 회수', Math.round(r.rec)]);
+  rows.push('-', ['회사에 남는 돈', Math.round(r.rev - r.pay), 1]);
+  const note = g.debt > 0 ? `멤버 몫 ${fmtBill(mem)}은 연습생 · 제작 비용을 회수하는 데 들어갔다. 남은 비용 ${fmtWon(g.debt)}.`
+    : r.rec > 0 ? `멤버 몫 중 ${fmtBill(r.rec)}으로 연습생 · 제작 비용을 다 회수했다. 멤버들에게 ${fmtBill(r.pay)}이 나갔다.` : `멤버들에게 ${fmtBill(r.pay)}이 나갔다.`;
+  return songCardMake({ t: o.title, by: g.name, peak: r.peak, wins: r.wins, fans: [['그룹 팬', r.gs]], bill: { t: `「${o.title}」 앨범 · 음원 정산`, rows, note } }, F, r.sc, g);
 }
 E({
   id: 'co_res', cat: '앨범 성적', tag: 'career',
   title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 앨범 성적표`,
-  init(s, d) { const g = coGroup(s, d.gid); if (!g || !coOn(s)) { d.skip = true; return; } d.r = coAlbum(s, g, d); d.up = coTierCheck(s, coT(s)); d.rank = coRankCheck(s, coT(s)); },
+  init(s, d) { const g = coGroup(s, d.gid); if (!g || !coOn(s)) { d.skip = true; return; } d.r = coAlbum(s, g, d); d.card = d.r.card; d.up = coTierCheck(s, coT(s)); d.rank = coRankCheck(s, coT(s)); },
+  // v119: 순위 · 팬 변화 · 반응 · 정산은 카드에 (예전 세이브의 카드 없는 창은 예전처럼)
+  html: (s, d) => d.card && typeof songCardHTML === 'function' ? `<div class="m-text">${rich(EVENTS.co_res.text(s, d))}</div>` + songCardHTML(d.card) + (d.up || d.rank ? `<div class="m-text">${rich([d.up, d.rank].filter(Boolean).join('\n\n'))}</div>` : '') : '',
   text: (s, d) => {
-    const g = coGroup(s, d.gid), r = d.r, gs = r.gain.kr + r.gain.jp + r.gain.us;
+    const g = coGroup(s, d.gid) || { name: '', f: { kr: 0, jp: 0, us: 0 }, debt: 0 }, r = d.r, gs = r.gain.kr + r.gain.jp + r.gain.us;
+    if (d.card) return `${r.debut ? '데뷔' : '컴백'} 앨범 「${d.title}」 ('${d.c}' 콘셉트 · ${d.mine ? '내가 쓴 곡' : '외부 곡'})\n\n앨범 ${r.albums.toLocaleString()}장 · 그룹 팬 ${fmtFans(coGFans(g))}\n회사 평판 ${r.repD >= 0 ? '+' : ''}${Math.round(r.repD * 10) / 10} → ${Math.round(coT(s).f.music.rep)}`;
     let x = `${r.debut ? '데뷔' : '컴백'} 앨범 「${d.title}」 ('${d.c}' 콘셉트 · ${d.mine ? '내가 쓴 곡' : '외부 곡'})\n\n${chartText(r.peak)}${g.kind === 'band' ? '' : ` · 음악방송 1위 ${r.wins}회`} · 앨범 ${r.albums.toLocaleString()}장\n그룹 팬 ${sgnFans(gs)} → ${fmtFans(coGFans(g))}\n\n팬 반응: ${r.cm}`;
     x += `\n\n매출 ${fmtWon(r.rev)} · ${r.pay ? `멤버 정산 ${fmtWon(r.pay)}` : `연습생·제작 비용 회수 중 (남은 ${fmtWon(g.debt)})`}\n회사 평판 ${r.repD >= 0 ? '+' : ''}${Math.round(r.repD * 10) / 10} → ${Math.round(coT(s).f.music.rep)}`;
     if (d.up) x += `\n\n${d.up}`;
@@ -1240,7 +1259,10 @@ function coTabGrp(s, t) {
     h += `<div class="sec-h">${U.esc(g.name)} <span class="n">${coKindN(g.kind)} · ${g.debuted ? `${g.debutY}년 데뷔` : '데뷔 전'}</span></div>`;
     h += infoTable([['팬', `${fmtFans(coGFans(g))}${g.fandom && g.kind !== 'band' ? ` · 팬덤 '${g.fandom}'` : ''}`], ['지금', st], ['대표 콘셉트', g.sig || '-'], ['계약', `${Math.max(0, left)}개월 남음 · 회사 몫 ${pctN(g.cut)}`], ['정산', g.debt > 0 ? `연습생·제작 비용 회수 중 · 남은 ${fmtWon(g.debt)}` : `멤버 정산 누적 ${fmtWon(g.paid)}`],
       { h: '멤버', items: coP(s, g.members).map(x => `${x.name} (${gNn(x)} · ${pAge(s, x)}세) ${g.pos[x.id] || ''} — ${coMemberSub(s, x)}`) },
-      { h: '앨범', items: g.disc.slice(-5).reverse().map(a => `${a.y} 「${a.title}」 '${a.c}' · ${chartText(a.peak)}${a.mine ? ' · 내가 쓴 곡' : ''}`) }].concat(g.aw.length ? [{ h: '받은 상', items: g.aw.slice(-6).reverse() }] : []));
+    ]);
+    // 앨범 줄 (v119): 결과 카드가 있는 앨범은 🎧 · 누르면 카드를 다시 본다
+    h += `<div class="sec-h">앨범</div>` + (g.disc.length ? g.disc.slice(-5).reverse().map(a => `<div class="ms${a.card ? ' has-card' : ''}"${a.card ? ` data-song="${U.esc(`co|${g.id}|${a.title}`)}"` : ''}>· ${U.esc(`${a.y} 「${a.title}」 '${a.c}' · ${chartText(a.peak)}${a.mine ? ' · 내가 쓴 곡' : ''}`)}${a.card ? ' 🎧' : ''}</div>`).join('') : '<div class="muted">없음</div>');
+    if (g.aw.length) h += infoTable([{ h: '받은 상', items: g.aw.slice(-6).reverse() }]);
     h += actRow({ t: '해체하기', h: '멤버들은 회사를 떠난다', ok: true, danger: true, btn: '해체', confirm: `정말 「${g.name}」을 해체할까요?`, run: s => coDisband(s, coT(s), g, '회사 결정', true) });
   }
   if (t.past.length && sel === 'past') { h += `<div class="sec-h">${hasV && hasM ? '해체·졸업한 그룹' : hasV ? '졸업한 기수' : '해체한 그룹'}</div>` + t.past.slice().reverse().map(x => `<div class="ms">· 「${U.esc(x.name)}」 ${coKindN(x.kind)} · ${x.y0}~${x.y1} · 가장 많을 때 ${x.kind === 'vt' ? '구독자' : '팬'} ${fmtFans(x.peakF || 0)} · ${U.esc(x.why)}</div>`).join(''); }

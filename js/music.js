@@ -200,6 +200,8 @@ function songHarsh(F, used) { const f = F.filter(f => f && isFinite(f.z)).sort((
 // 지난 곡과 비교 (o.prevSc에 이번 점수를 남긴다)
 function songCmp(o, sc) { const p = o.prevSc; o.prevSc = sc; return p == null ? '' : sc - p >= 4 ? '지난 곡보다 반응이 낫다' : sc - p <= -4 ? '지난 곡보다 반응이 아쉽다' : '지난 곡과 반응이 비슷하다'; }
 function songCardMake(o, F, sc, prevHolder) { const L = songReact(F); return { t: o.t, by: o.by || '', peak: o.peak || 0, wins: o.wins || 0, fans: o.fans || [], lines: L, cmp: songCmp(prevHolder, sc), harsh: songHarsh(F, L), bill: o.bill || null }; }
+// 카드가 있는 결과 창 (v119): html이 있으면 창에 본문(text)이 안 나오므로 본문을 카드 위에 붙인다 (v118에서 본문이 빠져 있었다)
+function cardText(s, d) { const p = s.pending, ev = p && p.d === d ? EVENTS[p.id] : null; return ev && typeof rich === 'function' ? `<div class="m-text">${rich(ev.text(s, d))}</div>` : ''; }
 // 결과 창 선택지: 댓글 모니터링
 function songCommentCh(s, d, line) {
   const add = x => { d.card.lines.push(x); const w = s.works.slice().reverse().find(w => w.card && w.card.t === d.card.t); if (w && w.card !== d.card) w.card.lines.push(x); };
@@ -1140,7 +1142,7 @@ E({
 E({
   id: 'idol_cbres', cat: '앨범 성적', title: '앨범 성적표', tag: 'career',
   init(s, d) { const t = s.tracks.idol; if (t.st !== 'active') { d.skip = true; return; } d.r = idolRelease(s, t, d.c, d.debut); d.card = d.r.card; teamRel(s, 'idol', t, d.r.peak, !d.r.peak || d.r.peak > 60); },
-  html: (s, d) => d.card && typeof songCardHTML === 'function' ? songCardHTML(d.card) : '',
+  html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + songCardHTML(d.card) : '',
   text(s, d) {
     const r = d.r, g = s.tracks.idol.g;
     const my = MK.filter(m => r.my[m]).map(m => `${MK_N[m]} ${sgnFans(r.my[m])}`).join(' · ') || '변화 없음';
@@ -1824,9 +1826,9 @@ E({
     for (const m of bandMembers(s, t)) bond(s, m, sc >= 60 ? 4 : 0);
     d.sc = sc; d.cm = comments(sc, actNick(s, 'band'));
   },
-  html: (s, d) => d.card && typeof songCardHTML === 'function' ? songCardHTML(d.card) : '',
+  html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + songCardHTML(d.card) : '',
   // 순위 · 팬 · 반응은 카드에 있다. 본문에는 곡 정보와 앞으로 들어올 돈만 (예전 세이브의 카드 없는 창은 예전처럼)
-  text: (s, d) => `밴드 「${s.tracks.band.b.name}」의 ${josa(`「${d.title}」`, '이가')} 나왔다.${d.w || d.c ? ` (${[d.w ? `작곡 ${d.self ? '나' : d.w}` : '', d.c ? `'${d.c}' 콘셉트` : ''].filter(Boolean).join(' · ')})` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 콘셉트다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n밴드 팬 ${sgnFans(d.gain)} · 내 팬 +${fmtFans(d.my)}`}\n\n매달 들어올 음원 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.bill ? (d.bill.note ? `\n${d.bill.note}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}.`) : d.signed ? (d.debt > 0 ? `\n이번 앨범 정산금 ${fmtWon(d.gross)}은 ${d.fromTr ? '연습생·' : ''}제작 비용을 갚는 데 들어갔다. 남은 비용 ${fmtWon(d.debt)}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}`) : ''}${d.card ? '' : `\n\n반응: ${d.cm}`}`,
+  text: (s, d) => `밴드 「${s.tracks.band.b.name}」의 ${josa(`「${d.title}」`, '이가')} 나왔다.${d.w || d.c ? ` (${[d.w ? `작곡 ${d.self ? '나' : d.w}` : '', d.c ? `'${d.c}' 콘셉트` : ''].filter(Boolean).join(' · ')})` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 콘셉트다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n밴드 팬 ${sgnFans(d.gain)} · 내 팬 +${fmtFans(d.my)}`}${d.roy >= 1e4 ? `\n\n매달 들어올 음원 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)` : '\n'}${d.bill ? (d.bill.note ? `\n${d.bill.note}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}.`) : d.signed ? (d.debt > 0 ? `\n이번 앨범 정산금 ${fmtWon(d.gross)}은 ${d.fromTr ? '연습생·' : ''}제작 비용을 갚는 데 들어갔다. 남은 비용 ${fmtWon(d.debt)}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}`) : ''}${d.card ? '' : `\n\n반응: ${d.cm}`}`,
   // 댓글 모니터링 (v118 UI C1)
   ch: (s, d) => songCommentCh(s, d, `밴드 새 곡 ${josa(`「${d.title}」`, '을를')} 냈다. ${chartText(d.peak)}.`),
 });
@@ -1906,7 +1908,7 @@ function bandFestPlay(s, d) {
 E({
   id: 'band_fest_play', cat: '밴드', title: (s, d) => `「${d.from}」 무대`, tag: 'career', keepPop: s => true,
   init(s, d) { if (!trackOn(s, 'band') || s.army || !s.tracks.band.b) { d.cancel = true; return; } bandFestPlay(s, d); },
-  html: (s, d) => d.bill && typeof billBtnHTML === 'function' ? billBtnHTML(d.bill) : '',
+  html: (s, d) => d.bill && typeof billBtnHTML === 'function' ? cardText(s, d) + billBtnHTML(d.bill) : '',
   text: (s, d) => d.cancel ? `밴드가 활동을 쉬게 되어 「${d.from}」 무대에 서지 못했다. 주최 측에 출연 취소를 알렸다.`
     : `「${d.from}」 무대에 섰다. ${d.say || ''}\n\n밴드 팬 ${sgnFans(d.g)} · 내 팬 +${fmtFans(d.my || 0)}${d.bill && d.bill.note ? `\n\n${d.bill.note}` : ''}`,
   ch: (s, d) => [{ t: '확인', f: () => d.cancel ? `「${d.from}」 출연을 취소했다.` : `「${d.from}」 무대에 섰다.${d.fx}` }],
@@ -2132,7 +2134,7 @@ E({
     if (d.peak && d.peak <= 10 && !t.hitMs) { t.hitMs = true; milestone(s, `${age(s)}세에 ${josa(`「${d.title}」`, '으로')} 음원 차트 ${d.peak}위에 올랐다.`); }
     d.sc = sc; d.cm = comments(sc, actNick(s, 'solo'));
   },
-  html: (s, d) => d.card && typeof songCardHTML === 'function' ? songCardHTML(d.card) : '',
+  html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + songCardHTML(d.card) : '',
   text: (s, d) => `「${d.title}」${d.self ? ` (자작곡${d.c ? ` · '${d.c}' 콘셉트` : ''})` : ''} 성적이 나왔다.${d.c && d.c === s.trend ? ' 요즘 유행하는 콘셉트다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n팬 ${sgnFans(d.gain)}`}${d.sale ? `\n\n음반·음원 정산 ${fmtWon(d.sale)}` : ''}\n매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.card ? '' : `\n\n반응: ${d.cm}`}`,
   ch: (s, d) => songCommentCh(s, d, `${josa(`「${d.title}」`, '을를')} 발표했다. ${chartText(d.peak)}.`),
 });

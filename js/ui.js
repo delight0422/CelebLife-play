@@ -136,7 +136,7 @@ function turnSumHTML(s, T) {
   for (const [id, ic, n] of TS_CATS) {
     const B = box[id];
     if (!B) continue;
-    h += `<div class="ts-box ${id}"><div class="ts-bh">${ic} ${n}</div>` + B.map(x => { const hh = LOG_HTML.get(x), si = x.e ? songIdx(s, x) : -1; return `<div class="ts-i${si >= 0 ? ' ts-song' : ''}"${si >= 0 ? ` data-song="${si}"` : ''}>${mo ? `<span class="ts-mo">${x.up ? '' : ymOfT(s, x.t).m + '월'}</span>` : ''}<span class="ts-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${id === 'win' && x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}</span></div>`; }).join('') + `</div>`;
+    h += `<div class="ts-box ${id}"><div class="ts-bh">${ic} ${n}</div>` + B.map(x => { const hh = LOG_HTML.get(x), si = x.e ? songIdx(s, x) : -1; return `<div class="ts-i${si !== -1 ? ' ts-song' : ''}"${si !== -1 ? ` data-song="${si}"` : ''}>${mo ? `<span class="ts-mo">${x.up ? '' : ymOfT(s, x.t).m + '월'}</span>` : ''}<span class="ts-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${id === 'win' && x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}</span></div>`; }).join('') + `</div>`;
   }
   if (flav.length) h += `<details class="ts-more" open><summary>☕ 일상 ${flav.length}건</summary>${flav.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   h += `</div>`;
@@ -1345,9 +1345,22 @@ function billHTML(b) {
 }
 function popOpen(h) { $('#pop-card').innerHTML = `<button class="m-close" data-popclose>✕</button>` + h; $('#pop').classList.remove('hidden'); }
 function popClose() { $('#pop').classList.add('hidden'); }
-// 요약 창의 발매 줄: 그 곡의 카드 번호 (없으면 -1)
-const SONG_EVS = new Set(['band_relres', 'solo_relres', 'idol_cbres']);
-function songIdx(s, x) { if (!SONG_EVS.has(x.e)) return -1; const m = /「([^」]+)」/.exec(x.x || ''); if (!m) return -1; for (let i = s.works.length - 1; i >= 0; i--) if (s.works[i].card && s.works[i].card.t === m[1]) return i; return -1; }
+// 요약 창의 발매 줄: 그 곡의 카드 번호 (없으면 -1). 내 회사 그룹 앨범(v119)은 'co|그룹 id|제목'
+const SONG_EVS = new Set(['band_relres', 'solo_relres', 'idol_cbres', 'co_res']);
+function songIdx(s, x) {
+  if (!SONG_EVS.has(x.e)) return -1;
+  const T = [...(x.x || '').matchAll(/「([^」]+)」/g)].map(m => m[1]);
+  if (!T.length) return -1;
+  if (x.e === 'co_res') { const g = coCardGroups(s).find(g => T.includes(g.name)); return g && g.disc.some(a => a.card && T.includes(a.title)) ? `co|${g.id}|${g.disc.slice().reverse().find(a => a.card && T.includes(a.title)).title}` : -1; }
+  for (let i = s.works.length - 1; i >= 0; i--) if (s.works[i].card && s.works[i].card.t === T[0]) return i;
+  return -1;
+}
+function coCardGroups(s) { const t = s.tracks && s.tracks.agency; return t && t.groups ? t.groups : []; }
+// 카드 찾기: 작품 번호 또는 'co|그룹 id|제목'
+function songCardAt(s, k) {
+  if (String(k).startsWith('co|')) { const [, gid, ...r] = String(k).split('|'), title = r.join('|'), g = coCardGroups(s).find(g => g.id === gid); const a = g && g.disc.slice().reverse().find(a => a.card && a.title === title); return a ? a.card : null; }
+  const w = s.works[+k]; return w && w.card ? w.card : null;
+}
 function pfWorksTab(s) {
   if (!s.works.length) return `<div class="empty">아직 세상에 나온 작품이 없다.</div>` + pfAwardsHTML(s);
   const cnt = {};
@@ -1567,7 +1580,7 @@ document.addEventListener('click', e => {
   // 곡 결과 카드 · 정산서 작은 창 (v118 UI C1 · C2)
   if (t && t.dataset.popclose != null) { popClose(); return; }
   if (t && t.dataset.bill) { const b = (UI.billMap || {})[t.dataset.bill]; if (b) popOpen(billHTML(b)); return; }
-  if (t && t.dataset.song != null && S) { const w = S.works[+t.dataset.song]; if (w && w.card) popOpen(songCardHTML(w.card)); return; }
+  if (t && t.dataset.song != null && S) { const c = songCardAt(S, t.dataset.song); if (c) popOpen(songCardHTML(c)); return; }
   if (!t) return;
   if (t.dataset.wonadd) { wonAdd(t.dataset.wk, +t.dataset.wonadd); return; }
   // 이어할 인생이 있으면 먼저 묻는다 (v116 버그 2: 확인 없이 덮어써서 진행 중인 인생이 사라졌다)
