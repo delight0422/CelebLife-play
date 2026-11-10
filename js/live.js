@@ -132,7 +132,9 @@ function chLayer(ctx, name, mode, arg) {
   if (!mode) { ctx.drawImage(im, 0, 0); return; }
   const c = CH.tmp || (CH.tmp = document.createElement('canvas')); c.width = im.width; c.height = im.height;
   const x = c.getContext('2d', { willReadFrequently: true }); x.clearRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0);
-  const D = x.getImageData(0, 0, c.width, c.height), d = D.data;
+  // 그림 칸을 읽지 못하는 곳(다른 주소에서 온 그림)에서는 물들이지 않고 그대로 그린다
+  let D; try { D = x.getImageData(0, 0, c.width, c.height); } catch (e) { ctx.drawImage(im, 0, 0); return; }
+  const d = D.data;
   for (let i = 0; i < d.length; i += 4) {
     if (!d[i + 3]) continue;
     const r = d[i], g = d[i + 1], b = d[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), L = (r + g + b) / 3;
