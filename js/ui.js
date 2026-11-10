@@ -62,7 +62,10 @@ function turnRunHTML(s) {
   const T = UI.turn, d = ymOfT(s, s.t);
   // 7세 전처럼 달 수 제한이 길면 점 대신 몇 달째인지 쓴다
   const pips = T.max <= 12 ? `<div class="tr-pips">${Array.from({ length: T.max }, (_, i) => `<i class="${i < T.n ? 'on' : ''}"></i>`).join('')}</div>` : `<div class="tr-k">${T.n + 1}개월째</div>`;
-  return `<div class="tr-run"><div class="tr-k">진행 중</div><div class="tr-date">${d.y}년 ${d.m}월</div>${pips}</div>`;
+  // 일상 기록은 생기는 대로 아래에 차례로 쌓인다 (v124). 최근 것이 맨 아래, 이번 달에 생긴 줄은 살짝 떠오른다
+  const i0 = T.last ? s.log.lastIndexOf(T.last) + 1 : 0, F = s.log.slice(i0).filter(x => x.k === 'flavor' && x.t > T.t0).slice(-7);
+  const feed = `<div class="tr-feed">${F.map(x => `<div class="tr-f${x.t === s.t ? ' new' : ''}"><span class="ts-mo">${ymOfT(s, x.t).m}월</span><span>${nl(x.x)}</span></div>`).join('')}</div>`;
+  return `<div class="tr-run"><div class="tr-k">진행 중</div><div class="tr-date">${d.y}년 ${d.m}월</div>${pips}</div>${feed}`;
 }
 // 요약 창: '✨ 특별한 일'은 칸마다 상자에 나눠 담고(맨 아래는 성장), '☕ 일상'은 펼쳐 둔 트리 뷰
 // 칸: 직업 · 성과 · 제안 · 사람 · 학교 · 돈 · 소식 · 기타 · 성장. 기록 종류(k), 사건 분류(c) · 사건(e), 결과 표시(r), 글로 정한다
@@ -1347,7 +1350,7 @@ function songCardHTML(c) {
   const fans = (c.fans || []).filter(([, v]) => v).map(([n, v]) => `<span class="${v >= 0 ? 'pos' : 'neg'}">${U.esc(n)} ${sgnFans(v)}</span>`).join(' · ');
   return `<div class="scard"><div class="sc-top"><span class="sc-t">${c.top != null ? U.esc(c.t) : `「${U.esc(c.t)}」`}</span><span class="sc-by">${U.esc(c.by || '')}</span></div>`
     + (c.top != null ? `<div class="sc-peak">${U.esc(c.top)}</div>` : `<div class="sc-peak${c.peak ? '' : ' out'}">${c.peak ? `최고 ${c.peak}위` : '차트 100위 밖'}${c.wins ? ` · 음악방송 1위 ${c.wins}회` : ''}</div>`)
-    + (fans || c.pay != null ? `<div class="sc-fans">${[fans, c.pay != null ? `<span class="sc-pay">내 몫 ${fmtWon(c.pay)}</span>` : ''].filter(Boolean).join(' · ')}</div>` : '')
+    + (fans || c.pay != null ? `<div class="sc-fans">${[fans, c.pay != null ? `<span class="sc-pay">정산 ${fmtWon(c.pay)}</span>` : ''].filter(Boolean).join(' · ')}</div>` : '')
     + (c.lines && c.lines.length ? `<div class="sc-h">${U.esc(c.lh || '듣는 사람 반응')}</div>${c.lines.map(x => `<div class="sc-l">${U.esc(x)}</div>`).join('')}` : '')
     + (c.cmp ? `<div class="sc-cmp">${U.esc(c.cmp)}</div>` : '') + (c.bill ? billBtnHTML(c.bill) : '') + (c.live ? liveBtnHTML(c.live) : '') + `</div>`;
 }

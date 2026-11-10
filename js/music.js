@@ -152,7 +152,9 @@ function billPay(s, o) {
   const R = billRows(o), mine = Math.max(0, R[R.length - 1][1]), t = o.t;
   let share = mine, pay = 0;
   if (t && t.debt > 0 && share > 0) { pay = Math.min(t.debt, share); t.debt -= pay; share -= pay; }
-  const note = !pay ? '' : share > 0 ? `내 몫 ${fmtBill(mine)} 중 ${fmtBill(pay)}은 남은 비용을 갚는 데 들어갔다. 이걸로 비용을 다 갚았다.` : `내 몫 ${fmtBill(mine)}은 ${o.costN || '제작 비용'}을 갚는 데 들어갔다. 남은 비용 ${fmtWon(t.debt)}.`;
+  // 비용을 한 번 다 갚은 뒤(firstPay)에는 '빚을 갚았다'가 아니라 이번 비용을 제외했다고만 쓴다 (v124)
+  const done = !!t && !!t.firstPay, cn = o.costN || '제작 비용';
+  const note = !pay ? '' : done ? (share > 0 ? `${cn} ${fmtBill(pay)}을 제외한 ${fmtBill(share)}이 정산됐다.` : `내 몫 ${fmtBill(mine)}은 모두 ${cn}에 들어갔다. 다음 정산에서 제외할 비용 ${fmtWon(t.debt)}.`) : share > 0 ? `내 몫 ${fmtBill(mine)} 중 ${fmtBill(pay)}은 남은 비용을 갚는 데 들어갔다. 이걸로 비용을 다 갚았다.` : `내 몫 ${fmtBill(mine)}은 ${o.costN || '제작 비용'}을 갚는 데 들어갔다. 남은 비용 ${fmtWon(t.debt)}.`;
   const bill = { t: o.title || o.what, rows: R, note };
   if (t) t.lastBill = bill;
   (s.bills = s.bills || {})[o.what] = bill;
@@ -1917,14 +1919,14 @@ function bandFestPlay(s, d) {
   s.fans.kr += my;
   d.sc = sc; d.g = g; d.my = my;
   d.say = sc >= 80 ? '객석이 떠나갈 듯했다.' : sc >= 60 ? '반응이 좋았다.' : '반응이 미지근했다.';
-  d.fx = ` ${d.say} (밴드 팬 ${sgnFans(g)} · 내 팬 +${fmtFans(my)} · 내 몫 ${fmtWon(d.pay)})`;
+  d.fx = ` ${d.say} (밴드 팬 ${sgnFans(g)} · 내 팬 +${fmtFans(my)} · 정산 ${fmtWon(d.pay)})`;
 }
 E({
   id: 'band_fest_play', cat: '밴드', title: (s, d) => `「${d.from}」 무대`, tag: 'career', keepPop: s => true,
   init(s, d) { if (!trackOn(s, 'band') || s.army || !s.tracks.band.b) { d.cancel = true; return; } bandFestPlay(s, d); },
   html: (s, d) => d.bill && typeof billBtnHTML === 'function' ? cardText(s, d) + billBtnHTML(d.bill) : '',
   text: (s, d) => d.cancel ? `밴드가 활동을 쉬게 되어 「${d.from}」 무대에 서지 못했다. 주최 측에 출연 취소를 알렸다.`
-    : `「${d.from}」 무대에 섰다. ${d.say || ''}\n\n밴드 팬 ${sgnFans(d.g)} · 내 팬 +${fmtFans(d.my || 0)}${d.pay != null ? ` · 내 몫 ${fmtWon(d.pay)}` : ''}${d.bill && d.bill.note ? `\n\n${d.bill.note}` : ''}`,
+    : `「${d.from}」 무대에 섰다. ${d.say || ''}\n\n밴드 팬 ${sgnFans(d.g)} · 내 팬 +${fmtFans(d.my || 0)}${d.pay != null ? ` · 정산 ${fmtWon(d.pay)}` : ''}${d.bill && d.bill.note ? `\n\n${d.bill.note}` : ''}`,
   ch: (s, d) => [{ t: '확인', f: () => d.cancel ? `「${d.from}」 출연을 취소했다.` : `「${d.from}」 무대에 섰다.${d.fx}` }],
 });
 E({

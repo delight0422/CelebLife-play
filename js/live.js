@@ -31,6 +31,8 @@ function liveAgain(sp, o) { return Object.assign({}, sp, { seed: U.int(1, 2e9), 
 // ───── 장면 만들기 ─────
 // 박자(beat)마다 { cap: 자막, L: [[말, 종류]], glow: 조명 세기 0~1, fx: 'drum' · 'win' }
 // 말 종류: big(함성) · call(응원법 · 이름 부르기) · sing(떼창) · soft(조용한 반응) · bad(아쉬운 반응) · win(1위)
+// 1위 발표 때 같이 서는 다른 팀 이름 (지어낸 이름)
+const LV_RIVALS = ['NOVA9', '루나틱', 'BLUEHOUR', '하이틴즈', 'METEOR', '온새미로', 'PRISMA', '새벽세시'];
 const LV_BIG = ['꺄아아아악!', '와아아아아!', '미쳤다!!', '대박!!', '어떡해!!', '와아아!!'];
 function liveBeats(sp) {
   const R = liveRng(sp.seed), pk = a => a[Math.floor(R() * a.length)], z = k => sp.z[k] || 0;
@@ -43,40 +45,42 @@ function liveBeats(sp) {
   // 1. 등장: 팬이 많을수록 객석이 크다
   const f = lvl(z('fans'));
   B.push({ cap: `조명이 켜지고 ${josa(g, '이가')} 무대에 선다`, glow: 0.35 + f * 0.15,
-    L: f === 2 ? [[`${who}!! ${who}!!`, 'call'], [pk(LV_BIG), 'big'], [pk(LV_BIG), 'big']] : f === 1 ? [[`${cn}!`, 'call'], [pk(['와아!', '꺄아!']), 'big']] : [[pk(['(드문드문 박수)', '누구야?', '(웅성웅성)']), 'soft']].concat(sp.debut ? [['신인인가 봐', 'soft']] : []) });
+    L: f === 2 ? [[`${who}!! ${who}!!`, 'call'], [pk(LV_BIG), 'big'], [pk(LV_BIG), 'big']] : f === 1 ? [[`${cn}!`, 'call'], [pk(['와아!', '꺄아!']), 'big']] : [[pk(['짝… 짝…', '누구야?', '웅성웅성']), 'soft']].concat(sp.debut ? [['신인인가 봐', 'soft']] : []) });
   // 2. 전주 · 응원법: 팬이 모인 팀은 멤버 이름을 차례로 부른다
   if (f >= 1) {
     const names = grp ? sp.mem.map(m => m[0]).slice(0, 7) : [cn, cn];
     B.push({ cap: '전주 · 응원법', glow: 0.55, L: [[names.join('! ') + '!' + (fd ? ` ${fd}!` : ''), 'call']].concat(f === 2 ? [[pk(LV_BIG), 'big']] : []) });
-  } else B.push({ cap: '전주', glow: 0.4, L: [['(응원법을 아는 사람이 몇 없다)', 'soft']] });
+  } else B.push({ cap: '전주', glow: 0.4, L: [['……', 'soft'], [`${cn}…!`, 'soft']] });
   // 3. 1절: 무대 실력
   const pv = lvl(z('perf')), lead = grp ? (sp.mem.find(m => /^메인보컬/.test(m[1] || '')) || sp.mem[sp.mi] || [g])[0] : g;
   B.push({ cap: `1절 · ${lead}의 첫 소절`, glow: 0.5 + pv * 0.15,
-    L: pv === 2 ? [[pk(['라이브 뭐야!!', '음원 찢었다!!', '와… 소름']), 'big'], [pk(LV_BIG), 'big']] : pv === 1 ? [[pk(['잘한다!', '좋다!']), 'big'], ['(박수)', 'soft']] : [[pk(['어…?', '(음이 흔들리자 객석이 술렁인다)', '(객석이 잠깐 조용해진다)']), 'bad']] });
+    L: pv === 2 ? [[pk(['라이브 뭐야!!', '음원 찢었다!!', '와… 소름']), 'big'], [pk(LV_BIG), 'big']] : pv === 1 ? [[pk(['잘한다!', '좋다!']), 'big'], ['짝짝짝', 'soft']] : [[pk(['어…?', '웅성웅성…', '……']), 'bad']] });
   // 4. 후렴: 곡이 좋을수록 떼창
   const qv = lvl(z('q'));
-  const ch = qv === 2 ? [['♪ 떼창 ♪', 'sing'], ['♪ ♪ ♪', 'sing'], [pk(['노래 너무 좋아!!', '후렴 미쳤다!!']), 'big']] : qv === 1 ? [['♪ ♪', 'sing'], [pk(['노래 좋네', '좋다!']), 'soft']] : [[pk(['(조용히 듣는다)', '(박수가 띄엄띄엄 나온다)']), 'soft']];
+  const ch = qv === 2 ? [['♪ 떼창 ♪', 'sing'], ['♪ ♪ ♪', 'sing'], [pk(['노래 너무 좋아!!', '후렴 미쳤다!!']), 'big']] : qv === 1 ? [['♪ ♪', 'sing'], [pk(['노래 좋네', '좋다!']), 'soft']] : [[pk(['……', '짝… 짝…']), 'soft']];
   if (z('trend') >= 0.5 && R() < 0.6) ch.push(['요즘 노래다!!', 'big']);
   B.push({ cap: '후렴', glow: 0.6 + qv * 0.15, L: ch });
   // 5. 하이라이트: 아이돌은 댄스 브레이크(팀워크), 솔로는 무대 장악. 내 파트에서 이름을 부른다
   const hl = [];
-  if (grp) { const tv = lvl(z('tw')); if (tv === 2) hl.push(['칼군무!!!', 'big'], ['소름 돋았어!!', 'big']); else if (tv === 0) hl.push(['(동선이 엉키자 박수가 끊긴다)', 'bad']); else hl.push(['(박수)', 'soft']); }
+  if (grp) { const tv = lvl(z('tw')); if (tv === 2) hl.push(['칼군무!!!', 'big'], ['소름 돋았어!!', 'big']); else if (tv === 0) hl.push(['어어…?', 'bad']); else hl.push(['짝짝짝', 'soft']); }
   else if (pv === 2) hl.push([pk(['무대 장악 미쳤다!!', '눈을 못 떼겠어!!']), 'big']);
   const mv = lvl(z('me'));
   if (mv === 2) hl.push([`${mine}!!!`, 'call'], [`${mine} 사랑해!!`, 'big']); else if (mv === 1) hl.push([`${mine}!`, 'call']);
-  if (z('cf') >= 0.5) hl.push(['콘셉트 찰떡!!', 'big']); else if (z('cf') <= -0.5) hl.push(['(콘셉트가 어색하다는 수군거림)', 'bad']);
+  if (z('cf') >= 0.5) hl.push(['콘셉트 찰떡!!', 'big']); else if (z('cf') <= -0.5) hl.push(['수군수군…', 'bad']);
   if (z('star') >= 0.6) hl.push(['비주얼 뭐야!!', 'big']);
-  if (!hl.length) hl.push(['(박수)', 'soft']);
+  if (!hl.length) hl.push(['짝짝짝', 'soft']);
   B.push({ cap: grp ? '댄스 브레이크' : '하이라이트', glow: 0.75, L: hl });
   // 6. 엔딩: 점수
-  const sc = sp.sc, end = sc >= 80 ? [['앙코르!! 앙코르!!', 'call'], [pk(LV_BIG), 'big'], [pk(LV_BIG), 'big']] : sc >= 65 ? [['(큰 박수)', 'soft'], ['수고했어!!', 'big']] : sc >= 52 ? [['(박수)', 'soft'], ['고생했어!', 'soft']] : [['(의례적인 박수)', 'soft']];
+  const sc = sp.sc, end = sc >= 80 ? [['앙코르!! 앙코르!!', 'call'], [pk(LV_BIG), 'big'], [pk(LV_BIG), 'big']] : sc >= 65 ? [['짝짝짝짝짝!!', 'big'], ['수고했어!!', 'big']] : sc >= 52 ? [['짝짝짝', 'soft'], ['고생했어!', 'soft']] : [['짝짝…', 'soft']];
   if (sp.debut && sc >= 52) end.push(['데뷔 축하해!!', 'big']);
   B.push({ cap: '엔딩 포즈', glow: sc >= 80 ? 1 : sc >= 65 ? 0.8 : 0.55, L: end });
   // 7. 1위 발표 (음악방송): 1위를 했거나 후보에 올랐을 때만. 아슬아슬하면 긴장
   if (sp.wins > 0 || sp.cand) {
-    B.push({ cap: '이번 주 1위 후보 발표', glow: 0.25, fx: 'drum', L: [['(숨죽인 객석)', 'soft'], ['두근두근…', 'soft']] });
-    if (sp.wins > 0) B.push({ cap: `1위 · ${g}`, glow: 1, fx: 'win', L: [['꺄아아아아!!', 'win'], [`${cn} 1위!!`, 'win'], [pk(['울지 마!!', '축하해!!']), 'big']] });
-    else B.push({ cap: '1위는 다른 팀에게', glow: 0.45, L: [['아…', 'bad'], ['괜찮아!!', 'call'], ['다음엔 1위!!', 'big']] });
+    // 무대 위에 출연 팀이 다 모여 선 채로 발표한다 (v124). MC 말(mc)은 무대 위 가운데에 뜬다
+    const rv = pk(LV_RIVALS.filter(x => x !== g));
+    B.push({ cap: '1위 발표', glow: 0.3, fx: 'drum', gather: 1, L: [['이번 주 1위는…!', 'mc'], ['제발…!', 'soft'], [`${cn}!! ${cn}!!`, 'call']] });
+    if (sp.wins > 0) B.push({ cap: '1위', glow: 1, fx: 'win', gather: 1, L: [[`${g}! 축하합니다!`, 'mc'], ['꺄아아아아!!', 'win'], [`${cn} 1위!!`, 'win'], [pk(['울지 마!!', '축하해!!']), 'big']] });
+    else B.push({ cap: '2위', glow: 0.5, gather: 1, lose: 1, L: [[`${rv}! 축하합니다!`, 'mc'], ['아…', 'bad'], ['괜찮아!!', 'call'], ['다음엔 1위!!', 'big']] });
   }
   return B;
 }
@@ -85,13 +89,29 @@ function liveMeet(sp, R, pk, z, lvl, who, mine) {
   const g = sp.g, B = [];
   B.push({ cap: `${who} 앞에 ${josa(`「${g}」`, '이가')} 선다`, glow: 0.6, L: [[`${who}!! ${who}!!`, 'call'], [pk(LV_BIG), 'big']] });
   const vv = lvl(z('var'));
-  B.push({ cap: '토크', glow: 0.55, L: vv === 2 ? [['하하하하하!!', 'big'], ['(빵 터진 객석)', 'big']] : vv === 1 ? [['(웃음)', 'soft'], [`${mine} 귀여워!!`, 'call']] : [['(어색한 웃음)', 'soft']] });
+  B.push({ cap: '토크', glow: 0.55, L: vv === 2 ? [['하하하하하!!', 'big'], ['푸하하하!!', 'big']] : vv === 1 ? [['하하하', 'soft'], [`${mine} 귀여워!!`, 'call']] : [['하… 하하…', 'soft']] });
   const pv = lvl(z('perf'));
-  B.push({ cap: '노래', glow: 0.65, L: pv >= 1 ? [['♪ 떼창 ♪', 'sing'], ['♪ ♪', 'sing']] : [['(조용히 듣는다)', 'soft'], ['♪', 'sing']] });
-  B.push({ cap: '게임', glow: 0.6, L: [['이겨라!!', 'call'], [`${mine} 화이팅!!`, 'call'], ['(웃음바다)', 'soft']] });
-  B.push({ cap: '편지 읽기', glow: 0.4, L: [['(훌쩍)', 'soft'], ['울지 마!!', 'big'], [`${sp.cn || g} 사랑해!!`, 'call']] });
+  B.push({ cap: '노래', glow: 0.65, L: pv >= 1 ? [['♪ 떼창 ♪', 'sing'], ['♪ ♪', 'sing']] : [['……', 'soft'], ['♪', 'sing']] });
+  B.push({ cap: '게임', glow: 0.6, L: [['이겨라!!', 'call'], [`${mine} 화이팅!!`, 'call'], ['꺄하하하!', 'big']] });
+  B.push({ cap: '편지 읽기', glow: 0.4, L: [['훌쩍…', 'soft'], ['울지 마!!', 'big'], [`${sp.cn || g} 사랑해!!`, 'call']] });
   B.push({ cap: '끝인사', glow: 0.85, L: [['또 와!!', 'big'], ['사랑해!!', 'big'], [`${who}!! ${who}!!`, 'call']] });
   return B;
+}
+
+// ───── 도트 캐릭터 ─────
+// 그림 파일 없이 12×16칸 도트로 그린다. 이름(씨앗)마다 머리 모양 · 머리색 · 피부색이 정해지고, 옷은 그룹 색이다
+const LV_HAIR = ['#2b2330', '#4a3326', '#7a4e2d', '#c9a45c', '#e8d9b0', '#d96a9a', '#6f8fe0', '#b9b4c9', '#8e3b46'];
+const LV_SKIN = ['#ffe0c4', '#f6cfa8', '#eab98f'];
+function liveSprite(key, hue) {
+  const h = hashN('sp' + key), hair = LV_HAIR[h % LV_HAIR.length], skin = LV_SKIN[(h >> 4) % LV_SKIN.length], st = (h >> 7) % 3;
+  const fit = `hsl(${hue} 70% 62%)`, fit2 = `hsl(${hue} 60% 46%)`, leg = '#2c2740', shoe = '#f4f1fa';
+  const r = (x, y, w, hh, c) => `<rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="${c}"/>`;
+  let p = r(3, 0, 6, 1, hair) + r(2, 1, 8, 2, hair) + r(2, 3, 1, 2, hair) + r(9, 3, 1, 2, hair) + r(3, 3, 6, 4, skin) + r(4, 7, 4, 1, skin) + r(3, 3, st === 1 ? 6 : 3, 1, hair);
+  if (st >= 1) p += r(2, 5, 1, st === 2 ? 5 : 2, hair) + r(9, 5, 1, st === 2 ? 5 : 2, hair); // 단발 · 긴 머리
+  p += r(4, 4, 1, 1, '#2b2330') + r(7, 4, 1, 1, '#2b2330') + r(5, 6, 2, 1, '#e58a8a');
+  p += r(3, 8, 6, 4, fit) + r(2, 8, 1, 3, fit2) + r(9, 8, 1, 3, fit2) + r(2, 11, 1, 1, skin) + r(9, 11, 1, 1, skin) + r(5, 8, 2, 1, '#fff');
+  p += r(4, 12, 2, 3, leg) + r(6, 12, 2, 3, leg) + r(3, 15, 3, 1, shoe) + r(6, 15, 3, 1, shoe);
+  return `<svg class="lv-sp" viewBox="0 0 12 16" shape-rendering="crispEdges" aria-hidden="true">${p}</svg>`;
 }
 
 // ───── 창 ─────
@@ -108,11 +128,15 @@ function liveHTML(sp) {
   const fan = U.clamp(((sp.z.fans || 0) + 1.5) / 3, 0, 1), n = 16 + Math.round(fan * 44);
   const sticks = Array.from({ length: n }, (_, i) => `<i style="--d:${(i * 0.137) % 1.2}s;--x:${(i * 37) % 100}%;--y:${(i * 53) % 100}%"></i>`).join('');
   const mem = sp.mem.length ? sp.mem : [[sp.g, '']];
+  // 1위 발표 때만 보이는 다른 팀들 (무대 양옆)
+  const oth = k => [0, 1, 2].map(i => `<span class="lm" style="--i:${i + k}">${liveSprite('rival' + sp.seed + (i + k), (sp.hue + 90 + (k ? 110 : 0)) % 360)}</span>`).join('');
   return `<div class="lv-top"><span class="lv-place">${U.esc(sp.place)}</span>${sp.t ? `<span class="lv-t">「${U.esc(sp.t)}」</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
     + `<div class="lv-stage" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"><div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
-    + `<div class="lv-floor"><div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}">${U.esc(m[0])}</span>`).join('')}</div></div>`
-    + `<div class="lv-crowd">${sticks}</div><div class="lv-bub" id="lv-bub"></div></div>`
-    + `<div class="lv-cap" id="lv-cap"></div><div class="lv-pips">${LIVE.B.map(() => '<i></i>').join('')}</div>`
+    + `<div class="lv-floor"></div><div class="lv-oth l">${oth(0)}</div><div class="lv-oth r">${oth(3)}</div>`
+    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveSprite(sp.g + '/' + m[0] + i, sp.hue)}<em>${U.esc(m[0])}</em></span>`).join('')}</div>`
+    + `<div class="lv-conf">${Array.from({ length: 26 }, (_, i) => `<i style="left:${(i * 41) % 100}%;--d:${(i * 0.17) % 1.4}s;--c:${(i * 67) % 360}"></i>`).join('')}</div>`
+    + `<div class="lv-crowd">${sticks}</div><div class="lv-bub" id="lv-bub"></div><div class="lv-mc" id="lv-mc"></div></div>`
+    + `<div class="lv-pips">${LIVE.B.map(() => '<i></i>').join('')}</div>`
     + `<div class="lv-btns"><button class="btn primary" data-liveskip>결과 바로 보기</button></div>`;
 }
 function liveNext() {
@@ -123,21 +147,21 @@ function liveNext() {
   if (L.i >= L.B.length) { liveDone(); return; }
   const b = L.B[L.i];
   pips.forEach((p, j) => p.classList.toggle('on', j <= L.i));
-  if (st) { st.style.setProperty('--glow', b.glow); st.classList.remove('fx-drum', 'fx-win'); if (b.fx) st.classList.add('fx-' + b.fx); }
-  const cap = $('#lv-cap'); if (cap) { cap.textContent = b.cap; cap.classList.remove('in'); void cap.offsetWidth; cap.classList.add('in'); }
+  if (st) { st.style.setProperty('--glow', b.glow); st.classList.remove('fx-drum', 'fx-win'); if (b.fx) st.classList.add('fx-' + b.fx); st.classList.toggle('gather', !!b.gather); st.classList.toggle('lose', !!b.lose); }
   b.L.forEach(([x, k], j) => L.tm.push(setTimeout(() => liveBubble(x, k), 180 + j * 360)));
   L.tm.push(setTimeout(liveNext, Math.max(1500, 520 + b.L.length * 360 + 600)));
 }
 function liveBubble(x, k) {
   const box = $('#lv-bub');
   if (!box) return;
+  if (k === 'mc') { const m = $('#lv-mc'); if (m) { m.textContent = x; m.classList.remove('in'); void m.offsetWidth; m.classList.add('in'); } return; }
   const el = document.createElement('div');
   el.className = 'lb ' + k;
   el.textContent = x;
   // 겹치지 않게 자리 8칸(4줄 × 왼쪽 · 오른쪽)을 돌려 쓴다. 한 바퀴(약 2.9초)가 말이 떠 있는 시간(2.6초)보다 길다
   const SL = [[0, 0], [2, 1], [1, 0], [3, 1], [0, 1], [2, 0], [1, 1], [3, 0]];
   const [row, side] = SL[(LIVE ? LIVE.slot++ : 0) % SL.length];
-  el.style.top = (5 + row * 11.5) + '%';
+  el.style.top = (14 + row * 8) + '%';
   el.style.visibility = 'hidden';
   box.appendChild(el);
   const W = box.clientWidth, w = el.offsetWidth, r = Math.random();
