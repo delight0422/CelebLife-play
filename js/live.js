@@ -114,6 +114,49 @@ function liveSprite(key, hue) {
   return `<svg class="lv-sp" viewBox="0 0 12 16" shape-rendering="crispEdges" aria-hidden="true">${p}</svg>`;
 }
 
+// ───── 그림 캐릭터 (v125) ─────
+// img/ch/의 부품(몸 · 뒷머리 · 얼굴 · 앞머리)을 겹쳐 그린다. 회색 옷은 그룹 색, 회색 머리는 머리색으로 물들인다
+// 부품 목록은 js/chparts.js(CH_PARTS). 그림이 없거나 아직 안 읽혔으면 위의 도트 캐릭터가 그대로 보인다
+const CH = { img: {}, n: 0, ok: false, started: false };
+const CH_HAIR = [[52, 44, 58], [52, 44, 58], [84, 58, 44], [84, 58, 44], [128, 84, 52], [196, 160, 96], [226, 210, 170], [222, 112, 160], [116, 148, 228], [186, 180, 204], [150, 66, 78], [108, 176, 150]];
+function chLoad() {
+  if (CH.started || typeof CH_PARTS === 'undefined') return;
+  CH.started = true;
+  const L = CH_PARTS.body.concat(CH_PARTS.face, ...CH_PARTS.hair.map(h => [h + '_b', h + '_f']));
+  for (const n of L) { const im = new Image(); im.onload = () => { CH.img[n] = im; if (++CH.n === L.length) { CH.ok = true; chPaintAll(); } }; im.src = `img/ch/${n}.png`; }
+}
+function chHsl(h, s, l) { const a = s * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return [f(0), f(8), f(4)]; }
+// 부품 하나를 물들여 ctx에 얹는다. mode: 'fit'(옷 → 그룹 색) · 'hair'(머리색) · ''(그대로)
+function chLayer(ctx, name, mode, arg) {
+  const im = CH.img[name]; if (!im) return;
+  if (!mode) { ctx.drawImage(im, 0, 0); return; }
+  const c = CH.tmp || (CH.tmp = document.createElement('canvas')); c.width = im.width; c.height = im.height;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.clearRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0);
+  const D = x.getImageData(0, 0, c.width, c.height), d = D.data;
+  for (let i = 0; i < d.length; i += 4) {
+    if (!d[i + 3]) continue;
+    const r = d[i], g = d[i + 1], b = d[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), L = (r + g + b) / 3;
+    if (mx - mn > 26 || L < 42) continue; // 살색 · 볼터치 같은 색 있는 칸과 검은 외곽선은 그대로
+    if (mode === 'fit') { if (L > 236) continue; const q = chHsl(arg, 0.62, 0.1 + 0.72 * L / 255); d[i] = q[0]; d[i + 1] = q[1]; d[i + 2] = q[2]; }
+    else { const k = L <= 150 ? L / 150 : 1, w = L <= 150 ? 0 : (L - 150) / 105 * 0.75; for (let j = 0; j < 3; j++) d[i + j] = Math.round(arg[j] * k + (255 - arg[j] * k) * w); }
+  }
+  x.putImageData(D, 0, 0); ctx.drawImage(c, 0, 0);
+}
+// 캐릭터 하나: 이름(key)마다 머리 모양 · 머리색 · 얼굴, 그룹(gkey)마다 옷
+function chPaint(cv) {
+  const key = cv.dataset.ch, h = hashN('sp' + key), g = hashN('fit' + cv.dataset.g), P = CH_PARTS;
+  const hair = P.hair[h % P.hair.length], face = P.face[(h >> 5) % P.face.length], body = P.body[g % P.body.length], hc = CH_HAIR[(h >> 9) % CH_HAIR.length];
+  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  chLayer(ctx, hair + '_b', 'hair', hc); chLayer(ctx, body, 'fit', +cv.dataset.hue); chLayer(ctx, face, ''); chLayer(ctx, hair + '_f', 'hair', hc);
+  cv.parentNode.classList.add('on');
+}
+function chPaintAll() { if (CH.ok) document.querySelectorAll('canvas.lv-chc').forEach(chPaint); }
+// 무대에 세울 캐릭터 하나의 HTML: 그림이 준비되면 그림, 아니면 도트
+function liveChar(key, hue, gkey) {
+  if (typeof CH_PARTS === 'undefined') return liveSprite(key, hue);
+  return `<span class="lv-ch">${liveSprite(key, hue)}<canvas class="lv-chc" width="${CH_PARTS.w}" height="${CH_PARTS.h}" data-ch="${U.esc(key)}" data-g="${U.esc(gkey)}" data-hue="${hue}"></canvas></span>`;
+}
+
 // ───── 창 ─────
 // 실시간 창은 사건 창 위에 뜬다. 끝나거나 '결과 바로 보기'를 누르면 end를 부른다 (다시 보기는 end 없이 그냥 닫힌다)
 let LIVE = null;
@@ -122,6 +165,7 @@ function liveOpen(sp, end) {
   LIVE = { sp, B: liveBeats(sp), i: -1, tm: [], slot: 0, end: end || null };
   $('#live-card').innerHTML = liveHTML(sp);
   $('#live').classList.remove('hidden');
+  chLoad(); chPaintAll();
   liveNext();
 }
 function liveHTML(sp) {
@@ -129,11 +173,11 @@ function liveHTML(sp) {
   const sticks = Array.from({ length: n }, (_, i) => `<i style="--d:${(i * 0.137) % 1.2}s;--x:${(i * 37) % 100}%;--y:${(i * 53) % 100}%"></i>`).join('');
   const mem = sp.mem.length ? sp.mem : [[sp.g, '']];
   // 1위 발표 때만 보이는 다른 팀들 (무대 양옆)
-  const oth = k => [0, 1, 2].map(i => `<span class="lm" style="--i:${i + k}">${liveSprite('rival' + sp.seed + (i + k), (sp.hue + 90 + (k ? 110 : 0)) % 360)}</span>`).join('');
+  const oth = k => [0, 1, 2].map(i => `<span class="lm" style="--i:${i + k}">${liveChar('rival' + sp.seed + (i + k), (sp.hue + 90 + (k ? 110 : 0)) % 360, 'rival' + sp.seed + k)}</span>`).join('');
   return `<div class="lv-top"><span class="lv-place">${U.esc(sp.place)}</span>${sp.t ? `<span class="lv-t">「${U.esc(sp.t)}」</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
     + `<div class="lv-stage" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"><div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
     + `<div class="lv-floor"></div><div class="lv-oth l">${oth(0)}</div><div class="lv-oth r">${oth(3)}</div>`
-    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveSprite(sp.g + '/' + m[0] + i, sp.hue)}<em>${U.esc(m[0])}</em></span>`).join('')}</div>`
+    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.hue, sp.g)}<em>${U.esc(m[0])}</em></span>`).join('')}</div>`
     + `<div class="lv-conf">${Array.from({ length: 26 }, (_, i) => `<i style="left:${(i * 41) % 100}%;--d:${(i * 0.17) % 1.4}s;--c:${(i * 67) % 360}"></i>`).join('')}</div>`
     + `<div class="lv-crowd">${sticks}</div><div class="lv-bub" id="lv-bub"></div><div class="lv-mc" id="lv-mc"></div></div>`
     + `<div class="lv-pips">${LIVE.B.map(() => '<i></i>').join('')}</div>`

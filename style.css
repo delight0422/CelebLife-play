@@ -837,3 +837,17 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .tr-f .ts-mo { flex: none; }
 .tr-f.new { animation: trF .25s ease-out; color: var(--ink); }
 @keyframes trF { from { opacity: 0; transform: translateY(8px); } }
+/* v125: 그림 캐릭터 (img/ch 부품을 겹쳐 그린 캔버스). 그림이 준비되면 도트 캐릭터 대신 보인다 */
+.lv-ch { display: block; position: relative; line-height: 0; }
+.lv-ch .lv-chc { display: none; height: 168px; width: auto; filter: drop-shadow(0 0 calc(10px * var(--glow)) hsla(var(--hue), 90%, 75%, .55)); }
+.lv-ch.on .lv-chc { display: block; }
+.lv-ch.on .lv-sp { display: none; }
+.lv-mem { bottom: 29%; gap: 4px; padding: 0 12%; }
+.lv-oth .lv-chc { height: 124px; filter: brightness(.8); }
+.lv-stage.lose .lv-oth.r .lv-chc { filter: none; }
+@media (max-width: 700px) {
+  .lv-ch .lv-chc { height: 92px; }
+  .lv-oth .lv-chc { height: 62px; }
+  .lv-stage.gather .lv-mem .lv-chc { height: 70px; }
+  .lv-mem { gap: 0; padding: 0 2%; }
+}
