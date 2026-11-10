@@ -81,7 +81,11 @@
           <div class="duo ps-duo">
             <!-- 인간관계: 박스 자체를 누르면 인간관계 창, 안의 가족·연인 배너는 각자 창 -->
             <div id="people-card" class="card bn-card" data-panel="people"></div>
-            <div id="status-card" class="card"></div>
+            <!-- 상태는 내용만큼만, 그 아래 남는 높이는 회사 배너 박스 (v121) -->
+            <div class="st-col">
+              <div id="status-card" class="card"></div>
+              <div id="co-card" class="card"></div>
+            </div>
           </div>
           <!-- 생활: 박스 네 개 (누르면 그 묶음 창) -->
           <div id="life-grid"></div>

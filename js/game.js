@@ -731,7 +731,8 @@ function jobIdleMonth(s) {
 function actOK(s, id) {
   const a = actInfo(id);
   if (a.sys) return false;
-  if (a.skill) return has(me(s), a.skill) && age(s) >= 7;
+  // 특기 연습은 일정 칸이 생기면(초등학교 입학) 바로 (v121: 예전엔 만 7세부터라 생일이 늦으면 입학하고도 몇 달 연습을 못 했다)
+  if (a.skill) return has(me(s), a.skill) && slotCount(s) > 0;
   // 자숙 중에는 직업 활동을 못 한다
   if (a.trk) { const c = CAREERS[a.trk]; return trackOn(s, a.trk) && !s.hiatus && !(c.slotOK && !c.slotOK(s, s.tracks[a.trk])); }
   return age(s) >= (a.min || 0);

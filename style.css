@@ -89,11 +89,14 @@ button { font: inherit; color: inherit; }
 .pf-tbn { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 7px; margin-top: 10px; }
 .pf-tb { font: inherit; font-size: 14px; font-weight: 800; padding: 10px 4px; border-radius: 12px; text-align: center; border: 1px solid var(--line); background: var(--card2); color: var(--ink); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pf-tb:hover { border-color: var(--violet); }
-/* 특기: 한 줄에 계열 둘 */
-.cat-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 14px; }
-.cat-grid .cat-h { border-top: 1px solid var(--line); min-width: 0; }
-.cat-grid .cat-h.cat-empty { cursor: default; }
-.cat-grid .cat-body { min-width: 0; }
+/* 특기 칸: 계열 없이 두 줄로 쭉 (v121) */
+.sk-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; }
+.sk-grid .sk { padding: 6px 2px 4px; border-top: 1px solid var(--line); min-width: 0; }
+.sk-grid .sk .row span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sk-grid .sk .row b { white-space: nowrap; }
+.sk-grid .sk-foot { min-height: 0; }
+.sk-dn { font-style: normal; color: #c0577e; font-weight: 800; margin-left: 2px; }
+.sk-legend { display: flex; align-items: center; gap: 8px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--muted); }
 /* 생활: 박스 네 개 (2사분면 집 · 1사분면 지속 관리 / 3사분면 장비 · 4사분면 기타) */
 #life-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
 .lt-card .card-h { margin-bottom: 4px; }
@@ -178,9 +181,7 @@ button { font: inherit; color: inherit; }
 .bar.pop i { background: var(--pink); } .bar.rep i { background: var(--gold); } .bar.aff i { background: var(--pink); } .bar.tal i { background: #b49bff; }
 .cat { border-top: 1px solid var(--line); }
 .cat:first-of-type { border-top: none; }
-.cat-h { display: flex; align-items: center; gap: 8px; padding: 7px 2px; cursor: pointer; font-weight: 700; }
-.cat-h .n { margin-left: auto; color: var(--muted); font-weight: 600; font-size: 12px; }
-.sk { padding: 3px 2px 6px 26px; }
+.sk { padding: 3px 2px 6px; }
 .sk .row b { font-size: 13px; }
 .sk .tr { font-size: 11.5px; color: var(--muted); }
 /* v101: 특기 수 · 그만두기 (v102: 제목 옆에 안내 글, 그 오른쪽에 개수) */
@@ -687,18 +688,20 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .job-bn.bad { border-color: var(--red); background: linear-gradient(90deg, #fde7eb, var(--card)); }
 .job-bn.bad .sb-s { color: var(--red); font-weight: 700; }
 .lnote.bad { color: var(--red); font-weight: 700; }
-.co-mini { margin-top: 12px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 12px; background: var(--card2); cursor: pointer; transition: border-color .15s; }
-.co-mini:hover { border-color: var(--violet); }
-.co-mini .co-mh { display: flex; align-items: center; font-weight: 800; font-size: 13px; margin-bottom: 4px; }
-.co-mini .co-mh .bn-arr { margin-left: auto; }
-.co-mini .co-ms { font-size: 12px; color: var(--muted); }
-.co-mini .row { font-size: 12.5px; }
-/* 사슬로 X자를 친 잠금 */
-.locked { position: relative; overflow: hidden; cursor: default !important; }
-.locked > * { opacity: .4; }
-.locked::before, .locked::after { content: ''; position: absolute; left: -15%; right: -15%; top: calc(50% - 3px); height: 6px; border-radius: 3px; background: repeating-linear-gradient(90deg, #8f87a6 0 9px, transparent 9px 12px); transform: rotate(16deg); pointer-events: none; }
-.locked::after { transform: rotate(-16deg); }
-.locked:hover { border-color: var(--line) !important; background: inherit; }
+/* 회사 배너 박스 (v121): 상태 박스 아래 남는 높이를 채운다 */
+.st-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.st-col > #status-card { flex: none; }
+.st-col > #co-card { flex: 1 0 auto; }
+.co-card .card-h { margin-bottom: 4px; }
+.co-card .co-nm { font-size: 13.5px; font-weight: 700; color: var(--ink); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.co-card .row { font-size: 12.5px; }
+.co-card .st { font-size: 12px; color: var(--muted); }
+/* 사슬로 X자를 친 잠금 = 아직 쓸 수 없음 (일정의 고정 칸에는 쓰지 않는다, v121) */
+.chainlk { position: relative; overflow: hidden; cursor: default !important; }
+.chainlk > * { opacity: .4; }
+.chainlk::before, .chainlk::after { content: ''; position: absolute; left: -15%; right: -15%; top: calc(50% - 3px); height: 6px; border-radius: 3px; background: repeating-linear-gradient(90deg, #8f87a6 0 9px, transparent 9px 12px); transform: rotate(16deg); pointer-events: none; }
+.chainlk::after { transform: rotate(-16deg); }
+.chainlk:hover { border-color: var(--line) !important; background: inherit; }
 /* v118 UI C1 · C2: 곡 발매 결과 카드 · 정산서 · 작은 창 */
 .pop-ov { z-index: 70; }
 .pop-card { max-width: 420px; }

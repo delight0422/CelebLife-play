@@ -25,8 +25,9 @@ function bar(v, max = 100, cls = '') { return `<div class="bar ${cls}"><i style=
 // 넘어가는 동안 화면이 어두워지고 가운데에서 날짜가 넘어간다. 멈추면 그 사이 인생 기록을 모은 요약 창이 뜬다 (FM의 지난주 결과처럼)
 // 고를 게 없는 사건은 창 없이 바로 처리되어 요약 창의 '특별한 일'에 강조된다 (game.js autoEvs)
 const TURN_MS = 230;
-// 7세 전에는 달 수 제한 없이 넘어가다 특별한 일(일상이 아닌 기록)이 생기면 멈춘다. 일곱 살이 되면(일정을 정할 수 있게 되면) 늘 멈춘다
-function turnMax(s) { return age(s) < 7 ? Math.max(1, 84 - s.t) : 6; }
+// 일정 칸이 생기기 전(초등학교 입학 전)에는 최대 24개월까지 넘어가다 특별한 일(일상이 아닌 기록)이 생기면 멈춘다 (v121: 예전엔 7세까지 제한 없이)
+// 초등학교에 들어가 일정을 정할 수 있게 되면 그 달에 멈추고, 그 뒤로는 최대 6개월
+function turnMax(s) { return slotCount(s) ? 6 : 24; }
 function turnKidSpecial(s, T) { const i = T.last ? s.log.lastIndexOf(T.last) + 1 : 0; return s.log.slice(i).some(x => x.k !== 'flavor'); }
 // 예전 실시간 흐름을 부르던 자리(startLoop · kickLoop)는 그대로 두고 아무것도 하지 않는다
 function startLoop() { }
@@ -40,7 +41,7 @@ function turnGo(max) {
   if (UI.overlay) closePanel();
   const p = me(s);
   // 요약에는 이번에 넘어간 동안 생긴 일만 넣는다 (창에서 고른 결과 · 버튼으로 한 일은 이미 아는 일이라 넣지 않는다)
-  UI.turn = { max, kid: age(s) < 7, n: 0, last: s.log[s.log.length - 1] || null, t0: s.t, inbox: new Set(s.inbox.map(m => m.id)), money: s.money, fans: totalFans(s), stress: Math.round(s.stress), g0: growSnap(s), why: '', co: trackOn(s, 'agency') ? s.tracks.agency.money : null, inc: (MONEY_TAP = {}) };
+  UI.turn = { max, kid: !slotCount(s), n: 0, last: s.log[s.log.length - 1] || null, t0: s.t, inbox: new Set(s.inbox.map(m => m.id)), money: s.money, fans: totalFans(s), stress: Math.round(s.stress), g0: growSnap(s), why: '', co: trackOn(s, 'agency') ? s.tracks.agency.money : null, inc: (MONEY_TAP = {}) };
   $('#tcard').innerHTML = turnRunHTML(s);
   $('#turn').classList.remove('hidden');
   UI.timer = setTimeout(turnStep, TURN_MS);
@@ -52,7 +53,7 @@ function turnStep() {
   try { tick(s); } catch (e) { console.error('한 달 진행 오류', e); toast('이번 달 계산에 문제가 있어 일부를 건너뛰었어요'); }
   T.n++;
   save(s); render();
-  T.why = s.ended ? 'end' : s.pending ? 'ev' : s.inbox.some(m => !T.inbox.has(m.id)) ? 'msg' : T.n >= T.max ? 'max' : T.kid && turnKidSpecial(s, T) ? 'sp' : '';
+  T.why = s.ended ? 'end' : s.pending ? 'ev' : s.inbox.some(m => !T.inbox.has(m.id)) ? 'msg' : T.n >= T.max ? 'max' : T.kid && (slotCount(s) || turnKidSpecial(s, T)) ? 'sp' : '';
   $('#tcard').innerHTML = T.why ? turnSumHTML(s, T) : turnRunHTML(s);
   if (!T.why) UI.timer = setTimeout(turnStep, TURN_MS);
 }
@@ -273,7 +274,7 @@ function lockWhy(s, lock) {
 function renderSchedule() {
   const s = S, p = me(s);
   let h = `<div class="card-h">📅 이번 달 일정</div>`;
-  if (!s.slots.length) { $('#slots-card').innerHTML = h + `<div class="empty">아직 어려서 하루하루가 저절로 흘러간다. 일곱 살이 되면 일정을 정할 수 있다.</div>`; return; }
+  if (!s.slots.length) { $('#slots-card').innerHTML = h + `<div class="empty">아직 어려서 하루하루가 저절로 흘러간다. 초등학교에 들어가면 일정을 정할 수 있다.</div>`; return; }
   h += `<div class="hint" style="margin:-4px 0 8px">칸을 누르면 할 일을 바꿀 수 있어요</div>`;
   s.slots.forEach((sl, i) => {
     const a = actInfo(sl.act), locked = !!sl.lock, fj = fixedJob(sl);
@@ -440,16 +441,20 @@ function renderPeopleCard() {
   el.innerHTML = h + `</div>`;
   el.querySelectorAll('.pp-line').forEach(fitLine);
 }
-// 상태: 군 복무·병은 맨 위에 눈에 띄게 (누르면 자세히)
-// 상태 칸 아래 회사 박스 (v118 UI B1): 회사 돈 · 지난달 순수익, 적자면 버틸 수 있는 기간. 누르면 회사 창. 회사를 차리기 전에는 사슬로 잠가 둔다
-function coMiniHTML(s) {
+// 회사 배너 박스 (v121): 상태 박스는 내용만큼만 쓰고, 그 아래 남는 높이를 이 박스가 채운다 (v118 UI B1의 상태 칸 안 회사 박스를 따로 뺐다)
+// 회사 돈 · 지난달 순수익, 적자면 버틸 수 있는 기간. 누르면 회사 창. 회사를 차리기 전에는 사슬로 잠가 둔다
+function renderCoCard() {
+  const s = S, el = $('#co-card');
+  if (!el || !s) return;
   const t = trackOn(s, 'agency') ? s.tracks.agency : null;
-  if (!t) return `<div class="co-mini locked"><div class="co-mh">🏢 회사</div><div class="co-ms">아직 차린 회사가 없다</div></div>`;
+  if (!t) { el.className = 'card co-card chainlk'; el.removeAttribute('data-panel'); el.innerHTML = `<div class="card-h">🏢 회사</div><div class="st">아직 차린 회사가 없다</div>`; return; }
   const V = Object.values(t.lastL || {}), net = V.reduce((a, v) => a + v, 0), out = -V.filter(v => v < 0).reduce((a, v) => a + v, 0);
   const R = [['회사 돈', fmtWon(t.money), t.money < 0 ? 'neg' : ''], ['지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg']];
   if (net < 0 && out > 0) R.push(['버틸 수 있는 기간', t.money > 0 ? `약 ${Math.floor(t.money / out)}개월` : '바닥났다', 'neg']);
-  return `<div class="co-mini" data-panel="company"><div class="co-mh">🏢 ${U.esc(t.name)}<span class="bn-arr">›</span></div>${R.map(([k, v, c]) => `<div class="row"><span>${k}</span><b class="${c}">${v}</b></div>`).join('')}</div>`;
+  el.className = 'card bn-card co-card'; el.dataset.panel = 'company';
+  el.innerHTML = `<div class="card-h">🏢 회사<span class="bn-arr">›</span></div><div class="co-nm">${U.esc(t.name)}</div>${R.map(([k, v, c]) => `<div class="row"><span>${k}</span><b class="${c}">${v}</b></div>`).join('')}`;
 }
+// 상태: 군 복무·병은 맨 위에 눈에 띄게 (누르면 자세히)
 function renderStatusCard() {
   const s = S;
   let st = `<div class="card-h">❤ 상태</div>`;
@@ -459,7 +464,7 @@ function renderStatusCard() {
   st += `<div class="row"><span>팬</span><b>${fmtFans(totalFans(s))}</b></div>`;
   st += `<div class="row"><span>인지도</span><b>${fameWord(s.fame || 0)}</b></div>${bar(s.fame || 0, 100, 'pop')}`;
   st += `<div class="row"><span>평판 (주변 사람)</span><b>${repWord(s.rep)}</b></div>${bar(s.rep, 100, 'rep')}`;
-  st += coMiniHTML(s);
+  renderCoCard();
   $('#status-card').innerHTML = st;
 }
 // 재정: 현금(크게) → 빚 → 지난달 → 맨 아래 총자산(집에 든 내 돈까지). 누르면 재정 창
@@ -477,7 +482,9 @@ function renderMoneyCard() {
   m += `<div class="mn-r total"><span>총자산 (집 포함)</span><b>${fmtWon(s.money + ha)}</b></div>`;
   $('#money-card').innerHTML = m;
 }
-// 특기: 배운 것만, 계열별로 접기
+// 특기: 배운 것만. 계열로 접지 않고 두 줄로 쭉 (v121). 레벨이 높은 특기부터, 개수에 안 세는 학업 · 외국어는 맨 뒤
+// 한 특기는 이름 · 레벨 한 줄 + 막대. 오래 안 해서 떨어지는 중이면 레벨 옆에 ↓ (설명은 맨 아래 한 줄)
+// '그만두기'는 맨 아래 버튼을 누르면 특기마다 나온다 (늘 보이면 칸이 너무 길어져서)
 function renderSkillsCard() {
   const s = S, p = me(s);
   const learned = learnedSkills(p);
@@ -485,21 +492,12 @@ function renderSkillsCard() {
   const cnt = capCount(p);
   let sk = `<div class="card-h sk-h"><span class="nm">🎯 특기</span><span class="sub">특기는 학업과 외국어를 제외하고 ${SKILL_CAP}개까지 가질 수 있다</span><span class="sk-cnt${cnt >= SKILL_CAP ? ' full' : ''}">${cnt}/${SKILL_CAP}</span></div>`;
   if (!learned.length) sk += `<div class="empty">아직 배운 특기가 없다.</div>`;
-  // 같은 계열 안에서는 레벨이 높은 특기부터
-  const cats = SKILL_CATS.map(c => ({ c, ks: learned.filter(k => SKILLS[k].cat === c.id).sort((a, b) => p.sk[b].lv - p.sk[a].lv) })).filter(x => x.ks.length);
-  const body = ks => ks.map(k => { const x = p.sk[k]; return `<div class="sk"><div class="row"><span>${SKILLS[k].n}</span><b>${Math.floor(x.lv)}레벨</b></div>${bar(x.lv, 100)}<div class="sk-foot">${s.t - x.last > 6 ? '<span class="tr">오래 안 해서 조금씩 떨어지는 중</span>' : ''}${SK_FREE.includes(k) ? '' : `<button class="sk-drop" data-skdrop="${k}">그만두기</button>`}</div></div>`; }).join('');
-  // 한 줄에 계열 둘 (턴제 v87). 펼친 계열의 특기는 그 계열 바로 아래 같은 칸에
-  if (cats.length) {
-    sk += `<div class="cat-grid">`;
-    for (let i = 0; i < cats.length; i += 2) {
-      const pair = cats.slice(i, i + 2);
-      // 접힌 줄에도 그 계열에서 가장 높은 특기와 레벨 (v118 UI B5)
-      for (const { c, ks } of pair) { const open = !!UI.openCats[c.id]; sk += `<div class="cat-h" data-cat="${c.id}">${open ? '▾' : '▸'} ${c.ic} ${c.n}<span class="n">${SKILLS[ks[0]].n} ${Math.floor(p.sk[ks[0]].lv)}</span></div>`; }
-      if (pair.length < 2) sk += `<div class="cat-h cat-empty"></div>`;
-      if (pair.some(({ c }) => UI.openCats[c.id])) for (let j = 0; j < 2; j++) { const x = pair[j]; sk += `<div class="cat-body">${x && UI.openCats[x.c.id] ? body(x.ks) : ''}</div>`; }
-    }
-    sk += `</div>`;
-  }
+  const ks = learned.slice().sort((a, b) => (SK_FREE.includes(a) - SK_FREE.includes(b)) || (p.sk[b].lv - p.sk[a].lv));
+  const ic = k => { const c = SKILL_CATS.find(c => c.id === SKILLS[k].cat); return c ? c.ic + ' ' : ''; };
+  const dec = k => s.t - p.sk[k].last > 6, drop = ks.some(k => !SK_FREE.includes(k));
+  if (!drop) UI.skDrop = false;
+  if (ks.length) sk += `<div class="sk-grid">` + ks.map(k => { const x = p.sk[k]; return `<div class="sk"><div class="row"><span>${ic(k)}${SKILLS[k].n}</span><b>${Math.floor(x.lv)}레벨${dec(k) ? '<i class="sk-dn" title="오래 안 해서 조금씩 떨어지는 중">↓</i>' : ''}</b></div>${bar(x.lv, 100)}${UI.skDrop && !SK_FREE.includes(k) ? `<div class="sk-foot"><button class="sk-drop" data-skdrop="${k}">그만두기</button></div>` : ''}</div>`; }).join('') + `</div>`;
+  if (ks.some(dec) || drop) sk += `<div class="sk-legend">${ks.some(dec) ? '<span><i class="sk-dn">↓</i> 오래 안 해서 조금씩 떨어지는 중</span>' : '<span></span>'}${drop ? `<button class="sk-drop" data-skdropmode>${UI.skDrop ? '그만두기 닫기' : '특기 그만두기'}</button>` : ''}</div>`;
   $('#skills-card').innerHTML = sk;
 }
 
@@ -1413,7 +1411,7 @@ function lifeSecSum(s, k) {
   return { main: '특기 배우기 · 시술 · 여행', sub: `${trip} · 남은 시술 ${surg}가지` };
 }
 function lifeTilesHTML(s) {
-  return `<div class="trks life-tiles">` + LIFE_SECS.map(([k, ic, n]) => { const x = lifeSecSum(s, k); return `<div class="trk ltile${ltLock(s, k) ? ' locked' : ''}"${ltLock(s, k) ? '' : ` data-lifesec="${k}"`}>${ltDot(s, k)}<b>${ic} ${n}</b><div class="lt-main">${U.esc(x.main)}</div><div class="st">${U.esc(x.sub)}</div></div>`; }).join('') + `</div>`;
+  return `<div class="trks life-tiles">` + LIFE_SECS.map(([k, ic, n]) => { const x = lifeSecSum(s, k); return `<div class="trk ltile${ltLock(s, k) ? ' chainlk' : ''}"${ltLock(s, k) ? '' : ` data-lifesec="${k}"`}>${ltDot(s, k)}<b>${ic} ${n}</b><div class="lt-main">${U.esc(x.main)}</div><div class="st">${U.esc(x.sub)}</div></div>`; }).join('') + `</div>`;
 }
 // 묶음 창의 내용
 function lifeSecBody(s, k) {
@@ -1468,7 +1466,7 @@ function panelLifeSec() {
 function renderLifeCard() {
   const el = $('#life-grid');
   if (!el || !S) return;
-  const h = LIFE_SECS.map(([k, ic, n]) => { const x = lifeSecSum(S, k); return `<div class="card bn-card lt-card${ltLock(S, k) ? ' locked' : ''}"${ltLock(S, k) ? '' : ` data-lifesec="${k}"`}>${ltDot(S, k)}<div class="card-h">${ic} ${n}<span class="bn-arr">›</span></div><div class="lt-main">${U.esc(x.main)}</div><div class="st">${U.esc(x.sub)}</div></div>`; }).join('');
+  const h = LIFE_SECS.map(([k, ic, n]) => { const x = lifeSecSum(S, k); return `<div class="card bn-card lt-card${ltLock(S, k) ? ' chainlk' : ''}"${ltLock(S, k) ? '' : ` data-lifesec="${k}"`}>${ltDot(S, k)}<div class="card-h">${ic} ${n}<span class="bn-arr">›</span></div><div class="lt-main">${U.esc(x.main)}</div><div class="st">${U.esc(x.sub)}</div></div>`; }).join('');
   if (h === UI.lifeHTML) return;
   UI.lifeHTML = h; el.innerHTML = h;
 }
@@ -1535,7 +1533,7 @@ function panelHall() {
 function panelHelp() {
   return `<h2>도움말</h2>
   <div class="sec-h">재능과 특기</div><div class="ms">재능은 태어날 때 정해지고 거의 안 변해요. 특기는 살면서 만나는 선택지로 처음 배우고, 그다음부터 일정에서 연습하거나 학원에 다니며 레벨을 올려요. 오래 안 하면 천천히 떨어져요. 특기마다 숨은 한계(포텐)가 있어서, 그 근처에 가면 잘 안 늘어요.</div>
-  <div class="sec-h">일정</div><div class="ms">일곱 살부터 '📅 이번 달 일정' 칸에서 매달 할 일을 정해요. 고등학교 졸업 전에는 학원비를 가족이 내 줄 수도 있어요(집안 형편에 따라 개수가 달라요).</div>
+  <div class="sec-h">일정</div><div class="ms">초등학교에 들어가면 '📅 이번 달 일정' 칸에서 매달 할 일을 정해요. 고등학교 졸업 전에는 학원비를 가족이 내 줄 수도 있어요(집안 형편에 따라 개수가 달라요).</div>
   <div class="sec-h">직업</div><div class="ms">진로 백과사전에서 직업을 알아볼 수 있어요. 아티스트(앞에 서는 일)와 스태프(뒤에서 만드는 일), 회사 경영으로 나뉘어 있어요.</div>`;
 }
 
@@ -1615,6 +1613,7 @@ document.addEventListener('click', e => {
   if (t.dataset.endclose != null) { $('#modal').classList.add('hidden'); return; }
   if (t.dataset.confirm != null) { $('#confirm').classList.add('hidden'); const f = UI.onConfirm; UI.onConfirm = null; if (t.dataset.confirm === '1' && f) f(); return; }
   // 특기 그만두기 (v101 · v102 이름 바뀜): 지금 하는 직업의 대표 특기는 못 그만둔다. 다시 배우면 1레벨부터
+  if (t.dataset.skdropmode != null) { UI.skDrop = !UI.skDrop; renderSkillsCard(); return; }
   if (t.dataset.skdrop) {
     const k = t.dataset.skdrop, why = skKeepWhy(S, k), n = SKILLS[k].n;
     if (why) { toast(why); return; }
@@ -1654,7 +1653,6 @@ document.addEventListener('click', e => {
   if (t.dataset.les != null) { const sl = S.slots[+t.dataset.les]; sl.lesson = t.checked; delete sl.dflt; if (sl.lesson) sl.payer = !graduated(S) && familyCanPay(S, +t.dataset.les) ? 'family' : 'me'; save(S); renderSchedule(); return; }
   if (t.dataset.payer != null) { const sl = S.slots[+t.dataset.payer]; sl.payer = t.dataset.v; save(S); renderSchedule(); return; }
   if (t.dataset.leslv != null) { const i = +t.dataset.leslv, sl = S.slots[i]; sl.lesLv = +t.dataset.v; if (sl.payer === 'family' && !familyCanPay(S, i)) sl.payer = 'me'; save(S); renderSchedule(); return; }
-  if (t.dataset.cat) { UI.openCats[t.dataset.cat] = !UI.openCats[t.dataset.cat]; renderSide(); return; }
   if (t.dataset.grp) { UI.openGroups[t.dataset.grp] = !UI.openGroups[t.dataset.grp]; renderPanel(); return; }
   if (t.dataset.pftab) { UI.pfTab = t.dataset.pftab; if (UI.overlay) { UI.overlay = 'profile'; renderPanel(); } else openPanel('profile'); return; }
   if (t.dataset.cotab) { UI.coTab = t.dataset.cotab; renderPanel(); return; }
