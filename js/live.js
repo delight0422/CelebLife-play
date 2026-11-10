@@ -123,7 +123,7 @@ function chLoad() {
   if (CH.started || typeof CH_PARTS === 'undefined') return;
   CH.started = true;
   const L = CH_PARTS.body.concat(CH_PARTS.face, ...CH_PARTS.hair.map(h => [h + '_b', h + '_f']));
-  for (const n of L) { const im = new Image(); im.onload = () => { CH.img[n] = im; if (++CH.n === L.length) { CH.ok = true; chPaintAll(); } }; im.src = `img/ch/${n}.png`; }
+  for (const n of L) { const im = new Image(); im.onload = () => { CH.img[n] = im; if (++CH.n === L.length) { CH.ok = true; chPaintAll(); } }; im.onerror = () => { if (!im.dataset.retry) { im.dataset.retry = 1; im.src = `img/ch/${n}.png`; } }; im.src = (CH_PARTS.data || {})[n] || `img/ch/${n}.png`; }
 }
 function chHsl(h, s, l) { const a = s * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return [f(0), f(8), f(4)]; }
 // 부품 하나를 물들여 ctx에 얹는다. mode: 'fit'(옷 → 그룹 색) · 'hair'(머리색) · ''(그대로)
