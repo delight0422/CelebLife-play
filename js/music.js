@@ -199,7 +199,7 @@ function songReact(F) {
 function songHarsh(F, used) { const f = F.filter(f => f && isFinite(f.z)).sort((a, b) => a.z - b.z)[0], tail = U.pick(['솔직히 실망이다', '이번 건 그냥 넘길게', '전 곡이 더 나았다', '이걸 왜 냈는지 모르겠다']); const left = f ? f.b.filter(x => !(used || []).includes(`"${x}"`)) : []; return `"${left.length ? `${U.pick(left)}. ${tail}` : tail}"`; }
 // 지난 곡과 비교 (o.prevSc에 이번 점수를 남긴다)
 function songCmp(o, sc) { const p = o.prevSc; o.prevSc = sc; return p == null ? '' : sc - p >= 4 ? '지난 곡보다 반응이 낫다' : sc - p <= -4 ? '지난 곡보다 반응이 아쉽다' : '지난 곡과 반응이 비슷하다'; }
-function songCardMake(o, F, sc, prevHolder) { const L = songReact(F); return { t: o.t, by: o.by || '', peak: o.peak || 0, wins: o.wins || 0, fans: o.fans || [], lines: L, cmp: songCmp(prevHolder, sc), harsh: songHarsh(F, L), bill: o.bill || null }; }
+function songCardMake(o, F, sc, prevHolder) { const L = songReact(F); return { t: o.t, by: o.by || '', peak: o.peak || 0, wins: o.wins || 0, fans: o.fans || [], lines: L, cmp: songCmp(prevHolder, sc), harsh: songHarsh(F, L), bill: o.bill || null, pay: o.pay != null ? Math.round(o.pay) : null }; }
 // 카드가 있는 결과 창 (v119): html이 있으면 창에 본문(text)이 안 나오므로 본문을 카드 위에 붙인다 (v118에서 본문이 빠져 있었다)
 function cardText(s, d) { const p = s.pending, ev = p && p.d === d ? EVENTS[p.id] : null; return ev && typeof rich === 'function' ? `<div class="m-text">${rich(ev.text(s, d))}</div>` : ''; }
 // 결과 창 선택지: 댓글 모니터링
@@ -817,8 +817,8 @@ E({
       fxo = { stress: 1 };
       line = `${whoS} ` + U.pick(['라디오 게스트로 나가 라이브를 부르고 수다를 떨었다.', '그룹 자체 콘텐츠를 찍었다. 숙소에서 하루를 보내는 브이로그다.', '음악 방송 MC 대타로 한 주를 채웠다.']);
     }
-    const paid = pay > 0 ? `정산 ${fmtWon(pay)}` : debt0 > 0 ? '정산금은 연습생·제작 비용을 갚는 데 들어갔다' : '';
-    d.txt = line + `\n\n` + [paid, fans ? `내 개인 팬 +${fmtFans(fans)}` : '', gfan ? `그룹 팬 +${fmtFans(gfan)}` : ''].filter(Boolean).join(' · ');
+    const paid = pay > 0 ? `내 몫 ${fmtWon(pay)}` : debt0 > 0 ? '정산금은 연습생·제작 비용을 갚는 데 들어갔다' : '';
+    d.txt = line + `\n\n` + [fans ? `내 개인 팬 +${fmtFans(fans)}` : '', gfan ? `그룹 팬 +${fmtFans(gfan)}` : '', paid].filter(Boolean).join(' · ');
     // 특별한 일에도 정산 · 팬 · 그룹 팬을 함께 남긴다 (v89: 자체 콘텐츠처럼 스트레스만 남던 것). 빚을 갚느라 정산이 없으면 남은 비용을 작게
     if (fans) fxo['f' + main] = fans;
     const fxs = fx(s, fxo), ex = [pay > 0 ? `정산 ${fmtWon(pay)}` : '', gfan ? `그룹 팬 +${fmtFans(gfan)}` : ''].filter(Boolean);
@@ -1011,7 +1011,7 @@ function idolRelease(s, t, c, debut) {
   const F = [{ z: (groupPower(s, g) - 45) / 18, g: ['퍼포먼스가 눈을 못 떼게 한다', '라이브가 안정적이다'], b: ['라이브가 조금 불안하다', '무대가 아직 덜 여물었다'] }, RX.q(q), RX.fans(gf, gain.kr + gain.jp + gain.us), RX.trend(c === s.trend), RX.tw(twOf(g)), RX.cf(cScoreB(cf)), { z: (g.star - 50) / 25, g: ['멤버들 얼굴이 화면을 꽉 채운다'], b: ['눈에 확 띄는 멤버가 없다'] }];
   if (tired > 1) F.push({ z: -tired / 4, g: ['오래 봐도 질리지 않는다'], b: ['예전만큼 새롭지는 않다'] });
   if (c === g.sig) F.push({ z: 0.5, g: ['역시 이 그룹다운 콘셉트다'], b: ['늘 하던 콘셉트라 뻔하다'] });
-  const card = songCardMake({ t: title, by: g.name, peak, wins, fans: [['그룹 팬', gain.kr + gain.jp + gain.us], ['내 팬', my.kr + my.jp + my.us]], bill: pay > 0 || t.debt > 0 ? t.lastBill : null }, F, sc, g);
+  const card = songCardMake({ t: title, by: g.name, peak, wins, fans: [['그룹 팬', gain.kr + gain.jp + gain.us], ['내 팬', my.kr + my.jp + my.us]], pay, bill: pay > 0 || t.debt > 0 ? t.lastBill : null }, F, sc, g);
   // 실시간 창 (12-1): 데뷔 무대 · 컴백 첫 음악방송. 카드와 같은 요인으로 장면을 만든다 (내 몫: 내 실력 · 스타성)
   card.live = liveStage({ k: 'idol', place: debut ? '데뷔 무대' : '음악방송', t: title, g: g.name, fd: g.fandom, mem: idolPpl(s, g).map(x => [x.id === s.me ? actCall(s, 'idol') : callName(x.name), (g.pos[x.id] || '').split(' · ')[0]]), mi: 0,
     z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, tw: F[4].z, cf: F[5].z, star: F[6].z, me: (Math.max(lv(p, 'vocal'), lv(p, 'rap'), lv(p, 'dance')) * 0.6 + p.tal.star * 0.4 - 45) / 18 }, sc, wins, cand: sc >= 66, debut });
@@ -1038,7 +1038,7 @@ E({
   },
 });
 E({
-  id: 'idol_team', cat: '연습생', title: '데뷔조 발탁', tag: 'career',
+  id: 'idol_team', cat: '연습생', title: '데뷔조 발탁', tag: 'career', keepPop: true, // v123: 요약에만 남기지 않고 창으로
   cond: s => s.tracks.idol.st === 'trainee',
   text: s => { const t = s.tracks.idol; return `${t.agN}에서 새 ${t.kind === 'band' ? '밴드' : '그룹'} 데뷔조를 꾸린다. 최근 평가 ${t.rank}위로 이름이 올랐다.\n\n이제 반년쯤 데뷔 준비에 들어간다. 준비 중에도 평가가 밀리면 빠질 수 있다.`; },
   ch: () => [{ t: '열심히 하겠습니다', f: s => { const t = s.tracks.idol; t.team = true; t.prep = 0; return '데뷔조에 들어갔다!' + fx(s, { stress: -4 }); } }],
@@ -1105,7 +1105,7 @@ E({
   }],
 });
 E({
-  id: 'idol_debut', cat: '데뷔', title: '드디어 데뷔', tag: 'career',
+  id: 'idol_debut', cat: '데뷔', title: '드디어 데뷔', tag: 'career', keepPop: true,
   cond: s => s.tracks.idol.st === 'trainee',
   init(s, d) { d.g = makeGroup(s, s.tracks.idol, d.surv); d.c = fitConcept(s, d.g, U.chance(0.6) ? s.trend : d.g.sig); },
   text(s, d) {
@@ -1588,7 +1588,7 @@ E({
 });
 // 기획사가 꾸린 밴드 데뷔조 (이때만 회사가 멤버를 채운다)
 E({
-  id: 'band_debut', cat: '데뷔', title: '밴드로 데뷔', tag: 'career',
+  id: 'band_debut', cat: '데뷔', title: '밴드로 데뷔', tag: 'career', keepPop: true,
   cond: s => s.tracks.idol.st === 'trainee' && s.tracks.idol.kind === 'band',
   init(s, d) {
     const t = s.tracks.idol, ag = AG[t.ag];
@@ -1732,7 +1732,8 @@ CAREERS.band = {
       const c = BAND_FESTS.filter(x => x.m - calM(s) >= 2 && x.m - calM(s) <= 4 && t.b.f >= x.minF);
       if (c.length) { const x = U.pick(c); t.festY = calY(s); sendMsg(s, 'band_fest', { from: x.n, title: `${x.m + 1}월 페스티벌 섭외`, months: x.m - calM(s) - 1, d: { festM: x.m, mult: x.mult, fee: Math.round((100 + t.b.f / 50) * (0.5 + 0.5 * x.mult)) * 1e4 } }); }
     }
-    if (mem.length && t.months >= 24 && U.chance(0.008)) queueEv(s, 'band_leave', 0);
+    // 나가겠다는 멤버 (v123): 사이가 틀어졌거나(친밀도 35 아래) 밴드가 먹고살기 힘들 때만(인디 · 팬 5,000명 아래). 잘되는 밴드에서 '먹고살려고' 나가지 않는다
+    if (mem.length && t.months >= 24 && (mem.some(m => m.aff < 35) || (t.st === 'indie' && t.b.f < 5000)) && U.chance(0.008)) queueEv(s, 'band_leave', 0);
   },
 };
 E({
@@ -1832,7 +1833,7 @@ E({
     t.rel++; musicRookie(s, true); t.nextRel = U.int(5, 8); t.yearBest = Math.max(t.yearBest || 0, sc);
     if (d.peak && (!t.bestPeak || d.peak < t.bestPeak)) t.bestPeak = d.peak;
     // 발매 결과 카드 (v118 UI C1)
-    d.card = songCardMake({ t: d.title, by: `밴드 「${t.b.name}」`, peak: d.peak, fans: [['밴드 팬', d.gain], ['내 팬', my]], bill: d.bill }, bandReactF(s, t, d, cf), sc, t);
+    d.card = songCardMake({ t: d.title, by: `밴드 「${t.b.name}」`, peak: d.peak, fans: [['밴드 팬', d.gain], ['내 팬', my]], pay: d.pay, bill: d.bill }, bandReactF(s, t, d, cf), sc, t);
     addWork(s, { type: '밴드 싱글', title: d.title, by: `「${t.b.name}」`, sc, note: chartText(d.peak) + (d.self ? ' · 자작곡' : ''), card: d.card });
     if (t.rel === 1) milestone(s, `${age(s)}세에 밴드 「${t.b.name}」의 첫 곡 ${josa(`「${d.title}」`, '을를')} 냈다.`);
     if (d.peak && d.peak <= 10 && !t.hitMs) { t.hitMs = true; milestone(s, `${age(s)}세에 밴드 「${t.b.name}」의 ${josa(`「${d.title}」`, '이가')} 차트 ${d.peak}위에 올랐다.`); }
@@ -1908,7 +1909,7 @@ function bandFestPlay(s, d) {
   const g = Math.max(100, Math.round(Math.pow(10, sc / 18) * (d.mult || 1) * Math.max(0, 1 - t.b.f / starCap(60, 'kr'))));
   t.b.f += g;
   // 정산서 (v118 UI C2): 소속사가 있으면 회사 몫을 떼고, 멤버끼리 나눈다
-  if (t.st === 'signed') bandIncome(s, t, d.fee, '페스티벌 출연료'); else billPay(s, { rev: d.fee, n: bandMembers(s, t).length + 1, team: '밴드', what: '페스티벌 출연료', job: 'band' });
+  d.pay = Math.round(t.st === 'signed' ? bandIncome(s, t, d.fee, '페스티벌 출연료') : billPay(s, { rev: d.fee, n: bandMembers(s, t).length + 1, team: '밴드', what: '페스티벌 출연료', job: 'band' }).share) || 0;
   d.bill = Object.assign({}, s.bills['페스티벌 출연료'], { t: `「${d.from}」 출연료` });
   for (const x of bandMembers(s, t)) bond(s, x, 3);
   // 밴드 팬과 내 팬을 둘 다 보여 준다 (v118 UI C3)
@@ -1916,14 +1917,14 @@ function bandFestPlay(s, d) {
   s.fans.kr += my;
   d.sc = sc; d.g = g; d.my = my;
   d.say = sc >= 80 ? '객석이 떠나갈 듯했다.' : sc >= 60 ? '반응이 좋았다.' : '반응이 미지근했다.';
-  d.fx = ` ${d.say} (밴드 팬 ${sgnFans(g)} · 내 팬 +${fmtFans(my)})`;
+  d.fx = ` ${d.say} (밴드 팬 ${sgnFans(g)} · 내 팬 +${fmtFans(my)} · 내 몫 ${fmtWon(d.pay)})`;
 }
 E({
   id: 'band_fest_play', cat: '밴드', title: (s, d) => `「${d.from}」 무대`, tag: 'career', keepPop: s => true,
   init(s, d) { if (!trackOn(s, 'band') || s.army || !s.tracks.band.b) { d.cancel = true; return; } bandFestPlay(s, d); },
   html: (s, d) => d.bill && typeof billBtnHTML === 'function' ? cardText(s, d) + billBtnHTML(d.bill) : '',
   text: (s, d) => d.cancel ? `밴드가 활동을 쉬게 되어 「${d.from}」 무대에 서지 못했다. 주최 측에 출연 취소를 알렸다.`
-    : `「${d.from}」 무대에 섰다. ${d.say || ''}\n\n밴드 팬 ${sgnFans(d.g)} · 내 팬 +${fmtFans(d.my || 0)}${d.bill && d.bill.note ? `\n\n${d.bill.note}` : ''}`,
+    : `「${d.from}」 무대에 섰다. ${d.say || ''}\n\n밴드 팬 ${sgnFans(d.g)} · 내 팬 +${fmtFans(d.my || 0)}${d.pay != null ? ` · 내 몫 ${fmtWon(d.pay)}` : ''}${d.bill && d.bill.note ? `\n\n${d.bill.note}` : ''}`,
   ch: (s, d) => [{ t: '확인', f: () => d.cancel ? `「${d.from}」 출연을 취소했다.` : `「${d.from}」 무대에 섰다.${d.fx}` }],
 });
 E({
@@ -2142,7 +2143,7 @@ E({
     const sp = soloScore(s, t.type), ty = t.type === 'rap' ? 'rap' : t.type === 'perf' ? 'perf' : 'vocal';
     const F = [{ z: (sp - 45) / 18, g: { vocal: ['목소리가 곡을 꽉 채운다', '노래 실력이 확실하다'], rap: ['랩이 귀에 꽂힌다', '플로우가 살아 있다'], perf: ['퍼포먼스가 눈을 못 떼게 한다', '무대 장악력이 대단하다'] }[ty], b: { vocal: ['노래가 곡을 다 못 받쳐 준다'], rap: ['랩이 조금 어설프다'], perf: ['무대가 아직 덜 여물었다'] }[ty] },
       RX.q(d.q), RX.fans(totalFans(s), d.gain), RX.trend(!!d.tr), RX.cf(cScoreB(cf)), RX.promo(signed ? t.tier : 0)];
-    d.card = songCardMake({ t: d.title, by: actName(s, 'solo'), peak: d.peak, fans: [['내 팬', d.gain]], bill: d.bill }, F, sc, t);
+    d.card = songCardMake({ t: d.title, by: actName(s, 'solo'), peak: d.peak, fans: [['내 팬', d.gain]], pay: gross > 0 ? d.sale : null, bill: d.bill }, F, sc, t);
     // 실시간 창 (12-1): 솔로는 음악방송 1위가 없어서 1위 발표 장면도 없다
     d.card.live = liveStage({ k: 'solo', place: t.rel === 1 ? '데뷔 무대' : '음악방송', t: d.title, g: actName(s, 'solo'), cn: actCall(s, 'solo'), mem: [[actCall(s, 'solo'), '']], mi: 0,
       z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, cf: F[4].z, star: (p.tal.star - 50) / 25, me: F[0].z }, sc, debut: t.rel === 1 });

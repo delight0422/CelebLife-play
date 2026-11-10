@@ -90,8 +90,8 @@ button { font: inherit; color: inherit; }
 .pf-tb { font: inherit; font-size: 14px; font-weight: 800; padding: 10px 4px; border-radius: 12px; text-align: center; border: 1px solid var(--line); background: var(--card2); color: var(--ink); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pf-tb:hover { border-color: var(--violet); }
 /* 특기 칸: 계열 없이 두 줄로 쭉 (v121) */
-.sk-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 16px; }
-.sk-grid .sk { padding: 6px 2px 4px; border-top: 1px solid var(--line); min-width: 0; }
+.sk-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px 8px; }
+.sk-grid .sk { padding: 6px 10px 8px; background: var(--card2); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
 .sk-grid .sk .row span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .sk-grid .sk .row b { white-space: nowrap; }
 .sk-grid .sk-foot { min-height: 0; }
@@ -187,8 +187,13 @@ button { font: inherit; color: inherit; }
 /* v101: 특기 수 · 그만두기 (v122: 박스 제목 옆에 개수, 안내 글은 특기 창에) */
 #skills-card .card-h { justify-content: flex-start; }
 /* 특기 박스 (v122): 이름만 두 줄로 */
-.sk-names { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 5px 12px; font-size: 13px; }
-.sk-names span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sk-names { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; font-size: 13px; }
+/* v123: 특기 · 재능 하나하나를 배경색 있는 작은 박스에 */
+.sk-names > span { display: flex; align-items: center; gap: 6px; min-width: 0; background: var(--card2); border: 1px solid var(--line); border-radius: 9px; padding: 5px 9px; }
+.sk-names .n { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sk-names b { flex: none; font-size: 12.5px; color: var(--violet); }
+.tal-grid.tal-col { gap: 6px 8px; }
+.tal-grid.tal-col > div { background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px 8px; min-width: 0; }
 h2 .sk-cnt { vertical-align: middle; margin-left: 4px; }
 .sk-cnt { flex: none; font-size: 12px; font-weight: 700; color: var(--muted); background: #f1eefb; border-radius: 8px; padding: 1px 7px; }
 .sk-cnt.full { color: #b4235a; background: #fde7ef; }
@@ -701,8 +706,9 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 /* 사슬로 X자를 친 잠금 = 아직 쓸 수 없음 (일정의 고정 칸에는 쓰지 않는다, v121) */
 .chainlk { position: relative; overflow: hidden; cursor: default !important; }
 .chainlk > * { opacity: .4; }
-.chainlk::before, .chainlk::after { content: ''; position: absolute; left: -15%; right: -15%; top: calc(50% - 3px); height: 6px; border-radius: 3px; background: repeating-linear-gradient(90deg, #8f87a6 0 9px, transparent 9px 12px); transform: rotate(16deg); pointer-events: none; }
-.chainlk::after { transform: rotate(-16deg); }
+/* v123: 사슬 끝이 박스 꼭짓점에 닿게 (대각선을 긋고 사슬 무늬로 끊는다). 박스가 커지면 같이 커진다 */
+.chainlk::before, .chainlk::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top right, transparent calc(50% - 3px), #8f87a6 calc(50% - 3px), #8f87a6 calc(50% + 3px), transparent calc(50% + 3px)); -webkit-mask: repeating-linear-gradient(90deg, #000 0 9px, transparent 9px 12px); mask: repeating-linear-gradient(90deg, #000 0 9px, transparent 9px 12px); }
+.chainlk::after { background: linear-gradient(to bottom right, transparent calc(50% - 3px), #8f87a6 calc(50% - 3px), #8f87a6 calc(50% + 3px), transparent calc(50% + 3px)); }
 .chainlk:hover { border-color: var(--line) !important; background: inherit; }
 /* v118 UI C1 · C2: 곡 발매 결과 카드 · 정산서 · 작은 창 */
 .pop-ov { z-index: 70; }

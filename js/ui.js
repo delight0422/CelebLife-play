@@ -489,7 +489,7 @@ function skIc(k) { const c = SKILL_CATS.find(c => c.id === SKILLS[k].cat); retur
 function renderSkillsCard() {
   const s = S, p = me(s), ks = skOrder(p), cnt = capCount(p);
   let sk = `<div class="card-h"><span>🎯 특기</span><span class="sk-cnt${cnt >= SKILL_CAP ? ' full' : ''}">${cnt}/${SKILL_CAP}</span><span class="bn-arr">›</span></div>`;
-  sk += ks.length ? `<div class="sk-names">${ks.map(k => `<span>${skIc(k)}${SKILLS[k].n}</span>`).join('')}</div>` : `<div class="empty">아직 배운 특기가 없다.</div>`;
+  sk += ks.length ? `<div class="sk-names">${ks.map(k => `<span><span class="n">${skIc(k)}${SKILLS[k].n}</span><b>${lvi(p, k)}</b></span>`).join('')}</div>` : `<div class="empty">아직 배운 특기가 없다.</div>`;
   $('#skills-card').innerHTML = sk;
 }
 // 특기 창: 두 줄로 이름 · 레벨 · 막대. 오래 안 해서 떨어지는 중이면 레벨 옆에 ↓ (설명은 맨 아래 한 줄)
@@ -1140,6 +1140,9 @@ function pplTop(n) {
 // 동료 묶음 이름 (피드백 27): 만났을 때 내 소속. 앞에 그 직업의 그림 글자를 붙인다 (예: '🎬 라온 액터스', '🎥 연출감독 · 소속 없음')
 function orgOf(s, n) {
   const job = relJob(s, n), ic = CAREERS[job] ? CAREERS[job].ic : job === 'musical' ? '🎭' : '📁';
+  // 밴드 멤버 · 전 멤버는 만났을 때 소속(기획사)과 상관없이 모두 밴드 묶음으로 (v123)
+  const bd = (s.tracks.band || {}).b;
+  if (bd && bd.name && ((bd.members || []).includes(n.id) || (['멤버', '전 멤버'].includes(n.rel) && job === 'band'))) return `🎸 밴드 「${bd.name}」`;
   const o = n.metOrg || orgGuess(s, n, job);
   return o ? `${ic} ${o}` : `${relJobName(job)} 시절`;
 }
@@ -1344,7 +1347,7 @@ function songCardHTML(c) {
   const fans = (c.fans || []).filter(([, v]) => v).map(([n, v]) => `<span class="${v >= 0 ? 'pos' : 'neg'}">${U.esc(n)} ${sgnFans(v)}</span>`).join(' · ');
   return `<div class="scard"><div class="sc-top"><span class="sc-t">${c.top != null ? U.esc(c.t) : `「${U.esc(c.t)}」`}</span><span class="sc-by">${U.esc(c.by || '')}</span></div>`
     + (c.top != null ? `<div class="sc-peak">${U.esc(c.top)}</div>` : `<div class="sc-peak${c.peak ? '' : ' out'}">${c.peak ? `최고 ${c.peak}위` : '차트 100위 밖'}${c.wins ? ` · 음악방송 1위 ${c.wins}회` : ''}</div>`)
-    + (fans ? `<div class="sc-fans">${fans}</div>` : '')
+    + (fans || c.pay != null ? `<div class="sc-fans">${[fans, c.pay != null ? `<span class="sc-pay">내 몫 ${fmtWon(c.pay)}</span>` : ''].filter(Boolean).join(' · ')}</div>` : '')
     + (c.lines && c.lines.length ? `<div class="sc-h">${U.esc(c.lh || '듣는 사람 반응')}</div>${c.lines.map(x => `<div class="sc-l">${U.esc(x)}</div>`).join('')}` : '')
     + (c.cmp ? `<div class="sc-cmp">${U.esc(c.cmp)}</div>` : '') + (c.bill ? billBtnHTML(c.bill) : '') + (c.live ? liveBtnHTML(c.live) : '') + `</div>`;
 }
@@ -1716,6 +1719,14 @@ document.addEventListener('keydown', e => {
   // 실시간 창이 떠 있으면 스페이스바 · 엔터 = 결과 바로 보기 (뒤의 창보다 먼저)
   if (liveOn() && (e.code === 'Space' || e.key === 'Enter')) { e.preventDefault(); if (!e.repeat) liveClose(); return; }
   if (UI.res && (e.code === 'Space' || e.key === 'Enter') && !$('#modal').classList.contains('hidden')) { e.preventDefault(); if (!e.repeat && Date.now() - (UI.enterT || 0) > 400) resOk(); return; }
+  // 고를 것이 하나뿐인 창(확인 · 알겠어요)과 작은 창(정산서 · 카드)은 스페이스바로 넘긴다 (v123). 입력 칸에서는 안 먹는다
+  if (e.code === 'Space' && !(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') && $('#confirm').classList.contains('hidden')) {
+    if (!$('#pop').classList.contains('hidden')) { e.preventDefault(); if (!e.repeat) popClose(); return; }
+    if (!$('#modal').classList.contains('hidden') && !UI.res) {
+      const B = [...document.querySelectorAll('#mcard [data-choice]')].filter(b => b.offsetParent !== null);
+      if (B.length === 1 && !B[0].disabled && !document.querySelector('#mcard input, #mcard textarea')) { e.preventDefault(); if (!e.repeat && Date.now() - (UI.enterT || 0) > 400) B[0].click(); return; }
+    }
+  }
   if ((e.key === 'Enter' || e.keyCode === 229) && e.target.matches && e.target.matches('#mcard input[data-k]')) {
     if (e.isComposing || e.keyCode === 229) { if (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter') UI.enterComp = true; return; }
     e.preventDefault(); formEnter(); return;

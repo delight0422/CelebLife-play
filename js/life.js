@@ -112,7 +112,7 @@ function eqFitText(s) { const x = eqFit(s); return x.length ? ` 집이 좁아 ${
 // 장비는 독립한 뒤에 직접 들인다 (v117 장비 정책, 사용자 결정: 독립하지 않은 성인도 못 산다). 독립할 때 장비는 다 들고 나간다 (s.equip는 집이 아니라 나에게 붙어 있다)
 function eqBuyWhy(s) { return s.home.mode === 'alone' ? '' : '독립한 뒤에 직접 들일 수 있다'; }
 // 본가에 사는 동안: 한 특기를 여섯 달 넘게 일정에 넣으면, 부모님이 그 특기 쪽 장비를 가끔 사 주신다 (집안 형편에 따라 확률 · 값이 다르다)
-// s.eqRun: 특기마다 일정에 연달아 넣은 달 수, s.eqPar: 부모님이 사 주신 장비(본가에 사는 동안 유지비도 부모님이 낸다), s.eqGift: 한 번 사 주신 장비
+// s.eqRun: 특기마다 일정에 연달아 넣은 달 수, s.eqPar: 부모님이 지원해 주신 장비(본가에 사는 동안 유지비도 부모님이 낸다), s.eqGift: 한 번 지원해 주신 장비
 function parEqP(w) { return w <= 3 ? 0.04 : w <= 6 ? 0.1 : 0.18; }
 function parEqMax(w) { return w <= 3 ? 200 : w <= 6 ? 500 : 2000; }
 function parEquipMonth(s) {
@@ -338,10 +338,12 @@ function lifeActs(s) {
     const parts = x.d.split('. '), what = parts.pop().replace(/ 연습$/, ''), gear = parts.join('. ');
     if (l) {
       // 들여놓은 장비는 한 칸: 첫 줄은 지금 효과와 처분하기, 둘째 줄은 업그레이드 (3단계 +100%가 끝)
-      const lines = [{ price: `${what} 상승률 +${eqPct(l)}%`, eff: `유지비 월 ${eqUp(id, l)}만 원`, ok: true, btn: '처분하기', danger: true, confirm: `${josa(x.n, '을를')} 처분할까요?\n들인 돈은 돌려받지 못해요.`, run: s => { s.equip[id] = 0; if (s.eqPar) delete s.eqPar[id]; return `${josa(x.n, '을를')} 처분했다.`; } }];
+      // 독립 전에 부모님이 지원해 주신 장비는 처분할 수 없다 (v123): 버튼 없이 한 줄만. 독립하면 내 것이라 처분할 수 있다
+      const par = (s.eqPar || {})[id] && s.home.mode !== 'alone';
+      const lines = [par ? { price: `${what} 상승률 +${eqPct(l)}%`, eff: '부모님이 지원해 주셨다 · 유지비도 부모님이 낸다' } : { price: `${what} 상승률 +${eqPct(l)}%`, eff: `유지비 월 ${eqUp(id, l)}만 원`, ok: true, btn: '처분하기', danger: true, confirm: `${josa(x.n, '을를')} 처분할까요?\n들인 돈은 돌려받지 못해요.`, run: s => { s.equip[id] = 0; if (s.eqPar) delete s.eqPar[id]; return `${josa(x.n, '을를')} 처분했다.`; } }];
       if (l < EQ_MAX) { const c = eqCost(id, l) * 1e4; lines.push({ price: `업그레이드 ${fmtWon(c)}`, eff: `상승률 +${eqPct(l)}% → +${eqPct(l + 1)}% · 유지비 월 ${eqUp(id, l)}만 → ${eqUp(id, l + 1)}만 원`, ok: !eqBuyWhy(s) && s.money >= c, why: eqBuyWhy(s) || '돈이 모자라다', btn: '업그레이드', run: s => { addMoney(s, -c, `${x.n} 업그레이드`); s.equip[id] = l + 1; return `${josa(x.n, '을를')} ${l + 1}단계로 업그레이드했다. (상승률 +${eqPct(l + 1)}%)`; } }); }
       else lines.push({ eff: '가장 높은 단계다' });
-      A.push({ sec: 'equip', lv: l, t: x.n, tag: `${l}단계${(s.eqPar || {})[id] ? ' · 부모님이 사 주심' : ''}`, lines });
+      A.push({ sec: 'equip', lv: l, t: x.n, tag: `${l}단계${(s.eqPar || {})[id] ? ' · 부모님이 지원해 주심' : ''}`, lines });
       continue;
     }
     A.push({ sec: 'equip', t: x.n, price: `설치 ${fmtWon(x.c * 1e4)}`, eff: `${what} 상승률 +${eqPct(1)}%`, note: `${gear ? gear + ' · ' : ''}유지비 월 ${x.up}만 원`, ok: !eqBuyWhy(s) && s.money >= x.c * 1e4 && (x.out || eqHomeIds(s).length < eqCap(s)), why: eqBuyWhy(s) ? eqBuyWhy(s) : !x.out && eqHomeIds(s).length >= eqCap(s) ? `집에 자리가 없다 (지금 집은 ${eqCap(s)}개까지)` : '돈이 모자라다', btn: '들여놓기', run: s => { addMoney(s, -x.c * 1e4, x.n); s.equip[id] = 1; return `${josa(x.n, '을를')} 들여놓았다.`; } });

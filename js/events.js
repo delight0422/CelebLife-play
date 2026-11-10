@@ -211,11 +211,8 @@ E({
   id: 'jp_class', fixed: true, once: true, cat: '중학교', title: '일본어 시간',
   cond: s => schoolYear(s) >= 7 && schoolYear(s) <= 9 && s.done.school_start && !has(me(s), 'jp'),
   text: () => '중학교에 올라오니 제2외국어로 일본어 수업이 생겼다.',
-  // v101: 제2외국어는 시간만 채울 수도 있다 (특기를 안 받는다)
-  ch: s => [
-    { t: '제대로 배운다', f: s => '일본어 수업을 열심히 듣기 시작했다.' + learnMe(s, 'jp') },
-    { t: '수업 시간만 채운다', f: s => { skDecline(s, 'jp'); return '일본어 수업은 시간만 채웠다. 히라가나도 금방 잊어버렸다.'; } },
-  ],
+  // v123: 일본어는 특기 수에 안 세니 고르지 않고 그냥 배운다 (v101의 '시간만 채운다'를 없앰)
+  ch: s => [{ t: '수업을 듣는다', f: s => '일본어 수업을 듣기 시작했다.' + learnMe(s, 'jp') }],
 });
 E({
   id: 'gift', once: true, p: 0.0175, cat: '어린 시절', title: '생일 선물',
