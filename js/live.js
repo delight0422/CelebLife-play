@@ -22,7 +22,7 @@ function liveStage(o) {
   const z = {};
   for (const k in o.z || {}) if (isFinite(o.z[k])) z[k] = Math.round(o.z[k] * 100) / 100;
   const name = o.g || o.t || '';
-  return { v: 'stage', k: o.k, key: o.key !== false, seed: U.int(1, 2e9), place: o.place || '무대', t: o.t || '', g: o.g || '', cn: o.cn || '', fd: o.fd || '', mem: (o.mem || []).slice(0, 10), mi: o.mi || 0, hue: hashN('hue' + name) % 360, z, sc: Math.round(o.sc || 0), wins: o.wins || 0, cand: o.cand ? 1 : 0, debut: o.debut ? 1 : 0 };
+  return { v: 'stage', k: o.k, key: o.key !== false, seed: U.int(1, 2e9), place: o.place || '무대', t: o.t || '', g: o.g || '', cn: o.cn || '', fd: o.fd || '', mem: (o.mem || []).slice(0, 10), mi: o.mi || 0, hue: hashN('hue' + name) % 360, z, sc: Math.round(o.sc || 0), wins: o.wins || 0, rv: o.rv || '', cand: o.cand ? 1 : 0, debut: o.debut ? 1 : 0 };
 }
 
 // 같은 곡 무대를 다른 자리에서 한 번 더 (시상식 무대 등): 요인은 그대로, 씨앗만 새로. 1위 발표 · 데뷔 인사는 뺀다
@@ -77,7 +77,7 @@ function liveBeats(sp) {
   // 7. 1위 발표 (음악방송): 1위를 했거나 후보에 올랐을 때만. 아슬아슬하면 긴장
   if (sp.wins > 0 || sp.cand) {
     // 무대 위에 출연 팀이 다 모여 선 채로 발표한다 (v124). MC 말(mc)은 무대 위 가운데에 뜬다
-    const rv = pk(LV_RIVALS.filter(x => x !== g));
+    const rv = sp.rv || pk(LV_RIVALS.filter(x => x !== g));
     B.push({ cap: '1위 발표', glow: 0.3, fx: 'drum', gather: 1, L: [['이번 주 1위는…!', 'mc'], ['제발…!', 'soft'], [`${cn}!! ${cn}!!`, 'call']] });
     if (sp.wins > 0) B.push({ cap: '1위', glow: 1, fx: 'win', gather: 1, L: [[`${g}! 축하합니다!`, 'mc'], ['꺄아아아아!!', 'win'], [`${cn} 1위!!`, 'win'], [pk(['울지 마!!', '축하해!!']), 'big']] });
     else B.push({ cap: '2위', glow: 0.5, gather: 1, lose: 1, L: [[`${rv}! 축하합니다!`, 'mc'], ['아…', 'bad'], ['괜찮아!!', 'call'], ['다음엔 1위!!', 'big']] });
@@ -217,6 +217,8 @@ function liveBubble(x, k) {
   setTimeout(() => el.remove(), 2600);
 }
 function liveDone() {
+  // 무대가 끝나고 1.5초 뒤에는 조명 · 캐릭터 · 응원봉이 멈춘다 (v128)
+  if (LIVE) LIVE.tm.push(setTimeout(() => { const st = $('#lv-stage'); if (st) st.classList.add('still'); }, 1500));
   const b = document.querySelector('#live-card [data-liveskip]');
   if (b) { b.textContent = LIVE && LIVE.end ? '결과 보기 ▶' : '닫기'; }
 }

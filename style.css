@@ -851,3 +851,9 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
   .lv-stage.gather .lv-mem .lv-chc { height: 70px; }
   .lv-mem { gap: 0; padding: 0 2%; }
 }
+/* v128: 무대가 끝나면 잠시 뒤 모든 움직임이 멈춘다 */
+.lv-stage.still, .lv-stage.still * { animation-play-state: paused !important; }
+/* 12-2: 인간관계 창의 업계 인물 줄 */
+.npc.nx { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.nx-t { flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 1px; }
+.nx-b { display: flex; align-items: center; gap: 8px; }

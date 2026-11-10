@@ -872,6 +872,7 @@ function tick(s) {
   successCheck(s);
   inboxMonth(s);
   scandalMonth(s);
+  npcMonth(s); // 업계 인물이 스스로 움직인다 (12-2)
   applyOpenMonth(s);
   careerLogMonth(s);
   // 기획사 숙소 생활이 끝나면(그룹 해체·숙소 졸업 등) 어디서 살지 고른다

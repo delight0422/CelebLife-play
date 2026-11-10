@@ -1131,6 +1131,8 @@ function panelPeople() {
     } else if (open) h += L.map(n => npcCard(s, n)).join('');
     h += `</div>`;
   }
+  // 업계 인물 (12-2): 내가 알게 된 인물만. 여기서 관심 인물을 고른다
+  h += npcPanelHTML(s);
   return h;
 }
 const PPL_TOP = [['fam', '👪 가족·연인'], ['friend', '🤝 친구'], ['work', '💼 동료'], ['know', '🙂 지인']];
@@ -1623,6 +1625,7 @@ document.addEventListener('click', e => {
   if (t.dataset.endclose != null) { $('#modal').classList.add('hidden'); return; }
   if (t.dataset.confirm != null) { $('#confirm').classList.add('hidden'); const f = UI.onConfirm; UI.onConfirm = null; if (t.dataset.confirm === '1' && f) f(); return; }
   // 특기 그만두기 (v101 · v102 이름 바뀜): 지금 하는 직업의 대표 특기는 못 그만둔다. 다시 배우면 1레벨부터
+  if (t.dataset.npcfol) { const n = npcBy(S, t.dataset.npcfol); if (n) { npcFollow(n, !n.fol); save(S); renderPanel(); } return; }
   if (t.dataset.skdropmode != null) { UI.skDrop = !UI.skDrop; renderPanel(); return; }
   if (t.dataset.skdrop) {
     const k = t.dataset.skdrop, why = skKeepWhy(S, k), n = SKILLS[k].n;
