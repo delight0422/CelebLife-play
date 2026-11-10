@@ -201,11 +201,12 @@ function stageLabel(s) {
   if (tops.length) return tops.join(' · ');
   const a = age(s);
   if (s.army) return '군 복무 중';
-  if (a < 7) return a < 1 ? '아기' : '유년기';
-  if (a < 13) return '초등학생';
-  if (a < 16) return '중학생';
-  if (a < 19) return `고등학생${s.edu.hs && s.edu.hs !== '일반고' ? ' · ' + s.edu.hs : ''}`;
-  if (s.edu.uni && s.t < s.edu.uni.end) return `대학생 · ${s.edu.uni.n}`;
+  const y = schoolYear(s);
+  if (y < 1 && a < 19) return a < 1 ? '아기' : '유년기';
+  if (y < 7) return '초등학생';
+  if (y < 10) return '중학생';
+  if (!s.edu.graduated && y <= 12) return `고등학생${s.edu.hs && s.edu.hs !== '일반고' ? ' · ' + s.edu.hs : ''}`;
+  if (inUni(s)) return `대학생 · ${s.edu.uni.n}`;
   // 결혼했고 30세가 넘었는데 하는 일이 없으면 전업주부
   if (married(s) && a >= 30 && !s.slots.some(sl => sl.act === 'job')) return '전업주부';
   return s.slots.some(sl => sl.act === 'job') ? '아르바이트 중' : '진로를 찾는 중';
@@ -324,6 +325,8 @@ function upcomingWorks(s) {
   for (const x of q('w_res')) at(x.at, x.d.title, `${x.d.a.name} ${x.d.main ? '타이틀곡' : '수록곡'} · ${wJob(x.d.kind)}`);
   for (const x of q('solo_relres')) at(x.at, x.d.title, `내 신곡${x.d.self ? ' · 자작곡' : ''}`);
   for (const x of q('band_relres')) if (s.tracks.band && s.tracks.band.b) at(x.at, x.d.title, `밴드 「${s.tracks.band.b.name}」 신곡${x.d.self ? ' · 자작곡' : ''}`);
+  // 수락한 페스티벌 무대 (v117 밸런스 C2)
+  for (const x of q('band_fest_play')) if (s.tracks.band && s.tracks.band.b) L.push({ m: x.at, title: x.d.from, what: `🗓️ 밴드 「${s.tracks.band.b.name}」 페스티벌 출연 예정`, when: `${ymLater(s, Math.max(0, x.at - s.t))} 첫 주말 출연` });
   return L.sort((a, b) => a.m - b.m);
 }
 // 공개 예정 작품 창
@@ -440,7 +443,7 @@ function renderStatusCard() {
 }
 // 재정: 현금(크게) → 빚 → 지난달 → 맨 아래 총자산(집에 든 내 돈까지). 누르면 재정 창
 // 가족이 대 준 돈이 무엇이었는지 (v116 버그 14): 대학 다니는 중이면 등록금, 고교 졸업 전이면 학원비, 그 밖에는 생활비만
-function famPaidWhat(s) { return s.edu.uni && s.t < s.edu.uni.end ? '등록금·생활비' : !s.edu.graduated ? '학원비·생활비' : '생활비'; }
+function famPaidWhat(s) { return inUni(s) ? '등록금·생활비' : !s.edu.graduated ? '학원비·생활비' : '생활비'; }
 function renderMoneyCard() {
   const s = S, lm = s.lastMon || { inc: 0, exp: 0, familyPaid: 0 }, ha = houseAsset(s);
   let m = `<div class="card-h">💰 재정<span class="bn-arr">›</span></div>`;
@@ -1250,7 +1253,7 @@ function jobTaskHTML(s, id) {
   if (f) {
     h += `<div class="lnote">🔒 ${U.esc(lockWhy(s, 'c_' + id) || c.n)} · 정해진 일정이라 그만둘 수 없다</div>`;
     for (const x of jobTasks(id)) if (cur && cur.id === x.id) h += `<div class="act lrow"><div><div class="a-t">${U.esc(`${x.ic} ${x.n}`)}<span class="tag">하는 중</span></div><div class="lr-eff">${U.esc(x.eff.map(([k, v]) => `${k} ${v}`).join(' · '))}</div></div><span class="act-fixed">🔒 고정</span></div>`;
-    return h;
+    return h + jobPicksHTML(s, id, true);
   }
   if (!n) h += `<div class="lnote">일정에 빈 칸이 없다 (고정 일정이 다 차 있다)</div>`;
   else if (!cur) h += `<div class="lnote warn">할 일을 고르지 않으면 평가가 크게 떨어진다</div>`;
@@ -1258,7 +1261,12 @@ function jobTaskHTML(s, id) {
     const on = !!cur && cur.id === x.id;
     h += actRow({ t: `${x.ic} ${x.n}`, tag: on ? '하는 중' : '', eff: x.eff.map(([k, v]) => `${k} ${v}`).join(' · '), ok: n > 0 || on, why: '일정에 빈 칸이 없다 (고정 일정이 다 차 있다)', btn: on ? '그만하기' : '하기', run: s => { s.jobDo = s.jobDo || {}; if (on) { delete s.jobDo[id]; return `${josa(x.n, '을를')} 그만했다.`; } s.jobDo[id] = x.id; return ''; } });
   }
-  return h;
+  return h + jobPicksHTML(s, id, !!cur && n > 0);
+}
+// 골라서 하는 일 (v117: 밴드 · 아이돌 그룹의 팀 활동). 그 직업 일을 하고 있을 때만 고를 수 있다
+function jobPicksHTML(s, id, on) {
+  const c = CAREERS[id], P = c.picks ? c.picks(s, s.tracks[id]) : [];
+  return P.length ? `<div class="sec-h">🖐️ 골라서 하는 일</div>` + P.map(a => actRow(Object.assign({}, a, on ? {} : { ok: false, why: '일정에 이 일을 넣어야 할 수 있다' }))).join('') : '';
 }
 // 직업 활동 두 갈래 (7-4단계부터): 칸만 넣어 두면 자동으로 하는 일 + 칸을 넣은 채로 골라서 하는 일 (c.picks)
 function jobAutoHTML(s, id, n) {

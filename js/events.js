@@ -164,19 +164,20 @@ E({
 // ════════ 초등학교 ════════
 E({
   id: 'can_schedule', fixed: true, once: true, cat: '알림', title: '이제 일정을 정할 수 있어요', keepPop: true,
-  cond: s => age(s) >= 7,
-  text: () => '일곱 살이 되었다. 오늘부터 매달 할 일을 직접 정할 수 있다.\n\n"📅 이번 달 일정"에서 칸을 누르면 할 일을 고를 수 있다. 배운 특기는 거기서 연습하거나 학원에 다닐 수 있다. 아직 아무것도 안 배웠다면 친구와 놀거나 쉬어도 된다.',
-  ch: () => [{ t: '알겠어요', f: () => '' }],
+  cond: s => schoolYear(s) >= 1,
+  text: () => '초등학교에 들어갈 때가 되었다. 오늘부터 매달 할 일을 직접 정할 수 있다.\n\n"📅 이번 달 일정"에서 칸을 누르면 할 일을 고를 수 있다. 배운 특기는 거기서 연습하거나 학원에 다닐 수 있다. 아직 아무것도 안 배웠다면 친구와 놀거나 쉬어도 된다.',
+  // 입학식은 이 창을 닫자마자 같은 달에 이어서 (v117 학사 일정: 둘 다 초1 3월)
+  ch: () => [{ t: '알겠어요', f: s => { queueEv(s, 'school_start', 0); return ''; } }],
 });
 // 일정 칸이 늘면(13세 · 19세 · 전용 밴) 알림 창으로 알려 준다 (v89). 일곱 살에 처음 생길 때는 위의 창이 알려 준다. 특별한 일에는 남기지 않는다
 E({
   id: 'slot_up', cat: '알림', title: '일정 칸이 늘었어요', keepPop: true,
-  text: (s, d) => `${d.van ? '전용 밴과 운전기사 덕분에 이동 시간이 줄었다.' : age(s) >= 19 ? '성인이 되었다. 하루를 온전히 내 뜻대로 쓸 수 있다.' : '열세 살이 되었다. 혼자 할 수 있는 일이 늘었다.'}\n\n이제 매달 할 일을 ${d.b}칸 정할 수 있다 (${d.a}칸 → ${d.b}칸). "📅 이번 달 일정"에서 새 칸을 눌러 할 일을 고르면 된다.`,
+  text: (s, d) => `${d.van ? '전용 밴과 운전기사 덕분에 이동 시간이 줄었다.' : age(s) >= 19 ? '성인이 되었다. 하루를 온전히 내 뜻대로 쓸 수 있다.' : '중학생이 되었다. 혼자 할 수 있는 일이 늘었다.'}\n\n이제 매달 할 일을 ${d.b}칸 정할 수 있다 (${d.a}칸 → ${d.b}칸). "📅 이번 달 일정"에서 새 칸을 눌러 할 일을 고르면 된다.`,
   ch: () => [{ t: '알겠어요', f: () => '' }],
 });
 E({
   id: 'school_start', fixed: true, once: true, cat: '초등학교', title: '입학식',
-  cond: s => age(s) >= 7 && s.done.can_schedule,
+  cond: s => schoolYear(s) >= 1 && s.done.can_schedule,
   text: () => '초등학교 입학식 날. 새 책가방이 아직 조금 크다.',
   // 고르는 것과 상관없이 결과가 같아서 알림으로만 보여 준다
   ch: s => [
@@ -185,21 +186,21 @@ E({
 });
 E({
   id: 'best_friend', fixed: true, once: true, cat: '초등학교', title: '첫 짝꿍',
-  cond: s => age(s) === 7 && s.t % 12 >= 2,
+  cond: s => schoolYear(s) === 1 && calM(s) >= 3,
   init(s, d) { const g0 = myGender(s); d.c = [0, 1].map(() => { const g = U.chance(0.6) ? g0 : (g0 === '여' ? '남' : '여'); return { g, name: genName(g), trait: U.pick(TRAITS).id, look: U.pick(g === '여' ? LOOKS_F : LOOKS_M) }; }); },
   text: (s, d) => '초등학교에서 새 친구들을 만났다. 누구랑 친해질까?\n\n' + d.c.map(c => `· ${c.name} (${c.g === '여' ? '여자아이' : '남자아이'}) — ${TRAIT_BY[c.trait].n}`).join('\n'),
   ch: (s, d) => d.c.map(c => ({ t: c.name, f: s => { makePerson(s, { g: c.g, name: c.name, trait: c.trait, look: c.look, age: age(s), rel: '친구', aff: 55, met: '초등학교 단짝' }); return `${josa(c.name, '과와')} 단짝 친구가 되었다.`; } })),
 });
 E({
   id: 'after_school', once: true, p: 0.075, cat: '초등학교', title: '방과후 교실',
-  cond: s => age(s) >= 7 && age(s) <= 9 && s.done.school_start,
+  cond: s => schoolYear(s) >= 1 && schoolYear(s) <= 3 && s.done.school_start,
   text: s => `학교에서 방과후 교실 신청서를 나눠 줬다. 하나는 무료로 들을 수 있다.${s.wealth <= 3 ? ' 학원 보낼 형편은 안 되니, 엄마가 이거라도 꼭 들으라고 하셨다.' : ''}`,
   init(s, d) { d.o = fitPick(s, [['방과후 합창반', 'vocal'], ['방과후 미술', 'art'], ['방과후 방송댄스', 'dance'], ['방과후 컴퓨터', 'game'], ['방과후 영어', 'en'], ['방과후 피아노', 'piano'], ['방과후 연극놀이', 'acting'], ['방과후 스피치', 'variety']].filter(x => skOpen(s, x[1]) && !has(me(s), x[1])), 3); },
   ch: (s, d) => d.o.map(([t, k]) => ({ t, h: gainH(s, k), f: s => `${josa(t, '을를')} 들었다.` + learnMe(s, k) })).concat([{ t: '아무것도 신청하지 않는다', f: () => '방과후 교실은 신청하지 않았다. 친구들과 운동장에서 놀았다.' }]),
 });
 E({
   id: 'english_class', fixed: true, once: true, cat: '초등학교', title: '영어 시간',
-  cond: s => age(s) >= 9 && s.done.school_start,
+  cond: s => schoolYear(s) >= 3 && s.done.school_start,
   text: () => '3학년이 되니 영어 수업이 시작됐다.',
   ch: s => [
     { t: '수업을 듣는다', f: s => '영어 수업을 듣기 시작했다.' + learnMe(s, 'en') },
@@ -208,7 +209,7 @@ E({
 // 중학교에 들어가면 제2외국어로 일본어를 배운다 (이미 할 줄 알면 넘어간다)
 E({
   id: 'jp_class', fixed: true, once: true, cat: '중학교', title: '일본어 시간',
-  cond: s => age(s) >= 13 && age(s) < 16 && s.done.school_start && !has(me(s), 'jp'),
+  cond: s => schoolYear(s) >= 7 && schoolYear(s) <= 9 && s.done.school_start && !has(me(s), 'jp'),
   text: () => '중학교에 올라오니 제2외국어로 일본어 수업이 생겼다.',
   // v101: 제2외국어는 시간만 채울 수도 있다 (특기를 안 받는다)
   ch: s => [
@@ -336,14 +337,28 @@ talentEv('stage_actor', 'express', 'acting', 8, 25, '연기 잘하네', '친구�
 talentEv('sing_choir', ['music', 'voice'], 'vocal', 6, 25, '노래 잘한다는 말', '노래방에서 내가 부르면 다들 조용해진다. 친구가 합창단에 같이 들어가자고 한다.', '들어간다', '합창단에 들어가 처음으로 발성을 배웠다.');
 
 // ════════ 중·고등학교 ════════
-// 중학교 동아리: 특기마다 하나씩 (공부는 귀가부도 된다)
+// 중학교 진로 체험의 날 (v117): 하루 동안 직업 하나를 체험한다. 아직 안 배운 특기를 시작할 수 있을 뿐, 성장 속도는 그대로 (동아리와 다르다)
+const JOB_EXPS = [['방송국 견학 · 영상 편집 체험', 'edit'], ['녹음실 · 작곡가 체험', 'compose'], ['작사가 체험', 'lyric'], ['기획사 연습실 · 댄스 체험', 'dance'], ['보컬 트레이너 체험', 'vocal'], ['힙합 레이블 · 래퍼 체험', 'rap'],
+  ['실용음악 학원 · 기타 체험', 'guitar'], ['실용음악 학원 · 베이스 체험', 'bass'], ['실용음악 학원 · 드럼 체험', 'drum'], ['실용음악 학원 · 키보드 체험', 'keyboard'], ['피아니스트 체험', 'piano'], ['극단 · 배우 체험', 'acting'],
+  ['예능 PD 체험', 'variety'], ['영화감독 체험', 'direct'], ['드라마 작가 체험', 'script'], ['웹툰 작가 체험', 'art'], ['게임 회사 체험', 'game'], ['캐스팅 매니저 체험', 'scout'], ['선생님 체험', 'edu'], ['스타트업 체험', 'biz']];
+E({
+  id: 'job_exp', fixed: true, once: true, cat: '중학교', title: '진로 체험의 날',
+  cond: s => schoolYear(s) >= 7 && schoolYear(s) <= 9 && (schoolYear(s) > 7 || calM(s) >= 8),
+  init(s, d) { d.o = fitPick(s, JOB_EXPS.filter(x => !has(me(s), x[1]) && skOpen(s, x[1])), 4); if (!d.o.length) d.skip = true; },
+  text: () => '학교에서 진로 체험의 날이 열렸다. 하루 동안 직업 하나를 골라 체험해 볼 수 있다.',
+  ch: (s, d) => d.o.map(([t, k]) => ({ t, h: gainH(s, k), f: s => `${josa(t, '을를')} 했다. 생각보다 재밌어서 집에 와서도 계속 해 봤다.` + learnMe(s, k) }))
+    .concat([{ t: '구경만 하고 온다', f: () => '진로 체험의 날, 이것저것 구경만 하고 왔다.' }]),
+});
+// 고등학교 동아리 (v117: 중학교에서 옮겼다): 특기마다 하나씩 (공부는 귀가부도 된다)
+// 들어간 동아리의 특기는 고등학교 다니는 동안 CLUB_MULT배 빨리 는다 (학과 · 장비와 곱한다, schoolBonus)
+const CLUB_MULT = 1.2;
 const CLUBS = [['합창부', 'vocal'], ['힙합 동아리', 'rap'], ['댄스 동아리', 'dance'], ['밴드부 (기타)', 'guitar'], ['밴드부 (베이스)', 'bass'], ['피아노부', 'piano'], ['밴드부 (키보드)', 'keyboard'], ['밴드부 (드럼)', 'drum'], ['작곡 동아리', 'compose'], ['시 창작 동아리', 'lyric'], ['문예부', 'script'], ['영화 동아리', 'direct'], ['방송부', 'edit'], ['연극부', 'acting'], ['개그 동아리', 'variety'], ['e스포츠 동아리', 'game'], ['과학 탐구반', 'study'], ['일본 문화 동아리', 'jp'], ['영어 회화 동아리', 'en'], ['만화부', 'art'], ['심리 탐구 동아리', 'scout'], ['또래 멘토링 동아리', 'edu'], ['창업 동아리', 'biz']];
 E({
-  id: 'club', fixed: true, once: true, cat: '중학교', title: '동아리 고르기',
-  cond: s => age(s) >= 13 && s.t % 12 >= 2,
-  text: () => '중학교 동아리 신청 기간이다. 어디에 들어갈까?',
+  id: 'club', fixed: true, once: true, cat: '고등학교', title: '동아리 고르기',
+  cond: s => schoolYear(s) >= 10 && !s.edu.graduated && (schoolYear(s) > 10 || calM(s) >= 3),
+  text: () => '고등학교 동아리 신청 기간이다. 어디에 들어갈까?\n\n동아리에서 하는 특기는 졸업할 때까지 더 빨리 는다.',
   init(s, d) { d.o = fitPick(s, CLUBS.filter(x => skOpen(s, x[1])), 5); },
-  ch: (s, d) => d.o.map(([t, k]) => ({ t, f: s => `${t.replace(/ \(.*\)/, '')}에 들어갔다.` + learnMe(s, k) + fx(s, { sk: { [k]: 1 } }) })).concat([{ t: '귀가부', h: '집에 일찍 와서 공부한다 · 학업이 오른다', f: s => { s.flags.homeClub = true; return '동아리는 들지 않았다. 집에 일찍 와서 공부하는 시간이 늘었다.' + fx(s, { sk: { study: 3 } }); } }]),
+  ch: (s, d) => d.o.map(([t, k]) => ({ t, h: has(me(s), k) ? `${skN(k)} 연습이 더 빨리 는다` : gainH(s, k), f: s => { s.edu.club = k; return `${t.replace(/ \(.*\)/, '')}에 들어갔다.` + learnMe(s, k) + fx(s, { sk: { [k]: 1 } }); } })).concat([{ t: '귀가부', h: '집에 일찍 와서 공부한다 · 학업이 오른다', f: s => { s.flags.homeClub = true; return '동아리는 들지 않았다. 집에 일찍 와서 공부하는 시간이 늘었다.' + fx(s, { sk: { study: 3 } }); } }]),
 });
 E({
   id: 'anime', once: true, p: 0.003, cat: '학창 시절', title: '애니에 빠졌다', tal: 'intel',
@@ -371,7 +386,7 @@ E({
 });
 E({
   id: 'festival', cd: 12, p: 0.05, cat: '학교', title: '학교 축제',
-  cond: s => (age(s) >= 13 && age(s) <= 18) || (s.edu.uni && s.t < s.edu.uni.end),
+  cond: s => (schoolYear(s) >= 7 && !s.edu.graduated) || inUni(s),
   init(s, d) { const un = [['노래로 무대에 선다', 'vocal'], ['춤으로 무대에 선다', 'dance'], ['연극 무대에 선다', 'acting'], ['밴드 공연에 낀다', 'guitar'], ['사회를 본다', 'variety'], ['랩 무대를 한다', 'rap']].filter(x => !has(me(s), x[1]) && skOpen(s, x[1])); d.nw = un.length && learnedSkills(me(s)).length < 8 && U.chance(0.15) ? fitPick(s, un, 1)[0] : null; },
   text: () => '학교 축제가 다가온다. 무대에 설 사람을 찾는다.',
   ch(s, d) {
@@ -388,7 +403,7 @@ E({
 });
 E({
   id: 'hs_choice', fixed: true, once: true, cat: '진학', title: '고등학교 진학',
-  cond: s => age(s) === 15 && s.t % 12 >= 9,
+  cond: s => schoolYear(s) === 9 && calM(s) >= 8,
   text: s => '중학교 졸업이 다가온다. 어느 고등학교에 갈까?\n\n예술고나 특성화고에 가면 그 학과에서 배우는 특기(예: 실용음악과는 보컬·악기·작곡)가 1.25배 빨리 는다. 들어가려면 실기 시험을 봐야 한다.' + (s.wealth <= 3 ? '\n\n다만 예술고는 학비와 레슨비가 만만치 않다. 다니는 동안 매달 20만 원이 든다.' : ''),
   ch(s) {
     const best = ks => Math.max(...ks.map(k => stageLv(s, k)));
@@ -417,7 +432,8 @@ E({
 });
 E({
   id: 'college', fixed: true, once: true, cat: '진학', title: '수능과 대학',
-  cond: s => age(s) === 18 && s.t % 12 >= 10,
+  // 수능은 11월, 결과를 보고 대학을 고르는 건 12월 (v117 학사 일정). 다른 창에 밀리면 1~2월에
+  cond: s => schoolYear(s) === 12 && (calM(s) === 11 || calM(s) <= 1),
   text: s => `수능이 끝났다. 학업 ${lvi(me(s), 'study')}레벨. 대학에 갈까?` + (s.wealth >= 5 ? '\n\n등록금은 부모님이 내 주신다.' : '\n\n집 형편상 등록금은 학자금 대출(매달 70만 원씩 빚)로 내야 한다.'),
   ch(s) {
     const best = ks => Math.max(...ks.map(k => stageLv(s, k)));
@@ -433,7 +449,7 @@ E({
     ].map(([n, b, core, off]) => {
       const pp = off != null ? schoolP(s, Math.max(best(b), stageLv(s, 'study') * 0.6), off, 0.03)
         : schoolP(s, stageLv(s, 'study'), n === '경영학과' ? -3 : -6, 0.03);
-      return { t: n, h: `합격 가능성 ${pct(pp)} · 4년 동안 ${b.map(k => SKILLS[k].n).join('·')} 연습이 빨리 는다`, f: s => { if (U.chance(pp)) { s.edu.uni = { n, bonus: b, end: s.t + 48 }; milestone(s, `${n}에 입학했다.`); const used = admitSkill(s, b, has(me(s), 'study') && off != null ? 'study' : core); return (off != null && used !== 'study' ? `${n}에 ${SKILLS[used].n} 실기로 합격했다!` : `${n}에 합격했다!`) + learnMe(s, used) + (b.includes('direct') && !has(me(s), 'direct') ? learnMe(s, 'direct') : '') + fx(s, { stress: -6 }); } return `${n}에 떨어졌다. 재수는 하지 않기로 했다.` + fx(s, { stress: 6 }); } };
+      return { t: n, h: `합격 가능성 ${pct(pp)} · 4년 동안 ${b.map(k => SKILLS[k].n).join('·')} 연습이 빨리 는다`, f: s => { if (U.chance(pp)) { const st = s.t + (14 - calM(s)) % 12; s.edu.uni = { n, bonus: b, st, end: st + 48 }; milestone(s, `${n}에 합격했다.`); const used = admitSkill(s, b, has(me(s), 'study') && off != null ? 'study' : core); return (off != null && used !== 'study' ? `${n}에 ${SKILLS[used].n} 실기로 합격했다!` : `${n}에 합격했다!`) + learnMe(s, used) + (b.includes('direct') && !has(me(s), 'direct') ? learnMe(s, 'direct') : '') + fx(s, { stress: -6 }); } return `${n}에 떨어졌다. 재수는 하지 않기로 했다.` + fx(s, { stress: 6 }); } };
     });
     o.push({ t: '대학은 가지 않는다', f: () => '대학에 가지 않기로 했다.' });
     return o;
@@ -662,15 +678,6 @@ E({
   ch: () => [
     { t: '한다', f: s => '행사장에서 2주 동안 박스를 날랐다.' + fx(s, { money: 150e4, stress: 6 }) },
     { t: '안 한다', f: () => '알바 제안을 거절했다.' },
-  ],
-});
-E({
-  id: 'scam', cd: 60, cat: '돈', title: '솔깃한 투자 권유', auto: 1, autoK: 'flavor',
-  p: s => s.money >= 2000e4 ? 0.008 : 0,
-  text: () => '오랜만에 연락 온 지인이 무조건 두 배가 된다는 투자처를 알려 준다. 원금 보장이란다.',
-  ch: () => [
-    { t: '1,000만 원 넣는다', h: '아무리 봐도 수상하다', f: s => U.chance(0.15) ? '운 좋게 두 배가 돼서 돌아왔다.' + fx(s, { money: 1000e4 }) : '지인과 연락이 끊겼다. 돈은 돌아오지 않았다.' + fx(s, { money: -1000e4, stress: 10 }) },
-    { t: '거절한다', f: () => '오랜만에 연락 온 지인이 두 배가 된다는 투자를 권했다. 정중하게 거절했다.' },
   ],
 });
 E({

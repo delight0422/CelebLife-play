@@ -20,7 +20,8 @@ const CO_OFFICE = [0, 100e4, 500e4, 2000e4];
 const CO_TR_COST = [0, 50e4, 80e4, 120e4];
 const CO_AUD_COST = [0, 300e4, 1000e4, 3000e4];
 const CO_TR_CAP = [0, 8, 14, 24], CO_GRP_CAP = [0, 2, 3, 5], CO_TRAINER_CAP = [0, 2, 4, 6];
-const CO_EQ = { n: ['없음', '기본 연습실', '좋은 연습실', '최고급 연습실'], cost: [0, 3000e4, 1e8, 3e8], up: [0, 100e4, 250e4, 600e4], mult: [1, 1.25, 1.5, 2] };
+// v117 밸런스 B: 연습실 차이를 키웠다 (1.25 · 1.5 · 2 → 1.4 · 1.8 · 2.4)
+const CO_EQ = { n: ['없음', '기본 연습실', '좋은 연습실', '최고급 연습실'], cost: [0, 3000e4, 1e8, 3e8], up: [0, 100e4, 250e4, 600e4], mult: [1, 1.4, 1.8, 2.4] };
 // 앨범 제작비: 회사 크기별 최대, 그룹 팬이 30만 명이 되면 다 쓴다. 밴드는 절반
 const CO_PROD = [0, 0.5e8, 1.5e8, 3e8];
 const CO_CUT = 0.7, CO_TERM = 84;
@@ -343,8 +344,9 @@ function coTrainMonth(s, t, teach) {
   for (const x of coTrainees(s)) {
     for (const k of coSkillsOf(x)) {
       const tr = coTrainer(s, k);
-      let base = (k === 'variety' && x.co.kind !== 'vt' ? 1 : 3) * (tr ? 1 + teachLv(tr, k) / 50 : 1);
-      if (teach && has(p, k)) base += teachLv(p, k) / 25;
+      // v117 밸런스 B: 기본을 조금 올리고, 트레이너 · 대표가 직접 가르치는 효과를 크게 (연습생 1~2년이면 데뷔를 생각해 볼 만큼)
+      let base = (k === 'variety' && x.co.kind !== 'vt' ? 1 : 3.5) * (tr ? 1 + teachLv(tr, k) / 30 : 1);
+      if (teach && has(p, k)) base += teachLv(p, k) / 12;
       practice(s, x, k, base, eqm);
     }
     // 데뷔를 오래 기다린 연습생은 나이가 차면 떠난다

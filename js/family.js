@@ -241,7 +241,7 @@ function continueAs(s, kidId) {
   ns.coNames = s.coNames;
   if (ka >= 19) { ns.edu.graduated = true; ns.money = ns.wealth >= 7 ? 3000e4 : ns.wealth >= 5 ? 1000e4 : 200e4; }
   // 이미 지나간 나이의 정해진 사건은 다시 일어나지 않게 한다
-  const passed = { dol: 1, can_schedule: 7, school_start: 7, english_class: 9, jp_class: 13, club: 14, hs_choice: 16, college: 19, leave_home: 20, best_friend: 8 };
+  const passed = { dol: 1, can_schedule: 7, school_start: 7, english_class: 9, jp_class: 13, job_exp: 15, club: 17, hs_choice: 16, college: 19, leave_home: 20, best_friend: 8 };
   for (const [id, a] of Object.entries(passed)) if (ka >= a) ns.done[id] = 1;
   if (ka >= 7 && !has(kid, 'study')) learnSkill(ns, kid, 'study', 5);
   if (ka >= 9 && !has(kid, 'en')) learnSkill(ns, kid, 'en', 3);

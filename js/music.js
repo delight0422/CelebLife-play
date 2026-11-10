@@ -515,6 +515,8 @@ CAREERS.idol = {
   short(s, t) { return t.st === 'trainee' ? `${t.agN} 연습생` : t.st === 'active' ? `${t.g.name} 멤버` : ''; },
   title(s, t) { return t.g ? `${t.g.name}의 멤버` : null; },
   contract(s, t) { return t.st === 'trainee' || t.st === 'active' ? t.agN : ''; },
+  // 팀 활동 (v117 밸런스 A3): 데뷔한 그룹만
+  picks(s, t) { return teamPicks(s, 'idol'); },
   cLeft(s, t) { return t.st === 'trainee' ? t.cEnd - t.months : t.st === 'active' ? t.contract - t.months : null; },
   // 일정 칸에 보여 줄 특기: 밴드 연습생은 내 파트, 그룹은 포지션, 연습생은 가장 잘하는 것
   mainSk(s, t) {
@@ -540,6 +542,7 @@ CAREERS.idol = {
     } else if (t.st === 'active') {
       const g = t.g;
       R.push(['그룹 팬', MK.map(m => `${MK_N[m]} ${fmtFans(g.f[m])}`).join(' · ')]);
+      R.push(['팀워크', twWord(g)]);
       R.push(['팬덤 · 대표 콘셉트', `${g.fandom} · ${g.sig}`]);
       R.push({ h: '멤버', items: [`나 — ${t.pos}`].concat(g.members.map(id => s.people[id]).filter(Boolean).map(x => `${x.name} (${pAge(s, x)}세) ${g.pos[x.id] || ''} — ${relWord(x)}${soulTag(x)}`)) });
     }
@@ -577,7 +580,7 @@ function idolTraineeMonth(s, t) {
   const p = me(s), n = slotsOn(s, 'c_idol'), mult = 1.45 + t.tier * 0.15;
   const ks = t.kind === 'band' ? [t.part, 'vocal'] : ['vocal', 'dance', 'rap'];
   for (let i = 0; i < n; i++) for (const k of ks) if (has(p, k)) practice(s, p, k, t.kind === 'band' ? (k === t.part ? 1 : 0.3) : 1.0, mult);
-  for (const m of people(s, x => x.trainee === t.ag)) for (const k of (m.part ? [m.part] : ['vocal', 'dance', 'rap'])) mateGrow(s, m, k, 0.6);
+  for (const m of people(s, x => x.trainee === t.ag)) for (const k of (m.part ? [m.part] : ['vocal', 'dance', 'rap'])) { matePot(m, k); mateGrow(s, m, k, 1); }
   addStress(s, 2.5);
   const band = t.kind === 'band';
   const mine = (band ? traineeScore(s, t) + idolAgeAdj(age(s)) * 0.5 : idolScore(s)) + pm(s, 'audition', 0) + U.normal(0, 3);
@@ -614,7 +617,9 @@ function idolActiveMonth(s, t) {
   const g = t.g, p = me(s), n = slotsOn(s, 'c_idol');
   // 그룹 연습으로 노래·춤·랩이 는다. 활동기에는 무대·스케줄로 바빠서 혼자 연습만큼, 쉬는 기간에는 회사 연습실에서 더 많이 (예능은 안 는다)
   for (let i = 0; i < n; i++) for (const k of ['vocal', 'dance', 'rap']) if (has(p, k)) practice(s, p, k, t.promo > 0 ? 1 : 1.4);
-  for (const id of g.members) { const m = s.people[id]; if (m) { for (const k of ['vocal', 'dance', 'rap']) mateGrow(s, m, k, 0.3); m.contactT = s.t; } }
+  // 멤버도 같이 큰다 (v117 밸런스 A). 같이 활동한 시간만큼 팀워크가 조금씩
+  const tmI = teamOf(s, 'idol'); if (tmI) teamGrow(s, tmI, 1);
+  twAdd(g, twOf(g) < 60 ? 0.5 : -0.3); // 그냥 같이 지내는 것만으로는 60까지. 그 위는 팀 활동 · 사건으로 올리고, 손을 놓으면 천천히 내려온다
   if (t.promo > 0) { t.promo--; addStress(s, 4 * pm(s, 'crowdStress')); }
   else {
     addStress(s, 1.5); t.nextCb--;
@@ -843,7 +848,8 @@ function groupPower(s, g) {
   const mine = s.people[s.me], others = all.filter(x => x.id !== s.me);
   const avg = f => !others.length ? f(mine) : f(mine) * 0.5 + others.reduce((a, x) => a + f(x), 0) / others.length * 0.5;
   const mv = at('메인보컬'), mr = at('메인래퍼'), vs = at('비주얼');
-  return (mv ? lv(mv, 'vocal') : 0) * 0.25 + (mr ? lv(mr, 'rap') : 0) * 0.15 + avg(x => lv(x, 'dance')) * 0.25 + avg(x => Math.max(lv(x, 'vocal'), lv(x, 'rap'))) * 0.25 + avg(x => lv(x, 'variety')) * 0.1 + (vs ? (vs.tal.looks - 50) * 0.15 : 0);
+  // v117: 팀워크만큼 0.8~1.2배
+  return ((mv ? lv(mv, 'vocal') : 0) * 0.25 + (mr ? lv(mr, 'rap') : 0) * 0.15 + avg(x => lv(x, 'dance')) * 0.25 + avg(x => Math.max(lv(x, 'vocal'), lv(x, 'rap'))) * 0.25 + avg(x => lv(x, 'variety')) * 0.1 + (vs ? (vs.tal.looks - 50) * 0.15 : 0)) * twMul(g);
 }
 function newGroupName(s, size) {
   const used = new Set(s.usedNames || []);
@@ -867,7 +873,7 @@ function makeGroup(s, t, surv) {
   for (const id of ids) { const n = s.people[id]; n.rel = '멤버'; n.job = '아이돌'; n.trainee = null; n.aff = Math.max(n.aff, 40); n.metOrg = ag.n; }
   const all = [s.me].concat(ids);
   const star = Math.round(all.reduce((a, id) => a + s.people[id].tal.star, 0) / all.length + U.normal(0, 6));
-  return { name: newGroupName(s, all.length), fandom: U.pick(FANDOM_NAMES), members: ids, pos: assignIdolPos(s, all), mo: U.normal(0, 4) + (agPlan(t) - 50) * 0.04, sig: U.pick(TRENDS.filter(x => cAgeOK(s, all.map(id => s.people[id]).filter(Boolean), x, 1))), star: U.clamp(star, 10, 98), f: { kr: 0, jp: 0, us: 0 }, base: ag.tier * 3000 + U.int(300, 2000) + (surv || 0) };
+  return { tw: surv ? 20 : 30, name: newGroupName(s, all.length), fandom: U.pick(FANDOM_NAMES), members: ids, pos: assignIdolPos(s, all), mo: U.normal(0, 4) + (agPlan(t) - 50) * 0.04, sig: U.pick(TRENDS.filter(x => cAgeOK(s, all.map(id => s.people[id]).filter(Boolean), x, 1))), star: U.clamp(star, 10, 98), f: { kr: 0, jp: 0, us: 0 }, base: ag.tier * 3000 + U.int(300, 2000) + (surv || 0) };
 }
 // 아이돌 곡 점수에 붙는 회사 크기 보너스 (다른 직업은 등급×4 그대로). 소형과 중형보다 중형과 대형 차이가 훨씬 크다
 const IDOL_TIER_B = [0, 7, 9, 13];
@@ -1060,7 +1066,7 @@ E({
 });
 E({
   id: 'idol_cbres', cat: '앨범 성적', title: '앨범 성적표', tag: 'career',
-  init(s, d) { const t = s.tracks.idol; if (t.st !== 'active') { d.skip = true; return; } d.r = idolRelease(s, t, d.c, d.debut); },
+  init(s, d) { const t = s.tracks.idol; if (t.st !== 'active') { d.skip = true; return; } d.r = idolRelease(s, t, d.c, d.debut); teamRel(s, 'idol', t, d.r.peak, !d.r.peak || d.r.peak > 60); },
   text(s, d) {
     const r = d.r, g = s.tracks.idol.g;
     const my = MK.filter(m => r.my[m]).map(m => `${MK_N[m]} ${sgnFans(r.my[m])}`).join(' · ') || '변화 없음';
@@ -1127,16 +1133,225 @@ INBOX.idol_solo = {
 };
 E({
   id: 'idol_conflict', cat: '그룹', title: '멤버 사이의 냉기', tag: 'career', cd: 12, p: 0.02,
-  cond: s => s.tracks.idol.st === 'active' && s.tracks.idol.g.members.filter(id => s.people[id]).length >= 2,
-  init(s, d) { const m = U.shuffle(s.tracks.idol.g.members.filter(id => s.people[id])); d.a = m[0]; d.b = m[1]; },
+  // v117: 밴드에서도 난다. 어떻게 푸느냐에 따라 팀워크가 오르내린다
+  cond: s => myTeams(s).some(x => x.mem.length >= 2),
+  init(s, d) { const tm = U.pick(myTeams(s).filter(x => x.mem.length >= 2)), m = U.shuffle(tm.mem.map(x => x.id)); d.k = tm.k; d.a = m[0]; d.b = m[1]; },
   text: (s, d) => { const a = s.people[d.a], b = s.people[d.b]; return `요즘 ${josa(a.name, '과와')} ${b.name} 사이가 냉랭하다. 연습실 공기가 무겁다. ${josa(a.name, '은는')} ${TRAIT_BY[a.trait].n}, ${josa(b.name, '은는')} ${TRAIT_BY[b.trait].n} 성격이다.`; },
   ch(s, d) {
-    const a = s.people[d.a], b = s.people[d.b];
+    const a = s.people[d.a], b = s.people[d.b], tw = v => { const tm = teamOf(s, d.k || 'idol'); if (tm) twAdd(tm.o, v); };
     const p = U.clamp(0.35 + lv(me(s), 'variety') / 150 + (me(s).tal.insight - 50) / 200, 0.2, 0.9);
     return [
-      { t: '둘 사이를 중재한다', h: `잘 풀릴 가능성 ${fmtPct(p)}`, f: s => { if (U.chance(p)) { bond(s, a, 8); bond(s, b, 8); return `${josa(a.name, '과와')} ${b.name} 사이를 풀어 줬다. 둘 다 고맙다고 했다.` + fx(s, { stress: 2 }); } bond(s, a, -4); bond(s, b, -4); return '중재하려다 오히려 둘 다 서운해했다.' + fx(s, { stress: 6 }); } },
-      { t: `${a.name} 편을 든다`, f: s => { bond(s, a, 10); bond(s, b, -15); return `${a.name} 편을 들었다. ${josa(b.name, '과와')}는 서먹해졌다.`; } },
-      { t: '모른 척한다', f: s => '모른 척했다. 시간이 지나면 풀리겠지.' + fx(s, { stress: 3 }) },
+      { t: '둘 사이를 중재한다', h: `잘 풀릴 가능성 ${fmtPct(p)}`, f: s => { if (U.chance(p)) { bond(s, a, 8); bond(s, b, 8); tw(3); return `${josa(a.name, '과와')} ${b.name} 사이를 풀어 줬다. 둘 다 고맙다고 했다.` + fx(s, { stress: 2 }); } bond(s, a, -4); bond(s, b, -4); tw(-4); return '중재하려다 오히려 둘 다 서운해했다.' + fx(s, { stress: 6 }); } },
+      { t: `${a.name} 편을 든다`, f: s => { bond(s, a, 10); bond(s, b, -15); tw(-6); return `${a.name} 편을 들었다. ${josa(b.name, '과와')}는 서먹해졌다.`; } },
+      { t: '모른 척한다', f: s => { tw(-3); return '모른 척했다. 시간이 지나면 풀리겠지.' + fx(s, { stress: 3 }); } },
+    ];
+  },
+});
+
+// ════════ 팀워크 · 멤버 성장 (v117 밸런스 A) ════════
+// 팀워크(0~100): 밴드는 t.b.tw, 아이돌 그룹은 g.tw. 무대 · 곡 점수의 실력(bandPower · groupPower)에 0.8~1.2배로 들어간다
+// 같이 활동하면 조금씩, 팀 활동(골라서 하는 일) · 팀 사건의 좋은 선택으로 많이 오른다. 멤버가 바뀌거나 다투거나 오래 쉬면 내려간다
+function twOf(o) { return o && typeof o.tw === 'number' ? o.tw : 50; }
+function twMul(o) { return 0.8 + 0.4 * twOf(o) / 100; }
+function twAdd(o, v) { if (o) o.tw = U.clamp(twOf(o) + v, 0, 100); }
+// 직업 창에 보이는 말 (숫자는 보이지 않는다)
+function twWord(o) { const v = twOf(o); return v < 25 ? '아직 서먹하다' : v < 45 ? '조금씩 맞아 간다' : v < 65 ? '손발이 맞는다' : v < 85 ? '척척 맞는다' : '눈빛만 봐도 안다'; }
+// 지금 같이 활동하는 팀: 공연하는 밴드, 데뷔한 아이돌 그룹
+function myTeams(s) {
+  const L = [], b = s.tracks.band, i = s.tracks.idol;
+  if (b && b.b && ['indie', 'signed'].includes(b.st)) L.push({ k: 'band', t: b, o: b.b, nm: `밴드 「${b.b.name}」`, mem: bandMembers(s, b), part: m => b.b.part[m.id], my: b.b.my });
+  if (i && i.g && i.st === 'active') L.push({ k: 'idol', t: i, o: i.g, nm: `「${i.g.name}」`, mem: i.g.members.map(id => s.people[id]).filter(Boolean), part: m => idolMain(i.g, m), my: 'dance' });
+  return L;
+}
+function teamOf(s, k) { return myTeams(s).find(x => x.k === k) || null; }
+// 곡 성적을 기억해 둔다 (멤버 의욕). 흥행에 실패하면 가끔 '가라앉은 연습실' 사건이 다음 달에 난다
+function teamRel(s, k, t, peak, flop) {
+  t.lastRelT = s.t; t.lastPeak = peak || 0; t.flops = flop ? (t.flops || 0) + 1 : 0;
+  const tm = teamOf(s, k);
+  if (flop && tm && tm.mem.length && U.chance(0.5) && !hasQ(s, 'team_flop')) queueEv(s, 'team_flop', 1, { k });
+}
+function idolMain(g, m) { const p = (g.pos || {})[m.id] || ''; return p.includes('래퍼') ? 'rap' : p.includes('댄서') ? 'dance' : 'vocal'; }
+// 멤버의 의욕: 슬럼프 · 사이가 틀어짐 · 연달아 흥행 실패 · 먹고살 걱정이면 0.6, 친하거나 최근 성적이 좋거나 힘을 받았으면 1.2
+function mateMot(s, tm, m) {
+  const t = tm.t, recent = t.lastRelT != null && s.t - t.lastRelT <= 12;
+  const worry = tm.k === 'band' && t.st === 'indie' && t.months >= 36 && t.b.f < 2000;
+  if ((m.slumpT || 0) > s.t || m.aff < 30 || (recent && (t.flops || 0) >= 2) || worry) return 0.6;
+  if (m.aff >= 65 || (recent && t.lastPeak && t.lastPeak <= 50) || (m.motT || 0) > s.t) return 1.2;
+  return 1;
+}
+// 멤버도 나처럼 재능만큼 클 여지가 있다 (예전에는 들어올 때 실력에서 조금 위가 끝이라 몇 년을 해도 거의 안 컸다)
+function matePot(m, k) { const o = m && m.sk && m.sk[k]; if (!o || o.potUp) return; o.potUp = 1; o.pot = Math.min(100, Math.max(o.pot, rollPot(m, k), Math.round(o.lv + 10))); }
+// 멤버 연습에 붙는 회사 몫: 내 회사 소속이면 내 회사 연습실 · 트레이너, 기획사 소속이면 그 회사 연습실 (밴드 악기 트레이너는 따로 없다: 외부 레슨)
+function mateEqM(s, tm, k) {
+  const own = tm.k === 'band' ? ownCo(s, 'band') : null;
+  if (own) { const tr = typeof coTrainer === 'function' ? coTrainer(s, k) : null; return CO_EQ.mult[own.eq || 0] * (tr ? 1 + teachLv(tr, k) / 50 : 1); }
+  const ag = tm.t.ag && AG[tm.t.ag];
+  return ag && AG_EQ.some(id => EQUIP[id].k.includes(k)) ? 1 + eqPct(ag.eq || 1) / 100 : 1;
+}
+// 멤버들이 한 달 동안 큰다. 밴드는 맡은 파트, 아이돌은 노래 · 춤 · 랩 (주 포지션이 더 많이). 외부 레슨을 다니는 동안은 더
+function teamGrow(s, tm, base) {
+  const les = (tm.t.lesT || 0) > s.t ? 1.5 : 0;
+  for (const m of tm.mem) {
+    const mot = mateMot(s, tm, m), main = tm.part(m);
+    for (const k of tm.k === 'band' ? [main] : ['vocal', 'dance', 'rap']) {
+      if (!has(m, k)) continue;
+      matePot(m, k);
+      practice(s, m, k, (base + (k === main ? les : 0)) * mot * (k === main ? 1 : 0.6), mateEqM(s, tm, k));
+    }
+    if (tm.k === 'band' && has(m, 'compose') && U.chance(0.3)) { matePot(m, 'compose'); practice(s, m, 'compose', 0.5 * mot); }
+    m.contactT = s.t;
+  }
+}
+// 팀 활동 (골라서 하는 일): 직업 창에서 고른다. 하나마다 몇 달에 한 번
+function teamPicks(s, k) {
+  const tm = teamOf(s, k);
+  if (!tm || s.army || !tm.mem.length) return [];
+  const t = tm.t, band = k === 'band', n = tm.mem.length;
+  const cd = id => ((t.tcd || {})[id] || 0) > s.t, use = (id, m) => { (t.tcd = t.tcd || {})[id] = s.t + m; };
+  const lesC = 50e4 * n * 3, eat = 10e4 * (n + 1);
+  return [
+    { t: band ? '🎸 추가 합주' : '💃 칼군무 맞추기', h: '팀워크 ↑↑ · 멤버 실력 ↑ · 스트레스 ↑', ok: !cd('extra'), why: '얼마 전에 했다', run: s => {
+      use('extra', 2); teamGrow(s, tm, 1.5); practice(s, me(s), tm.my, 0.8); twAdd(tm.o, 4);
+      return `${tm.nm} 멤버들과 ${band ? '밤늦게까지 합주를 더 했다' : '칼군무를 맞추느라 연습실 불이 꺼지지 않았다'}.` + fx(s, { stress: 6 });
+    } },
+    { t: '🧑‍🏫 멤버 코칭', h: '멤버 한 명을 골라 봐 준다 · 친밀도 ↑', ok: !cd('coach'), why: '얼마 전에 했다', run: s => { fireEvent(s, 'team_coach', { k }); return ''; } },
+    { t: band ? '🎼 외부 레슨 보내기' : '🎼 외부 보컬 · 댄스 레슨', h: `멤버 모두 석 달 · ${fmtWon(lesC)} · 멤버 실력 ↑`, ok: !cd('lesson') && s.money >= lesC, why: cd('lesson') ? '레슨을 다니는 중이다' : '돈이 모자라다', run: s => {
+      use('lesson', 3); t.lesT = s.t + 3; addMoney(s, -lesC, '멤버 외부 레슨');
+      return `멤버들을 석 달 동안 외부 레슨에 보냈다. (${fmtWon(lesC)})`;
+    } },
+    { t: band ? '🎤 버스킹' : '📣 게릴라 공연', h: '팬 ↑ · 팀워크 ↑ · 스트레스 ↑', ok: !cd('busk'), why: '얼마 전에 했다', run: s => {
+      use('busk', 3); twAdd(tm.o, 2);
+      const pw = band ? bandPower(s, t) : groupPower(s, t.g), g = Math.max(20, Math.round(Math.pow(10, U.clamp(pw, 0, 100) / 20) * U.fl(0.6, 1.4) * access(s) * (band ? 1 : 2)));
+      if (band) t.b.f += g; else t.g.f.kr += g;
+      return `${band ? '길거리에서 버스킹을 했다' : '예고 없이 게릴라 공연을 열었다'}. 지나가던 사람들이 걸음을 멈췄다. ${band ? '밴드' : '그룹'} 팬 ${sgnFans(g)}.` + fx(s, { fkr: Math.round(g * 0.35), stress: 3 });
+    } },
+    { t: '🍜 멤버들과 시간 보내기', h: `밥 한 끼 · ${fmtWon(eat)} · 친밀도 ↑ · 팀워크 ↑ · 스트레스 ↓`, ok: !cd('hang') && s.money >= eat, why: cd('hang') ? '얼마 전에 했다' : '돈이 모자라다', run: s => {
+      use('hang', 1); addMoney(s, -eat, '멤버들과 식사'); for (const m of tm.mem) bond(s, m, 3); twAdd(tm.o, 1.5);
+      return `연습을 일찍 끝내고 멤버들과 밥을 먹으며 수다를 떨었다.` + fx(s, { stress: -6 });
+    } },
+  ];
+}
+E({
+  id: 'team_coach', cat: '팀', title: '멤버 코칭', tag: 'career',
+  init(s, d) { if (!teamOf(s, d.k)) d.skip = true; },
+  text: (s, d) => `누구를 봐 줄까?`,
+  ch(s, d) {
+    const tm = teamOf(s, d.k), p = me(s);
+    if (!tm) return [{ t: '확인', f: () => '' }];
+    return tm.mem.map(m => {
+      const k = tm.part(m);
+      return { t: `${m.name} (${partN(k)})`, h: `${partN(k)} ${lvSee(s, m, k)}레벨 · ${relWord(m)}`, f: s => {
+        (tm.t.tcd = tm.t.tcd || {}).coach = s.t + 2;
+        matePot(m, k);
+        const g = practice(s, m, k, 2 * (1 + teachLv(p, k) / 20) * mateMot(s, tm, m));
+        bond(s, m, 4); twAdd(tm.o, 1); teach(s, p, 0.6);
+        return `${m.name}의 ${josa(partN(k), '을를')} 봐 줬다. ${g >= 0.5 ? '눈에 띄게 좋아졌다.' : g >= 0.2 ? '조금 나아졌다.' : '내가 가르치기엔 한계가 있었다.'}` + fx(s, { stress: 2 });
+      } };
+    }).concat([{ t: '다음에 한다', f: () => '' }]);
+  },
+});
+// 팀 사건 (모두 선택지가 있다)
+function teamPickRand(s, min = 1) { const L = myTeams(s).filter(x => x.mem.length >= min); return L.length ? U.pick(L) : null; }
+E({
+  id: 'team_stay', cat: '팀', title: '같이 남아서 연습할래?', tag: 'career', cd: 8, p: 0.03,
+  cond: s => !s.army && myTeams(s).some(x => x.mem.length),
+  init(s, d) { const tm = teamPickRand(s); if (!tm) { d.skip = true; return; } d.k = tm.k; d.id = U.pick(tm.mem).id; },
+  text: (s, d) => { const m = s.people[d.id]; return `연습이 끝나고 다들 짐을 챙기는데, ${josa(m.name, '이가')} 슬쩍 다가온다. "오늘 좀 더 맞춰 보고 갈래?"`; },
+  ch(s, d) {
+    const tm = teamOf(s, d.k), m = s.people[d.id];
+    return [
+      { t: '같이 남는다', f: s => { if (tm) { matePot(m, tm.part(m)); practice(s, m, tm.part(m), 2 * mateMot(s, tm, m)); practice(s, me(s), tm.my, 0.6); twAdd(tm.o, 3); } bond(s, m, 5); return `${josa(m.name, '과와')} 늦게까지 남아 연습했다.` + fx(s, { stress: 3 }); } },
+      { t: '오늘은 먼저 간다', f: s => { bond(s, m, -2); return `오늘은 먼저 들어갔다. ${josa(m.name, '은는')} 혼자 남았다.` + fx(s, { stress: -2 }); } },
+    ];
+  },
+});
+E({
+  id: 'team_slump', cat: '팀', title: '멤버의 슬럼프', tag: 'career', cd: 12, p: 0.02,
+  cond: s => !s.army && myTeams(s).some(x => x.mem.length),
+  init(s, d) { const tm = teamPickRand(s); if (!tm) { d.skip = true; return; } const m = U.pick(tm.mem); d.k = tm.k; d.id = m.id; m.slumpT = s.t + 6; },
+  text: (s, d) => { const m = s.people[d.id]; return `요즘 ${josa(m.name, '이가')} 영 힘이 없다. 연습에 나와도 멍하니 있다가 실수를 반복한다.`; },
+  ch(s, d) {
+    const tm = teamOf(s, d.k), m = s.people[d.id], tw = v => { if (tm) twAdd(tm.o, v); };
+    const p = U.clamp(0.35 + m.aff / 200, 0.2, 0.75);
+    return [
+      { t: '이야기를 들어 준다', f: s => { m.slumpT = 0; bond(s, m, 6); tw(2); return `${josa(m.name, '과와')} 오래 이야기를 나눴다. 조금 후련해 보인다.` + fx(s, { stress: 2 }); } },
+      { t: '잠깐 쉬게 한다', f: s => { m.slumpT = s.t + 1; bond(s, m, 3); tw(-1); return `${josa(m.name, '은는')} 한동안 쉬기로 했다.`; } },
+      { t: '다그친다', h: `다시 정신을 차릴 가능성 ${fmtPct(p)}`, f: s => { if (U.chance(p)) { m.slumpT = 0; if (tm) practice(s, m, tm.part(m), 2); bond(s, m, -4); return `${josa(m.name, '이가')} 이를 악물고 다시 연습에 매달렸다.`; } bond(s, m, -10); tw(-4); return `${josa(m.name, '은는')} 더 움츠러들었다. 연습실 분위기가 싸늘해졌다.` + fx(s, { stress: 3 }); } },
+    ];
+  },
+});
+E({
+  id: 'team_flop', cat: '팀', title: '가라앉은 연습실', tag: 'career',
+  init(s, d) { if (!teamOf(s, d.k)) d.skip = true; },
+  text: (s, d) => `이번 곡 반응이 기대에 못 미쳤다. 연습실에 아무도 먼저 말을 꺼내지 않는다.`,
+  ch(s, d) {
+    const tm = teamOf(s, d.k), n = tm ? tm.mem.length : 0, eat = 10e4 * (n + 1);
+    return [
+      { t: '연습을 더 하자', f: s => { if (tm) { teamGrow(s, tm, 1); twAdd(tm.o, 3); for (const m of tm.mem) bond(s, m, -1); } return '다시 연습부터 하자고 했다. 다들 말없이 악기를 잡았다.' + fx(s, { stress: 5 }); } },
+      { t: '같이 밥 먹으며 푼다', h: fmtWon(eat), ok: s => s.money >= eat, f: s => { addMoney(s, -eat, '멤버들과 식사'); if (tm) { twAdd(tm.o, 4); for (const m of tm.mem) { bond(s, m, 3); m.motT = s.t + 3; } } return '다 같이 고기를 구우며 털어 냈다. 다음엔 잘하자고 잔을 부딪쳤다.' + fx(s, { stress: -3 }); } },
+      { t: '각자 쉬자', f: s => { if (tm) twAdd(tm.o, -2); return '한동안 각자 쉬기로 했다.' + fx(s, { stress: -6 }); } },
+    ];
+  },
+});
+E({
+  id: 'team_camp', cat: '팀', title: '합숙 캠프', tag: 'career', cd: 18, p: 0.015,
+  cond: s => !s.army && myTeams(s).some(x => x.mem.length && x.t.ag),
+  init(s, d) { const L = myTeams(s).filter(x => x.mem.length && x.t.ag); if (!L.length) { d.skip = true; return; } d.k = U.pick(L).k; },
+  text: (s, d) => { const tm = teamOf(s, d.k); return `회사가 ${tm ? tm.nm : '팀'} 멤버들끼리 한 달 동안 합숙 캠프를 떠나 보라고 한다. 아침부터 밤까지 같이 연습하고 같이 지낸다.`; },
+  ch(s, d) {
+    const tm = teamOf(s, d.k);
+    return [
+      { t: '참가한다', f: s => { if (tm) { teamGrow(s, tm, 2); practice(s, me(s), tm.my, 1.5); twAdd(tm.o, 12); const t = tm.t; t.tcd = t.tcd || {}; for (const x of ['extra', 'busk', 'hang']) t.tcd[x] = Math.max(t.tcd[x] || 0, s.t + 2); } return '한 달 동안 합숙했다. 서로 눈빛만 봐도 다음 박자를 안다.' + fx(s, { stress: 8 }); } },
+      { t: '빠진다', f: s => { if (tm) { twAdd(tm.o, -3); for (const m of tm.mem) bond(s, m, -3); } return '나는 캠프에 빠졌다. 멤버들은 조금 서운한 눈치다.'; } },
+    ];
+  },
+});
+E({
+  id: 'team_open', cat: '팀', title: '선배 공연 오프닝 무대', tag: 'career', cd: 12, p: 0.015,
+  cond: s => !s.army && myTeams(s).some(x => x.mem.length),
+  init(s, d) { const tm = teamPickRand(s); if (!tm) { d.skip = true; return; } d.k = tm.k; d.who = U.pick(['10년 차 선배 밴드', '대선배 가수', '요즘 잘나가는 선배 그룹', '전설적인 록 밴드']); },
+  text: (s, d) => { const tm = teamOf(s, d.k); return `${d.who}의 단독 공연 오프닝 무대에 ${tm ? tm.nm : '우리'}를 세우고 싶다는 연락이 왔다. 출연료는 거의 없다.`; },
+  ch(s, d) {
+    const tm = teamOf(s, d.k);
+    return [
+      { t: '무대에 선다', f: s => {
+        if (!tm) return '';
+        const band = tm.k === 'band', pw = band ? bandPower(s, tm.t) : groupPower(s, tm.t.g), g = Math.max(50, Math.round(Math.pow(10, U.clamp(pw + U.normal(0, 6) + 10, 0, 100) / 20) * (band ? 1 : 2)));
+        if (band) tm.t.b.f += g; else tm.t.g.f.kr += g;
+        twAdd(tm.o, 2); for (const m of tm.mem) m.motT = s.t + 6;
+        return `${d.who}의 오프닝 무대에 섰다. 큰 무대를 겪고 나니 멤버들 눈빛이 달라졌다. ${band ? '밴드' : '그룹'} 팬 ${sgnFans(g)}.` + fx(s, { fkr: Math.round(g * 0.35), stress: 3 });
+      } },
+      { t: '사양한다', f: s => '오프닝 무대는 사양했다.' },
+    ];
+  },
+});
+// 아이돌 그룹만: 숙소 갈등 · 파트 분배 갈등
+E({
+  id: 'idol_dorm_clash', cat: '그룹', title: '숙소 갈등', tag: 'career', cd: 18, p: 0.015,
+  cond: s => !!teamOf(s, 'idol') && teamOf(s, 'idol').mem.length >= 2 && isDorm(s),
+  init(s, d) { const m = U.shuffle(teamOf(s, 'idol').mem); d.a = m[0].id; d.b = m[1].id; d.why = U.pick(['방 배정', '씻는 순서', '밤늦게 켜 두는 불', '청소 당번']); },
+  text: (s, d) => { const a = s.people[d.a], b = s.people[d.b]; return `숙소에서 ${josa(a.name, '과와')} ${b.name} 사이에 ${d.why} 문제로 언성이 높아졌다. 다들 눈치만 본다.`; },
+  ch(s, d) {
+    const tm = teamOf(s, 'idol'), a = s.people[d.a], b = s.people[d.b], tw = v => { if (tm) twAdd(tm.o, v); };
+    const p = U.clamp(0.35 + (me(s).tal.insight - 50) / 150 + lv(me(s), 'variety') / 200, 0.2, 0.85);
+    return [
+      { t: '내가 양보한다', f: s => { bond(s, a, 5); bond(s, b, 5); tw(3); return '내가 한발 물러서서 정리했다. 둘 다 머쓱해했다.' + fx(s, { stress: 4 }); } },
+      { t: '생활 규칙을 정하자고 한다', h: `잘 풀릴 가능성 ${fmtPct(p)}`, f: s => { if (U.chance(p)) { tw(5); bond(s, a, 3); bond(s, b, 3); return '다 같이 숙소 규칙을 정했다. 한결 편해졌다.'; } tw(-2); bond(s, a, -2); bond(s, b, -2); return '규칙을 정하자고 했다가 오히려 말다툼이 길어졌다.' + fx(s, { stress: 3 }); } },
+      { t: '신경 쓰지 않는다', f: s => { tw(-3); bond(s, a, -3); bond(s, b, -3); return '못 들은 척 방에 들어갔다. 숙소 공기가 며칠째 무겁다.' + fx(s, { stress: -2 }); } },
+    ];
+  },
+});
+E({
+  id: 'idol_part_clash', cat: '그룹', title: '파트 분배', tag: 'career', cd: 12, p: 0.015,
+  cond: s => !!teamOf(s, 'idol') && teamOf(s, 'idol').mem.length >= 1,
+  init(s, d) { d.id = U.pick(teamOf(s, 'idol').mem).id; },
+  text: (s, d) => { const m = s.people[d.id]; return `새 곡 파트 분배를 두고 ${josa(m.name, '이가')} 서운함을 털어놓는다. 자기 파트가 너무 적다고, 센터에 한 번쯤은 서 보고 싶다고 한다.`; },
+  ch(s, d) {
+    const tm = teamOf(s, 'idol'), m = s.people[d.id], tw = v => { if (tm) twAdd(tm.o, v); };
+    return [
+      { t: '내 파트를 나눠 준다', f: s => { bond(s, m, 8); tw(4); m.motT = s.t + 6; return `내 파트 일부를 ${m.name}에게 넘겼다. ${josa(m.name, '은는')} 눈이 반짝였다.`; } },
+      { t: '회사 결정에 맡긴다', f: s => { tw(-2); bond(s, m, -2); return '회사가 정한 대로 가자고 했다.'; } },
+      { t: '센터는 내가 하겠다고 한다', f: s => { bond(s, m, -8); tw(-5); return `센터는 내가 서겠다고 했다. ${josa(m.name, '과와')} 사이가 어색해졌다.` + fx(s, { fame: 1, stress: 2 }); } },
     ];
   },
 });
@@ -1168,7 +1383,7 @@ function bandPower(s, t) {
   const others = all.filter(x => x !== voc);
   // v94: 각자 파트 실력만 본다 (보컬 담당의 외모는 뺐다)
   const pw = (voc ? lv(voc, 'vocal') : 0) * 0.35 + (others.reduce((a, x) => a + pl(x), 0) / Math.max(1, others.length)) * 0.65;
-  return pw * (bandMissing(t).length ? 0.6 : 1);
+  return pw * (bandMissing(t).length ? 0.6 : 1) * twMul(t.b); // v117: 팀워크만큼 0.8~1.2배
 }
 function bandMate(s, k, base, o = {}) {
   return makeMusicMate(s, { rel: o.rel || '멤버', job: o.job || '밴드 멤버', met: o.met || '같은 밴드 멤버', aff: 45, tal: k === 'vocal' ? ['music', 'star'] : ['music', 'rhythm'], sk: Object.assign({ [k]: base }, U.chance(0.3) ? { compose: base - 6 } : {}) });
@@ -1177,6 +1392,7 @@ function bandMate(s, k, base, o = {}) {
 function addBandMember(s, x, k, how) {
   const t = s.tracks.band;
   x.rel = '멤버'; x.job = '밴드 멤버'; x.met = `밴드 「${t.b.name}」 (${how})`; x.contactT = s.t; x.aff = Math.max(x.aff, 45); x.hidden = false;
+  if (t.st !== 'forming') twAdd(t.b, -15); // 새 멤버와는 처음부터 다시 맞춰야 한다 (v117)
   t.b.members.push(x.id); t.b.part[x.id] = k;
   let r = `${josa(x.name, '이가')} 밴드 「${t.b.name}」의 ${josa(partN(k), '으로')} 들어왔다.`;
   const miss = bandMissing(t);
@@ -1257,7 +1473,7 @@ function startBand(s, d, name) {
   for (const [id, k] of d.mem) { const m = s.people[id]; m.rel = '멤버'; m.job = '밴드 멤버'; m.met = `밴드 「${name}」`; m.hidden = false; part[id] = k; }
   const old = s.tracks.band;
   const full = d.mem.length > 0;
-  s.tracks.band = { st: full ? 'indie' : 'forming', b: { name, members: d.mem.map(x => x[0]), part, my: d.k, f: d.join ? U.int(200, 900) : 0 }, months: 0, rel: 0, nextRel: U.int(4, 7), idle: 0, cut: 0, tier: 0, ag: null, agN: '', bestPeak: null, yearBest: 0, hist: old.hist || [], sn: old.sn };
+  s.tracks.band = { st: full ? 'indie' : 'forming', b: { name, members: d.mem.map(x => x[0]), part, my: d.k, f: d.join ? U.int(200, 900) : 0, tw: d.join ? U.int(25, 40) : 20 }, months: 0, rel: 0, nextRel: U.int(4, 7), idle: 0, cut: 0, tier: 0, ag: null, agN: '', bestPeak: null, yearBest: 0, hist: old.hist || [], sn: old.sn };
   milestone(s, `${age(s)}세에 밴드 「${name}」의 ${josa(partN(d.k), '으로')} 활동을 시작했다.`);
   if (!full) return `밴드 ${josa(`「${name}」`, '을를')} 만들었다. 나는 ${partN(d.k)} 담당. 🧭 진로 창에서 멤버를 모아야 공연을 할 수 있다.`;
   return `밴드 「${name}」 ${partN(d.k)} 멤버가 됐다. 일정에 '밴드 활동'을 넣어야 합주와 공연을 한다.`;
@@ -1298,6 +1514,7 @@ E({
     startBand(s, { k: t.part, mem: d.mem }, d.name);
     // 연습생 계약 때 정한 정산 비율 · 그룹 계약 기간을 그대로 (v116 버그 6: 회사 기본값 · 5년으로 돌아갔다)
     Object.assign(s.tracks.band, { st: 'signed', ag: t.ag, agN: ag.n, tier: ag.tier, cut: t.cut != null ? t.cut : ag.cut, contract: t.gMonths || 84, cm: 0, nextRel: 99, debt: t.debt || 0, fromTr: true, firstPay: false });
+    s.tracks.band.b.tw = Math.min(50, 20 + Math.floor((t.months || 0) / 2)); // 데뷔조로 같이 연습한 만큼 팀워크를 안고 시작한다 (v117)
     t.debt = 0;
     s.tracks.band.b.f = ag.tier * U.int(1500, 4000);
     t.st = 'ended'; t.endNote = `${ag.n} 연습생 → 밴드 ${josa(`「${d.name}」`, '으로')} 데뷔`; t.hist.push(t.endNote);
@@ -1359,11 +1576,14 @@ CAREERS.band = {
   contract(s, t) { return t.st === 'signed' ? t.agN : ''; },
   cLeft(s, t) { return t.st === 'signed' ? t.contract - t.cm : null; },
   mainSk(s, t) { return t.b ? t.b.my : null; },
+  // 팀 활동 (v117 밸런스 A3): 직업 창의 '골라서 하는 일'
+  picks(s, t) { return teamPicks(s, 'band'); },
   info(s, t) {
     const R = [];
     R.push(['소속', t.st === 'signed' ? `${t.agN} (${TIER_N[t.tier]} 기획사) · 회사 몫 ${pctN(t.cut)}` : t.st === 'forming' ? '아직 결성 전' : '인디']);
     if (t.st === 'signed' && t.debt > 0) R.push(['갚을 비용', fmtWon(t.debt)]);
     R.push(['밴드 팬', fmtFans(t.b.f)]);
+    if (t.st !== 'forming') R.push(['팀워크', twWord(t.b)]);
     R.push(['발표곡', `${t.rel}곡${t.bestPeak ? ` · 최고 ${t.bestPeak}위` : ''}`]);
     const miss = bandMissing(t);
     R.push({ h: '멤버', items: [`${partN(t.b.my)}: 나 (${lvi(me(s), t.b.my)}레벨)`].concat(bandMembers(s, t).map(x => `${partN(t.b.part[x.id])}: ${x.name} (${x.g === '여' ? '여' : '남'} · ${pAge(s, x)}세) — ${partN(t.b.part[x.id])} ${lvi(x, t.b.part[x.id])}레벨 · ${relWord(x)}`)).concat(miss.map(k => `${partN(k)}: 비어 있음`)) });
@@ -1387,22 +1607,26 @@ CAREERS.band = {
   },
   monthly(s, t) {
     if (!['forming', 'indie', 'signed'].includes(t.st)) return;
+    qFront(s, ['band_fest_play']); // 페스티벌 무대는 그달에 바로 (다른 창이 밀려 있어도 늦지 않게)
     t.months++;
     const n = slotsOn(s, 'c_band'), p = me(s), mem = bandMembers(s, t);
     // 멤버를 모으는 동안에는 혼자 또는 모인 멤버끼리 연습만 한다
     if (t.st === 'forming') {
-      if (n) { practice(s, p, t.b.my, 1 * n, 1); for (const m of mem) { mateGrow(s, m, t.b.part[m.id], 0.3); m.contactT = s.t; } }
+      if (n) { practice(s, p, t.b.my, 1 * n, 1); for (const m of mem) { matePot(m, t.b.part[m.id]); practice(s, m, t.b.part[m.id], 0.6); m.contactT = s.t; } twAdd(t.b, 0.3); }
       if (t.months === 12) addLog(s, `밴드 「${t.b.name}」 멤버를 1년째 모으는 중이다. 아직 ${bandMissing(t).map(partN).join('·')} 자리가 비어 있다.`, 'career');
       return;
     }
     if (calM(s) === 11) musicAwards(s, t, t.b.name, musicRookie(s, t.rel > 0), 'band');
     if (t.st === 'signed') { t.cm++; if (t.cm >= t.contract) queueEv(s, 'band_contract', 0); }
-    if (!n && t.st === 'indie') { t.idle++; if (t.idle >= 6) queueEv(s, 'band_idle', 0); return; }
+    if (!n && t.st === 'indie') { t.idle++; twAdd(t.b, -1); if (t.idle >= 6) queueEv(s, 'band_idle', 0); return; }
     t.idle = 0;
     // 합주: 내 파트가 빨리 늘고 멤버들도 같이 는다
     practice(s, p, t.b.my, 1.3 * Math.max(1, n), 1);
     if (has(p, 'compose') && U.chance(0.3)) useSkill(s, p, 'compose', 0.5);
-    for (const m of mem) { mateGrow(s, m, t.b.part[m.id], 0.5); bond(s, m, U.chance(0.1) ? -U.int(3, 8) : U.int(0, 2)); m.contactT = s.t; }
+    // 멤버도 같이 큰다 (v117 밸런스 A: 재능 · 나이 · 의욕 · 회사 연습실만큼). 같이 활동한 시간만큼 팀워크가 조금씩, 가끔 티격태격하면 조금 내려간다
+    const tmB = teamOf(s, 'band'); if (tmB) teamGrow(s, tmB, 1);
+    twAdd(t.b, twOf(t.b) < 60 ? 0.5 : -0.3); // 그냥 같이 지내는 것만으로는 60까지. 그 위는 팀 활동 · 사건으로 올리고, 손을 놓으면 천천히 내려온다
+    for (const m of mem) { if (U.chance(0.1)) { bond(s, m, -U.int(3, 8)); twAdd(t.b, -1); } else bond(s, m, U.int(0, 2)); }
     // 클럽 공연: 팬이 조금씩 는다
     const pw = bandPower(s, t);
     const g = Math.max(0, Math.round((pw - 6) * U.fl(1.2, 3) * (1 + Math.log10(1 + t.b.f) / 3) * access(s) * (t.st === 'signed' ? 1.8 : 1) * Math.max(1, n) * Math.max(0, 1 - t.b.f / starCap(55, 'kr'))));
@@ -1412,7 +1636,11 @@ CAREERS.band = {
     t.nextRel--;
     if (t.nextRel <= 0 && !bandMissing(t).length && !hasQ(s, 'band_rel') && !hasQ(s, 'band_relres')) { t.nextRel = 99; queueEv(s, 'band_rel', 0); }
     if (t.st === 'indie' && t.b.f >= 3000 && U.chance(0.04)) maybeScout(s, 'band');
-    if (calM(s) >= 4 && calM(s) <= 6 && t.b.f >= 1500 && t.festY !== calY(s) && U.chance(0.25) && !s.inbox.some(m => m.kind === 'band_fest')) { t.festY = calY(s); sendMsg(s, 'band_fest', { from: U.pick(['한여름 록 페스티벌', '바다 음악축제', '숲속 뮤직 캠프', '도시의 밤 페스티벌']), title: '여름 페스티벌 섭외', months: 8 - calM(s), d: { fee: Math.round((100 + t.b.f / 50) * 1e4) } }); }
+    // 페스티벌 섭외 (v117 밸런스 C2): 페스티벌마다 열리는 달이 정해져 있고, 섭외는 2~4달 전에 온다. 답장 기한은 페스티벌 한 달 전
+    if (t.b.f >= 1500 && t.festY !== calY(s) && U.chance(0.15) && !s.inbox.some(m => m.kind === 'band_fest') && !hasQ(s, 'band_fest_play')) {
+      const c = BAND_FESTS.filter(x => x.m - calM(s) >= 2 && x.m - calM(s) <= 4 && t.b.f >= x.minF);
+      if (c.length) { const x = U.pick(c); t.festY = calY(s); sendMsg(s, 'band_fest', { from: x.n, title: `${x.m + 1}월 페스티벌 섭외`, months: x.m - calM(s) - 1, d: { festM: x.m, mult: x.mult, fee: Math.round((100 + t.b.f / 50) * (0.5 + 0.5 * x.mult)) * 1e4 } }); }
+    }
     if (mem.length && t.months >= 24 && U.chance(0.008)) queueEv(s, 'band_leave', 0);
   },
 };
@@ -1497,6 +1725,8 @@ E({
     jpopWork(s, 'band', sc);
     d.gain = fanGainRaw(sc, t.b.f, t.st === 'signed' ? 1 : 0.6, starCap(60, 'kr'));
     t.b.f = Math.max(0, t.b.f + d.gain);
+    // 흥행 실패: 소속사가 있는데 차트에 못 들었거나, 인디인데 팬이 오히려 줄었을 때 (멤버 의욕 · '가라앉은 연습실')
+    teamRel(s, 'band', t, d.peak, !d.peak && (t.st === 'signed' || d.gain <= 0));
     const my = Math.round(Math.max(0, d.gain) * 0.35 * popSpeed(s) * myRoom(s, 'kr')); s.fans.kr += my; d.my = my;
     const share = 1 / (bandMembers(s, t).length + 1);
     d.roy = addCatalog(s, d.title, '연주', sc, (t.st === 'signed' ? 0.6 : 1) * share * 1.5, 'band') + (d.self ? addCatalog(s, d.title, '작곡', sc, 0.8, 'band') : 0);
@@ -1520,12 +1750,41 @@ E({
 });
 INBOX.band_fest = {
   ic: '🎪',
-  text: (s, m) => `「${m.from}」에서 밴드 ${josa(`「${(s.tracks.band.b || {}).name || ''}」`, '을를')} 섭외하고 싶다고 한다. 출연료 ${fmtWon(m.d.fee)}. 큰 무대라 새 팬을 모으기 좋다.`,
+  text: (s, m) => `「${m.from}」에서 밴드 ${josa(`「${(s.tracks.band.b || {}).name || ''}」`, '을를')} 섭외하고 싶다고 한다. ${m.d.festM != null ? `${m.d.festM + 1}월 첫 주말 · ` : ''}출연료 ${fmtWon(m.d.fee)}. ${(m.d.mult || 1) >= 1.5 ? '큰 무대라 새 팬을 모으기 좋다.' : '아담한 무대지만 처음 보는 관객을 만날 수 있다.'}`,
   ch: (s, m) => [
-    { t: '나간다', ok: s => trackOn(s, 'band'), f: s => { const t = s.tracks.band; const sc = bandPower(s, t) + U.normal(0, 8) + 20; const g = Math.max(100, fanGainRaw(sc, t.b.f, 0.8, starCap(60, 'kr'))); t.b.f += g; if (t.st === 'signed') bandIncome(s, t, m.d.fee, '페스티벌 출연료'); else earn(s, m.d.fee / (bandMembers(s, t).length + 1), '페스티벌 출연료'); for (const x of bandMembers(s, t)) bond(s, x, 3); return `「${m.from}」 무대에 섰다.` + fx(s, { fkr: Math.round(g * 0.35) }); } },
+    // 나간다 = 그 자리에서 공연하지 않고, 페스티벌 달에 무대에 서는 일정으로 잡는다. (예전 세이브의 날짜 없는 섭외는 바로 공연)
+    { t: '나간다', ok: s => trackOn(s, 'band') && !s.army && (m.d.festM == null || calM(s) <= m.d.festM), f: s => {
+      const d = { from: m.from, fee: m.d.fee, mult: m.d.mult || 1, festM: m.d.festM };
+      if (m.d.festM == null || m.d.festM <= calM(s)) { bandFestPlay(s, d); return `「${m.from}」 무대에 섰다.${d.fx}`; }
+      queueEv(s, 'band_fest_play', Math.max(0, m.d.festM - calM(s)), d);
+      return `「${m.from}」 ${m.d.festM + 1}월 무대에 서기로 했다.`;
+    } },
     { t: '거절한다', f: s => `「${m.from}」 섭외를 거절했다.` },
   ],
 };
+// 페스티벌: 열리는 달(calM) · 규모(mult: 새로 반하는 관객 수에 곱함) · 섭외가 올 만한 밴드 팬 수
+const BAND_FESTS = [
+  { n: '숲속 뮤직 캠프', m: 5, mult: 0.8, minF: 1500 },
+  { n: '바다 음악축제', m: 6, mult: 1.2, minF: 3000 },
+  { n: '한여름 록 페스티벌', m: 7, mult: 2.0, minF: 1e4 },
+  { n: '도시의 밤 페스티벌', m: 8, mult: 1.5, minF: 5000 },
+];
+// 페스티벌 무대 (v117 밸런스 C1): 관객 대부분이 아직 우리 팬이 아니라서, 기존 팬 반응 없이 새로 반한 사람만 센다 (최소 100명)
+function bandFestPlay(s, d) {
+  const t = s.tracks.band, sc = U.clamp(bandPower(s, t) + U.normal(0, 8) + 20, 0, 100);
+  const g = Math.max(100, Math.round(Math.pow(10, sc / 18) * (d.mult || 1) * Math.max(0, 1 - t.b.f / starCap(60, 'kr'))));
+  t.b.f += g;
+  if (t.st === 'signed') bandIncome(s, t, d.fee, '페스티벌 출연료'); else earn(s, d.fee / (bandMembers(s, t).length + 1), '페스티벌 출연료');
+  for (const x of bandMembers(s, t)) bond(s, x, 3);
+  d.sc = sc; d.g = g; d.fx = fx(s, { fkr: Math.round(g * 0.35) });
+}
+E({
+  id: 'band_fest_play', cat: '밴드', title: (s, d) => `「${d.from}」 무대`, tag: 'career',
+  init(s, d) { if (!trackOn(s, 'band') || s.army || !s.tracks.band.b) { d.cancel = true; return; } bandFestPlay(s, d); },
+  text: (s, d) => d.cancel ? `밴드가 활동을 쉬게 되어 「${d.from}」 무대에 서지 못했다. 주최 측에 출연 취소를 알렸다.`
+    : `「${d.from}」 무대에 섰다. ${d.sc >= 80 ? '처음 보는 관객들까지 끝까지 들썩였다.' : d.sc >= 60 ? '지나가던 관객들이 하나둘 무대 앞으로 모여들었다.' : '반응이 조금 미지근했다.'}`,
+  ch: (s, d) => [{ t: '확인', f: () => d.cancel ? `「${d.from}」 출연을 취소했다.` : `「${d.from}」 무대에 섰다.${d.fx}` }],
+});
 E({
   id: 'band_leave', cat: '밴드', title: '멤버가 나가겠다고 한다', tag: 'career',
   cond: s => trackOn(s, 'band') && bandMembers(s, s.tracks.band).length > 0,
@@ -1535,7 +1794,7 @@ E({
     const m = s.people[d.id], t = s.tracks.band;
     const p = U.clamp(0.2 + m.aff / 150 + (s.rep - 50) / 200, 0.1, 0.8);
     // 나간 자리는 자동으로 채워지지 않는다. 진로 창에서 다시 구해야 한다
-    const leave = s => { t.b.members = t.b.members.filter(x => x !== d.id); delete t.b.part[d.id]; m.rel = '전 멤버'; return `${josa(m.name, '이가')} 밴드를 나갔다. ${partN(d.k)} 자리가 비었다.${BAND_NEED.includes(d.k) ? ' 새 멤버를 구하기 전까지는 공연이 예전 같지 않고, 새 곡도 낼 수 없다.' : ''}`; };
+    const leave = s => { t.b.members = t.b.members.filter(x => x !== d.id); delete t.b.part[d.id]; m.rel = '전 멤버'; twAdd(t.b, -10); return `${josa(m.name, '이가')} 밴드를 나갔다. ${partN(d.k)} 자리가 비었다.${BAND_NEED.includes(d.k) ? ' 새 멤버를 구하기 전까지는 공연이 예전 같지 않고, 새 곡도 낼 수 없다.' : ''}`; };
     return [
       { t: '붙잡는다', h: `남아 줄 가능성 ${fmtPct(p)}`, f: s => { if (U.chance(p)) { bond(s, m, 10); return `${josa(m.name, '이가')} 조금 더 해 보기로 했다.`; } return '붙잡지 못했다. ' + leave(s); } },
       { t: '보내 준다', h: '진로 창에서 새 멤버를 구해야 한다', f: s => leave(s) },

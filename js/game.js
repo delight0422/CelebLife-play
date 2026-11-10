@@ -61,6 +61,10 @@ const CAREER_IDS = CAREER_PLAN.map(c => c.id);
 function age(s) { return Math.floor(s.t / 12); }
 function calY(s) { return s.birthYear + Math.floor((s.birthMonth + s.t) / 12); }
 function calM(s) { return (s.birthMonth + s.t) % 12; }
+// 학년 (v117): 3월에 한 학년 오른다. 초1 = 1 … 고3 = 12 (0 이하는 입학 전, 13부터는 졸업한 뒤). 생일이 아니라 태어난 해로 정한다
+function schoolYear(s) { return calY(s) - s.birthYear - 6 - (calM(s) < 2 ? 1 : 0); }
+// 대학 다니는 중 (3월 입학 전 합격 기간은 빼고)
+function inUni(s) { const u = s.edu && s.edu.uni; return !!u && s.t >= (u.st || 0) && s.t < u.end; }
 function per(s) { return PERSONA_BY[s.persona]; }
 function pm(s, k, def = 1) { const v = per(s).mods[k]; return v == null ? def : v; }
 function totalFans(s) { return s.fans.kr + s.fans.jp + s.fans.us; }
@@ -321,8 +325,13 @@ function jobPay(s, v, label, job) { const t = ownCo(s, job); if (t) coOut(t, v, 
 function addStress(s, v) { if (v > 0) v *= pm(s, 'stressGain'); s.stress = U.clamp(s.stress + v, 0, 100); }
 function schoolBonus(s, k) {
   const a = age(s), e = s.edu;
-  if (e.hsBonus && a >= 16 && a < 19 && e.hsBonus.includes(k)) return 1.25;
-  if (e.uni && s.t < e.uni.end && e.uni.bonus.includes(k)) return 1.25;
+  // 예술고 · 특성화고 학과(1.25)와 고등학교 동아리(1.2)는 서로, 그리고 장비와 곱한다 (v117 동아리)
+  const hs = schoolYear(s) >= 10 && !e.graduated;
+  let b = 1;
+  if (e.hsBonus && hs && e.hsBonus.includes(k)) b *= 1.25;
+  if (e.club === k && hs) b *= CLUB_MULT;
+  if (b > 1) return b;
+  if (inUni(s) && e.uni.bonus.includes(k)) return 1.25;
   return 1;
 }
 
@@ -565,7 +574,7 @@ const LOG_HTML = new WeakMap();
 // 다른 창이 떠 있어 줄을 섰으면, 다음 달까지 기다리지 않고 앞의 창을 닫자마자 띄운다
 // 예: 작곡가로 처음 곡을 팔면 활동명 창이 먼저 뜨고, 제목 창은 그 다음 달로 밀렸다
 // 컴백 회의 · 앨범 발매(내 그룹 · 회사 그룹)도 그달에 와 있으면 앞 창에 답하자마자 이어서 뜬다 (그룹이 여럿이어도 한 달씩 밀리지 않게, 턴제 실험 6차)
-const NOW_EVS = new Set(['slot_up', 'title_pick', 'stage_name', 'song_concept', 'idol_cb', 'idol_cbres', 'co_cb', 'co_song', 'co_res']);
+const NOW_EVS = new Set(['slot_up', 'school_start', 'title_pick', 'stage_name', 'song_concept', 'idol_cb', 'idol_cbres', 'co_cb', 'co_song', 'co_res', 'band_fest_play']);
 function pullNow(s) {
   for (let n = 0; n < 8 && !s.pending && !s.ended; n++) {
     const i = s.queue.findIndex(q => NOW_EVS.has(q.id) && q.at <= s.t);
@@ -628,7 +637,8 @@ function autoEvs(s) {
 // ───── 일정 칸 ─────
 // 활동 id: 생활 활동(play rest job), 'p_'+특기(혼자 연습), 'c_'+직업(직업 활동), 시스템(army sick)
 // 성인은 세 칸. 전용 밴(생활 → 장비)이 있으면 한 칸 더
-function slotCount(s) { const a = age(s); return a < 7 ? 0 : a < 13 ? 1 : a < 19 ? 2 : 3 + (typeof vanOn === 'function' && vanOn(s) ? 1 : 0); }
+// 초1 3월부터 한 칸, 중1 3월부터 두 칸 (v117 학사 일정), 성인(19세)부터 세 칸
+function slotCount(s) { const a = age(s), y = schoolYear(s); return a >= 19 ? 3 + (typeof vanOn === 'function' && vanOn(s) ? 1 : 0) : y >= 7 ? 2 : y >= 1 ? 1 : 0; }
 function defaultAct(s, i) { const a = age(s); if (a < 19 && i === 0 && has(me(s), 'study')) return 'p_study'; return a < 19 ? 'play' : 'rest'; }
 function refreshSlots(s) {
   const n = slotCount(s), n0 = s.slots.length;
@@ -825,12 +835,13 @@ function tick(s) {
   s.t++;
   s.mon = { inc: 0, exp: 0, ent: 0, items: {}, familyPaid: 0 };
   if (s.t % 12 === 0) onBirthday(s);
+  onSchoolMonth(s);
   if (calM(s) === 0) onNewYear(s);
   refreshSlots(s);
   applyLocks(s);
   s.slots.forEach((sl, i) => doActivity(s, sl, i));
   // 학교 수업은 학업을 조금씩 올려 준다. 귀가부는 집에서 공부하는 시간이 있어 더 빨리 오른다
-  if (age(s) >= 7 && age(s) < 19 && !s.army && has(me(s), 'study')) practice(s, me(s), 'study', s.flags.homeClub ? 0.5 : 0.25);
+  if (schoolYear(s) >= 1 && !s.edu.graduated && !s.army && has(me(s), 'study')) practice(s, me(s), 'study', s.flags.homeClub ? 0.5 : 0.25);
   if (!s.army) scoutByWork(s);
   if (!s.army) { for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && trackOn(s, id) && c.monthly) { (s.carM = s.carM || {})[id] = (s.carM[id] || 0) + 1; EARN_JOB = id; const L0 = s.log[s.log.length - 1], e0 = evalSnap(s); try { c.monthly(s, s.tracks[id]); } finally { EARN_JOB = null; } resDv(s, L0, e0); } } worksMonth(s); jobIdleMonth(s); lateMonth(s); stageMonth(s); }
   // 군 복무 중에도 내 회사는 돌아간다 (대표의 할 일은 못 한다)
@@ -850,6 +861,7 @@ function tick(s) {
   // 기획사 숙소 생활이 끝나면(그룹 해체·숙소 졸업 등) 어디서 살지 고른다
   // 내 집(월세·전세·자가)이 이미 있으면 묻지 않고 그 집에서 지낸다 (v89)
   { const dorm = isDorm(s); if (s.dormWas && !dorm && age(s) >= 19 && !s.army && s.home.mode !== 'alone') queueEv(s, 'dorm_out', 0); s.dormWas = dorm; }
+  parEquipMonth(s);
   if (!s.army) { actAutoMonth(s); lifeAutoMonth(s); coMeetMonth(s); if (typeof pfInvMaybe === 'function') pfInvMaybe(s); }
   pickEvent(s);
   autoEvs(s); pullNow(s);
@@ -862,18 +874,24 @@ function tick(s) {
   s.peak.money = Math.max(s.peak.money, s.money);
 }
 
-function onBirthday(s) {
-  const a = age(s);
-  if (a === 13) addLog(s, '중학교에 입학했다.');
-  if (a === 16 && !s.edu.hs) s.edu.hs = '일반고';
-  if (a === 16) addLog(s, `${s.edu.hs === '일반고' ? '고등학교' : s.edu.hs}에 입학했다.`);
-  if (a === 19) {
-    s.edu.graduated = true; addLog(s, '고등학교를 졸업했다.');
+// 학사 일정 (v117): 생일이 아니라 태어난 해 기준으로 3월에 입학 · 진급하고 2월에 졸업한다
+// 초1 3월 = 태어난 해 + 7년, 중1 = +13년, 고1 = +16년, 수능 = +18년 11월, 고교 졸업 = +19년 2월, 대학 입학 = +19년 3월
+function onSchoolMonth(s) {
+  const m = calM(s), y = schoolYear(s), e = s.edu;
+  if (m === 2 && y === 7 && !e.midIn) { e.midIn = true; addLog(s, '중학교에 입학했다.'); }
+  if (m === 2 && y === 10 && !e.hsIn) { e.hsIn = true; if (!e.hs) e.hs = '일반고'; addLog(s, `${e.hs === '일반고' ? '고등학교' : e.hs}에 입학했다.`); }
+  if (m === 10 && y === 12 && !e.graduated) addLog(s, '수능을 봤다.');
+  // 고교 졸업 (예전 세이브에서 이미 지난 경우도 여기서 한 번에)
+  if (!e.graduated && (y > 12 || (y === 12 && m === 1))) {
+    e.graduated = true; addLog(s, '고등학교를 졸업했다.');
     // 부모님 돈으로 다니던 학원은 끊긴다 (피드백 24). 다시 다니려면 내 돈으로
     const cut = s.slots.filter(sl => sl.lesson && sl.payer === 'family' && actInfo(sl.act).les).map(sl => { sl.lesson = false; return actInfo(sl.act).les.n; });
     if (cut.length) addLog(s, `부모님이 이제 학원비는 알아서 내라고 하셨다. ${josa([...new Set(cut)].join('·'), '을를')} 그만뒀다.`);
     for (const sl of s.slots) sl.payer = 'me';
   }
+  if (e.uni && e.uni.st != null && s.t === e.uni.st) addLog(s, `${e.uni.n}에 입학했다.`);
+}
+function onBirthday(s) {
   for (const p of parentsAlive(s)) if (pAge(s, p) >= 70 && U.chance((pAge(s, p) - 68) * 0.02)) queueEv(s, 'parent_loss', 0, { id: p.id }, true);
 }
 // 유튜브 유행 (피드백 24): 버튜버냐 캠튜버냐. 3~5년에 한 번 바뀐다. 예전 세이브(채널 콘셉트 유행)는 둘 중 하나로 바꾼다
@@ -970,13 +988,14 @@ function livingMoney(s) {
     else if (anyTrackActive(s) && totalFans(s) >= 1e5 && U.chance(0.6)) addLog(s, `${hol} 특집 촬영 때문에 본가에 못 갔다.`);
     else if (s.home.mode === 'alone' && parentsAlive(s).length && U.chance(0.5)) addLog(s, `${hol}에 본가에 다녀왔다.` + fx(s, { money: -20e4, stress: -4 }));
   }
-  if (s.flags.artFee && a >= 16 && a < 19) addMoney(s, -20e4, '예술고 레슨비');
+  if (s.flags.artFee && schoolYear(s) >= 10 && !s.edu.graduated) addMoney(s, -20e4, '예술고 레슨비');
+  // 등록금: 대학은 3월에 들어가서 생일과 상관없다 (v117 학사 일정)
+  if (inUni(s) && !s.army) {
+    if (s.wealth >= 5 && parentsAlive(s).length) s.mon.familyPaid = (s.mon.familyPaid || 0) + 70e4;
+    else { s.debt += 70e4; s.mon.items['학자금 대출'] = (s.mon.items['학자금 대출'] || 0) - 70e4; }
+  }
   if (a >= 19 && !s.army) {
     if (!isDorm(s)) housingMonth(s);
-    if (s.edu.uni && s.t < s.edu.uni.end) {
-      if (s.wealth >= 5 && parentsAlive(s).length) s.mon.familyPaid = (s.mon.familyPaid || 0) + 70e4;
-      else { s.debt += 70e4; s.mon.items['학자금 대출'] = (s.mon.items['학자금 대출'] || 0) - 70e4; }
-    }
   }
   if (s.debt > 0) s.debt += Math.round(s.debt * 0.005);
   if (s.money < 0) { s.debt += -s.money; s.money = 0; }
@@ -1280,11 +1299,22 @@ function migrate(s) {
   // 예전 세이브: 이미 네 살이 넘은 아이에게는 자녀 교육비 알림을 다시 띄우지 않는다
   for (const k of (typeof kids === 'function' ? kids(s) : [])) if (kidAge(s, k) >= 4) k.eduTold = true;
   // 회사 이름 (10-7): 이 인생의 회사 이름을 다시 붙인다. 예전 세이브는 처음 이름 그대로
+  // v117 장비 정책: 아직 본가에 사는 예전 세이브의 장비는 부모님이 사 주신 장비로 본다 (유지비도 부모님이)
+  if (s.eqPar == null) { s.eqPar = {}; if (s.home && s.home.mode !== 'alone') for (const id in s.equip || {}) if (eqLv(s, id) && EQUIP[id] && !EQUIP[id].slot) s.eqPar[id] = true; }
+  // v117 학사 일정: 예전 세이브는 생일 때 이미 중 · 고 입학 기록을 남겼다 (3월에 또 남기지 않게)
+  if (s.edu && s.edu.midIn == null && s.me && s.people[s.me]) { s.edu.midIn = age(s) >= 13; s.edu.hsIn = age(s) >= 16; }
+  // 없앤 사건(v117: 수상한 투자 권유 scam)이 기다리던 세이브는 그 창 · 대기열을 지운다
+  if (s.pending && !EVENTS[s.pending.id]) s.pending = null;
+  s.queue = (s.queue || []).filter(q => EVENTS[q.id]);
   // v116 버그 1 복구: '새 곡 준비' 창이 다른 창에 덮여 사라진 세이브는 곡 일정이 '대기 중'(99에서 줄어드는 값)에 멈춰 있다. 다음 달에 다시 뜨게 한다
   for (const [id, ev, res] of [['band', 'band_rel', 'band_relres'], ['solo', 'solo_rel', 'solo_relres']]) {
     const t = s.tracks && s.tracks[id];
     if (t && ['indie', 'signed'].includes(t.st) && t.nextRel > 12 && !hasQ(s, ev) && !hasQ(s, res)) t.nextRel = 1;
   }
+  // v117 팀워크: 예전 세이브의 밴드 · 그룹은 같이 활동한 개월 수만큼(60까지) 팀워크를 안고 시작한다
+  { const b = s.tracks && s.tracks.band, i = s.tracks && s.tracks.idol;
+    if (b && b.b && typeof b.b.tw !== 'number') b.b.tw = Math.min(60, b.months || 0);
+    if (i && i.g && typeof i.g.tw !== 'number') i.g.tw = Math.min(60, i.months || 0); }
   applyCoNames(s);
   return s;
 }
