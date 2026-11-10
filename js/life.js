@@ -112,7 +112,8 @@ function eqFitText(s) { const x = eqFit(s); return x.length ? ` 집이 좁아 ${
 // 기획사 숙소에 사는 동안에는 집 장비 대신 기획사 연습실 장비를 쓴다 (기획사마다 단계가 다르다: AGENCIES의 eq)
 // 기획사에 있는 장비: 보컬 부스·작업실·합주실·댄스 연습실·연기 세트·토크 세트·어학 수업. 그 밖의 내 장비(게임·그림 등)는 숙소에서 못 쓴다
 const AG_EQ = ['booth', 'studio', 'room', 'dance', 'acting', 'talk', 'lang'];
-function dormAg(s) { const t = s.tracks.idol; return isDorm(s) && t && t.ag && AG[t.ag] ? AG[t.ag] : null; }
+// 숙소를 주는 기획사: 아이돌 · 밴드 연습생(idol 트랙)이나 연습생에서 데뷔한 기획사 밴드(band 트랙, v116 버그 5)
+function dormAg(s) { if (!isDorm(s)) return null; const t = [s.tracks.idol, s.tracks.band].find(x => x && x.ag && ['trainee', 'active', 'signed'].includes(x.st)); return t && AG[t.ag] ? AG[t.ag] : null; }
 function equipLv(s, id) { const ag = dormAg(s); if (ag) return AG_EQ.includes(id) ? (ag.eq || 1) : 0; return eqLv(s, id); }
 // kid: 같이 사는 자녀는 집 장비를 그대로 쓴다
 function equipBonus(s, k, kid) {
@@ -345,13 +346,15 @@ function lifeAutoMonth(s) {
 const SIB_LEND_AFF = 40, SIB_LEND_HURT = 12, FRIEND_LEND_HURT = 10;
 function sibs(s) { return people(s, p => p.rel === '형제자매'); }
 function sibCount(s) { return sibs(s).length; }
-function bestSib(s) { return sibs(s).sort((a, b) => b.aff - a.aff)[0] || null; }
+// 돈을 빌릴 수 있는 형제자매는 스무 살 이상만 (v116 버그 10: 16세 동생에게 1,500만 원을 빌릴 수 있었다)
+function bestSib(s) { return sibs(s).filter(x => pAge(s, x) >= 20).sort((a, b) => b.aff - a.aff)[0] || null; }
 function sibLendAmt(s) { const w = s.wealth || 3; return (w >= 9 ? 3000 : w >= 7 ? 1500 : w >= 4 ? 500 : 200) * 1e4 * (sibCount(s) >= 2 ? 1.5 : 1); }
 function sibLoanPay(v) { return Math.max(20e4, Math.round(v * 0.05 / 1e4) * 1e4); }
 // 빌릴 수 없는 까닭 (빌릴 수 있으면 빈 글자). b: 빌려줄 형제 (없으면 가장 가까운 형제)
 function sibLendWhy(s, b) {
   b = b || bestSib(s);
-  if (!b) return '형제자매가 없다';
+  if (!b) return '돈을 빌릴 만한 형제자매가 없다';
+  if (pAge(s, b) < 20) return b.by > me(s).by ? '아직 어린 동생이다' : '아직 스무 살이 안 됐다';
   if (age(s) < 19) return '성인이 된 뒤에';
   if (s.sibLoan) return '지난번에 빌린 돈을 아직 갚는 중이다';
   if (s.cd.sibLoan > s.t) return '얼마 전에 다 갚았다';

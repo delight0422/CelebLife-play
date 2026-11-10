@@ -276,7 +276,7 @@ function wbContestP(s, id, pt) { const t = s.tracks[id], on = trackOn(s, id); re
 for (const id of WB_IDS) for (const pt of [3, 2, 1]) {
   const P = wbPlatOf(id, pt), W = WB[id];
   JOB_APPLY.push({
-    id: `${id}_contest${pt}`, trk: id, g: `${W.ic} ${W.n}`, n: `${P.n} ${W.sn} 공모전`, tag: `상금 ${fmtWon(WB_PRIZE[pt])}`,
+    id: `${id}_contest${pt}`, trk: id, g: `${W.ic} ${W.n}`, get n() { return `${P.n} ${W.sn} 공모전`; }, tag: `상금 ${fmtWon(WB_PRIZE[pt])}`,
     show: s => age(s) >= 14 && !(trackOn(s, id) && (s.tracks[id].cp || (s.tracks[id].w && s.tracks[id].w.pro))),
     h: s => W.pro(s) ? `합격 가능성 ${fmtPct(wbContestP(s, id, pt))} · 결과는 다음 달 · 붙으면 ${P.n}에서 정식 연재` : W.proN,
     ok: s => !s.army && W.pro(s) && !hasQ(s, 'wb_contest') && !(s.cd[`wbc_${id}${pt}`] > s.t),

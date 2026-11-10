@@ -101,7 +101,7 @@ function mcnBlock(s) {
 }
 function mcnJoinP(s, ag) { return U.clamp(0.3 + Math.log10(Math.max(1, s.tracks.youtube.subs) / ag.min) * 0.45, 0.08, 0.95); }
 for (const ag of mcnAgencies()) JOB_APPLY.push({
-  id: 'mcn_join_' + ag.id, trk: 'youtube', g: '▶️ 유튜버', n: `${ag.n} 가입 신청 (MCN)`, get tag() { return agTag(ag, mcnTierOf(S, ag.id)); },
+  id: 'mcn_join_' + ag.id, trk: 'youtube', g: '▶️ 유튜버', get n() { return `${ag.n} 가입 신청 (MCN)`; }, get tag() { return agTag(ag, mcnTierOf(S, ag.id)); },
   show: s => trackOn(s, 'youtube') && s.tracks.youtube.st === 'active' && !s.tracks.youtube.mcn,
   h: s => `구독자 ${fmtFans(ag.min)}부터 · 수익의 ${pctN(mcnCutMe(s, ag))}를 MCN이 가져간다${s.tracks.youtube.subs >= ag.min ? ` · 받아 줄 가능성 ${fmtPct(mcnJoinP(s, ag))}` : ''} · 결과는 다음 달`,
   ok: s => !mcnBlock(s) && s.tracks.youtube.subs >= ag.min && !(s.cd['mcn_' + ag.id] > s.t) && !hasQ(s, 'mcn_res'),
@@ -110,7 +110,7 @@ for (const ag of mcnAgencies()) JOB_APPLY.push({
 });
 // MCN 편집팀 (피드백 24): 편집자가 MCN에 들어가 소속 유튜버·버튜버 영상을 편집한다 (영상 제작사 편집팀과 같은 직원 계약)
 for (const ag of mcnAgencies()) JOB_APPLY.push({
-  id: 'editor_mcn_' + ag.id, trk: 'editor', g: '🎞️ 편집자', n: `${ag.n} 편집팀 채용 (MCN)`, get tag() { return `월급 ${EDIT_SAL[mcnTierOf(S, ag.id)]}만 원`; },
+  id: 'editor_mcn_' + ag.id, trk: 'editor', g: '🎞️ 편집자', get n() { return `${ag.n} 편집팀 채용 (MCN)`; }, get tag() { return `월급 ${EDIT_SAL[mcnTierOf(S, ag.id)]}만 원`; },
   show: s => !(trackOn(s, 'editor') && s.tracks.editor.mode === 'emp') && age(s) >= 20,
   h: s => lv(me(s), 'edit') >= 30 ? `소속 유튜버·버튜버 영상을 편집한다 · 합격 가능성 ${fmtPct(audP(editScore(s, true) + empExpBonus(s, 'editor'), EDIT_THR[mcnTierOf(s, ag.id)]))} · 결과는 다음 달` : '영상 편집이 30레벨 이상이어야 지원할 수 있다',
   ok: s => !s.army && !agencyContract(s) && lv(me(s), 'edit') >= 30 && !hasQ(s, 'edit_res') && !(s.cd['editm_' + ag.id] > s.t),

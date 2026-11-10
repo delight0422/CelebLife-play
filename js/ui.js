@@ -334,7 +334,9 @@ function panelSoon() {
   return h + `<div class="trks soon-list">${L.map(w => `<div class="trk soon"><b>「${U.esc(w.title)}」</b><div class="st">${U.esc(w.what)}</div><div class="soon-at">${U.esc(w.when)}</div></div>`).join('')}</div>`;
 }
 // 직업 이름: 진로 목록과 같은 이름 (연주가만 짧게)
-function jobName(id) { return id === 'player' ? '연주가' : CAREERS[id].n; }
+// 밴드 연습생(idol 트랙 kind 'band')은 직업 카드 · 창에서 '밴드 연습생' · 🎸로 보인다 (v116 버그 8). 진로 백과사전 설명은 그대로
+function jobName(id) { return id === 'player' ? '연주가' : id === 'idol' && idolIsBand(S) ? '밴드 연습생' : CAREERS[id].n; }
+function jobIc(id) { return id === 'idol' && idolIsBand(S) ? '🎸' : CAREERS[id].ic || '⭐'; }
 // 직업마다 관련 분야의 유행: 직업 창 맨 위에 그 분야 유행만 보인다 (모델은 없음)
 const JOB_FIELD = { idol: 'music', band: 'music', solo: 'music', player: 'music', composer: 'music', lyricist: 'music', producer: 'music', anr: 'music', trainer: 'music', dancer: 'music', animator: 'anime', adir: 'anime', voice: 'anime', webtoon: 'web', webnovel: 'web', actor: 'drama', director: 'drama', writer: 'drama', acttrainer: 'drama', variety: 'show', youtube: 'yt', vidol: 'yt', editor: 'yt', agency: 'music' };
 function trendRowHTML(s, only) {
@@ -358,7 +360,7 @@ function schoolLine(s) {
 function renderProfileCard() {
   const s = S, el = $('#profile-card');
   if (!el) return;
-  const rows = CAREER_IDS.filter(id => CAREERS[id] && trackOn(s, id)).map(id => [`${CAREERS[id].ic || '⭐'} ${jobName(id)}`, CAREERS[id].status ? careerStatus(s, id) : '']);
+  const rows = CAREER_IDS.filter(id => CAREERS[id] && trackOn(s, id)).map(id => [`${jobIc(id)} ${jobName(id)}`, CAREERS[id].status ? careerStatus(s, id) : '']);
   const sc = schoolLine(s);
   if (sc) rows.push(sc);
   if (!rows.length) rows.push([`🌱 ${stageLabel(s)}`, '']);
@@ -384,7 +386,7 @@ function renderJobsCard() {
       st = !n ? '일정에 빈 칸이 없어 이번 달은 쉰다' : x ? `${f ? '🔒 ' : ''}${x.n}${f > 1 ? ` · 고정 ${f}칸` : ''}` : '할 일을 고르지 않았다 · 평가가 떨어진다';
       cls = !n ? ' off' : !x ? ' warn' : '';
     }
-    h += `<button class="soon-banner job-bn${cls}" data-job="${id}"><span class="sb-ic">${c.ic || '⭐'}</span><span><span class="sb-t">${U.esc(jobName(id))}</span>${st ? `<br><span class="sb-s">${U.esc(st)}</span>` : ''}</span><span class="sb-n">›</span></button>`;
+    h += `<button class="soon-banner job-bn${cls}" data-job="${id}"><span class="sb-ic">${jobIc(id)}</span><span><span class="sb-t">${U.esc(jobName(id))}</span>${st ? `<br><span class="sb-s">${U.esc(st)}</span>` : ''}</span><span class="sb-n">›</span></button>`;
   }
   const rows = [];
   const row = (key, title, st) => rows.push(`<div class="trk" data-trk="${key}"><b>${title}</b><div class="st">${U.esc(st)}</div></div>`);
@@ -437,6 +439,8 @@ function renderStatusCard() {
   $('#status-card').innerHTML = st;
 }
 // 재정: 현금(크게) → 빚 → 지난달 → 맨 아래 총자산(집에 든 내 돈까지). 누르면 재정 창
+// 가족이 대 준 돈이 무엇이었는지 (v116 버그 14): 대학 다니는 중이면 등록금, 고교 졸업 전이면 학원비, 그 밖에는 생활비만
+function famPaidWhat(s) { return s.edu.uni && s.t < s.edu.uni.end ? '등록금·생활비' : !s.edu.graduated ? '학원비·생활비' : '생활비'; }
 function renderMoneyCard() {
   const s = S, lm = s.lastMon || { inc: 0, exp: 0, familyPaid: 0 }, ha = houseAsset(s);
   let m = `<div class="card-h">💰 재정<span class="bn-arr">›</span></div>`;
@@ -445,7 +449,7 @@ function renderMoneyCard() {
   if (s.sibLoan) m += `<div class="row"><span>형제자매에게 빌린 돈</span><b class="neg">${fmtWon(s.sibLoan.left)}</b></div>`;
   if (s.friendLoan) m += `<div class="row"><span>${U.esc(s.friendLoan.name)}에게 빌린 돈</span><b class="neg">${fmtWon(s.friendLoan.left)}</b></div>`;
   m += `<div class="row"><span>지난달 들어온 돈</span><b class="pos">+${fmtWon(lm.inc)}</b></div><div class="row"><span>지난달 나간 돈</span><b class="neg">-${fmtWon(lm.exp)}</b></div>`;
-  if (lm.familyPaid) m += `<div class="hint">가족이 대 준 돈 ${fmtWon(lm.familyPaid)} (학원비·생활비)</div>`;
+  if (lm.familyPaid) m += `<div class="hint">가족이 대 준 돈 ${fmtWon(lm.familyPaid)} (${famPaidWhat(s)})</div>`;
   m += `<div class="mn-r total"><span>총자산 (집 포함)</span><b>${fmtWon(s.money + ha)}</b></div>`;
   $('#money-card').innerHTML = m;
 }
@@ -858,7 +862,7 @@ function panelProfile() {
 // 직업 탭: 지금 하는 직업(누르면 그 직업 창)과 지난 경력, 딱 두 가지
 function pfJobTab(s) {
   const ids = CAREER_IDS.filter(id => CAREERS[id] && trackOn(s, id));
-  const h = `<div class="sec-h">지금 하는 일</div>` + (ids.length ? `<div class="trks pf-jobs">${ids.map(id => `<div class="trk" data-job="${id}" data-from="profile"><b>${CAREERS[id].ic || '⭐'} ${U.esc(jobName(id))}</b>${(s.jobEarn || {})[id] ? ` <span class="hint">번 돈 ${fmtWon(s.jobEarn[id])}</span>` : ''}${CAREERS[id].status ? `<div class="st">${U.esc(careerStatus(s, id))}</div>` : ''}</div>`).join('')}</div>` : `<div class="muted">없음</div>`);
+  const h = `<div class="sec-h">지금 하는 일</div>` + (ids.length ? `<div class="trks pf-jobs">${ids.map(id => `<div class="trk" data-job="${id}" data-from="profile"><b>${jobIc(id)} ${U.esc(jobName(id))}</b>${(s.jobEarn || {})[id] ? ` <span class="hint">번 돈 ${fmtWon(s.jobEarn[id])}</span>` : ''}${CAREERS[id].status ? `<div class="st">${U.esc(careerStatus(s, id))}</div>` : ''}</div>`).join('')}</div>` : `<div class="muted">없음</div>`);
   return h + jobPopHTML(s) + jobEarnHTML(s) + `<div class="sec-h">지난 경력</div>` + careerTab(s);
 }
 // 직업별 번 돈: 맨 위에 합계, 아래에 직업마다 많이 번 것부터. 어느 직업도 아닌 돈은 '그 밖에', 나눠 적기 전(예전 세이브)에 번 돈은 '예전에 번 돈'
@@ -870,7 +874,7 @@ function jobPopHTML(s) {
   if (!L.length) return '';
   return `<div class="sec-h">⭐ 인기</div>` + mastBars(L.map(id => ({ n: jobEarnName(id), tag: trackOn(s, id) ? '' : '예전', down: true, v: jpop(s, id), txt: popTxt(jpop(s, id)) })), 'pop', 'wide');
 }
-function jobEarnName(j) { return EARN_EXTRA[j] || (CAREERS[j] ? `${CAREERS[j].ic || '⭐'} ${jobName(j)}` : j); }
+function jobEarnName(j) { return EARN_EXTRA[j] || (CAREERS[j] ? `${jobIc(j)} ${jobName(j)}` : j); }
 function jobEarnHTML(s) {
   const E = s.jobEarn || {}, L = Object.keys(E).filter(j => E[j] > 0).map(j => [jobEarnName(j), E[j]]).sort((a, b) => b[1] - a[1]);
   const old = s.jobEarn0 || 0, etc = s.earned - old - L.reduce((a, x) => a + x[1], 0);
@@ -1213,9 +1217,9 @@ function careerTab(s) {
 // 맨 위 그 분야의 유행 → 현황 → 할 일(일정의 직업 활동 칸에서 하는 일) → 그 직업 정보(등급·숙련도·내 실력·계약) → 할 수 있는 일
 function panelJob() {
   const s = S, id = UI.jobId, c = CAREERS[id], t = s.tracks[id];
-  const back = UI.jobFrom === 'profile' ? '<button class="btn sm ghost back-btn" data-panel="profile">← 프로필</button>' : '';
+  const back = UI.jobFrom === 'profile' ? '<button class="btn sm ghost back-btn" data-panel="profile">← 프로필</button>' : UI.jobFrom === 'company' ? '<button class="btn sm ghost back-btn" data-panel="company">← 회사</button>' : '';
   if (!c || !trackOn(s, id)) return back + '<div class="empty">지금은 하지 않는 일이다.</div>';
-  let h = back + `<h2>${c.ic || ''} ${U.esc(jobName(id))}</h2>`;
+  let h = back + `<h2>${jobIc(id)} ${U.esc(jobName(id))}</h2>`;
   if (JOB_FIELD[id]) h += trendRowHTML(s, JOB_FIELD[id]);
   if (c.status) h += `<p class="p-intro">${U.esc(careerStatus(s, id))}</p>`;
   // 따로 창이 있는 직업 (회사 대표 → 회사 창)
@@ -1388,7 +1392,7 @@ function panelMoney() {
     h += `<div class="mon-sum"><div><div class="ms-k">들어온 돈</div><div class="ms-v pos">+${fmtWon(T.iSum)}</div></div><div><div class="ms-k">나간 돈</div><div class="ms-v neg">-${fmtWon(T.eSum)}</div></div><div><div class="ms-k">남은 돈</div><div class="ms-v ${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}</div></div></div>`;
     const list = (arr, cls) => arr.length ? arr.map(([k, v]) => `<div class="mon-row"><span>${U.esc(k)}</span><b class="${cls}">${v > 0 ? '+' : '-'}${fmtWon(Math.abs(v))}</b></div>`).join('') : '<div class="hint">없음</div>';
     h += `<div class="two-col"><div><div class="sec-h">수입</div>${list(T.inc, 'pos')}</div><div><div class="sec-h">지출</div>${list(T.exp, 'neg')}</div></div>`;
-    if (fam) h += `<div class="lnote" style="margin-top:8px">가족이 대 준 돈 ${fmtWon(fam)} (학원비·생활비)</div>`;
+    if (fam) h += `<div class="lnote" style="margin-top:8px">가족이 대 준 돈 ${fmtWon(fam)} (${famPaidWhat(s)})</div>`;
   }
   // 지금 상황과 빌리기·갚기
   const owe = [['빚', s.debt], ['주택·전세 대출', s.home.loan || 0], ['형제자매에게 빌린 돈', s.sibLoan ? s.sibLoan.left : 0], [s.friendLoan ? `${s.friendLoan.name}에게 빌린 돈` : '', s.friendLoan ? s.friendLoan.left : 0]].filter(([, v]) => v > 0);
@@ -1480,7 +1484,8 @@ function setLogSize(d) {
 document.addEventListener('click', e => {
   const t = e.target.closest('button, [data-pick], [data-cat], [data-grp], [data-apg], [data-trk], [data-job], [data-panel], [data-lifesec], [data-moneycard], input[type=checkbox]');
   if (!t) return;
-  if (t.id === 'btn-new') return showBirth();
+  // 이어할 인생이 있으면 먼저 묻는다 (v116 버그 2: 확인 없이 덮어써서 진행 중인 인생이 사라졌다)
+  if (t.id === 'btn-new') { const sv = loadSave(); if (sv && !sv.ended) { askConfirm(`진행 중인 인생(${sv.people[sv.me].name} · ${age(sv)}세)이 있어요.\n새로 시작하면 이 인생은 지워져요. 계속할까요?`, showBirth); return; } return showBirth(); }
   if (t.id === 'btn-reroll') { S = newLife(); renderBirth(); return; }
   if (t.id === 'btn-born') { startLife(S); save(S); UI.speed = 1; UI.lastSpeed = 1; showGame(); return; }
   if (t.id === 'btn-continue') { S = loadSave(); if (S) showGame(); return; }
@@ -1518,9 +1523,10 @@ document.addEventListener('click', e => {
   if (t.dataset.resok != null) { resOk(); return; }
   if (t.dataset.submit != null) { const vals = {}; document.querySelectorAll('#mcard input[data-k]').forEach(i => vals[i.dataset.k] = i.type === 'checkbox' ? i.checked : i.value); const pre = resPre(S), err = submitForm(S, vals); if (err) { $('#form-err').textContent = err; return; } if (!resAfter(pre, -1)) afterChoice(); return; }
   if (t.dataset.cancel != null) { cancelForm(S); afterChoice(); return; }
-  if (t.dataset.act != null) { const a = UI.acts[+t.dataset.act]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], r = a.run(S); applyLocks(S); if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t, () => { if (UI.overlay === 'company') S.uiOpen = 'company'; }); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
+  // 창을 내려 둔 채 패널 버튼으로 새 창(회사 돈 꺼내기 등)을 열면 그 창은 바로 보여 준다. 내려 둔 창은 대기열에 돌아가 있다가 새 창을 마치면 다시 뜬다 (v116 버그 1)
+  if (t.dataset.act != null) { const a = UI.acts[+t.dataset.act]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, r = a.run(S); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t, () => { if (UI.overlay === 'company') S.uiOpen = 'company'; }); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
   // 오른쪽 생활 카드의 버튼과 탭
-  if (t.dataset.lact != null) { const a = (UI.lacts || [])[+t.dataset.lact]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], r = a.run(S); applyLocks(S); if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
+  if (t.dataset.lact != null) { const a = (UI.lacts || [])[+t.dataset.lact]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, r = a.run(S); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
   // 오른쪽 생활 칸의 묶음을 누르면 그 묶음 창이 뜬다 (휴대폰 생활 창에서 누르면 그 창이 바뀐다)
   if (t.dataset.lifesec) { UI.lifeSec = t.dataset.lifesec; if (UI.overlay !== 'life') UI.lifeFrom = 'card'; if (UI.overlay) { UI.overlay = 'lifesec'; renderPanel(); } else openPanel('lifesec'); return; }
   // 재정 박스를 누르면 재정 창, 창 안의 1개월·1년·연도별 탭

@@ -480,6 +480,9 @@ function fireEvent(s, id, d = {}) {
   if (ev.init) ev.init(s, d);
   EV_E0 = { id, dv: evalDiff(e0, evalSnap(s)) };
   if (d.skip) return;
+  // 창을 내려 둔 채 다른 창을 열면(회사 돈 꺼내기 등), 기다리던 선택을 버리지 않고 대기열 맨 앞에 돌려 둔다 (v116 버그 1: 밴드 '새 곡 준비'가 사라져 곡이 영영 안 나왔다)
+  // re: 이미 한 번 뜬 창이라 다시 띄울 때 init을 또 돌리지 않는다 (fireQ · pullBack)
+  if (s.pending && s.pending.id !== id) s.queue.unshift({ id: s.pending.id, at: s.t, d: s.pending.d, re: 1 });
   s.pending = { id, d };
   s.done[id] = (s.done[id] || 0) + 1;
   if (ev.cd) s.cd[id] = s.t + ev.cd;
@@ -504,7 +507,7 @@ function pickEvent(s) {
     let ok = !!ev;
     if (ok && ev.cond) { try { ok = ev.cond(s); } catch (e) { ok = false; } }
     if (!ok) continue;
-    fireEvent(s, q.id, q.d);
+    fireQ(s, q);
     if (s.pending) return true;
   }
   for (const ev of EV_FIXED) if (evAvail(s, ev)) { fireEvent(s, ev.id, {}); if (s.pending) return true; }
@@ -525,7 +528,7 @@ function submitForm(s, vals) {
   applyLocks(s);
   if (r.err) { if (!s.pending) s.pending = p; return r.err; }
   if (r.log) addLog(s, r.log, ev.tag || 'ev');
-  autoEvs(s); pullNow(s);
+  autoEvs(s); pullNow(s); pullBack(s); autoEvs(s);
   save(s);
   return '';
 }
@@ -535,6 +538,7 @@ function cancelForm(s) {
   s.pending = null;
   const r = EVENTS[p.id].cancel(s, p.d);
   if (r) addLog(s, r, 'ev');
+  pullBack(s);
   save(s);
 }
 function choose(s, i) {
@@ -548,7 +552,7 @@ function choose(s, i) {
   applyLocks(s);
   if (r) addLog(s, r, ev.tag || 'ev');
   // 고른 뒤 이어서 생긴 사건도 고를 게 없으면 창 없이 처리한다
-  autoEvs(s); pullNow(s);
+  autoEvs(s); pullNow(s); pullBack(s); autoEvs(s);
   save(s);
 }
 // 턴제 (turn-test): 창을 띄우지 않고 바로 처리하는 사건
@@ -569,9 +573,21 @@ function pullNow(s) {
     const q = s.queue.splice(i, 1)[0], ev = EVENTS[q.id];
     if (!ev) continue;
     if (ev.cond) { let ok = false; try { ok = ev.cond(s); } catch (e) { } if (!ok) continue; }
-    fireEvent(s, q.id, q.d);
+    fireQ(s, q);
     autoEvs(s);
   }
+}
+// 대기열 항목 띄우기: 돌려 둔 창(re)은 init 없이 그대로 다시 띄운다
+function fireQ(s, q) { if (q.re) s.pending = { id: q.id, d: q.d }; else fireEvent(s, q.id, q.d); }
+// 다른 창 때문에 돌려 둔 창은 그 창을 마치자마자 다시 띄운다 (다음 달까지 기다리지 않게)
+function pullBack(s) {
+  if (s.pending || s.ended) return;
+  const i = s.queue.findIndex(q => q.re && q.at <= s.t);
+  if (i < 0) return;
+  const q = s.queue.splice(i, 1)[0], ev = EVENTS[q.id];
+  if (!ev) return;
+  if (ev.cond) { let ok = false; try { ok = ev.cond(s); } catch (e) { } if (!ok) return; }
+  fireQ(s, q);
 }
 function autoPick(s, ev, d, C) {
   if (ev.form || (typeof ev.keepPop === 'function' ? ev.keepPop(s, d) : ev.keepPop)) return -1;
@@ -1264,6 +1280,11 @@ function migrate(s) {
   // 예전 세이브: 이미 네 살이 넘은 아이에게는 자녀 교육비 알림을 다시 띄우지 않는다
   for (const k of (typeof kids === 'function' ? kids(s) : [])) if (kidAge(s, k) >= 4) k.eduTold = true;
   // 회사 이름 (10-7): 이 인생의 회사 이름을 다시 붙인다. 예전 세이브는 처음 이름 그대로
+  // v116 버그 1 복구: '새 곡 준비' 창이 다른 창에 덮여 사라진 세이브는 곡 일정이 '대기 중'(99에서 줄어드는 값)에 멈춰 있다. 다음 달에 다시 뜨게 한다
+  for (const [id, ev, res] of [['band', 'band_rel', 'band_relres'], ['solo', 'solo_rel', 'solo_relres']]) {
+    const t = s.tracks && s.tracks[id];
+    if (t && ['indie', 'signed'].includes(t.st) && t.nextRel > 12 && !hasQ(s, ev) && !hasQ(s, res)) t.nextRel = 1;
+  }
   applyCoNames(s);
   return s;
 }

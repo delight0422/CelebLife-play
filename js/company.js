@@ -1045,9 +1045,11 @@ function coLedItems(L) { return Object.entries(L || {}).filter(([k, v]) => v && 
 function coTabHome(s, t) {
   const rk = Math.max(coRank(t), t.rankMax || 0);
   // 내 회사 소속으로 하는 내 활동 (v105): 비용 · 수익이 회사 돈으로 오간다
-  const own = Object.keys(OWN_CO_N).filter(j => ownCo(s, j)).map(j => CAREERS[j].n);
+  const ownIds = Object.keys(OWN_CO_N).filter(j => ownCo(s, j)), own = ownIds.map(j => CAREERS[j].n);
   let h = infoTable([['회사 돈', fmtWon(t.money)], ...coFieldRows(t), own.length ? ['내 회사 소속 내 활동', `${own.join(' · ')} (비용 · 수익은 회사 돈)`] : null, ['회사 등급', coRankName(t, rk)], ['지난달', coSumText(t.lastL)], [t.lastYY ? `${t.lastYY}년` : '올해', coSumText(t.lastYY ? t.lastY : t.Y)], ['매달 꼭 나가는 돈', fmtWon(coFixed(s, t))], ['넣은 돈 · 꺼낸 돈', `${fmtWon(t.inv)} · ${fmtWon(t.out)}`], coTrFields(t).length ? ['연습실 장비', CO_EQ.n[t.eq || 0]] : null, t.f.music ? ['받은 상', `${t.awN}개`] : null,
     { h: '지난달 돈 흐름', items: coLedItems(t.lastL) }]);
+  // 내 회사 소속 내 활동은 눌러서 그 직업 창으로 간다 (v116 버그 11)
+  if (ownIds.length) h += `<div class="ap-row">${ownIds.map(j => `<button class="btn sm" data-job="${j}" data-from="company">${jobIc(j)} ${U.esc(jobName(j))} 창 열기</button>`).join('')}</div>`;
   const A = [
     { t: '돈 넣기', h: `내 돈 ${fmtWon(s.money)}`, ok: s.money > 0, btn: '넣기', run: s => { fireEvent(s, 'co_money', { dir: 'in' }); return ''; } },
     { t: '돈 꺼내기', h: `회사 돈 ${fmtWon(t.money)}`, ok: t.money > 0, btn: '꺼내기', run: s => { fireEvent(s, 'co_money', { dir: 'out' }); return ''; } },
@@ -1088,10 +1090,19 @@ function coTabTr(s, t) {
 // 그룹 탭 (피드백 31): 그룹 · 밴드 · 기수마다 작은 탭으로 나눈다. 해체·졸업한 그룹은 맨 끝 탭
 function coGrpTabN(g) { return `${g.kind === 'band' ? '🎸' : g.kind === 'vt' ? '🎙️' : '🎤'} ${g.kind === 'vt' && g.gen && !g.name.includes(`${g.gen}기`) ? `${g.gen}기 ` : ''}${g.name}`; }
 function coTabGrp(s, t) {
-  const ids = t.groups.map(g => g.id).concat(t.past.length ? ['past'] : []), sel = ids.includes(UI.coGrp) ? UI.coGrp : ids[0];
+  // 내 회사 소속 내 밴드 (v116 버그 11): 회사가 만든 그룹이 아니라 내 밴드 활동(s.tracks.band)이라 맨 앞 '내 밴드' 탭으로 따로 보여 준다
+  const myB = ownCo(s, 'band') ? s.tracks.band : null;
+  const ids = (myB ? ['mine'] : []).concat(t.groups.map(g => g.id)).concat(t.past.length ? ['past'] : []), sel = ids.includes(UI.coGrp) ? UI.coGrp : ids[0];
   const hasV = t.past.some(x => x.kind === 'vt'), hasM = t.past.some(x => x.kind !== 'vt'), pastN = hasV && hasM ? '해체·졸업' : hasV ? '졸업한 기수' : '해체한 그룹';
-  let h = ids.length > 1 ? `<div class="ap-row">` + t.groups.map(g => `<button class="ap-tab ${sel === g.id ? 'on' : ''}" data-cogrp="${g.id}">${U.esc(coGrpTabN(g))}</button>`).join('') + (t.past.length ? `<button class="ap-tab ${sel === 'past' ? 'on' : ''}" data-cogrp="past">${pastN}<span class="ap-n">${t.past.length}</span></button>` : '') + `</div>` : '';
-  if (!t.groups.length) h += `<div class="empty">아직 ${coGrpWord(t) === '기수' ? '데뷔한 기수가 없다. 연습생 탭에서 데뷔시킨다.' : `${coGrpWord(t)}${coGrpWord(t) === '그룹' ? '이' : '가'} 없다. 연습생 탭에서 만든다.`}</div>`;
+  let h = ids.length > 1 ? `<div class="ap-row">` + (myB ? `<button class="ap-tab ${sel === 'mine' ? 'on' : ''}" data-cogrp="mine">🎸 ${U.esc(myB.b.name)} · 내 밴드</button>` : '') + t.groups.map(g => `<button class="ap-tab ${sel === g.id ? 'on' : ''}" data-cogrp="${g.id}">${U.esc(coGrpTabN(g))}</button>`).join('') + (t.past.length ? `<button class="ap-tab ${sel === 'past' ? 'on' : ''}" data-cogrp="past">${pastN}<span class="ap-n">${t.past.length}</span></button>` : '') + `</div>` : '';
+  if (myB && sel === 'mine') {
+    h += `<div class="sec-h">${U.esc(myB.b.name)} <span class="n">내 밴드 · 비용 · 수익은 회사 돈</span></div>`;
+    h += infoTable([['지금', careerStatus(s, 'band')],
+      { h: '멤버', items: [`${me(s).name} (나) — ${partN(myB.b.my)}`].concat(bandMembers(s, myB).map(x => `${x.name} (${pAge(s, x)}세) — ${partN(myB.b.part[x.id])}`)) },
+      { h: '최근 곡', items: s.works.filter(w => w.type === '밴드 싱글').slice(-5).reverse().map(w => `${w.y} 「${w.title}」${w.note ? ' · ' + w.note : ''}`) }]);
+    h += `<div class="ap-row"><button class="btn sm" data-job="band" data-from="company">🎸 밴드 창 열기</button></div>`;
+  }
+  if (!t.groups.length && !myB) h += `<div class="empty">아직 ${coGrpWord(t) === '기수' ? '데뷔한 기수가 없다. 연습생 탭에서 데뷔시킨다.' : `${coGrpWord(t)}${coGrpWord(t) === '그룹' ? '이' : '가'} 없다. 연습생 탭에서 만든다.`}</div>`;
   for (const g of t.groups) {
     if (g.id !== sel) continue;
     const left = g.cEnd - g.months;

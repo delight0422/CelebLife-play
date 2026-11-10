@@ -11,6 +11,8 @@ function gainH(s, k, more) { return more || ''; }
 // 또래 기준: 그 나이에 한 분야를 꾸준히 해 온 아이의 보통 레벨 (10세 7, 13세 13, 15세 18, 18세 24쯤)
 function peerLv(s) { return U.clamp((age(s) - 7) * 2.2, 2, 32); }
 // 무대·시험에서 보여 주는 실력: 특기 레벨에 재능을 조금 얹는다. 안 배운 건 재능만으로 짐작한다
+// 고교 · 대학 합격 때 오르는 특기: 그 과에서 보는 특기 중 가진 것 가운데 가장 잘하는 것 (합격에 쓴 특기). 하나도 없으면 fb (v116 버그 9: 드럼으로 붙어도 보컬 · 작곡이 올랐다)
+function admitSkill(s, b, fb) { return b.filter(k => has(me(s), k)).sort((x, y) => stageLv(s, y) - stageLv(s, x))[0] || fb; }
 function stageLv(s, k) { const p = me(s); return (has(p, k) ? lv(p, k) : 0) + (talFactor(p, k) - 50) / 10; }
 // 또래 기준만큼 하면 65% 안팎, 5레벨 차이마다 크게 달라진다. off가 클수록 어려운 곳
 function schoolP(s, lvl, off = 0, lo = 0.05) { return U.clamp(U.sig((lvl - peerLv(s) - off + 3) / 5), lo, 0.95); }
@@ -112,7 +114,7 @@ E({
 });
 // 부모님이 특기를 권한다 (첫 판에서 특기를 처음 배우는 주된 길)
 E({
-  id: 'par_offer', cd: 10, cat: '가족', title: '이거 한번 배워 볼래?', auto: 0,
+  id: 'par_offer', cd: 10, cat: '가족', title: (s, d) => `${skN(d.k)} 한번 배워 볼래?`,
   p: s => { const a = age(s); return a >= 4 && a <= 12 && parentsAlive(s).length && (s.done.par_offer || 0) < 2 ? 0.025 : 0; },
   init(s, d) { const o = parentOffer(s); if (!o || !skAsk(s, o.k)) { d.skip = true; return; } Object.assign(d, o); },
   text(s, d) {
@@ -139,7 +141,7 @@ E({
   ],
 });
 E({
-  id: 'child_model', once: true, cat: '캐스팅', title: '아역 모델 제안', auto: 0,
+  id: 'child_model', once: true, cat: '캐스팅', title: '아역 모델 제안',
   p: s => me(s).tal.looks >= 62 ? 0.006 : 0,
   cond: s => age(s) >= 3 && age(s) <= 9,
   text: () => '엄마와 마트에 갔다가 아동복 브랜드 관계자에게 명함을 받았다. 아역 모델을 해 보지 않겠냐고 한다.',
@@ -319,7 +321,7 @@ E({
 // ════════ 재능이 이끄는 사건 (재능이 높을수록 자주 일어난다) ════════
 function talentEv(id, tal, k, minA, maxA, title, text, yes, x) {
   E({ id, once: true, p: 0.002, tal, cat: '재능', title, cond: s => age(s) >= minA && age(s) <= maxA && !has(me(s), k) && skAsk(s, k) && learnedSkills(me(s)).length < 8,
-    text: () => text, auto: 0, ch: () => [{ t: yes, f: s => x + learnMe(s, k) }, { t: '관심 없다', f: s => { skDecline(s, k); return '그냥 넘겼다.'; } }] });
+    text: () => text, ch: () => [{ t: yes, f: s => x + learnMe(s, k) }, { t: '관심 없다', f: s => { skDecline(s, k); return '그냥 넘겼다.'; } }] });
 }
 talentEv('class_clown', 'humor', 'variety', 8, 16, '분위기 메이커', '반 친구들이 내 말 한마디에 빵빵 터진다. 담임 선생님이 학급 행사 사회를 맡아 보라고 하신다.', '해 본다', '학급 행사 사회를 봤다. 다들 배꼽을 잡았다.');
 talentEv('edit_help', 'aesth', 'edit', 12, 25, '편집 좀 해 줄래?', '친구가 찍어 둔 영상을 편집해 달라고 부탁한다. 컷을 어디서 자르면 재밌을지 이상하게 눈에 잘 보인다.', '편집해 준다', '처음 해 보는 편집인데 친구가 최고라며 좋아했다.');
@@ -344,7 +346,7 @@ E({
   ch: (s, d) => d.o.map(([t, k]) => ({ t, f: s => `${t.replace(/ \(.*\)/, '')}에 들어갔다.` + learnMe(s, k) + fx(s, { sk: { [k]: 1 } }) })).concat([{ t: '귀가부', h: '집에 일찍 와서 공부한다 · 학업이 오른다', f: s => { s.flags.homeClub = true; return '동아리는 들지 않았다. 집에 일찍 와서 공부하는 시간이 늘었다.' + fx(s, { sk: { study: 3 } }); } }]),
 });
 E({
-  id: 'anime', once: true, p: 0.003, cat: '학창 시절', title: '애니에 빠졌다', tal: 'intel', auto: 0,
+  id: 'anime', once: true, p: 0.003, cat: '학창 시절', title: '애니에 빠졌다', tal: 'intel',
   cond: s => age(s) >= 12 && age(s) <= 17 && !has(me(s), 'jp') && skAsk(s, 'jp'),
   text: () => '친구가 추천해 준 일본 애니메이션에 푹 빠졌다. 자막 없이 보고 싶다.',
   ch: s => [
@@ -356,7 +358,7 @@ E({
   id: 'first_love', once: true, p: 0.04, cat: '학창 시절', title: '좋아하는 사람',
   cond: s => age(s) >= 14 && age(s) <= 18 && !partner(s),
   init(s, d) { const g0 = myGender(s); d.g = g0 === '여' ? '남' : '여'; d.name = genName(d.g); d.trait = U.pick(TRAITS).id; d.look = U.pick(d.g === '여' ? LOOKS_F : LOOKS_M); d.orient = 's'; },
-  text: (s, d) => `같은 반 ${josa(d.name, '이가')}(${d.g === '여' ? '여자' : '남자'}) 자꾸 눈에 들어온다. 성격은 ${TRAIT_BY[d.trait].n}.`,
+  text: (s, d) => `같은 반 ${d.name}(${d.g === '여' ? '여자' : '남자'})${josa(d.name, '이가').slice(d.name.length)} 자꾸 눈에 들어온다. ${traitLine(d.trait)}`,
   ch(s, d) {
     const fits = likes({ g: d.g, orient: d.orient }, myGender(s));
     const p = fits ? U.clamp(0.3 + me(s).tal.looks / 200 + me(s).tal.humor / 300, 0.1, 0.8) : 0;
@@ -398,7 +400,7 @@ E({
       ['특성화고 방송영상과', ['edit', 'direct', 'variety'], 'edit'],
     ].map(([n, b, core]) => {
       const pp = schoolP(s, best(b), 0, 0.02);
-      return { t: n, h: `합격 가능성 ${pct(pp)} · ${b.map(k => SKILLS[k].n).join('·')} 연습이 빨리 는다 · 떨어지면 일반고`, f: s => { if (U.chance(pp)) { s.edu.hs = n; s.edu.hsBonus = b; if (s.wealth <= 3 && n.startsWith('예술고')) s.flags.artFee = true; milestone(s, `${n}에 진학했다.`); return `${n} 실기 시험에 합격했다!` + learnMe(s, core) + (b.includes('direct') && !has(me(s), 'direct') ? learnMe(s, 'direct') : '') + fx(s, { stress: -6 }); } s.edu.hs = '일반고'; return `${n} 실기 시험에 떨어졌다. 일반고에 가게 됐다.` + fx(s, { stress: 5 }); } };
+      return { t: n, h: `합격 가능성 ${pct(pp)} · ${b.map(k => SKILLS[k].n).join('·')} 연습이 빨리 는다 · 떨어지면 일반고`, f: s => { if (U.chance(pp)) { s.edu.hs = n; s.edu.hsBonus = b; if (s.wealth <= 3 && n.startsWith('예술고')) s.flags.artFee = true; milestone(s, `${n}에 진학했다.`); const used = admitSkill(s, b, core); return `${n} 실기 시험에 ${SKILLS[used].n} 실기로 합격했다!` + learnMe(s, used) + (b.includes('direct') && !has(me(s), 'direct') ? learnMe(s, 'direct') : '') + fx(s, { stress: -6 }); } s.edu.hs = '일반고'; return `${n} 실기 시험에 떨어졌다. 일반고에 가게 됐다.` + fx(s, { stress: 5 }); } };
     });
     o.push({ t: '일반고에 간다', f: s => { s.edu.hs = '일반고'; return '집 근처 일반고에 가기로 했다.'; } });
     return o;
@@ -431,7 +433,7 @@ E({
     ].map(([n, b, core, off]) => {
       const pp = off != null ? schoolP(s, Math.max(best(b), stageLv(s, 'study') * 0.6), off, 0.03)
         : schoolP(s, stageLv(s, 'study'), n === '경영학과' ? -3 : -6, 0.03);
-      return { t: n, h: `합격 가능성 ${pct(pp)} · 4년 동안 ${b.map(k => SKILLS[k].n).join('·')} 연습이 빨리 는다`, f: s => { if (U.chance(pp)) { s.edu.uni = { n, bonus: b, end: s.t + 48 }; milestone(s, `${n}에 입학했다.`); return `${n}에 합격했다!` + learnMe(s, core) + (b.includes('direct') && !has(me(s), 'direct') ? learnMe(s, 'direct') : '') + fx(s, { stress: -6 }); } return `${n}에 떨어졌다. 재수는 하지 않기로 했다.` + fx(s, { stress: 6 }); } };
+      return { t: n, h: `합격 가능성 ${pct(pp)} · 4년 동안 ${b.map(k => SKILLS[k].n).join('·')} 연습이 빨리 는다`, f: s => { if (U.chance(pp)) { s.edu.uni = { n, bonus: b, end: s.t + 48 }; milestone(s, `${n}에 입학했다.`); const used = admitSkill(s, b, has(me(s), 'study') && off != null ? 'study' : core); return (off != null && used !== 'study' ? `${n}에 ${SKILLS[used].n} 실기로 합격했다!` : `${n}에 합격했다!`) + learnMe(s, used) + (b.includes('direct') && !has(me(s), 'direct') ? learnMe(s, 'direct') : '') + fx(s, { stress: -6 }); } return `${n}에 떨어졌다. 재수는 하지 않기로 했다.` + fx(s, { stress: 6 }); } };
     });
     o.push({ t: '대학은 가지 않는다', f: () => '대학에 가지 않기로 했다.' });
     return o;
@@ -453,7 +455,7 @@ const ADULT_CLASS = {
   game: '친구들의 게임 모임', jp: '일본어 회화 모임', en: '영어 회화 스터디', art: '드로잉 동호회', scout: '오디션 심사 보조 아르바이트',
 };
 E({
-  id: 'adult_class', cd: 24, p: 0.0175, cat: '배움', title: '새로 배워 볼까?', auto: 0,
+  id: 'adult_class', cd: 24, p: 0.0175, cat: '배움', title: '새로 배워 볼까?',
   cond: s => age(s) >= 19 && !s.army,
   init(s, d) {
     const p = me(s), c = SKILL_IDS.filter(k => !has(p, k) && ADULT_CLASS[k] && skAsk(s, k));
@@ -480,7 +482,7 @@ E({
 const PERF_SK = ['vocal', 'rap', 'dance', 'acting', 'variety', 'guitar', 'bass', 'drum', 'piano', 'keyboard', 'compose'];
 // 친구의 오디션 영상을 봐 준다 (내가 할 줄 아는 분야)
 E({
-  id: 'scout_friend', cd: 24, p: 0.015, cat: '배움', title: '네 눈엔 어때?', tal: ['insight', 'intel'], auto: 0,
+  id: 'scout_friend', cd: 24, p: 0.015, cat: '배움', title: '네 눈엔 어때?', tal: ['insight', 'intel'],
   cond: s => age(s) >= 14 && !s.army && !has(me(s), 'scout') && skAsk(s, 'scout') && PERF_SK.some(k => lv(me(s), k) >= 15),
   init(s, d) {
     const fr = people(s, n => ['친구', '동기', '선배', '동료', '후배'].includes(n.rel) && !(n.far && age(s) < 19));
@@ -494,7 +496,7 @@ E({
 });
 // 소속사 신인 오디션 심사석에 앉아 본다 (전속 계약 중인 아티스트)
 E({
-  id: 'scout_panel', cd: 24, p: 0.02, cat: '배움', title: '오디션 심사 자리', auto: 0,
+  id: 'scout_panel', cd: 24, p: 0.02, cat: '배움', title: '오디션 심사 자리',
   cond: s => age(s) >= 17 && !s.army && !has(me(s), 'scout') && skAsk(s, 'scout') && !!artistContract(s),
   init(s, d) { d.ag = artistContract(s); },
   text: (s, d) => `${josa(d.ag, '이가')} 신인 오디션을 연다. 선배로서 심사석 뒤에 앉아 지원자들을 같이 봐 달라고 한다.`,
@@ -507,7 +509,7 @@ E({
 const JUDGE_SHOWS = ['스타 오디션 K', '라이징 스테이지', '넥스트 아이콘', '데뷔의 문', '원석을 찾아라', '골든 마이크',
   '꿈의 오디션', '한 소절의 기적', '무대 위의 신인', '첫 번째 마이크', '다음 스타를 찾아서', '오디션 로드'];
 E({
-  id: 'judge_guest', cd: 36, p: 0.01, cat: '방송', title: '심사위원 섭외', auto: 0,
+  id: 'judge_guest', cd: 36, p: 0.01, cat: '방송', title: '심사위원 섭외',
   cond: s => age(s) >= 22 && !s.army && totalFans(s) >= 2e5 && !s.hiatus,
   init(s, d) { d.show = U.pick(JUDGE_SHOWS); d.fee = Math.round((300 + Math.min(1700, totalFans(s) / 2000)) / 10) * 10 * 1e4; },
   text: (s, d) => `오디션 프로그램 「${d.show}」에서 심사위원으로 나와 달라고 한다. 출연료 ${fmtWon(d.fee)}.`,
@@ -518,7 +520,7 @@ E({
 });
 // 사람을 뽑는 직업을 하다 보면 사람 보는 눈이 트인다 (v101: 예전엔 저절로 생겼는데 이제 고른다. game.js scoutByWork)
 E({
-  id: 'scout_work', cat: '배움', title: '사람 보는 눈', auto: 0,
+  id: 'scout_work', cat: '배움', title: '사람 보는 눈',
   text: (s, d) => `${SCOUT_JOBS[d.id] || '사람들을 보다 보니'} 누가 잘될지 조금씩 보이기 시작했다. 사람 보는 눈을 제대로 길러 볼까?`,
   ch: (s, d) => [
     { t: '길러 본다', f: s => '사람을 보는 눈을 기르기로 했다.' + learnMe(s, 'scout') },
@@ -527,7 +529,7 @@ E({
 });
 // 교육 특기: 누가 가르쳐 달라고 할 때 처음 생긴다
 E({
-  id: 'teach_ask', cd: 18, p: 0.015, cat: '배움', title: '가르쳐 줄 수 있어?', auto: 0, autoK: 'flavor',
+  id: 'teach_ask', cd: 18, p: 0.015, cat: '배움', title: '가르쳐 줄 수 있어?', autoK: 'flavor',
   cond: s => age(s) >= 14 && skAsk(s, 'edu') && learnedSkills(me(s)).some(k => k !== 'edu' && lv(me(s), k) >= 20),
   init(s, d) { const ks = learnedSkills(me(s)).filter(k => k !== 'edu' && lv(me(s), k) >= 20); d.k = U.pick(ks); d.who = U.pick(['동생', '후배', '친구 동생', '옆집 아이']); },
   text: (s, d) => `${josa(d.who, '이가')} ${josa(skN(d.k), '을를')} 좀 가르쳐 달라고 한다.`,
@@ -654,7 +656,7 @@ E({
   ch: () => [{ t: '입대한다', f: s => startArmy(s) }],
 });
 E({
-  id: 'side_job', cd: 24, cat: '돈', title: '단기 알바 소개', auto: 0,
+  id: 'side_job', cd: 24, cat: '돈', title: '단기 알바 소개',
   p: s => age(s) >= 19 && s.money < 100e4 ? 0.03 : 0,
   text: () => '지인이 주말 행사 스태프 단기 알바를 소개해 줬다. 2주에 150만 원.',
   ch: () => [
@@ -785,7 +787,7 @@ E({
     const n = makePerson(s, { g, orient: 's', age: age(s) + U.int(-3, 4), rel: '지인', job, aff: 50, met: '친구 소개로 만난 사람' });
     d.id = n.id;
   },
-  text: (s, d) => { const n = s.people[d.id]; return `${d.old ? '오래 알던' : '최근 알게 된'} ${n.job} ${josa(n.name, '이가')}(${n.g === '여' ? '여성' : '남성'}) 자꾸 생각난다. ${TRAIT_BY[n.trait].n} 사람이다.`; },
+  text: (s, d) => { const n = s.people[d.id]; return `${d.old ? '오래 알던' : '최근 알게 된'} ${n.job} ${n.name}(${n.g === '여' ? '여성' : '남성'})${josa(n.name, '이가').slice(n.name.length)} 자꾸 생각난다. ${traitLine(n.trait)}`; },
   ch(s, d) {
     const n = s.people[d.id];
     return [

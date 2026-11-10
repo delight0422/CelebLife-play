@@ -43,12 +43,14 @@ const LOOKS_F = ['맑고 청순한 인상', '강아지상', '고양이상', '여
 const LOOKS_M = ['강아지상', '고양이상', '여우상', '곰돌이상', '부드럽고 순한 인상', '날카롭고 차가운 인상', '시원시원한 인상', '단정한 인상', '소년 같은 인상', '선이 굵은 인상'];
 
 const TRAITS = [
-  { id: 'kind', n: '다정함' }, { id: 'blunt', n: '무뚝뚝함' }, { id: 'prank', n: '장난꾸러기' },
-  { id: 'perfect', n: '완벽주의' }, { id: 'ambition', n: '야심가' }, { id: 'calm', n: '느긋함' },
-  { id: 'sensitive', n: '예민함' }, { id: 'quirky', n: '4차원' }, { id: 'leader', n: '리더형' },
-  { id: 'clumsy', n: '허당' }, { id: 'cool', n: '시크함' }, { id: 'chatty', n: '수다쟁이' },
+  { id: 'kind', n: '다정함', adj: '다정한' }, { id: 'blunt', n: '무뚝뚝함', adj: '무뚝뚝한' }, { id: 'prank', n: '장난꾸러기', adj: '장난기 많은' },
+  { id: 'perfect', n: '완벽주의', adj: '완벽주의인' }, { id: 'ambition', n: '야심가', adj: '야심 있는' }, { id: 'calm', n: '느긋함', adj: '느긋한' },
+  { id: 'sensitive', n: '예민함', adj: '예민한' }, { id: 'quirky', n: '4차원', adj: '4차원인' }, { id: 'leader', n: '리더형', adj: '리더 타입인' },
+  { id: 'clumsy', n: '허당', adj: '허당인' }, { id: 'cool', n: '시크함', adj: '시크한' }, { id: 'chatty', n: '수다쟁이', adj: '수다스러운' },
 ];
 const TRAIT_BY = Object.fromEntries(TRAITS.map(t => [t.id, t]));
+// 사람 소개 글의 성격 문장은 여기서만 만든다 (v116 버그 13: '허당 사람이다' · '시크함 사람이다')
+function traitLine(id) { return `${TRAIT_BY[id].adj} 사람이다.`; }
 
 const TRENDS = ['청량', '강렬', '큐티', '몽환', '힙합', '레트로', '하이틴', '성숙'];
 // 곡 콘셉트마다 무대에 서는 사람에게서 더 보는 것 (v97, 8-4 사용자 표). young 어린 나이, rap 랩 (보컬 포지션도)

@@ -102,7 +102,7 @@ function cTag(s, c, sig) { return sig && c === sig ? '그룹 대표 콘셉트' :
 const SONG_CB = {};
 function pickConcept(s, d) { if (s.pending) queueEv(s, 'song_concept', 0, d, true); else fireEvent(s, 'song_concept', d); return ''; }
 // 그 곡으로 무대에 서는 사람들 (솔로 · 밴드 · 내 회사 그룹). 작곡가처럼 남에게 주는 곡은 모른다(null)
-function cPplOf(s, d) { return d.cb === 'solo' || d.cb === 'soloT' ? [me(s)] : d.cb === 'band' || d.cb === 'bandT' ? [me(s)].concat(bandMembers(s, s.tracks.band)) : d.cb === 'coT' && typeof coGroup === 'function' && coGroup(s, d.gid) ? coP(s, coGroup(s, d.gid).members) : null; }
+function cPplOf(s, d) { return d.cb === 'solo' || d.cb === 'soloT' ? [me(s)] : d.cb === 'band' || d.cb === 'bandT' || d.cb === 'bandQ' ? [me(s)].concat(bandMembers(s, s.tracks.band)) : d.cb === 'coT' && typeof coGroup === 'function' && coGroup(s, d.gid) ? coP(s, coGroup(s, d.gid).members) : null; }
 E({
   id: 'song_concept', cat: '곡 작업', title: '어떤 콘셉트로 쓸까?', tag: 'career',
   cond: s => true,
@@ -434,7 +434,7 @@ function idolBlock(s, band) {
   return '';
 }
 for (const ag of musicAgencies().filter(a => !a.soloOnly)) JOB_APPLY.push({
-  id: 'idol_' + ag.id, trk: 'idol', g: '💫 아이돌', n: `${ag.n} 아이돌 오디션`, tag: agTag(ag),
+  id: 'idol_' + ag.id, trk: 'idol', g: '💫 아이돌', get n() { return `${ag.n} 아이돌 오디션`; }, tag: agTag(ag),
   show: s => !trackOn(s, 'idol') && age(s) >= 10 && age(s) <= 26,
   h: s => `합격 가능성 ${fmtPct(idolAudP(s, ag))} · 결과는 다음 달 · 붙으면 연습생이 되어 숙소에서 지낸다`,
   ok: s => !idolBlock(s) && !(s.cd['aud_' + ag.id] > s.t) && langOK(s, ag),
@@ -447,7 +447,7 @@ function bandTrTal(p, k) { const T = Object.entries(SKILLS[k].tal).filter(([, w]
 function bandTrScore(s, k) { const p = me(s), w = idolTalW(age(s)); return lv(p, k) * (1 - w) + (20 + (bandTrTal(p, k) - 45) * 1.5) * w; }
 function bandTrParts(s) { return BAND_PARTS.map(x => x[0]).filter(k => lv(me(s), k) >= 12); }
 for (const ag of musicAgencies().filter(a => a.mkt === 'kr' && a.tier <= 2)) JOB_APPLY.push({
-  id: 'bandtr_' + ag.id, trk: 'band', g: '🎸 밴드 멤버', n: `${ag.n} 밴드 연습생 오디션`, tag: agTag(ag),
+  id: 'bandtr_' + ag.id, trk: 'band', g: '🎸 밴드 멤버', get n() { return `${ag.n} 밴드 연습생 오디션`; }, tag: agTag(ag),
   show: s => !trackOn(s, 'idol') && !trackOn(s, 'band') && age(s) >= 13 && age(s) <= 26,
   h: s => { const ps = bandTrParts(s); return (ps.length ? ps.map(k => `${partN(k)} ${fmtPct(audP(bandTrScore(s, k) + idolAgeAdj(age(s)) * 0.5, ag.thr - 2))}`).join(' · ') + ' · ' : '') + '붙으면 연습생이 되고, 회사가 밴드 데뷔조를 꾸린다'; },
   ok: s => !idolBlock(s, true) && bandTrParts(s).length && !(s.cd['aud_' + ag.id] > s.t),
@@ -499,10 +499,14 @@ function endGroup(s, why) {
   t.hist.push(t.endNote || why);
   t.st = 'ended';
 }
+// 밴드 연습생(idol 트랙 kind 'band')의 고정 칸 · 직업 활동은 밴드 연습으로 보인다 (v116 버그 8). 연습 효과는 원래도 내 파트 위주(idolMonth)
+const IDOL_ACT = { n: '아이돌 활동 (트레이닝·무대)', ic: '💫', g: '직업 활동', eff: [['노래·춤', '↑↑', 1], ['스트레스', '↑', 0]] };
+const BAND_TR_ACT = { n: '밴드 연습 (합주·트레이닝)', ic: '🎸', g: '직업 활동', eff: [['내 파트', '↑↑', 1], ['스트레스', '↑', 0]] };
+function idolIsBand(s) { const t = s && s.tracks && s.tracks.idol; return !!t && t.kind === 'band' && t.st === 'trainee'; }
 CAREERS.idol = {
   n: '아이돌', ic: '💫',
   desc: '기획사 연습생으로 들어가 그룹으로 데뷔한다. 노래·랩·춤·외모가 중요하다. 연습생 비용과 앨범 제작비를 다 갚은 뒤부터 정산을 받는다.',
-  act: { n: '아이돌 활동 (트레이닝·무대)', ic: '💫', g: '직업 활동', eff: [['노래·춤', '↑↑', 1], ['스트레스', '↑', 0]] },
+  get act() { return idolIsBand(typeof S !== 'undefined' ? S : null) ? BAND_TR_ACT : IDOL_ACT; },
   status(s, t) {
     if (t.st === 'trainee') return `${t.agN} ${t.kind === 'band' ? `밴드 연습생(${partN(t.part)})` : '연습생'} · ${t.months}개월 차 · 최근 평가 ${t.rank || '-'}위/${t.pool}명` + (t.team ? ` · 데뷔조 (데뷔까지 약 ${Math.max(1, 6 - t.prep)}개월)` : '');
     if (t.st === 'active') return `${t.g.name} · ${t.pos} · 데뷔 ${Math.floor(t.months / 12) + 1}년 차 · 그룹 팬 ${fmtFans(groupFans(t.g))}` + (t.promo > 0 ? ' · 활동 중' : '') + (t.debt > 0 ? ` · 갚을 비용 ${fmtWon(t.debt)}` : '');
@@ -924,7 +928,7 @@ function idolRelease(s, t, c, debut) {
   return { sc, peak, wins, albums, gain, my, pay, title, cm: comments(sc, actNick(s, 'idol')), wrote, debt: t.debt };
 }
 E({
-  id: 'idol_aud', cat: '오디션', title: '아이돌 오디션 결과', tag: 'career',
+  id: 'idol_aud', cat: '오디션', title: (s, d) => d.kind === 'band' ? '밴드 연습생 오디션 결과' : '아이돌 오디션 결과', tag: 'career',
   init(s, d) { d.pass = U.chance(d.p); },
   text(s, d) {
     const ag = AG[d.ag];
@@ -1200,7 +1204,7 @@ JOB_APPLY.push({
 // 인디 밴드: 영입 제안을 기다리지 않고 기획사에 데모를 보내 전속 계약을 노린다
 function bandSignScore(s) { const t = s.tracks.band; return bandPower(s, t) + Math.log10(1 + t.b.f) * 2.5 - 10; }
 for (const ag of musicAgencies().filter(a => a.mkt === 'kr')) JOB_APPLY.push({
-  id: 'bandsign_' + ag.id, trk: 'band', g: '🎸 밴드 멤버', n: `${ag.n}에 밴드 데모 보내기`, tag: TIER_N[ag.tier],
+  id: 'bandsign_' + ag.id, trk: 'band', g: '🎸 밴드 멤버', get n() { return `${ag.n}에 밴드 데모 보내기`; }, tag: TIER_N[ag.tier],
   show: s => s.tracks.band.st === 'indie',
   h: s => `인디 밴드로 기획사 전속 계약을 노린다 · 밴드 실력과 밴드 팬을 본다 · 합격 가능성 ${fmtPct(audP(bandSignScore(s), ag.thr))} · 결과는 다음 달`,
   ok: s => !s.army && !agencyContract(s) && !bandMissing(s.tracks.band).length && !hasQ(s, 'band_sign_res') && !(s.cd['bsign_' + ag.id] > s.t),
@@ -1292,11 +1296,12 @@ E({
     for (const x of people(s, x => x.rel === '동기' && x.trainee === t.ag && !d.mem.some(m => m[0] === x.id))) { x.rel = '친구'; x.trainee = null; }
     for (const [id] of d.mem) s.people[id].trainee = null;
     startBand(s, { k: t.part, mem: d.mem }, d.name);
-    Object.assign(s.tracks.band, { st: 'signed', ag: t.ag, agN: ag.n, tier: ag.tier, cut: ag.cut, contract: 60, cm: 0, nextRel: 99, debt: t.debt || 0, fromTr: true, firstPay: false });
+    // 연습생 계약 때 정한 정산 비율 · 그룹 계약 기간을 그대로 (v116 버그 6: 회사 기본값 · 5년으로 돌아갔다)
+    Object.assign(s.tracks.band, { st: 'signed', ag: t.ag, agN: ag.n, tier: ag.tier, cut: t.cut != null ? t.cut : ag.cut, contract: t.gMonths || 84, cm: 0, nextRel: 99, debt: t.debt || 0, fromTr: true, firstPay: false });
     t.debt = 0;
     s.tracks.band.b.f = ag.tier * U.int(1500, 4000);
     t.st = 'ended'; t.endNote = `${ag.n} 연습생 → 밴드 ${josa(`「${d.name}」`, '으로')} 데뷔`; t.hist.push(t.endNote);
-    queueEv(s, 'band_relres', 1, { q: boughtQ(ag.tier), self: false, title: songTitle(), debut: true });
+    queueEv(s, 'band_relres', 1, { q: boughtQ(ag.tier), self: false, title: songTitle(), debut: true, c: U.chance(0.5) ? s.trend : U.pick(TRENDS) });
     milestone(s, `${age(s)}세에 ${ag.n} 밴드 「${d.name}」의 ${josa(partN(t.part), '으로')} 데뷔했다.`);
     askStageName(s, 'band', ag.n);
     return `밴드 「${d.name}」 ${partN(t.part)} 멤버로 데뷔 무대에 섰다!`;
@@ -1338,13 +1343,15 @@ function bandIncome(s, t, rev, label) {
 }
 CAREERS.band = {
   n: '밴드 멤버', ic: '🎸',
+  // 기획사 연습생에서 데뷔한 밴드는 아이돌처럼 숙소에 산다 (v116 버그 5: 데뷔하는 순간 본가로 돌아갔다). 어른이 되어 인디 밴드로 계약한 밴드(fromTr 없음)는 그대로
+  dorm(s, t) { return t.st === 'signed' && !!t.fromTr && !!t.ag && !married(s) && s.home.mode !== 'alone'; },
   desc: '밴드에서 한 파트를 맡는다. 보컬·기타·베이스·드럼이 한 명씩 있어야 공연할 수 있다. 기획사 소속이면 연습생 비용과 앨범 제작비를 다 갚은 뒤부터 정산을 받는다.',
   act: { n: '밴드 활동 (합주·공연)', ic: '🎸', g: '직업 활동', eff: [['내 파트', '↑↑', 1], ['팬', '↑', 1], ['스트레스', '↑', 0]] },
   status(s, t) {
     if (t.st === 'ended' || t.st === 'none') return t.endNote || '';
     const miss = bandMissing(t).map(partN).join('·');
     if (t.st === 'forming') return `밴드 「${t.b.name}」 ${partN(t.b.my)} · 멤버 모으는 중 (필요: ${miss}) · 진로 창에서 모은다`;
-    return `밴드 「${t.b.name}」 ${partN(t.b.my)} · ${t.st === 'signed' ? `${t.agN} 소속` : ownCoTag(s, 'band') || '인디'} · 밴드 팬 ${fmtFans(t.b.f)} · 발표곡 ${t.rel}곡${t.st === 'signed' && t.debt > 0 ? ` · 갚을 비용 ${fmtWon(t.debt)}` : ''}` + (miss ? ` · ${miss} 자리 비어 있음` : t.nextRel > 0 && t.nextRel < 99 ? ` · 다음 곡까지 ${t.nextRel}개월` : '');
+    return `밴드 「${t.b.name}」 ${partN(t.b.my)} · ${t.st === 'signed' ? `${t.agN} 소속` : ownCoTag(s, 'band') || '인디'} · 밴드 팬 ${fmtFans(t.b.f)} · 발표곡 ${t.rel}곡${t.st === 'signed' && t.debt > 0 ? ` · 갚을 비용 ${fmtWon(t.debt)}` : ''}` + (miss ? ` · ${miss} 자리 비어 있음` : t.nextRel > 12 || hasQ(s, 'band_rel') || hasQ(s, 'band_relres') ? ' · 새 곡 준비 중' : t.nextRel > 0 ? ` · 다음 곡까지 ${t.nextRel}개월` : '');
   },
   short(s, t) { return `밴드 「${t.b.name}」`; },
   seg(s, t) { return `밴드 「${t.b.name}」 ${partN(t.b.my)}${t.st === 'signed' ? ` · ${t.agN} 소속` : ''}`; },
@@ -1432,8 +1439,14 @@ E({
   ch(s, d) {
     const t = s.tracks.band, signed = t.st === 'signed', cost = signed ? 0 : 40e4;
     const o = [];
-    if (d.w) o.push({ t: '자작곡으로 낸다', h: `${d.w.id === s.me ? '내가' : d.w.name + '이(가)'} 곡을 쓴다${cost ? ' · 녹음비 ' + fmtWon(cost) : ''}`, ok: s => jobMoney(s, 'band') >= cost, f: s => { if (cost) jobPay(s, cost, '녹음비', 'band'); if (d.w.id === s.me) { useSkill(s, me(s), 'compose', 2); return pickConcept(s, { cb: 'bandT', what: `밴드 「${t.b.name}」 자작곡의`, title: d.title }); } const q = lv(d.w, 'compose') * 0.9 + U.normal(0, 6); queueEv(s, 'band_relres', 1, { q, self: false, title: d.title, w: d.w.name }); return `밴드 자작곡 「${d.title}」 녹음을 시작했다.`; } });
-    o.push({ t: signed ? '회사가 구해 온 곡으로 낸다' : '아는 작곡가에게 곡을 받는다', h: signed ? '' : '곡값 150만 원', ok: s => signed || jobMoney(s, 'band') >= 150e4, f: s => { if (!signed) jobPay(s, 150e4, '곡 구입비', 'band'); queueEv(s, 'band_relres', 1, { q: boughtQ(t.tier), self: false, title: d.title }); return `새 곡 「${d.title}」 녹음을 시작했다.`; } });
+    // 콘셉트 (v116 버그 7): 멤버 자작곡 · 산 곡은 콘셉트 고르기 창(bandQ), 기획사가 구해 온 곡은 콘셉트 회의(band_cb). 예전엔 내가 쓴 곡만 콘셉트가 있었다
+    if (d.w) o.push({ t: '자작곡으로 낸다', h: `${d.w.id === s.me ? '내가' : josa(d.w.name, '이가')} 곡을 쓴다${cost ? ' · 녹음비 ' + fmtWon(cost) : ''}`, ok: s => jobMoney(s, 'band') >= cost, f: s => { if (cost) jobPay(s, cost, '녹음비', 'band'); if (d.w.id === s.me) { useSkill(s, me(s), 'compose', 2); return pickConcept(s, { cb: 'bandT', what: `밴드 「${t.b.name}」 자작곡의`, title: d.title }); } const q = lv(d.w, 'compose') * 0.9 + U.normal(0, 6); return pickConcept(s, { cb: 'bandQ', what: `${josa(d.w.name, '이가')} 쓴 밴드 새 곡 「${d.title}」의`, title: d.title, q, w: d.w.name }); } });
+    o.push({ t: signed ? '회사가 구해 온 곡으로 낸다' : '아는 작곡가에게 곡을 받는다', h: signed ? '콘셉트는 회사와 회의해서 정한다' : '곡값 150만 원', ok: s => signed || jobMoney(s, 'band') >= 150e4, f: s => {
+      const x = { q: boughtQ(t.tier), title: d.title };
+      if (signed) { if (s.pending) queueEv(s, 'band_cb', 0, x, true); else fireEvent(s, 'band_cb', x); return ''; }
+      jobPay(s, 150e4, '곡 구입비', 'band');
+      return pickConcept(s, Object.assign(x, { cb: 'bandQ', what: `밴드 새 곡 「${d.title}」의` }));
+    } });
     o.push({ t: '이번엔 공연만 한다', h: '석 달 뒤에 다시', f: s => { t.nextRel = 3; return '새 곡은 미루고 공연에 집중하기로 했다.'; } });
     return o;
   },
@@ -1447,6 +1460,29 @@ SONG_CB.band = (s, d, c) => {
   queueEv(s, 'band_relres', 1, { q, self: true, title: d.title, w: me(s).name, c });
   return `'${c}' 콘셉트로 밴드 자작곡 ${josa(`「${d.title}」`, '을를')} 썼다.`;
 };
+// 멤버 자작곡 · 산 곡: 고른 콘셉트로 녹음한다 (숙련도만큼 곡이 나아지는 건 내가 쓴 곡과 같다)
+SONG_CB.bandQ = (s, d, c) => {
+  queueEv(s, 'band_relres', 1, { q: d.q + cmBonus(s, c), self: false, title: d.title, w: d.w, c });
+  return `'${c}' 콘셉트로 밴드 새 곡 ${josa(`「${d.title}」`, '을를')} 녹음하기 시작했다.`;
+};
+// 기획사 밴드가 회사가 구해 온 곡을 낼 때: 아이돌 컴백 회의처럼 회사 콘셉트로 가거나 다른 콘셉트를 제안한다
+E({
+  id: 'band_cb', cat: '밴드', title: '새 곡 콘셉트 회의', tag: 'career',
+  cond: s => s.tracks.band.st === 'signed',
+  init(s, d) {
+    const t = s.tracks.band;
+    d.c = U.chance(0.5) ? s.trend : U.pick(TRENDS);
+    d.alt = U.shuffle(TRENDS.filter(x => x !== d.c)).slice(0, 2);
+    d.p = U.clamp(0.3 + Math.log10(1 + t.b.f) / 20 + (s.rep - 50) / 200, 0.2, 0.85);
+  },
+  text: (s, d) => `${josa(s.tracks.band.agN, '이가')} 구해 온 새 곡 「${d.title}」 회의가 열렸다. 회사는 '${d.c}' 콘셉트로 가려고 한다. 요즘 차트에선 '${s.trend}' 콘셉트가 강세다.`,
+  ch(s, d) {
+    const go = (s, c) => queueEv(s, 'band_relres', 1, { q: d.q + cmBonus(s, c), self: false, title: d.title, c });
+    const C = [{ t: `회사 뜻대로 '${d.c}' 콘셉트로 간다`, tr: d.c === s.trend, h: `숙련도 ${gauge(cmGet(s, d.c))} ${Math.floor(cmGet(s, d.c))}`, f: s => { go(s, d.c); return `'${d.c}' 콘셉트로 새 곡 「${d.title}」 녹음을 시작했다.`; } }];
+    d.alt.forEach(c => C.push({ t: `'${c}' 콘셉트를 제안한다`, tr: c === s.trend, h: `받아들여질 가능성 ${fmtPct(d.p)} · 숙련도 ${gauge(cmGet(s, c))} ${Math.floor(cmGet(s, c))}`, f: s => { const ok = U.chance(d.p); go(s, ok ? c : d.c); return ok ? `내 의견대로 '${c}' 콘셉트로 새 곡 ${josa(`「${d.title}」`, '을를')} 녹음하기로 했다.` : `제안은 받아들여지지 않았다. 회사 뜻대로 '${d.c}' 콘셉트로 간다.`; } }));
+    return C;
+  },
+});
 E({
   id: 'band_relres', cat: '음원 성적', title: '밴드 새 곡 성적', tag: 'career',
   init(s, d) {
@@ -1470,6 +1506,7 @@ E({
       const albums = Math.round(t.b.f * U.fl(0.15, 0.3));
       d.pay = bandIncome(s, t, albums * 14000 + (d.peak ? (101 - d.peak) * 250e4 : 0), '앨범·음원 정산'); d.debt = t.debt; d.gross = t.gross;
     }
+    if (d.c) cmGain(s, d.c, 3); // 아이돌처럼 그 콘셉트로 활동만 해도 숙련도 +3 (v116 버그 7)
     t.rel++; musicRookie(s, true); t.nextRel = U.int(5, 8); t.yearBest = Math.max(t.yearBest || 0, sc);
     if (d.peak && (!t.bestPeak || d.peak < t.bestPeak)) t.bestPeak = d.peak;
     addWork(s, { type: '밴드 싱글', title: d.title, by: `「${t.b.name}」`, sc, note: chartText(d.peak) + (d.self ? ' · 자작곡' : '') });
@@ -1478,7 +1515,7 @@ E({
     for (const m of bandMembers(s, t)) bond(s, m, sc >= 60 ? 4 : 0);
     d.sc = sc; d.cm = comments(sc, actNick(s, 'band'));
   },
-  text: (s, d) => `밴드 「${s.tracks.band.b.name}」의 ${josa(`「${d.title}」`, '이가')} 나왔다.${d.w ? ` (작곡 ${d.self ? '나' : d.w}${d.c ? ` · '${d.c}' 콘셉트` : ''})` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 콘셉트다.' : ''}\n\n${chartText(d.peak)}\n밴드 팬 ${sgnFans(d.gain)} · 내 팬 +${fmtFans(d.my)}\n매달 들어올 음원 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.signed ? (d.debt > 0 ? `\n이번 앨범 정산금 ${fmtWon(d.gross)}은 ${d.fromTr ? '연습생·' : ''}제작 비용을 갚는 데 들어갔다. 남은 비용 ${fmtWon(d.debt)}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}${d.gross > d.pay ? ` (비용을 갚고 남은 돈)` : ''}`) : ''}\n\n반응: ${d.cm}`,
+  text: (s, d) => `밴드 「${s.tracks.band.b.name}」의 ${josa(`「${d.title}」`, '이가')} 나왔다.${d.w || d.c ? ` (${[d.w ? `작곡 ${d.self ? '나' : d.w}` : '', d.c ? `'${d.c}' 콘셉트` : ''].filter(Boolean).join(' · ')})` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 콘셉트다.' : ''}\n\n${chartText(d.peak)}\n밴드 팬 ${sgnFans(d.gain)} · 내 팬 +${fmtFans(d.my)}\n매달 들어올 음원 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.signed ? (d.debt > 0 ? `\n이번 앨범 정산금 ${fmtWon(d.gross)}은 ${d.fromTr ? '연습생·' : ''}제작 비용을 갚는 데 들어갔다. 남은 비용 ${fmtWon(d.debt)}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}${d.gross > d.pay ? ` (비용을 갚고 남은 돈)` : ''}`) : ''}\n\n반응: ${d.cm}`,
   ch: (s, d) => [{ t: '확인', f: () => `밴드 새 곡 ${josa(`「${d.title}」`, '을를')} 냈다. ${chartText(d.peak)}.` }],
 });
 INBOX.band_fest = {
@@ -1542,7 +1579,7 @@ function soloBlock(s) {
   return '';
 }
 for (const ag of musicAgencies()) JOB_APPLY.push({
-  id: 'solo_' + ag.id, trk: 'solo', g: '🎙️ 솔로 가수', n: `${ag.n} 솔로 오디션`, tag: TIER_N[ag.tier],
+  id: 'solo_' + ag.id, trk: 'solo', g: '🎙️ 솔로 가수', get n() { return `${ag.n} 솔로 오디션`; }, tag: TIER_N[ag.tier],
   show: s => (!trackOn(s, 'solo') || s.tracks.solo.st === 'indie') && age(s) >= 14 && age(s) <= 32,
   h: s => SOLO_TYPES.filter(([k]) => soloTypeOK(s, k)).map(([k, n]) => `${n} ${fmtPct(audP(soloScore(s, k) + pm(s, 'audition', 0) + (age(s) <= 22 ? 2 : -3), ag.thr - 4))}`).concat(['결과는 다음 달']).join(' · '),
   ok: s => !soloBlock(s) && !agencyContract(s) && age(s) <= 30 && !(s.cd['saud_' + ag.id] > s.t) && langOK(s, ag) && !hasQ(s, 'solo_aud'),
@@ -1601,7 +1638,7 @@ CAREERS.solo = {
   act: { n: '가수 활동 (공연·녹음)', ic: '🎙️', g: '직업 활동', eff: [['노래·랩', '↑↑', 1], ['팬', '↑', 1], ['스트레스', '↑', 0]] },
   status(s, t) {
     if (t.st === 'ended' || t.st === 'none') return t.endNote || '';
-    return `${t.st === 'indie' ? ownCoTag(s, 'solo') || '인디' : `${t.agN} 소속`} 솔로 ${soloTypeN(t.type)} · 발표곡 ${t.rel}곡` + (t.bestPeak ? ` · 최고 ${t.bestPeak}위` : '') + (t.nextRel > 0 && t.nextRel < 99 ? ` · 다음 곡까지 ${t.nextRel}개월` : '');
+    return `${t.st === 'indie' ? ownCoTag(s, 'solo') || '인디' : `${t.agN} 소속`} 솔로 ${soloTypeN(t.type)} · 발표곡 ${t.rel}곡` + (t.bestPeak ? ` · 최고 ${t.bestPeak}위` : '') + (t.nextRel > 12 || hasQ(s, 'solo_rel') || hasQ(s, 'solo_relres') ? ' · 신곡 준비 중' : t.nextRel > 0 ? ` · 다음 곡까지 ${t.nextRel}개월` : '');
   },
   short(s, t) { return `${t.st === 'indie' && !ownCo(s, 'solo') ? '인디 ' : ''}${soloTypeN(t.type)} ${actName(s, 'solo')}`; },
   seg(s, t) { return `${t.st === 'indie' ? (ownCo(s, 'solo') ? `「${ownCo(s, 'solo').name}」 소속` : '인디') : t.agN + ' 소속'} 솔로 ${soloTypeN(t.type)}`; },

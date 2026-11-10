@@ -408,7 +408,7 @@ CAREERS.voice = {
 };
 function voAudP(s, x) { return audP(voScore(s) + pm(s, 'audition', 0) + VO_POW[(s.tracks.voice || {}).tier || 0] * 2, VO_THR[x.tier]); }
 for (const x of VO_BCS) JOB_APPLY.push({
-  id: 'voice_bc_' + VO_BCS.indexOf(x), trk: 'voice', g: '🗣️ 성우', n: `${x.n} 전속 성우 공채`, tag: coTagOf(x),
+  id: 'voice_bc_' + VO_BCS.indexOf(x), trk: 'voice', g: '🗣️ 성우', get n() { return `${x.n} 전속 성우 공채`; }, tag: coTagOf(x),
   show: s => !(trackOn(s, 'voice') && s.tracks.voice.mode === 'bc') && age(s) >= 18 && age(s) <= 35,
   h: s => lv(me(s), 'acting') >= 25 ? `합격 가능성 ${fmtPct(voAudP(s, x))} · 결과는 다음 달 · 붙으면 2년 동안 그 방송사 전속 성우로 월급을 받는다` : '연기가 25레벨 이상이어야 지원할 수 있다',
   ok: s => !s.army && !agencyContract(s) && lv(me(s), 'acting') >= 25 && !hasQ(s, 'vo_exam') && !(s.cd['vo_' + x.n] > s.t),
