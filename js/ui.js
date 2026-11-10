@@ -482,23 +482,27 @@ function renderMoneyCard() {
   m += `<div class="mn-r total"><span>총자산 (집 포함)</span><b>${fmtWon(s.money + ha)}</b></div>`;
   $('#money-card').innerHTML = m;
 }
-// 특기: 배운 것만. 계열로 접지 않고 두 줄로 쭉 (v121). 레벨이 높은 특기부터, 개수에 안 세는 학업 · 외국어는 맨 뒤
-// 한 특기는 이름 · 레벨 한 줄 + 막대. 오래 안 해서 떨어지는 중이면 레벨 옆에 ↓ (설명은 맨 아래 한 줄)
-// '그만두기'는 맨 아래 버튼을 누르면 특기마다 나온다 (늘 보이면 칸이 너무 길어져서)
+// 특기 (v122): 메인 화면에는 배운 특기 이름만 두 줄로 (배너 박스, 누르면 특기 창). 레벨 · 막대 · 그만두기는 특기 창 안에
+// 레벨이 높은 특기부터, 개수에 안 세는 학업 · 외국어는 맨 뒤
+function skOrder(p) { return learnedSkills(p).sort((a, b) => (SK_FREE.includes(a) - SK_FREE.includes(b)) || (p.sk[b].lv - p.sk[a].lv)); }
+function skIc(k) { const c = SKILL_CATS.find(c => c.id === SKILLS[k].cat); return c ? c.ic + ' ' : ''; }
 function renderSkillsCard() {
-  const s = S, p = me(s);
-  const learned = learnedSkills(p);
-  // v101 · v102: 특기 수 / 10 (학업 · 외국어는 안 센다. 꽉 차면 새로 배우려면 하나를 그만둬야 한다)
-  const cnt = capCount(p);
-  let sk = `<div class="card-h sk-h"><span class="nm">🎯 특기</span><span class="sub">특기는 학업과 외국어를 제외하고 ${SKILL_CAP}개까지 가질 수 있다</span><span class="sk-cnt${cnt >= SKILL_CAP ? ' full' : ''}">${cnt}/${SKILL_CAP}</span></div>`;
-  if (!learned.length) sk += `<div class="empty">아직 배운 특기가 없다.</div>`;
-  const ks = learned.slice().sort((a, b) => (SK_FREE.includes(a) - SK_FREE.includes(b)) || (p.sk[b].lv - p.sk[a].lv));
-  const ic = k => { const c = SKILL_CATS.find(c => c.id === SKILLS[k].cat); return c ? c.ic + ' ' : ''; };
+  const s = S, p = me(s), ks = skOrder(p), cnt = capCount(p);
+  let sk = `<div class="card-h"><span>🎯 특기</span><span class="sk-cnt${cnt >= SKILL_CAP ? ' full' : ''}">${cnt}/${SKILL_CAP}</span><span class="bn-arr">›</span></div>`;
+  sk += ks.length ? `<div class="sk-names">${ks.map(k => `<span>${skIc(k)}${SKILLS[k].n}</span>`).join('')}</div>` : `<div class="empty">아직 배운 특기가 없다.</div>`;
+  $('#skills-card').innerHTML = sk;
+}
+// 특기 창: 두 줄로 이름 · 레벨 · 막대. 오래 안 해서 떨어지는 중이면 레벨 옆에 ↓ (설명은 맨 아래 한 줄)
+// '그만두기'는 맨 아래 '특기 그만두기'를 누르면 특기마다 나온다
+function panel_skills() {
+  const s = S, p = me(s), ks = skOrder(p), cnt = capCount(p);
   const dec = k => s.t - p.sk[k].last > 6, drop = ks.some(k => !SK_FREE.includes(k));
   if (!drop) UI.skDrop = false;
-  if (ks.length) sk += `<div class="sk-grid">` + ks.map(k => { const x = p.sk[k]; return `<div class="sk"><div class="row"><span>${ic(k)}${SKILLS[k].n}</span><b>${Math.floor(x.lv)}레벨${dec(k) ? '<i class="sk-dn" title="오래 안 해서 조금씩 떨어지는 중">↓</i>' : ''}</b></div>${bar(x.lv, 100)}${UI.skDrop && !SK_FREE.includes(k) ? `<div class="sk-foot"><button class="sk-drop" data-skdrop="${k}">그만두기</button></div>` : ''}</div>`; }).join('') + `</div>`;
-  if (ks.some(dec) || drop) sk += `<div class="sk-legend">${ks.some(dec) ? '<span><i class="sk-dn">↓</i> 오래 안 해서 조금씩 떨어지는 중</span>' : '<span></span>'}${drop ? `<button class="sk-drop" data-skdropmode>${UI.skDrop ? '그만두기 닫기' : '특기 그만두기'}</button>` : ''}</div>`;
-  $('#skills-card').innerHTML = sk;
+  let h = `<h2>🎯 특기 <span class="sk-cnt${cnt >= SKILL_CAP ? ' full' : ''}">${cnt}/${SKILL_CAP}</span></h2><p class="hint">특기는 학업과 외국어를 제외하고 ${SKILL_CAP}개까지 가질 수 있다.</p>`;
+  if (!ks.length) return h + `<div class="empty">아직 배운 특기가 없다. 특기는 살면서 만나는 선택지로 처음 배운다.</div>`;
+  h += `<div class="sk-grid">` + ks.map(k => { const x = p.sk[k]; return `<div class="sk"><div class="row"><span>${skIc(k)}${SKILLS[k].n}</span><b>${Math.floor(x.lv)}레벨${dec(k) ? '<i class="sk-dn" title="오래 안 해서 조금씩 떨어지는 중">↓</i>' : ''}</b></div>${bar(x.lv, 100)}${UI.skDrop && !SK_FREE.includes(k) ? `<div class="sk-foot"><button class="sk-drop" data-skdrop="${k}">그만두기</button></div>` : ''}</div>`; }).join('') + `</div>`;
+  if (ks.some(dec) || drop) h += `<div class="sk-legend">${ks.some(dec) ? '<span><i class="sk-dn">↓</i> 오래 안 해서 조금씩 떨어지는 중</span>' : '<span></span>'}${drop ? `<button class="sk-drop" data-skdropmode>${UI.skDrop ? '그만두기 닫기' : '특기 그만두기'}</button>` : ''}</div>`;
+  return h;
 }
 
 // ───── 사건 창 ─────
@@ -685,7 +689,7 @@ function showEnding() {
 
 // ───── 패널 ─────
 function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people' && $('#panel').classList.contains('hidden')) UI.pplOpen = {}; UI.overlay = kind; UI.pRes = null; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); }
-function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.pRes = null; UI.pickSlot = null; if (S) render(); }
+function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.skDrop = false; UI.pRes = null; UI.pickSlot = null; if (S) render(); }
 // 행동 버튼 한 줄. 버튼이 누를 일은 UI.acts(창) 또는 UI.lacts(오른쪽 생활 카드)에 모아 둔다
 function actRow(a) {
   const reg = UI.rowReg || UI.acts, at = UI.rowReg ? 'lact' : 'act';
@@ -1613,11 +1617,11 @@ document.addEventListener('click', e => {
   if (t.dataset.endclose != null) { $('#modal').classList.add('hidden'); return; }
   if (t.dataset.confirm != null) { $('#confirm').classList.add('hidden'); const f = UI.onConfirm; UI.onConfirm = null; if (t.dataset.confirm === '1' && f) f(); return; }
   // 특기 그만두기 (v101 · v102 이름 바뀜): 지금 하는 직업의 대표 특기는 못 그만둔다. 다시 배우면 1레벨부터
-  if (t.dataset.skdropmode != null) { UI.skDrop = !UI.skDrop; renderSkillsCard(); return; }
+  if (t.dataset.skdropmode != null) { UI.skDrop = !UI.skDrop; renderPanel(); return; }
   if (t.dataset.skdrop) {
     const k = t.dataset.skdrop, why = skKeepWhy(S, k), n = SKILLS[k].n;
     if (why) { toast(why); return; }
-    askConfirm(`${josa(n, '을를')} 그만둘까요?\n\n${lvi(me(S), k)}레벨이 모두 사라지고, 다시 배우면 1레벨부터예요.`, () => { dropSkill(S, k); save(S); render(); });
+    askConfirm(`${josa(n, '을를')} 그만둘까요?\n\n${lvi(me(S), k)}레벨이 모두 사라지고, 다시 배우면 1레벨부터예요.`, () => { dropSkill(S, k); save(S); render(); if (UI.overlay === 'skills') renderPanel(); });
     return;
   }
   if (t.id === 'btn-go') { turnGo(turnMax(S)); return; }

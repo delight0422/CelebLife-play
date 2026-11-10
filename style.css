@@ -184,12 +184,14 @@ button { font: inherit; color: inherit; }
 .sk { padding: 3px 2px 6px; }
 .sk .row b { font-size: 13px; }
 .sk .tr { font-size: 11.5px; color: var(--muted); }
-/* v101: 특기 수 · 그만두기 (v102: 제목 옆에 안내 글, 그 오른쪽에 개수) */
-.card-h.sk-h { justify-content: flex-start; }
-.card-h.sk-h .nm { flex: none; }
-.card-h.sk-h .sub { flex: 0 1 auto; min-width: 0; line-height: 1.35; }
-.card-h .sk-cnt { flex: none; font-size: 12px; font-weight: 700; color: var(--muted); background: #f1eefb; border-radius: 8px; padding: 1px 7px; }
-.card-h .sk-cnt.full { color: #b4235a; background: #fde7ef; }
+/* v101: 특기 수 · 그만두기 (v122: 박스 제목 옆에 개수, 안내 글은 특기 창에) */
+#skills-card .card-h { justify-content: flex-start; }
+/* 특기 박스 (v122): 이름만 두 줄로 */
+.sk-names { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 5px 12px; font-size: 13px; }
+.sk-names span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+h2 .sk-cnt { vertical-align: middle; margin-left: 4px; }
+.sk-cnt { flex: none; font-size: 12px; font-weight: 700; color: var(--muted); background: #f1eefb; border-radius: 8px; padding: 1px 7px; }
+.sk-cnt.full { color: #b4235a; background: #fde7ef; }
 .sk-foot { display: flex; align-items: center; gap: 6px; min-height: 18px; }
 .sk-drop { margin-left: auto; border: 0; background: transparent; color: var(--muted); font-size: 11.5px; padding: 2px 4px; cursor: pointer; text-decoration: underline; }
 .sk-drop:hover { color: #b4235a; }
