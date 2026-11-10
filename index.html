@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>연예인으로 살아가기</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- 첫 화면 -->
+  <section id="title-screen" class="screen">
+    <div class="title-wrap">
+      <div class="title-kicker">KOREAN ENTERTAINMENT LIFE SIMULATION</div>
+      <h1 class="title-main">연예인으로 살아가기</h1>
+      <p class="title-sub">한국 어딘가에서 랜덤하게 태어나<br>엔터테인먼트 업계에서 살아가는 한 사람의 인생</p>
+      <div class="title-btns">
+        <button class="btn primary big" id="btn-new">새 인생 시작</button>
+        <button class="btn big hidden" id="btn-continue">이어하기 <span id="continue-info" class="muted"></span></button>
+        <button class="btn" id="btn-hall">지난 인생들</button>
+        <button class="btn ghost" id="btn-import-title">세이브 파일 불러오기</button>
+        <button class="btn ghost" id="btn-code-title">세이브 코드 붙여넣기</button>
+      </div>
+      <p class="title-note">진행 상황은 이 브라우저에 자동 저장됩니다. 메뉴에서 세이브 파일로 따로 보관할 수도 있어요.</p>
+    </div>
+  </section>
+
+  <!-- 태어나기 -->
+  <section id="birth-screen" class="screen hidden">
+    <div class="birth-wrap">
+      <div class="birth-head"><div class="kicker">탄생</div></div>
+      <div id="birth-cards" class="bp"></div>
+      <div class="birth-btns">
+        <button class="btn big" id="btn-reroll">↻ 다시 태어나기</button>
+        <button class="btn primary big" id="btn-born">이 인생으로 태어나기</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 게임 -->
+  <section id="game-screen" class="screen hidden">
+    <header id="topbar">
+      <div class="who">
+        <div class="who-name"><span id="t-name"></span> <span id="t-age" class="accent"></span></div>
+        <div class="who-sub" id="t-stage"></div>
+      </div>
+      <!-- 날짜: 이름·나이와 메뉴 버튼 사이 한가운데, 위쪽 줄 높이에 맞춰 크게 -->
+      <span id="t-date" class="date"></span>
+      <nav class="top-btns">
+        <button class="btn sm" id="btn-inbox" data-panel="inbox">📨 메시지함</button>
+        <button class="btn sm hidden" id="btn-applyjob" data-panel="applyjob">📝 직업 지원</button>
+        <button class="btn sm hidden" id="btn-applyact" data-panel="applyact">🎭 활동 지원</button>
+        <button class="btn sm" data-panel="career">🧭 진로 백과사전</button>
+        <button class="btn sm hidden" id="btn-company" data-panel="company">🏢 회사</button>
+        <button class="btn sm mob-only" id="btn-life" data-panel="life">🏠 생활</button>
+        <button class="btn sm ghost" data-panel="menu">메뉴</button>
+      </nav>
+      <!-- 턴제 실험: 진행(창이 뜨거나 새 메시지가 오거나 6개월이 지날 때까지) · 한 달 -->
+      <div class="turn-btns">
+        <button class="btn sm" id="btn-month">한 달</button>
+        <button class="btn primary turn-go" id="btn-go">진행 ▶ <kbd>Space</kbd></button>
+      </div>
+    </header>
+    <main id="cols">
+      <aside id="sched-col">
+        <!-- 일정이 길어져도 걸리는 것이 없게: 일정 아래에는 맨 아래 재정만 -->
+        <div id="slots-card" class="card"></div>
+        <!-- 재정: 왼쪽 맨 아래. 누르면 재정 창 -->
+        <div id="money-card" class="card bn-card" data-moneycard></div>
+      </aside>
+      <aside id="side-col">
+        <!-- 왼쪽: 프로필(가로로 길게) → 특기 → 직업 활동(남는 높이를 끝까지) · 오른쪽: [인간관계 | 상태](남는 높이를 끝까지) → 생활 네 칸(집 · 지속 관리 / 장비 · 기타) -->
+        <div class="side-a">
+          <!-- 프로필: 박스를 누르면 프로필 창, 아래 다섯 배너(직업 · 재능 · 가족 정보 · 걸어온 길 · 작품)는 그 탭으로 바로 -->
+          <div id="profile-card" class="card bn-card" data-panel="profile"></div>
+          <div id="skills-card" class="card"></div>
+          <div id="jobs-card" class="card"></div>
+        </div>
+        <div class="side-b">
+          <div class="duo ps-duo">
+            <!-- 인간관계: 박스 자체를 누르면 인간관계 창, 안의 가족·연인 배너는 각자 창 -->
+            <div id="people-card" class="card bn-card" data-panel="people"></div>
+            <div id="status-card" class="card"></div>
+          </div>
+          <!-- 생활: 박스 네 개 (누르면 그 묶음 창) -->
+          <div id="life-grid"></div>
+        </div>
+      </aside>
+    </main>
+    <div id="ended-bar" class="ended-bar hidden">이 인생은 끝났습니다. <button class="btn sm primary" id="btn-ending">인생 결산 보기</button> <button class="btn sm" id="btn-newlife2">다시 태어나기</button></div>
+  </section>
+
+  <!-- 사건 창 -->
+  <div id="modal" class="overlay hidden"><div class="mcard" id="mcard"></div></div>
+  <button id="ev-restore" class="restore hidden">선택이 기다리고 있어요 · 다시 보기</button>
+  <!-- 진로·인간관계 등 창 -->
+  <div id="panel" class="overlay hidden"><div class="mcard sheet" id="pcard"></div></div>
+  <!-- 확인 창 -->
+  <div id="confirm" class="overlay hidden"><div class="mcard small" id="ccard"></div></div>
+  <!-- 턴 진행: 화면이 어두워지고 가운데에 넘어가는 날짜, 멈추면 그 사이 있었던 일 요약 -->
+  <div id="turn" class="overlay turn-dim hidden"><div class="mcard turn-card" id="tcard"></div></div>
+  <div id="toast" class="toast"></div>
+  <input type="file" id="file-input" accept=".json,application/json" class="hidden">
+</div>
+<script src="js/util.js"></script>
+<script src="js/data.js"></script>
+<script src="js/skills.js"></script>
+<script src="js/person.js"></script>
+<script src="js/game.js"></script>
+<script src="js/life.js"></script>
+<script src="js/events.js"></script>
+<script src="js/work.js"></script>
+<script src="js/inbox.js"></script>
+<script src="js/family.js"></script>
+<script src="js/music.js"></script>
+<script src="js/musicstaff.js"></script>
+<script src="js/video.js"></script>
+<script src="js/film.js"></script>
+<script src="js/scandal.js"></script>
+<script src="js/vidol.js"></script>
+<script src="js/mcn.js"></script>
+<script src="js/company.js"></script>
+<script src="js/studio.js"></script>
+<script src="js/dancer.js"></script>
+<script src="js/anime.js"></script>
+<script src="js/webnovel.js"></script>
+<script src="js/illust.js"></script>
+<script src="js/prof.js"></script>
+<script src="js/tutor.js"></script>
+<script src="js/marketer.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>

@@ -1,0 +1,659 @@
+'use strict';
+// ════════ 영상 제작사 (6-4단계) ════════
+// 회사 대표의 분야 'video' (js/company.js). 웹드라마·드라마·OTT 시리즈·영화를 기획해서 만든다
+// 만드는 순서: 무엇을 만들지(새 작품 · 후속작) → 각본 → 감독 → 주연·조연(4명 이상) → 제작비 → 거는 곳(배급사·방송사·플랫폼) → 촬영 준비 → 촬영 → 후반 작업 → 공개
+// 각본은 완성도 5단계, 감독·배우의 실력은 범위로 보인다 (나와 기획 PD 중 더 잘 보는 사람의 눈). 배우의 인기(팬 수)는 정확히 보인다
+// 각본료·연출료·출연료는 작품을 시작할 때 한꺼번에 내고, 제작비는 촬영 준비·촬영 동안 달마다 나눠 낸다
+// 수입은 공개할 때 한꺼번에 들어온다: 영화는 극장(배급 수수료를 뗀다)·VOD·해외, 드라마는 방영권·간접광고·해외, OTT는 제작비에 이윤을 얹어 받고, 웹드라마는 플랫폼 구매비·조회수
+
+// 작품 종류: bud 제작비(저예산·보통·대작·블록버스터), prep 촬영 준비 · shoot 촬영 · post 후반 작업(개월), cast/star 출연료(기본 + 팬 1명당), dir 연출료 기본, script 각본료 기본, w 평판 무게, hit 대표 등급에 세는 크기
+const V_KIND = {
+  web: { n: '웹드라마', ch: 'web', bud: [1e8, 3e8, 8e8, 15e8], prep: 1, shoot: 2, post: 1, cast: 300e4, star: 150, dir: 500e4, script: 500e4, demand: 25, w: 0.8, hit: 0.3 },
+  drama: { n: '드라마', ch: 'tv', bud: [20e8, 60e8, 150e8, 300e8], prep: 2, shoot: 5, post: 2, cast: 5000e4, star: 5000, dir: 1e8, script: 1.5e8, demand: 40, w: 1, hit: 1 },
+  ott: { n: 'OTT 시리즈', ch: 'ott', bud: [10e8, 40e8, 120e8, 250e8], prep: 2, shoot: 4, post: 3, cast: 5000e4, star: 6000, dir: 1.2e8, script: 2e8, demand: 45, w: 0.9, hit: 0.9 },
+  film: { n: '영화', ch: 'film', bud: [5e8, 40e8, 120e8, 250e8], prep: 2, shoot: 4, post: 4, cast: 3000e4, star: 8000, dir: 1e8, script: 1e8, demand: 45, w: 1, hit: 1 },
+};
+const V_BUD_N = ['저예산', '보통', '대작', '블록버스터'];
+const V_BUD_SC = [-3, 0, 2, 3]; // 제작비가 화면에 보태는 점수 (볼거리)
+const V_WEB_VIEW = [0.5, 1, 1.4, 1.8];
+// 거는 곳: 영화는 배급사, 드라마는 방송사(공중파·케이블), OTT 시리즈는 유료 플랫폼, 웹드라마는 무료 플랫폼
+const V_CH_N = { film: '배급사', tv: '방송사', ott: '유료 플랫폼', web: '무료 플랫폼' };
+const V_CH_S = { film: '배급사', tv: '방송사', ott: '플랫폼', web: '플랫폼' };
+function vChLabel(D) { return `${D.g || TIER_N[D.tier]} ${V_CH_N[D.ch]}`; }
+// 거는 곳 크기별: fee 수수료, pow 상영관·편성 힘(관객·시청률·방영권에 곱한다), promo 홍보 힘(점수에 더한다), margin OTT가 제작비에 얹어 주는 이윤
+const DIST_T = [null, { fee: 0.12, pow: 0.8, promo: 0, margin: 1.05 }, { fee: 0.18, pow: 1, promo: 1, margin: 1.1 }, { fee: 0.25, pow: 1.25, promo: 2, margin: 1.15 }];
+const CO_V_CAP = [0, 1, 2, 3]; // 함께 만들 수 있는 작품 수 (크기별)
+// 기획 회의 사건들 (영상·애니가 같이 쓴다: 한 번에 한 회의만)
+const CO_V_CHAIN = ['co_vplan', 'co_vscript', 'co_vdir', 'co_vcast', 'co_vbud', 'co_vdist', 'co_aplan', 'co_asrc', 'co_adir', 'co_akey', 'co_ateam'];
+const CO_VAD = [0, 3000e4, 8000e4, 2e8]; // 광고·뮤직비디오 제작 의뢰 금액 (크기별)
+const V_STAGE = { prep: '촬영 준비 중', shoot: '촬영 중', post: '후반 작업 중' };
+
+function coVTier(t) { return coTier(t, 'video'); }
+// 계획 P의 분야('video' · 'anime')와 작품 종류 정보. 배우(성우) 섭외 · 제작비 · 거는 곳 단계는 두 분야가 같이 쓴다
+function coPF(P) { return P.f || 'video'; }
+function coPK(P) { return (P.f === 'anime' ? A_KIND : V_KIND)[P.kind]; }
+function coPShoot(P, l) { const V = coPK(P); return V.shoot + (P.f !== 'anime' && P.kind === 'film' && l >= 2 ? 1 : 0); }
+function coVView(s, k) { return coViewer(s, 'pd', k); }
+function vKindN(k) { return V_KIND[k].n; }
+// 새 작품 기획을 지금 할 수 없는 이유
+function coVWhy(s, t) {
+  if (CO_V_CHAIN.some(id => hasQ(s, id))) return '기획 회의 중';
+  if ((t.vw || []).length >= CO_V_CAP[coVTier(t)]) return `${coSizeN(t, 'video')}는 작품을 ${CO_V_CAP[coVTier(t)]}편까지 함께 만든다`;
+  return '';
+}
+// 후속작을 만들 수 있는 작품 (회사가 가진 IP): 시리즈의 가장 최근 작품이 잘 안됐거나(55점 아래), 5편까지 나왔거나, OTT 오리지널(판권은 OTT 것)이면 안 된다
+function coVIps(t) {
+  const last = {};
+  for (const w of t.vdone || []) if (!last[w.ip] || w.n > last[w.ip].n) last[w.ip] = w;
+  return Object.values(last).filter(w => w.kind !== 'ott' && w.sc >= 55 && w.n < 5);
+}
+function coVSeqTitle(w) { return w.kind === 'drama' ? `${w.base} 시즌${w.n + 1}` : `${w.base} ${w.n + 1}`; }
+
+// ───── 1. 무엇을 만들까 ─────
+E({
+  id: 'co_vplan', cat: '작품 기획', title: '무엇을 만들까?', tag: 'career',
+  cond: s => coOn(s) && !!coT(s).f.video,
+  text: s => { const t = coT(s); return `다음 작품을 기획한다. 새 작품을 만들거나, 우리 회사가 만든 작품의 후속작을 만든다.\n\n${coSizeN(t, 'video')} · 회사 돈 ${fmtWon(t.money)} · 고를 수 있는 제작비 ${V_BUD_N.slice(0, coVTier(t) + 1).join('·')}`; },
+  ch: s => {
+    const t = coT(s), C = [];
+    for (const k in V_KIND) { const V = V_KIND[k]; C.push({ t: `새 ${V.n}`, h: `제작비 ${fmtWon(V.bud[0])}~${fmtWon(V.bud[coVTier(t)])} · 준비·촬영 ${V.prep + V.shoot}개월 · ${V_CH_N[V.ch]}에 건다`, f: s => { fireEvent(s, 'co_vscript', { P: { kind: k } }); return ''; } }); }
+    for (const w of coVIps(t)) C.push({ t: `「${coVSeqTitle(w)}」 · ${vKindN(w.kind)} 후속작`, h: `전작 「${w.title}」 ${w.res} · ${w.n >= 3 ? '여러 편 이어져 사람들이 조금 질렸다' : '전작 팬들이 기다린다'}`, f: s => { fireEvent(s, 'co_vscript', { P: { kind: w.kind, seq: { ip: w.ip, n: w.n + 1, prevSc: w.sc, prevDir: w.dir, prevLead: w.lead, base: w.base, genre: w.genre, title: coVSeqTitle(w) } } }); return ''; } });
+    return C.concat([{ t: '그만둔다', f: () => '' }]);
+  },
+});
+
+// ───── 2. 각본 ─────
+// 시장에 나온 각본 3편 (후속작이면 같은 장르·제목으로 쓴 각본) · 서랍 속 다 써 둔 내 원고 (새 작품만)
+function coVScriptPrice(kind, q) { return Math.round(V_KIND[kind].script * (0.6 + q / 100) * U.fl(0.8, 1.2) / 1e6) * 1e6; }
+E({
+  id: 'co_vscript', cat: '작품 기획', title: '각본 고르기', tag: 'career',
+  cond: s => coOn(s),
+  init(s, d) {
+    const P = d.P, t = coT(s);
+    d.ms = [];
+    for (let i = 0; i < 3; i++) {
+      const genre = P.seq ? P.seq.genre : i === 0 && U.chance(0.5) ? s.trendTV.drama : U.pick(DRAMA_TRENDS), w = pickIndustry(s, '시나리오 작가');
+      const q = U.clamp(Math.round(lv(w, 'script') * 0.6 + U.int(5, 40) + coVTier(t) * 2), 10, 95);
+      d.ms.push({ title: P.seq ? P.seq.title : dramaTitle(genre), genre, q, w: w.id, price: coVScriptPrice(P.kind, q) });
+    }
+  },
+  text: (s, d) => `${d.P.seq ? `「${d.P.seq.title}」` : `새 ${vKindN(d.P.kind)}`} 각본을 고른다.\n\n각본 보는 눈: ${coVView(s, 'script').id === s.me ? '내 눈' : `기획 PD ${coVView(s, 'script').name}`}`,
+  ch: (s, d) => {
+    const P = d.P, v = coVView(s, 'script'), C = [];
+    for (const m of d.ms) { const w = s.people[m.w]; C.push({ t: `「${m.title}」 ${m.genre} · 각본 ${grade5(v, m.q, 'q', 'script')}`, tr: m.genre === s.trendTV.drama, h: `${w ? w.name : '-'} 작가 · 각본료 ${fmtWon(m.price)}`, f: s => { Object.assign(P, { title: m.title, genre: m.genre, q: m.q, writer: m.w, price: m.price }); fireEvent(s, 'co_vdir', { P }); return ''; } }); }
+    if (!P.seq) for (const sc of myScripts(s).filter(x => x.st === 'done' && x.tk === P.kind)) C.push({ t: `내 원고 「${sc.title}」 ${sc.genre} · 완성도 ${myScriptGrade(s, sc.q)}`, tr: sc.genre === s.trendTV.drama, h: '각본료가 들지 않는다', f: s => { Object.assign(P, { title: sc.title, genre: sc.genre, q: sc.q, writer: 'me', scId: sc.id, price: 0 }); fireEvent(s, 'co_vdir', { P }); return ''; } });
+    // 내가 완결한 웹툰·웹소설 (js/webnovel.js): 원작료 없이 각색료만 낸다
+    if (!P.seq) for (const w of wbMyWorks(s).filter(x => !x.video)) { const g = WB_DRAMA_G[w.g] || '로맨스', price = Math.round(coVScriptPrice(P.kind, w.q) * 0.5 / 1e6) * 1e6; C.push({ t: `내 ${w.sn} 「${w.title}」 원작 · ${g}`, tr: g === s.trendTV.drama, h: `독자 ${fmtFans(w.peak)} · 각색료 ${fmtWon(price)}`, f: s => { Object.assign(P, { title: w.title, genre: g, q: w.q, writer: null, wbId: w.id, price }); fireEvent(s, 'co_vdir', { P }); return ''; } }); }
+    return C.concat([{ t: '그만둔다', f: () => '작품 기획을 접었다.' }]);
+  },
+});
+
+// ───── 3. 감독 ─────
+function coVDirFee(kind, x) { return Math.round((V_KIND[kind].dir * (0.5 + lv(x, 'direct') / 80) + (x.fame || 0) * V_KIND[kind].star * 0.3) * U.fl(0.9, 1.1) / 1e6) * 1e6; }
+// 섭외 가능성: 각본이 좋을수록, 회사가 클수록·평판이 좋을수록 쉽다. 이름난 감독, 실력 좋은 감독일수록 까다롭다
+function coVHireP(s, t, P, x, k, sup) {
+  const star = Math.log10(1 + (x.fame || 0)), f = coPF(P), F = t.f[f];
+  return U.clamp(U.sig((P.q * 0.4 + coTier(t, f) * 7 + F.rep * 0.15 + (P.lvlHint || 0) + (sup ? 10 : 0) - star * 6 - lv(x, k) * 0.15 + 16) / 7) + relBonus(s, x), 0.05, 0.95);
+}
+E({
+  id: 'co_vdir', cat: '작품 기획', title: '감독 섭외', tag: 'career',
+  cond: s => coOn(s),
+  init(s, d) {
+    if (d.c) return;
+    const P = d.P, t = coT(s), L = [];
+    const back = P.seq && s.people[P.seq.prevDir];
+    if (back && back.alive !== false) L.push(back);
+    while (L.length < 3) L.push(pickIndustry(s, '연출감독', y => !L.includes(y), 0.4));
+    d.c = L.map(x => ({ id: x.id, fee: Math.round(coVDirFee(P.kind, x) * (back === x ? 1.3 : 1) / 1e6) * 1e6, p: coVHireP(s, t, P, x, 'direct'), back: back === x }));
+  },
+  text: (s, d) => `「${d.P.title}」 감독을 섭외한다.${d.no ? `\n\n${d.no}` : ''}\n\n연출 보는 눈: ${coVView(s, 'direct').id === s.me ? '내 눈' : `기획 PD ${coVView(s, 'direct').name}`}`,
+  ch: (s, d) => {
+    const P = d.P, v = coVView(s, 'direct'), C = d.c.filter(c => s.people[c.id]).map(c => {
+      const x = s.people[c.id];
+      return { t: `${x.name} 감독 — 연출 ${coLvSee(v, x, 'direct')} · 팬 ${fmtFans(x.fame || 0)}${c.back ? ' · 전작 감독' : ''}`, h: `연출료 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}`, f: s => {
+        if (U.chance(c.p)) { Object.assign(P, { dir: x.id, dirFee: c.fee }); fireEvent(s, 'co_vcast', { P }); return `${josa(x.name, '이가')} 「${P.title}」 연출을 맡기로 했다.`; }
+        fireEvent(s, 'co_vdir', { P, c: d.c.filter(y => y.id !== c.id), no: `${josa(x.name, '이가')} 거절했다. 다른 감독을 찾아본다.` });
+        return `${josa(x.name, '이가')} 「${P.title}」 연출 제안을 거절했다.`;
+      } };
+    });
+    if (has(me(s), 'direct')) C.push({ t: `내가 연출한다 — 연출 ${lvi(me(s), 'direct')}`, h: '연출료가 들지 않는다 · 촬영하는 동안 스트레스가 쌓인다', f: s => { Object.assign(P, { dir: "me", dirFee: 0 }); fireEvent(s, "co_vcast", { P }); return `${josa(`「${P.title}」`, "은는")} 내가 직접 연출하기로 했다.`; } });
+    return C.concat([{ t: '그만둔다', f: () => '작품 기획을 접었다.' }]);
+  },
+});
+
+// ───── 4. 주연 · 조연 (애니는 성우) ─────
+// 주연 1~2명과 조연을 합쳐 4명 이상 섭외해야 마칠 수 있다. 4명을 넘기면 회사 돈이 출연료를 감당하는 만큼 8명까지 더 쓸 수 있다
+const CO_V_CAST = { min: 4, max: 8, leads: 2 };
+function coVCastFee(P, x, role) { const V = coPK(P); return Math.round((V.cast + (x.fame || 0) * V.star) * (role === 'sup' ? 0.4 : 1) * U.fl(0.9, 1.1) / 1e6) * 1e6; }
+// 섭외한 배우 목록 (예전 세이브에서 만들던 작품은 주연·조연 한 명씩)
+function coVCast(P) { return P.cast || [{ id: P.lead, role: 'lead', fee: P.leadFee || 0 }, { id: P.sup, role: 'sup', fee: P.supFee || 0 }].filter(c => c.id); }
+function coVCastFees(P) { return coVCast(P).reduce((a, c) => a + (c.fee || 0), 0); }
+function coVCastN(s, P, role) { return coVCast(P).filter(c => c.role === role).map(c => (s.people[c.id] || {}).name || '-').join('·'); }
+function coVCastLine(s, P) { const sp = coVCastN(s, P, 'sup'); return `주연 ${coVCastN(s, P, 'lead') || '-'}${sp ? ` · 조연 ${sp}` : ''}`; }
+E({
+  id: 'co_vcast', cat: '캐스팅', title: (s, d) => d.P.f === 'anime' ? '성우 섭외' : '배우 섭외', tag: 'career',
+  cond: s => coOn(s),
+  init(s, d) {
+    const P = d.P;
+    if (!P.cast) P.cast = [];
+    if (!d.role) d.role = P.cast.some(c => c.role === 'lead') ? 'sup' : 'lead';
+    if (d.c) return;
+    const t = coT(s), role = d.role, used = P.cast.map(c => c.id), L = [], job = P.f === 'anime' ? '성우' : '배우';
+    const back = role === 'lead' && P.seq && !used.includes(P.seq.prevLead) && s.people[P.seq.prevLead];
+    if (back && back.alive !== false) L.push(back);
+    const known = people(s, x => x.job === job && x.alive !== false && x.id !== s.me && !used.includes(x.id) && !L.includes(x) && has(x, 'acting'));
+    if (known.length) L.push(U.pick(known));
+    while (L.length < 4) L.push(pickIndustry(s, job, y => !L.includes(y) && !used.includes(y.id), 0.3));
+    d.c = L.map(x => ({ id: x.id, fee: Math.round(coVCastFee(P, x, role) * (back === x ? 1.3 : 1) / 1e5) * 1e5, p: coVHireP(s, t, P, x, 'acting', role === 'sup'), back: back === x }));
+  },
+  text: (s, d) => { const P = d.P, n = P.cast.length, v = coVView(s, 'acting'), nn = P.f === 'anime' ? '성우' : '배우'; return `「${P.title}」 ${d.role === 'lead' ? '주연' : '조연'} ${nn}를 섭외한다.${n ? `\n\n섭외한 ${nn} ${n}명 · ${coVCastLine(s, P)} · 출연료 ${fmtWon(coVCastFees(P))}` : ''}${d.no ? `\n\n${d.no}` : ''}\n\n연기 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
+  ch: (s, d) => {
+    const P = d.P, t = coT(s), v = coVView(s, 'acting'), role = d.role, roleN = role === 'lead' ? '주연' : '조연', ani = P.f === 'anime', nn = ani ? '성우' : '배우', n = P.cast.length, leads = P.cast.filter(c => c.role === 'lead').length;
+    // 4명을 넘겨 더 쓰려면 회사 돈이 지금까지의 각본료·연출료·출연료와 이 배우의 출연료를 감당해야 한다
+    const afford = fee => n < CO_V_CAST.min || t.money >= coVUpfront(P) + fee;
+    const set = (x, fee) => {
+      P.cast.push({ id: x.id, role, fee });
+      if (role === 'lead' && !P.lead) P.lead = x.id;
+      fireEvent(s, P.cast.length >= CO_V_CAST.max ? 'co_vbud' : 'co_vcast', { P });
+      return `${josa(x.name, '이가')} 「${P.title}」 ${roleN}${ani ? ' 목소리를' : '을'} 맡기로 했다. (출연료 ${fmtWon(fee)})`;
+    };
+    const C = d.c.filter(c => s.people[c.id]).map(c => {
+      const x = s.people[c.id], ok = afford(c.fee);
+      return { t: `${x.name} — 연기 ${coLvSee(v, x, 'acting')} · 팬 ${fmtFans(x.fame || 0)}${c.back ? ' · 전작 주연' : ''}`, h: `출연료 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}${ok ? '' : ' · 회사 돈이 모자라다'}`, ok: () => ok, f: s => {
+        if (U.chance(c.p)) return set(x, c.fee);
+        fireEvent(s, 'co_vcast', { P, role, c: d.c.filter(y => y.id !== c.id), no: `${josa(x.name, '이가')} 거절했다. 다른 배우를 찾아본다.` });
+        return `${josa(x.name, '이가')} 「${P.title}」 ${roleN} 제안을 거절했다.`;
+      } };
+    });
+    const nf = Math.round(coPK(P).cast * (role === 'lead' ? 0.3 : 0.15) / 1e5) * 1e5, nok = afford(nf);
+    C.push({ t: `신인 ${nn}를 쓴다`, h: `출연료 ${fmtWon(nf)} · 꼭 해 준다${nok ? '' : ' · 회사 돈이 모자라다'}`, ok: () => nok, f: s => set(makeIndustry(s, nn, { age: U.int(19, 27), fame: U.int(20, 300) }), nf) });
+    if (role === 'sup' && leads < CO_V_CAST.leads) C.push({ t: '주연을 한 명 더 찾는다', f: s => { fireEvent(s, 'co_vcast', { P, role: 'lead' }); return ''; } });
+    if (role === 'lead' && leads > 0) C.push({ t: '조연을 찾는다', f: s => { fireEvent(s, 'co_vcast', { P, role: 'sup' }); return ''; } });
+    C.push({ t: '섭외를 마친다', h: n >= CO_V_CAST.min ? `${nn} ${n}명 · 출연료 ${fmtWon(coVCastFees(P))}` : `${nn}를 ${CO_V_CAST.min}명 이상 섭외해야 한다 (지금 ${n}명)`, ok: () => n >= CO_V_CAST.min, f: s => { fireEvent(s, 'co_vbud', { P }); return ''; } });
+    return C.concat([{ t: '그만둔다', f: () => '작품 기획을 접었다.' }]);
+  },
+});
+
+// ───── 5. 제작비 ─────
+// 시작할 때 한꺼번에 내는 돈: 각본료(원작 판권)·연출료·출연료 (애니는 작화감독·원화 계약금도)
+function coVUpfront(P) { return (P.price || 0) + (P.dirFee || 0) + coVCastFees(P) + (P.keyFee || 0) + (P.teamFee || 0); }
+E({
+  id: 'co_vbud', cat: '작품 기획', title: '제작비 정하기', tag: 'career',
+  cond: s => coOn(s),
+  text: (s, d) => { const t = coT(s), P = d.P; return P.f === 'anime'
+    ? `「${P.title}」에 제작비를 얼마나 쓸까? 동화·채색·배경·CG, 음악과 녹음에 쓰는 돈이다. 많이 쓸수록 작화가 좋아지지만, 본전을 찾으려면 더 많이 벌어야 한다.\n\n시작할 때 낼 돈: 원작·연출·작화팀·성우 ${fmtWon(coVUpfront(P))} · 회사 돈 ${fmtWon(t.money)}`
+    : `「${P.title}」에 제작비를 얼마나 쓸까? 세트·장소·의상, 촬영 장비와 스태프, CG·음악·편집에 쓰는 돈이다. 많이 쓸수록 볼거리가 좋아지지만, 본전을 찾으려면 더 많이 벌어야 한다.\n\n시작할 때 낼 돈: 각본료·연출료·출연료 ${fmtWon(coVUpfront(P))} · 회사 돈 ${fmtWon(t.money)}`; },
+  ch: (s, d) => {
+    const t = coT(s), P = d.P, V = coPK(P), ani = P.f === 'anime', C = [];
+    for (let l = 0; l <= coTier(t, coPF(P)); l++) { const m = V.prep + coPShoot(P, l); C.push({ t: `${(ani ? A_BUD_N : V_BUD_N)[l]} · 제작비 ${fmtWon(V.bud[l])}`, h: `${ani ? '기획·작화' : '준비·촬영'} ${m}개월 동안 달마다 ${fmtWon(Math.round(V.bud[l] / m / 1e4) * 1e4)}`, f: s => { Object.assign(P, { lvl: l, bud: V.bud[l] }); fireEvent(s, 'co_vdist', { P }); return ''; } }); }
+    return C.concat([{ t: '그만둔다', f: () => '작품 기획을 접었다.' }]);
+  },
+});
+
+// ───── 6. 거는 곳 (배급사 · 방송사 · 플랫폼) ─────
+// 받아 줄 가능성: 각본·감독·주연을 정확히 보고 작품이 얼마나 될지 가늠한다. 큰 곳일수록 까다롭다
+function coVEst(s, P) { const dir = P.dir === 'me' ? me(s) : s.people[P.dir], lead = s.people[P.lead]; return P.q * 0.28 + (dir ? lv(dir, 'direct') : 40) * 0.32 + (lead ? lv(lead, 'acting') : 35) * 0.1 + (lead ? Math.log10(1 + (lead.fame || 0)) : 1) + V_BUD_SC[P.lvl] + 9; }
+function coVDistP(s, t, P, D) { return U.clamp(U.sig(((P.f === 'anime' ? coAEst(s, P) : coVEst(s, P)) - 55 + P.lvl * 4 + (coTier(t, coPF(P)) - 1) * 4 - (D.tier - 1) * 8 + 6) / 6), 0.05, 0.97); }
+E({
+  id: 'co_vdist', cat: '작품 기획', title: (s, d) => `${V_CH_S[coPK(d.P).ch]} 정하기`, tag: 'career',
+  cond: s => coOn(s),
+  init(s, d) { if (!d.ids) d.ids = DISTRIBUTORS.filter(D => D.ch === coPK(d.P).ch).map(D => D.id); },
+  text: (s, d) => { const P = d.P; return `${josa(`「${P.title}」`, "을를")} 어디에 걸까? ${V_CH_N[coPK(P).ch]}마다 수수료와 힘이 다르다. 큰 곳일수록 많이 보여 주고 홍보도 세게 하지만, 수수료가 높고 작은 작품은 거절하기도 한다.${d.no ? `\n\n${d.no}` : ''}`; },
+  ch: (s, d) => {
+    const t = coT(s), P = d.P;
+    return d.ids.map(id => DIST[id]).map(D => {
+      const T = DIST_T[D.tier], p = coVDistP(s, t, P, D), ott = D.ch === 'ott';
+      return { t: `${D.n} (${vChLabel(D)})`, h: `${ott ? `제작비에 이윤 ${Math.round((T.margin - 1) * 100)}%를 얹어 산다` : `수수료 ${Math.round(T.fee * 100)}% · ${D.ch === 'film' ? '상영관' : D.ch === 'tv' ? '편성' : '노출'} ${'★'.repeat(D.tier)}`} · 홍보 ${'★'.repeat(D.tier)} · 받아 줄 가능성 ${fmtPct(p)}`, f: s => {
+        if (U.chance(p)) return (P.f === 'anime' ? coAStart : coVStart)(s, t, Object.assign(P, { dist: D.id }));
+        const rest = d.ids.filter(x => x !== D.id);
+        if (!rest.length) return `${josa(D.n, '이가')} ${josa(`「${P.title}」`, "을를")} 거절했다. 받아 줄 곳이 없어 기획을 접었다.` + fx(s, { stress: 4 });
+        fireEvent(s, 'co_vdist', { P, ids: rest, no: `${josa(D.n, '이가')} 거절했다.` });
+        return `${josa(D.n, '이가')} ${josa(`「${P.title}」`, "을를")} 거절했다.`;
+      } };
+    }).concat([{ t: '그만둔다', f: () => '작품 기획을 접었다.' }]);
+  },
+});
+// 작품 시작: 각본료·연출료·출연료를 내고, 함께할 사람들을 만난다
+function coVStart(s, t, P) {
+  const V = V_KIND[P.kind], up = coVUpfront(P);
+  coAuto(t).want.video = false;
+  coOut(t, P.price || 0, '각본료'); coOut(t, P.dirFee || 0, '연출료'); coOut(t, coVCastFees(P), '출연료');
+  if (P.scId) { const sc = myScripts(s).find(x => x.id === P.scId); if (sc) sc.st = 'mine'; }
+  if (P.wbId) wbMark(s, P.wbId, 'video');
+  const where = `${V.n} 「${P.title}」`;
+  for (const id of [P.writer, P.dir, ...coVCast(P).map(c => c.id)]) { const x = id && id !== 'me' && s.people[id]; if (x) meetAt(s, x, where, 'agency'); }
+  const shoot = V.shoot + (P.kind === 'film' && P.lvl >= 2 ? 1 : 0);
+  const pj = Object.assign({}, P, { id: 'v' + U.uid(), stage: 'prep', left: V.prep, shootN: shoot, paidB: 0, perM: Math.ceil(P.bud / (V.prep + shoot) / 1e4) * 1e4, up, t0: s.t });
+  (t.vw = t.vw || []).push(pj);
+  return `「${P.title}」 제작을 시작했다! ${josa(DIST[P.dist].n, '과와')} 손잡았다. 각본료·연출료·출연료 ${fmtWon(up)}을 냈고, 제작비 ${fmtWon(P.bud)}은 ${V.prep + shoot}개월 동안 나눠 낸다.`;
+}
+// 제작 중단: 들인 돈은 돌려받지 못한다
+function coVDrop(s, t, pj) { t.vw = t.vw.filter(x => x !== pj); coVRepF(t, 'video', -2); return `「${pj.title}」 제작을 중단했다. 들인 돈은 돌려받지 못한다.`; }
+
+// ───── 한 달 ─────
+function coVidMonth(s, t, sales) {
+  const p = me(s);
+  for (const pj of t.vw.slice()) {
+    if (pj.stage === 'prep' || pj.stage === 'shoot') { const m = Math.min(pj.perM, pj.bud - pj.paidB); if (m > 0) { coOut(t, m, '제작비'); pj.paidB += m; } }
+    if (pj.stage === 'shoot' && pj.dir === 'me') { practice(s, p, 'direct', 1.2); addStress(s, 2); }
+    if (--pj.left > 0) continue;
+    if (pj.stage === 'prep') { pj.stage = 'shoot'; pj.left = pj.shootN; addLog(s, `🎬 「${pj.title}」 촬영을 시작했다. ${pj.left}개월 동안 찍는다.`, 'career'); }
+    else if (pj.stage === 'shoot') { pj.stage = 'post'; pj.left = V_KIND[pj.kind].post; addLog(s, `🎬 「${pj.title}」 촬영을 마쳤다. 후반 작업에 들어간다.`, 'career'); }
+    else { t.vw = t.vw.filter(x => x !== pj); queueEv(s, 'co_vres', 0, { pj }, true); }
+  }
+  // 광고·뮤직비디오 제작 의뢰 (대표가 영업을 하면 더 자주)
+  const k = coVTier(t);
+  if (!s.inbox.some(m => m.kind === 'co_vad') && U.chance((0.03 + k * 0.02) * (sales ? coSalesM(s, 1.5) : 1))) {
+    const mv = U.chance(0.35), b = U.pick(BRANDS), fee = Math.round(CO_VAD[k] * U.fl(0.7, 1.3) / 1e6) * 1e6;
+    sendMsg(s, 'co_vad', { from: mv ? '음반 기획사' : b.n, title: mv ? '뮤직비디오 제작 의뢰' : '광고 제작 의뢰', months: 2, d: { what: mv ? '새 뮤직비디오' : `${b.cat} 광고`, fee } });
+  }
+}
+INBOX.co_vad = {
+  ic: '🎬',
+  text: (s, m) => `${m.from}에서 ${m.d.what} 제작을 맡아 달라고 한다.\n\n제작 금액 ${fmtWon(m.d.fee)} · 찍는 데 드는 돈은 그중 65%쯤이다.`,
+  ch: (s, m) => [
+    { t: '맡는다', ok: s => coOn(s) && !!coT(s).f.video, h: coOn(s) && coT(s).f.video ? '' : '영상 제작사를 운영하고 있어야 한다', f: s => { const t = coT(s), cost = Math.round(m.d.fee * U.fl(0.55, 0.75) / 1e5) * 1e5; coIn(t, m.d.fee, '광고·뮤직비디오 제작'); coOut(t, cost, '광고·뮤직비디오 제작비'); coVRepF(t, 'video', 0.3); return `「${t.name}」에서 ${m.from} ${josa(m.d.what, '을를')} 만들었다. 남은 돈 ${fmtWon(m.d.fee - cost)}.`; } },
+    { t: '거절한다', f: () => `${m.from}의 제작 의뢰를 거절했다.` },
+  ],
+};
+
+// ───── 공개 ─────
+// 배우(성우) 점수: 주연 연기 평균, 잘하는 조연 두 명의 연기 평균, 화제성(주연 팬은 다, 조연 팬은 1/4), 5명째부터 한 명마다 조금씩 (다 합쳐 3까지)
+function coCastSc(s, pj) {
+  const cast = coVCast(pj).map(c => ({ x: s.people[c.id], role: c.role })).filter(c => c.x);
+  const act = c => lv(c.x, 'acting'), mean = A => A.reduce((a, c) => a + act(c), 0) / A.length;
+  const leads = cast.filter(c => c.role === 'lead'), sups = cast.filter(c => c.role === 'sup').sort((a, b) => act(b) - act(a));
+  return {
+    leads, la: leads.length ? mean(leads) : 35, sa: sups.length ? mean(sups.slice(0, 2)) : 35,
+    star: Math.log10(1 + cast.reduce((a, c) => a + (c.x.fame || 0) * (c.role === 'lead' ? 1 : 0.25), 0)),
+    ens: Math.min(3, cast.slice(CO_V_CAST.min).reduce((a, c) => a + 0.3 + act(c) / 100, 0)),
+  };
+}
+function coVScore(s, t, pj) {
+  const dir = pj.dir === 'me' ? me(s) : s.people[pj.dir], { leads, la, sa, star, ens } = coCastSc(s, pj);
+  const dl = dir ? lv(dir, 'direct') + (pj.dir === 'me' ? (me(s).tal.aesth - 50) * 0.1 : 0) : 40;
+  let hype = 0;
+  // 후속작: 전작이 잘됐을수록 기대가 크지만, 여러 편 이어질수록 질린다. 전작 감독·주연이 돌아오면 반응이 좋다
+  if (pj.seq) hype = U.clamp((pj.seq.prevSc - 60) / 4, -4, 5) - 3 * Math.max(0, pj.seq.n - 2) + (pj.dir === pj.seq.prevDir ? 1.5 : 0) + (leads.some(c => c.x.id === pj.seq.prevLead) ? 1.5 : 0);
+  return U.clamp(dl * 0.32 + pj.q * 0.28 + la * 0.1 + sa * 0.05 + star + ens + V_BUD_SC[pj.lvl] + coVTier(t) + DIST_T[DIST[pj.dist].tier].promo + (pj.genre === s.trendTV.drama ? 4 : 0) + hype - 1 + U.normal(0, 7), 0, 100);
+}
+// 수입 (회사로 들어오는 돈). 점수 62가 대략 본전이고, 12점 오를 때마다 극장·해외 쪽 수입이 두 배가 된다 (네 배까지)
+function coVRev(s, t, pj, sc) {
+  const B = pj.bud, D = DIST[pj.dist], T = DIST_T[D.tier], r = Math.min(4, Math.pow(2, (sc - 62) / 12)), L = [];
+  const seqF = pj.seq ? 1 + U.clamp((pj.seq.prevSc - 60) / 40, 0, 0.5) * (pj.seq.n === 2 ? 1 : 0.6) : 1;
+  let res;
+  if (pj.kind === 'film') {
+    const aud = Math.min(1.7e7, Math.round(B / FM_TICKET * r * T.pow * seqF / 100) * 100);
+    res = `관객 ${fmtFans(aud)}`;
+    L.push([`극장 수익 (배급 수수료 ${Math.round(T.fee * 100)}% 뗌)`, aud * FM_TICKET * (1 - T.fee)], ['VOD·해외 판매', B * 0.2 * Math.min(r, 3)]);
+  } else if (pj.kind === 'drama') {
+    res = filmRes('drama', sc + (T.pow - 1) * 10);
+    L.push(['방영권', B * 0.6 * T.pow], ['간접광고', B * 0.1], [`해외·OTT 판매 (수수료 ${Math.round(T.fee * 100)}% 뗌)`, B * 0.45 * Math.min(r, 3) * seqF * (1 - T.fee)]);
+  } else if (pj.kind === 'ott') {
+    res = filmRes('ott', sc);
+    L.push([`OTT 구매 (제작비·출연료 + 이윤 ${Math.round((T.margin - 1) * 100)}%)`, (B + pj.up) * T.margin]);
+    if (sc >= 75) L.push(['흥행 보너스', B * 0.1 * (sc - 75) / 5]);
+  } else {
+    const views = Math.round(Math.pow(10, 4 + sc / 22) * T.pow * V_WEB_VIEW[pj.lvl] * seqF);
+    res = `누적 조회수 ${fmtFans(views).replace('명', '회')}`;
+    L.push(['플랫폼 구매', B * 0.75], [`조회수 광고 수익 (수수료 ${Math.round(T.fee * 100)}% 뗌)`, views * 30 * (1 - T.fee)]);
+  }
+  for (const x of L) x[1] = Math.round(x[1] / 1e5) * 1e5;
+  return { L, res, total: L.reduce((a, x) => a + x[1], 0) };
+}
+E({
+  id: 'co_vres', cat: '작품 성적', title: '우리 회사 작품 공개', tag: 'career',
+  cond: s => coOn(s),
+  init(s, d) {
+    const t = coT(s), pj = d.pj, V = V_KIND[pj.kind], p = me(s);
+    const sc = d.sc = coVScore(s, t, pj), R = coVRev(s, t, pj, sc);
+    d.res = R.res; d.L = R.L; d.rev = R.total; d.cost = pj.bud + pj.up; d.profit = d.rev - d.cost;
+    for (const [n, v] of R.L) coIn(t, v, n);
+    if (pj.dir === 'me') d.review = dirReview(dirPerf(p, V.demand));
+    // 평판: 점수가 52보다 높으면 오르고 낮으면 떨어진다 (작품이 클수록 크게)
+    const dr = U.clamp((sc - 52) / 3, -5, 8) * V.w;
+    t.f.video.rep = U.clamp(t.f.video.rep + dr, 0, 100);
+    // 대표 등급에 세는 흥행 크기: 대형 제작사의 드라마·영화가 점수 80이면 50만, 88이면 126만 (소형은 절반, 중형은 3/4)
+    const hit = Math.round(Math.pow(10, 1.7 + sc / 20) * V.hit * [0, 0.5, 0.75, 1][coVTier(t)]);
+    t.peakF = Math.max(t.peakF || 0, hit);
+    if (pj.kind !== 'web' && sc > ((t.vyBest || {}).sc || 0)) t.vyBest = { sc, title: pj.title, kind: pj.kind };
+    const ip = pj.seq ? pj.seq.ip : pj.id, n = pj.seq ? pj.seq.n : 1;
+    t.vdone.push({ id: pj.id, ip, n, title: pj.title, base: pj.seq ? pj.seq.base : pj.title, kind: pj.kind, genre: pj.genre, sc: Math.round(sc), dir: pj.dir, lead: pj.lead, y: calY(s), res: d.res, profit: d.profit });
+    coAuto(t).want.video = true;
+    for (const id of [pj.dir, ...coVCast(pj).map(c => c.id)]) { const x = id && id !== 'me' && s.people[id]; if (x) bond(s, x, sc >= 60 ? U.int(2, 6) : U.int(-4, 1)); }
+    addWork(s, { type: `${V.n} 제작`, title: pj.title, by: pj.dir === 'me' ? '제작·연출' : '제작', sc, note: `${t.name} · ${d.res}`, pay: 0 });
+    if (pj.writer === 'me') d.wup = writerCredit(s, { title: pj.title, tk: pj.kind }, sc);
+    if (!t.vfirst) { t.vfirst = true; milestone(s, `${age(s)}세에 「${t.name}」의 첫 작품 ${V.n} ${josa(`「${pj.title}」`, '을를')} 공개했다.`); }
+    if (pj.kind === 'film' && sc >= 80 && !t.vhit) { t.vhit = true; milestone(s, `${age(s)}세에 우리 회사 영화 ${josa(`「${pj.title}」`, '이가')} ${d.res}을 모았다.`); }
+  },
+  text: (s, d) => { const pj = d.pj, D = DIST[pj.dist]; return `${vKindN(pj.kind)} ${josa(`「${pj.title}」`, '이가')} ${D.ch === 'film' ? `${D.n} 배급으로 개봉했다` : D.ch === 'tv' ? `${D.n}에서 방영됐다` : `${D.n}에서 공개됐다`}.\n\n${d.res}${d.review ? ` · ${d.review}` : ''}\n\n${d.L.map(([n, v]) => `· ${n} ${fmtWon(v)}`).join('\n')}\n들어온 돈 ${fmtWon(d.rev)} · 쓴 돈 ${fmtWon(d.cost)} (제작비 ${fmtWon(pj.bud)} + 각본·연출·출연료 ${fmtWon(pj.up)})\n${d.profit >= 0 ? `남은 돈 ${fmtWon(d.profit)}` : `손해 ${fmtWon(-d.profit)}`}` + wupText(s, d); },
+  ch: (s, d) => [{ t: '확인', f: () => `「${d.pj.title}」 공개. ${d.res} · ${d.profit >= 0 ? `남은 돈 ${fmtWon(d.profit)}` : `손해 ${fmtWon(-d.profit)}`}.` }],
+});
+// 연말: 올해 공개한 작품 중 가장 잘된 작품이 시상식 작품상을 받으면 회사 평판이 오른다
+function coVidYear(s, t) {
+  const b = t.vyBest; t.vyBest = null;
+  if (!b) return;
+  const show = b.kind === 'film' ? '영화상' : '드라마 시상식';
+  if (b.sc >= 80) { t.awN++; t.f.video.rep = Math.min(100, t.f.video.rep + 3); award(s, `${show} 작품상 「${b.title}」 (제작)`); addLog(s, `🏆 연말 ${show}에서 우리 회사 ${josa(`「${b.title}」`, '이가')} 작품상을 받았다.`, 'good'); }
+  else if (b.sc >= 72) addLog(s, `연말 ${show}에서 우리 회사 ${josa(`「${b.title}」`, "이가")} 작품상 후보에 올랐다.`, 'career');
+}
+
+// ───── 회사 창: 🎬 작품 탭 ─────
+function coTabVw(s, t) {
+  const w = coVWhy(s, t), A = [{ t: '새 작품 기획', h: `함께 만드는 작품 ${t.vw.length}/${CO_V_CAP[coVTier(t)]}편 · 회사 돈 ${fmtWon(t.money)}`, ok: !w, why: w, btn: '기획', run: s => { fireEvent(s, 'co_vplan', {}); return ''; } }];
+  let h = `<div class="sec-h">할 수 있는 일</div>` + A.map(actRow).join('');
+  h += `<div class="sec-h">만드는 중 ${t.vw.length}편</div>`;
+  if (!t.vw.length) h += `<div class="muted">지금 만드는 작품이 없다.</div>`;
+  for (const pj of t.vw) {
+    const dir = pj.dir === 'me' ? '나' : (s.people[pj.dir] || {}).name || '-', lead = coVCastN(s, pj, 'lead') || '-';
+    h += actRow({ t: `「${pj.title}」 · ${vKindN(pj.kind)} ${V_BUD_N[pj.lvl]}`, h: `${V_STAGE[pj.stage]} (${pj.stage === 'post' ? `${pj.left}개월 뒤 공개` : `${pj.left}개월 남음`}) · 감독 ${dir} · 주연 ${lead} · ${DIST[pj.dist].n} · 낸 제작비 ${fmtWon(pj.paidB)}/${fmtWon(pj.bud)}`, ok: true, danger: true, btn: '중단', confirm: `「${pj.title}」 제작을 중단할까요?\n들인 돈은 돌려받지 못해요.`, run: s => coVDrop(s, t, pj) });
+  }
+  const D = (t.vdone || []).slice().reverse();
+  if (D.length) h += `<div class="sec-h">만든 작품 ${D.length}편</div>` + D.slice(0, 12).map(w => `<div class="ms">· ${w.y} 「${U.esc(w.title)}」 ${vKindN(w.kind)} · ${U.esc(w.res)} · ${w.profit >= 0 ? `남은 돈 ${fmtWon(w.profit)}` : `손해 ${fmtWon(-w.profit)}`}</div>`).join('');
+  return h;
+}
+
+// ════════ 애니메이션 제작사 (6-5단계) ════════
+// 회사 대표의 분야 'anime'. 웹 애니·TV 애니·OTT 애니·극장판 애니를 기획해서 만든다
+// 만드는 순서: 무엇을 만들지(새 작품 · 다음 기 · 극장판) → 원작(오리지널 기획안 · 웹툰·웹소설 판권 · 다 써 둔 내 원고) → 애니메이션 감독 → 작화감독 → 원화 애니메이터(3명 이상)
+//   → 성우(주연·조연 4명 이상, co_vcast) → 제작비(co_vbud) → 거는 곳(co_vdist) → 기획·콘티 → 작화 → 녹음·후반 작업 → 공개
+// 수입은 공개할 때 한꺼번에: 방영권·극장·OTT 구매·조회수, 해외 판매, 굿즈·캐릭터 라이선스 (애니는 굿즈가 크다)
+// 종류: bud 제작비 4단계, prep 기획·콘티 · shoot 작화 · post 녹음·후반 작업(개월), cast/star 성우 출연료(기본 + 팬 1명당), dir 연출료 기본, key 작화감독 계약금, anim 원화 한 명 계약금,
+//   script 오리지널 기획안 값, rights 원작 판권 기본값(독자 10만 명), w 평판 무게, hit 대표 등급에 세는 크기, goods 굿즈 무게
+const A_KIND = {
+  web: { n: '웹 애니', ch: 'web', bud: [1e8, 2.5e8, 5e8, 9e8], prep: 2, shoot: 4, post: 1, cast: 150e4, star: 40, dir: 600e4, key: 400e4, anim: 150e4, script: 400e4, rights: 1000e4, demand: 30, w: 0.8, hit: 0.25, goods: 0.08 },
+  tv: { n: 'TV 애니', ch: 'tv', bud: [10e8, 25e8, 50e8, 90e8], prep: 3, shoot: 9, post: 2, cast: 1500e4, star: 300, dir: 8000e4, key: 4000e4, anim: 1500e4, script: 6000e4, rights: 4000e4, demand: 40, w: 1, hit: 0.6, goods: 0.25 },
+  ott: { n: 'OTT 애니', ch: 'ott', bud: [15e8, 35e8, 70e8, 120e8], prep: 3, shoot: 10, post: 2, cast: 2000e4, star: 400, dir: 1e8, key: 5000e4, anim: 2000e4, script: 8000e4, rights: 6000e4, demand: 45, w: 0.9, hit: 0.6, goods: 0.05 },
+  film: { n: '극장판 애니', ch: 'film', bud: [10e8, 30e8, 60e8, 120e8], prep: 4, shoot: 12, post: 3, cast: 2500e4, star: 800, dir: 1.2e8, key: 6000e4, anim: 2500e4, script: 8000e4, rights: 6000e4, demand: 45, w: 1, hit: 0.75, goods: 0.12 },
+};
+const A_BUD_N = ['저예산', '보통', '고퀄리티', '최고 퀄리티'];
+const A_STAGE = { prep: '기획·콘티 중', shoot: '작화 중', post: '녹음·후반 작업 중' };
+const CO_A_TEAM = { min: 3, max: 8 }; // 원화 애니메이터: 3명 이상, 3명을 넘기면 회사 돈이 계약금을 감당하는 만큼 8명까지
+const CO_AAD = [0, 2000e4, 5000e4, 1.5e8]; // 광고 애니메이션·게임 영상 의뢰 금액 (크기별)
+function aKindN(k) { return A_KIND[k].n; }
+function coATier(t) { return coTier(t, 'anime'); }
+function coAWhy(s, t) {
+  if (CO_V_CHAIN.some(id => hasQ(s, id))) return '기획 회의 중';
+  if ((t.aw || []).length >= CO_V_CAP[coATier(t)]) return `${coSizeN(t, 'anime')}는 애니를 ${CO_V_CAP[coATier(t)]}편까지 함께 만든다`;
+  return '';
+}
+// 원작 팬(웹툰·웹소설 독자)이 보태는 기대: 독자 10만 명 +0.8, 100만 명 +2.4 (최대 4). 다음 기·극장판은 절반
+function coASrcHype(P) { return P.src && P.src.fans ? U.clamp((Math.log10(P.src.fans) - 4.5) * 1.6, 0, 4) * (P.seq ? 0.5 : 1) : 0; }
+// 후속작을 만들 수 있는 IP: 시리즈(웹·TV)는 마지막 기가 55점 이상이면 다음 기, 가장 잘된 편이 65점 이상이면 극장판(세 편까지)
+// OTT 오리지널은 판권이 OTT 것이라 안 되고, 한 IP는 여섯 편까지
+function coAIps(t) {
+  const by = {}, C = [];
+  for (const w of t.adone || []) (by[w.ip] = by[w.ip] || []).push(w);
+  for (const ip in by) {
+    const L = by[ip].sort((a, b) => a.n - b.n), first = L[0], last = L[L.length - 1];
+    if (first.kind === 'ott' || L.length >= 6) continue;
+    const ser = L.filter(w => w.kind !== 'film'), films = L.filter(w => w.kind === 'film'), best = Math.max(...L.map(w => w.sc)), ls = ser[ser.length - 1];
+    const seq = { ip, n: L.length + 1, prevSc: last.sc, prevDir: last.dir, prevLead: last.lead, base: first.base, genre: first.genre, src: first.src || null };
+    if (ls && ls.sc >= 55) C.push({ kind: ls.kind, title: `${first.base} ${ser.length + 1}기`, seq, from: ls });
+    if (best >= 65 && films.length < 3) C.push({ kind: 'film', title: first.kind === 'film' ? `${first.base} ${films.length + 1}` : `극장판 ${first.base}${films.length ? ` ${films.length + 1}` : ''}`, seq, from: last });
+  }
+  return C;
+}
+
+// ───── 1. 무엇을 만들까 ─────
+E({
+  id: 'co_aplan', cat: '애니 기획', title: '무엇을 만들까?', tag: 'career',
+  cond: s => coOn(s) && !!coT(s).f.anime,
+  text: s => { const t = coT(s); return `다음 애니를 기획한다. 새 작품을 만들거나, 우리 회사가 만든 애니의 다음 기나 극장판을 만든다.\n\n${coSizeN(t, 'anime')} · 회사 돈 ${fmtWon(t.money)} · 고를 수 있는 제작비 ${A_BUD_N.slice(0, coATier(t) + 1).join('·')}`; },
+  ch: s => {
+    const t = coT(s), C = [];
+    for (const k in A_KIND) { const A = A_KIND[k]; C.push({ t: `새 ${A.n}`, h: `제작비 ${fmtWon(A.bud[0])}~${fmtWon(A.bud[coATier(t)])} · 만드는 데 ${A.prep + A.shoot + A.post}개월 · ${V_CH_N[A.ch]}에 건다`, f: s => { fireEvent(s, 'co_asrc', { P: { f: 'anime', kind: k } }); return ''; } }); }
+    for (const o of coAIps(t)) C.push({ t: `「${o.title}」 · ${aKindN(o.kind)} 후속작`, h: `전작 「${o.from.title}」 ${o.from.res} · ${o.seq.n >= 4 ? '여러 편 이어져 사람들이 조금 질렸다' : '전작 팬들이 기다린다'}`, f: s => { fireEvent(s, 'co_asrc', { P: { f: 'anime', kind: o.kind, seq: Object.assign({}, o.seq, { title: o.title }) } }); return ''; } });
+    return C.concat([{ t: '그만둔다', f: () => '' }]);
+  },
+});
+
+// ───── 2. 원작 ─────
+// 새 작품: 오리지널 기획안 2편(시나리오 작가) · 웹툰·웹소설 판권 3편(독자 수는 정확히, 이야기는 5단계) · 서랍 속 다 써 둔 내 원고
+// 다음 기·극장판: 같은 이야기를 이어 쓸 구성안 3편
+function coAScriptPrice(kind, q) { return Math.round(A_KIND[kind].script * (0.6 + q / 100) * U.fl(0.8, 1.2) / 1e5) * 1e5; }
+function coARightsPrice(kind, fans, q) { return Math.round(A_KIND[kind].rights * Math.sqrt(fans / 1e5) * (0.6 + q / 100) * U.fl(0.85, 1.15) / 1e5) * 1e5; }
+E({
+  id: 'co_asrc', cat: '애니 기획', title: (s, d) => d.P.seq ? '구성안 고르기' : '원작 고르기', tag: 'career',
+  cond: s => coOn(s),
+  init(s, d) {
+    const P = d.P, k = coATier(coT(s)), tr = (s.trendTV || {}).anime || U.pick(ANIME_TRENDS);
+    d.ms = [];
+    for (let i = 0; i < (P.seq ? 3 : 2); i++) {
+      const genre = P.seq ? P.seq.genre : i === 0 && U.chance(0.5) ? tr : U.pick(ANIME_TRENDS), w = pickIndustry(s, '시나리오 작가', y => !d.ms.some(m => m.w === y.id));
+      const q = U.clamp(Math.round(lv(w, 'script') * 0.6 + U.int(5, 40) + k * 2), 10, 95);
+      d.ms.push({ src: '', title: P.seq ? P.seq.title : animeTitle(genre), genre, q, w: w.id, price: coAScriptPrice(P.kind, q) });
+    }
+    if (!P.seq) for (let i = 0; i < 3; i++) {
+      const wt = U.chance(0.6), genre = i === 0 && U.chance(0.4) ? tr : U.pick(ANIME_TRENDS), w = pickIndustry(s, wt ? '웹툰 작가' : '웹소설 작가', y => !d.ms.some(m => m.w === y.id), 0.3);
+      const fans = Math.round(Math.pow(10, U.fl(4.3, 6.5)) / 1e3) * 1e3, q = U.clamp(Math.round(lv(w, 'script') * 0.5 + U.int(10, 40) + (Math.log10(fans) - 5) * 4), 10, 95);
+      d.ms.push({ src: wt ? '웹툰' : '웹소설', title: animeTitle(genre), genre, q, w: w.id, fans, price: coARightsPrice(P.kind, fans, q) });
+    }
+  },
+  text: (s, d) => { const v = coVView(s, 'script'); return `${d.P.seq ? `「${d.P.seq.title}」 이야기를 이어 쓸 구성안을 고른다.` : `새 ${aKindN(d.P.kind)}의 원작을 고른다. 오리지널 기획안을 사거나, 웹툰·웹소설 판권을 사거나, 다 써 둔 내 원고를 쓴다.`}\n\n이야기 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
+  ch: (s, d) => {
+    const P = d.P, v = coVView(s, 'script'), C = [];
+    for (const m of d.ms) {
+      const w = s.people[m.w], lic = !!m.src;
+      C.push({ t: `${lic ? m.src : P.seq ? '구성안' : '오리지널'} 「${m.title}」 ${m.genre} · 이야기 ${grade5(v, m.q, 'q', 'script')}`, tr: m.genre === (s.trendTV || {}).anime, h: `${w ? w.name : '-'} 작가${lic ? ` · 독자 ${fmtFans(m.fans)}` : ''} · ${lic ? '판권료' : '값'} ${fmtWon(m.price)}`, f: s => {
+        Object.assign(P, { title: m.title, genre: m.genre, q: m.q, writer: m.w, price: m.price, lic, src: lic ? { kind: m.src, fans: m.fans } : P.seq ? P.seq.src : null });
+        fireEvent(s, 'co_adir', { P }); return '';
+      } });
+    }
+    if (!P.seq) for (const sc of myScripts(s).filter(x => x.st === 'done')) C.push({ t: `내 원고 「${sc.title}」 ${sc.genre} · 완성도 ${myScriptGrade(s, sc.q)}`, h: '원작료가 들지 않는다', f: s => { Object.assign(P, { title: sc.title, genre: sc.genre, q: sc.q, writer: 'me', scId: sc.id, price: 0, src: null }); fireEvent(s, 'co_adir', { P }); return ''; } });
+    // 내가 완결한 웹툰·웹소설 (js/webnovel.js): 판권료가 들지 않고, 원작 독자가 기대를 보탠다
+    if (!P.seq) for (const w of wbMyWorks(s).filter(x => !x.anime)) C.push({ t: `내 ${w.sn} 「${w.title}」 ${w.g}`, tr: w.g === (s.trendTV || {}).anime, h: `독자 ${fmtFans(w.peak)} · 판권료가 들지 않는다`, f: s => { Object.assign(P, { title: w.title, genre: w.g, q: w.q, writer: null, wbId: w.id, price: 0, lic: true, src: { kind: w.sn, fans: w.peak } }); fireEvent(s, 'co_adir', { P }); return ''; } });
+    return C.concat([{ t: '그만둔다', f: () => '애니 기획을 접었다.' }]);
+  },
+});
+
+// ───── 3. 애니메이션 감독 ─────
+function coADirFee(kind, x) { const A = A_KIND[kind]; return Math.round((A.dir * (0.5 + lv(x, 'direct') / 80) + (x.fame || 0) * A.star * 0.3) * U.fl(0.9, 1.1) / 1e5) * 1e5; }
+E({
+  id: 'co_adir', cat: '애니 기획', title: '애니메이션 감독 섭외', tag: 'career',
+  cond: s => coOn(s),
+  init(s, d) {
+    if (d.c) return;
+    const P = d.P, t = coT(s), L = [], back = P.seq && P.seq.prevDir !== 'me' && s.people[P.seq.prevDir];
+    if (back && back.alive !== false) L.push(back);
+    while (L.length < 3) L.push(pickIndustry(s, '애니메이션 감독', y => !L.includes(y), 0.4));
+    d.c = L.map(x => ({ id: x.id, fee: Math.round(coADirFee(P.kind, x) * (back === x ? 1.3 : 1) / 1e5) * 1e5, p: coVHireP(s, t, P, x, 'direct'), back: back === x }));
+  },
+  text: (s, d) => { const v = coVView(s, 'direct'); return `「${d.P.title}」 감독을 섭외한다. 감독은 연출과 그림을 같이 본다.${d.no ? `\n\n${d.no}` : ''}\n\n연출 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
+  ch: (s, d) => {
+    const P = d.P, v = coVView(s, 'direct'), va = coVView(s, 'art'), p = me(s), C = d.c.filter(c => s.people[c.id]).map(c => {
+      const x = s.people[c.id];
+      return { t: `${x.name} 감독 — 연출 ${coLvSee(v, x, 'direct')} · 그림 ${coLvSee(va, x, 'art')} · 팬 ${fmtFans(x.fame || 0)}${c.back ? ' · 전작 감독' : ''}`, h: `연출료 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}`, f: s => {
+        if (U.chance(c.p)) { Object.assign(P, { dir: x.id, dirFee: c.fee }); fireEvent(s, 'co_akey', { P }); return `${josa(x.name, '이가')} 「${P.title}」 감독을 맡기로 했다.`; }
+        fireEvent(s, 'co_adir', { P, c: d.c.filter(y => y.id !== c.id), no: `${josa(x.name, '이가')} 거절했다. 다른 감독을 찾아본다.` });
+        return `${josa(x.name, '이가')} 「${P.title}」 감독 제안을 거절했다.`;
+      } };
+    });
+    if (has(p, 'direct')) C.push({ t: `내가 감독한다 — 연출 ${lvi(p, 'direct')}${has(p, 'art') ? ` · 그림 ${lvi(p, 'art')}` : ''}`, h: '연출료가 들지 않는다 · 작화하는 동안 스트레스가 쌓인다', f: s => { Object.assign(P, { dir: 'me', dirFee: 0 }); fireEvent(s, 'co_akey', { P }); return `${josa(`「${P.title}」`, '은는')} 내가 직접 감독하기로 했다.`; } });
+    return C.concat([{ t: '그만둔다', f: () => '애니 기획을 접었다.' }]);
+  },
+});
+
+// ───── 4. 작화팀: 작화감독 → 원화 애니메이터 ─────
+function coAKeyFee(kind, x) { return Math.round(A_KIND[kind].key * (0.5 + lv(x, 'art') / 80) * U.fl(0.9, 1.1) / 1e5) * 1e5; }
+function coAAnimFee(kind, x) { return Math.round(A_KIND[kind].anim * (0.5 + lv(x, 'art') / 100) * U.fl(0.9, 1.1) / 1e5) * 1e5; }
+E({
+  id: 'co_akey', cat: '애니 기획', title: '작화감독 섭외', tag: 'career',
+  cond: s => coOn(s),
+  init(s, d) {
+    if (d.c) return;
+    const P = d.P, t = coT(s), L = [];
+    while (L.length < 3) L.push(pickIndustry(s, '애니메이터', y => !L.includes(y), 0.4));
+    d.c = L.map(x => ({ id: x.id, fee: coAKeyFee(P.kind, x), p: coVHireP(s, t, P, x, 'art') }));
+  },
+  text: (s, d) => { const v = coVView(s, 'art'); return `「${d.P.title}」 작화를 이끌 작화감독을 섭외한다.${d.no ? `\n\n${d.no}` : ''}\n\n그림 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
+  ch: (s, d) => {
+    const P = d.P, v = coVView(s, 'art'), nf = Math.round(A_KIND[P.kind].key * 0.4 / 1e5) * 1e5;
+    return d.c.filter(c => s.people[c.id]).map(c => {
+      const x = s.people[c.id];
+      return { t: `${x.name} — 그림 ${coLvSee(v, x, 'art')} · 팬 ${fmtFans(x.fame || 0)}`, h: `계약금 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}`, f: s => {
+        if (U.chance(c.p)) { Object.assign(P, { key: x.id, keyFee: c.fee }); fireEvent(s, 'co_ateam', { P }); return `${josa(x.name, '이가')} 「${P.title}」 작화감독을 맡기로 했다.`; }
+        fireEvent(s, 'co_akey', { P, c: d.c.filter(y => y.id !== c.id), no: `${josa(x.name, '이가')} 거절했다. 다른 작화감독을 찾아본다.` });
+        return `${josa(x.name, '이가')} 「${P.title}」 작화감독 제안을 거절했다.`;
+      } };
+    }).concat([{ t: '젊은 작화감독을 쓴다', h: `계약금 ${fmtWon(nf)} · 꼭 해 준다`, f: s => {
+      const x = makeIndustry(s, '애니메이터', { age: U.int(26, 33), fame: U.int(10, 200) }), l = Math.min(lv(x, 'art'), U.int(30, 52));
+      x.sk.art.lv = x.sk.art.best = l;
+      Object.assign(P, { key: x.id, keyFee: nf }); fireEvent(s, 'co_ateam', { P });
+      return `${josa(x.name, '이가')} 「${P.title}」 작화감독을 맡기로 했다.`;
+    } }, { t: '그만둔다', f: () => '애니 기획을 접었다.' }]);
+  },
+});
+E({
+  id: 'co_ateam', cat: '애니 기획', title: '원화 애니메이터 모으기', tag: 'career',
+  cond: s => coOn(s),
+  init(s, d) {
+    const P = d.P, L = [];
+    while (L.length < 7) L.push(pickIndustry(s, '애니메이터', y => !L.includes(y) && y.id !== P.key, 0.4));
+    d.c = L.map(x => ({ id: x.id, fee: coAAnimFee(P.kind, x) }));
+  },
+  text: (s, d) => { const t = coT(s), v = coVView(s, 'art'); return `「${d.P.title}」 원화를 그릴 애니메이터를 ${CO_A_TEAM.min}명 이상 체크하자 (${CO_A_TEAM.max}명까지). ${CO_A_TEAM.min}명을 넘기면 회사 돈이 계약금을 감당해야 한다.\n\n지금까지 낼 돈 ${fmtWon(coVUpfront(d.P))} · 회사 돈 ${fmtWon(t.money)}\n그림 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
+  form: (s, d) => { const v = coVView(s, 'art'); return d.c.filter(c => s.people[c.id]).map(c => { const x = s.people[c.id]; return { k: x.id, type: 'check', label: `${x.name} — 그림 ${coLvSee(v, x, 'art')}`, sub: `계약금 ${fmtWon(c.fee)} · ${relWord(x)}` }; }); },
+  cancel: () => '애니 기획을 접었다.',
+  submit(s, d, v) {
+    const t = coT(s), P = d.P, pick = d.c.filter(c => v[c.id] && s.people[c.id]), fee = pick.reduce((a, c) => a + c.fee, 0);
+    if (pick.length < CO_A_TEAM.min) return { err: `원화 애니메이터를 ${CO_A_TEAM.min}명 이상 체크해 주세요` };
+    if (pick.length > CO_A_TEAM.max) return { err: `${CO_A_TEAM.max}명까지 뽑을 수 있어요` };
+    if (pick.length > CO_A_TEAM.min && t.money < coVUpfront(P) + fee) return { err: `회사 돈이 모자라요 (계약금 ${fmtWon(fee)} · 회사 돈 ${fmtWon(t.money)})` };
+    Object.assign(P, { team: pick.map(c => c.id), teamFee: fee });
+    fireEvent(s, 'co_vcast', { P });
+    return { log: `「${P.title}」 원화 애니메이터 ${pick.length}명을 모았다. (계약금 ${fmtWon(fee)})` };
+  },
+});
+
+// ───── 거는 곳이 받아 줄 가능성 (co_vdist가 쓴다) ─────
+function coAEst(s, P) {
+  const dir = P.dir === 'me' ? me(s) : s.people[P.dir], key = s.people[P.key], lead = s.people[P.lead];
+  return P.q * 0.26 + (dir ? lv(dir, 'direct') * 0.75 + lv(dir, 'art') * 0.25 : 40) * 0.24 + (key ? lv(key, 'art') : 35) * 0.16 + 35 * 0.08 + (lead ? lv(lead, 'acting') : 35) * 0.05 + coASrcHype(P) + V_BUD_SC[P.lvl] + 7;
+}
+// 작품 시작: 원작료(각본료)·연출료·작화팀 계약금·성우 출연료를 내고, 감독·작화감독·작가·주연 성우를 만난다
+function coAStart(s, t, P) {
+  const A = A_KIND[P.kind], up = coVUpfront(P);
+  coAuto(t).want.anime = false;
+  coOut(t, P.price || 0, P.lic ? '원작 판권' : '각본료'); coOut(t, P.dirFee || 0, '연출료'); coOut(t, (P.keyFee || 0) + (P.teamFee || 0), '작화팀 계약금'); coOut(t, coVCastFees(P), '성우 출연료');
+  if (P.scId) { const sc = myScripts(s).find(x => x.id === P.scId); if (sc) sc.st = 'mine'; }
+  if (P.wbId) wbMark(s, P.wbId, 'anime');
+  const where = `${A.n} 「${P.title}」`;
+  for (const id of [P.writer, P.dir, P.key, ...coVCast(P).filter(c => c.role === 'lead').map(c => c.id)]) { const x = id && id !== 'me' && s.people[id]; if (x) meetAt(s, x, where, 'agency'); }
+  const pj = Object.assign({}, P, { id: 'a' + U.uid(), stage: 'prep', left: A.prep, shootN: A.shoot, paidB: 0, perM: Math.ceil(P.bud / (A.prep + A.shoot) / 1e4) * 1e4, up, t0: s.t });
+  (t.aw = t.aw || []).push(pj);
+  return `「${P.title}」 제작을 시작했다! ${josa(DIST[P.dist].n, '과와')} 손잡았다. 원작·연출·작화팀·성우에 ${fmtWon(up)}을 냈고, 제작비 ${fmtWon(P.bud)}은 ${A.prep + A.shoot}개월 동안 나눠 낸다.`;
+}
+function coADrop(s, t, pj) { t.aw = t.aw.filter(x => x !== pj); coVRepF(t, 'anime', -2); return `「${pj.title}」 제작을 중단했다. 들인 돈은 돌려받지 못한다.`; }
+
+// ───── 한 달 ─────
+function coAniMonth(s, t, sales) {
+  const p = me(s);
+  for (const pj of t.aw.slice()) {
+    if (pj.stage === 'prep' || pj.stage === 'shoot') { const m = Math.min(pj.perM, pj.bud - pj.paidB); if (m > 0) { coOut(t, m, '제작비'); pj.paidB += m; } }
+    if (pj.stage === 'shoot' && pj.dir === 'me') { practice(s, p, 'direct', 1); if (has(p, 'art')) practice(s, p, 'art', 0.6); addStress(s, 1.5); }
+    if (--pj.left > 0) continue;
+    if (pj.stage === 'prep') { pj.stage = 'shoot'; pj.left = pj.shootN; addLog(s, `🎨 「${pj.title}」 작화에 들어갔다. ${pj.left}개월 동안 그린다.`, 'career'); }
+    else if (pj.stage === 'shoot') { pj.stage = 'post'; pj.left = A_KIND[pj.kind].post; addLog(s, `🎨 「${pj.title}」 작화를 마쳤다. 녹음과 후반 작업에 들어간다.`, 'career'); }
+    else { t.aw = t.aw.filter(x => x !== pj); queueEv(s, 'co_ares', 0, { pj }, true); }
+  }
+  // 광고 애니메이션·게임 영상 제작 의뢰 (대표가 영업을 하면 더 자주)
+  const k = coATier(t);
+  if (!s.inbox.some(m => m.kind === 'co_aad') && U.chance((0.025 + k * 0.015) * (sales ? coSalesM(s, 1.5) : 1))) {
+    const g = U.chance(0.4), b = U.pick(BRANDS), fee = Math.round(CO_AAD[k] * U.fl(0.7, 1.3) / 1e6) * 1e6;
+    sendMsg(s, 'co_aad', { from: g ? '게임 회사' : b.n, title: g ? '게임 애니메이션 의뢰' : '광고 애니메이션 의뢰', months: 2, d: { what: g ? '게임 오프닝 애니메이션' : `${b.cat} 광고 애니메이션`, fee } });
+  }
+}
+INBOX.co_aad = {
+  ic: '🎨',
+  text: (s, m) => `${m.from}에서 ${m.d.what} 제작을 맡아 달라고 한다.\n\n제작 금액 ${fmtWon(m.d.fee)} · 만드는 데 드는 돈은 그중 65%쯤이다.`,
+  ch: (s, m) => [
+    { t: '맡는다', ok: s => coOn(s) && !!coT(s).f.anime, h: coOn(s) && coT(s).f.anime ? '' : '애니메이션 제작사를 운영하고 있어야 한다', f: s => { const t = coT(s), cost = Math.round(m.d.fee * U.fl(0.55, 0.75) / 1e5) * 1e5; coIn(t, m.d.fee, '광고·게임 애니메이션 제작'); coOut(t, cost, '광고·게임 애니메이션 제작비'); coVRepF(t, 'anime', 0.3); return `「${t.name}」에서 ${m.from} ${josa(m.d.what, '을를')} 만들었다. 남은 돈 ${fmtWon(m.d.fee - cost)}.`; } },
+    { t: '거절한다', f: () => `${m.from}의 제작 의뢰를 거절했다.` },
+  ],
+};
+
+// ───── 공개 ─────
+// 점수: 감독(연출·그림) · 작화감독 · 원화팀(평균 그림, 4명째부터 한 명마다 +0.6, 최대 3) · 이야기 · 성우 · 제작비 · 회사 크기 · 홍보 · 유행 장르 · 원작 팬 · 후속작 기대
+function coAScore(s, t, pj) {
+  const p = me(s), dir = pj.dir === 'me' ? p : s.people[pj.dir], key = s.people[pj.key], team = (pj.team || []).map(id => s.people[id]).filter(Boolean), { leads, la, sa, star, ens } = coCastSc(s, pj);
+  const dl = dir ? lv(dir, 'direct') * 0.75 + lv(dir, 'art') * 0.25 + (pj.dir === 'me' ? (p.tal.aesth - 50) * 0.1 : 0) : 40;
+  const ka = key ? lv(key, 'art') : 35, ta = team.length ? team.reduce((a, x) => a + lv(x, 'art'), 0) / team.length : 30, tb = Math.min(3, Math.max(0, team.length - CO_A_TEAM.min) * 0.6);
+  let hype = coASrcHype(pj);
+  if (pj.seq) hype += U.clamp((pj.seq.prevSc - 60) / 4, -4, 5) - 3 * Math.max(0, pj.seq.n - 2) + (pj.dir === pj.seq.prevDir ? 1.5 : 0) + (leads.some(c => c.x.id === pj.seq.prevLead) ? 1.5 : 0);
+  return U.clamp(dl * 0.24 + ka * 0.16 + ta * 0.08 + tb + pj.q * 0.26 + la * 0.05 + sa * 0.03 + star * 0.6 + ens + V_BUD_SC[pj.lvl] + coATier(t) + DIST_T[DIST[pj.dist].tier].promo + (pj.genre === (s.trendTV || {}).anime ? 4 : 0) + hype - 2 + U.normal(0, 7), 0, 100);
+}
+// 수입 (회사로 들어오는 돈). 점수 62가 대략 본전, 12점 오를 때마다 해외·극장·굿즈 쪽 수입이 두 배 (세 배까지, 극장 관객은 500만까지). 굿즈는 원작 팬이 많을수록 더 팔린다 (최대 1.3배)
+function coARev(s, t, pj, sc) {
+  const B = pj.bud, A = A_KIND[pj.kind], D = DIST[pj.dist], T = DIST_T[D.tier], r = Math.min(4, Math.pow(2, (sc - 62) / 12)), L = [];
+  const seqF = pj.seq ? 1 + U.clamp((pj.seq.prevSc - 60) / 40, 0, 0.5) * (pj.seq.n === 2 ? 1 : 0.6) : 1;
+  const srcF = pj.src && pj.src.fans ? 1 + U.clamp(Math.log10(pj.src.fans) - 5, 0, 1) * 0.3 : 1;
+  let res;
+  if (pj.kind === 'film') {
+    const aud = Math.min(4e6, Math.round(B / FM_TICKET * Math.min(r, 3) * T.pow * seqF * 0.85 / 100) * 100);
+    res = `관객 ${fmtFans(aud)}`;
+    L.push([`극장 수익 (배급 수수료 ${Math.round(T.fee * 100)}% 뗌)`, aud * FM_TICKET * (1 - T.fee)], ['VOD·해외 판매', B * 0.2 * Math.min(r, 3)]);
+  } else if (pj.kind === 'tv') {
+    res = `최고 시청률 ${U.clamp((sc - 35) / 6, 0.3, 9).toFixed(1)}%`;
+    L.push(['방영권', B * 0.35 * T.pow], [`해외·OTT 판매 (수수료 ${Math.round(T.fee * 100)}% 뗌)`, B * 0.45 * Math.min(r, 3) * seqF * (1 - T.fee)]);
+  } else if (pj.kind === 'ott') {
+    res = filmRes('ott', sc);
+    L.push([`OTT 구매 (제작비·계약금 + 이윤 ${Math.round((T.margin - 1) * 100)}%)`, (B + pj.up) * T.margin]);
+    if (sc >= 75) L.push(['흥행 보너스', B * 0.1 * (sc - 75) / 5]);
+  } else {
+    const views = Math.round(Math.pow(10, 4 + sc / 22) * T.pow * V_WEB_VIEW[pj.lvl] * seqF);
+    res = `누적 조회수 ${fmtFans(views).replace('명', '회')}`;
+    L.push(['플랫폼 구매', B * 0.7], [`조회수 광고 수익 (수수료 ${Math.round(T.fee * 100)}% 뗌)`, views * 30 * (1 - T.fee)]);
+  }
+  L.push(['굿즈·캐릭터 라이선스', B * A.goods * Math.min(r, 3) * srcF]);
+  for (const x of L) x[1] = Math.round(x[1] / 1e5) * 1e5;
+  return { L, res, total: L.reduce((a, x) => a + x[1], 0) };
+}
+E({
+  id: 'co_ares', cat: '애니 성적', title: '우리 회사 애니 공개', tag: 'career',
+  cond: s => coOn(s),
+  init(s, d) {
+    const t = coT(s), pj = d.pj, A = A_KIND[pj.kind], p = me(s);
+    const sc = d.sc = coAScore(s, t, pj), R = coARev(s, t, pj, sc);
+    d.res = R.res; d.L = R.L; d.rev = R.total; d.cost = pj.bud + pj.up; d.profit = d.rev - d.cost;
+    for (const [n, v] of R.L) coIn(t, v, n);
+    if (pj.dir === 'me') d.review = dirReview(dirPerf(p, A.demand));
+    // 평판: 점수가 52보다 높으면 오르고 낮으면 떨어진다 (작품이 클수록 크게)
+    t.f.anime.rep = U.clamp(t.f.anime.rep + U.clamp((sc - 52) / 3, -5, 8) * A.w, 0, 100);
+    // 대표 등급에 세는 흥행 크기 (소형은 절반, 중형은 3/4): 대형 제작사의 극장판이 점수 88이면 75만, 94면 150만 (드라마·영화보다 작게 센다)
+    t.peakF = Math.max(t.peakF || 0, Math.round(Math.pow(10, 1.6 + sc / 20) * A.hit * [0, 0.5, 0.75, 1][coATier(t)]));
+    if (pj.kind !== 'web' && sc > ((t.ayBest || {}).sc || 0)) t.ayBest = { sc, title: pj.title };
+    const ip = pj.seq ? pj.seq.ip : pj.id, n = pj.seq ? pj.seq.n : 1;
+    t.adone.push({ id: pj.id, ip, n, title: pj.title, base: pj.seq ? pj.seq.base : pj.title, kind: pj.kind, genre: pj.genre, src: pj.src || null, sc: Math.round(sc), dir: pj.dir, lead: pj.lead, y: calY(s), res: d.res, profit: d.profit });
+    coAuto(t).want.anime = true;
+    for (const id of [pj.dir, pj.key, ...coVCast(pj).filter(c => c.role === 'lead').map(c => c.id)]) { const x = id && id !== 'me' && s.people[id]; if (x) bond(s, x, sc >= 60 ? U.int(2, 6) : U.int(-4, 1)); }
+    addWork(s, { type: `${A.n} 제작`, title: pj.title, by: pj.dir === 'me' ? '제작·감독' : '제작', sc, note: `${t.name} · ${d.res}`, pay: 0 });
+    if (pj.writer === 'me') d.wup = writerCredit(s, { title: pj.title, tk: { web: 'web', tv: 'drama', ott: 'ott', film: 'film' }[pj.kind], typeN: A.n, note: d.res }, sc);
+    if (!t.afirst) { t.afirst = true; milestone(s, `${age(s)}세에 「${t.name}」의 첫 애니 ${josa(`「${pj.title}」`, '을를')} 공개했다.`); }
+    if (pj.kind === 'film' && sc >= 80 && !t.ahit) { t.ahit = true; milestone(s, `${age(s)}세에 우리 회사 극장판 애니 ${josa(`「${pj.title}」`, '이가')} ${d.res}을 모았다.`); }
+  },
+  text: (s, d) => { const pj = d.pj, D = DIST[pj.dist]; return `${aKindN(pj.kind)} ${josa(`「${pj.title}」`, '이가')} ${D.ch === 'film' ? `${D.n} 배급으로 개봉했다` : D.ch === 'tv' ? `${D.n}에서 방영됐다` : `${D.n}에서 공개됐다`}.\n\n${d.res}${d.review ? ` · ${d.review}` : ''}\n\n${d.L.map(([n, v]) => `· ${n} ${fmtWon(v)}`).join('\n')}\n들어온 돈 ${fmtWon(d.rev)} · 쓴 돈 ${fmtWon(d.cost)} (제작비 ${fmtWon(pj.bud)} + 원작·연출·작화팀·성우 ${fmtWon(pj.up)})\n${d.profit >= 0 ? `남은 돈 ${fmtWon(d.profit)}` : `손해 ${fmtWon(-d.profit)}`}` + wupText(s, d); },
+  ch: (s, d) => [{ t: '확인', f: () => `「${d.pj.title}」 공개. ${d.res} · ${d.profit >= 0 ? `남은 돈 ${fmtWon(d.profit)}` : `손해 ${fmtWon(-d.profit)}`}.` }],
+});
+// 연말: 올해 공개한 애니(웹 애니 빼고) 중 가장 잘된 작품이 애니메이션 대상을 받으면 회사 평판이 오른다
+function coAniYear(s, t) {
+  const b = t.ayBest; t.ayBest = null;
+  if (!b) return;
+  if (b.sc >= 80) { t.awN++; t.f.anime.rep = Math.min(100, t.f.anime.rep + 3); award(s, `애니메이션 대상 「${b.title}」 (제작)`); addLog(s, `🏆 연말 애니메이션 시상식에서 우리 회사 ${josa(`「${b.title}」`, '이가')} 대상을 받았다.`, 'good'); }
+  else if (b.sc >= 72) addLog(s, `연말 애니메이션 시상식에서 우리 회사 ${josa(`「${b.title}」`, '이가')} 대상 후보에 올랐다.`, 'career');
+}
+
+// ───── 회사 창: 🎨 애니 탭 ─────
+function coTabAw(s, t) {
+  const w = coAWhy(s, t), A = [{ t: '새 애니 기획', h: `함께 만드는 애니 ${t.aw.length}/${CO_V_CAP[coATier(t)]}편 · 회사 돈 ${fmtWon(t.money)}`, ok: !w, why: w, btn: '기획', run: s => { fireEvent(s, 'co_aplan', {}); return ''; } }];
+  let h = `<div class="sec-h">할 수 있는 일</div>` + A.map(actRow).join('');
+  h += `<div class="sec-h">만드는 중 ${t.aw.length}편</div>`;
+  if (!t.aw.length) h += `<div class="muted">지금 만드는 애니가 없다.</div>`;
+  for (const pj of t.aw) {
+    const nm = id => id === 'me' ? '나' : (s.people[id] || {}).name || '-';
+    h += actRow({ t: `「${pj.title}」 · ${aKindN(pj.kind)} ${A_BUD_N[pj.lvl]}`, h: `${A_STAGE[pj.stage]} (${pj.stage === 'post' ? `${pj.left}개월 뒤 공개` : `${pj.left}개월 남음`}) · 감독 ${nm(pj.dir)} · 작화감독 ${nm(pj.key)} · 원화 ${(pj.team || []).length}명 · 주연 ${coVCastN(s, pj, 'lead') || '-'} · ${DIST[pj.dist].n} · 낸 제작비 ${fmtWon(pj.paidB)}/${fmtWon(pj.bud)}`, ok: true, danger: true, btn: '중단', confirm: `「${pj.title}」 제작을 중단할까요?\n들인 돈은 돌려받지 못해요.`, run: s => coADrop(s, t, pj) });
+  }
+  const D = (t.adone || []).slice().reverse();
+  if (D.length) h += `<div class="sec-h">만든 애니 ${D.length}편</div>` + D.slice(0, 12).map(w => `<div class="ms">· ${w.y} 「${U.esc(w.title)}」 ${aKindN(w.kind)}${w.src ? ` · ${w.src.kind} 원작` : ''} · ${U.esc(w.res)} · ${w.profit >= 0 ? `남은 돈 ${fmtWon(w.profit)}` : `손해 ${fmtWon(-w.profit)}`}</div>`).join('');
+  return h;
+}
