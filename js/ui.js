@@ -136,7 +136,7 @@ function turnSumHTML(s, T) {
   for (const [id, ic, n] of TS_CATS) {
     const B = box[id];
     if (!B) continue;
-    h += `<div class="ts-box ${id}"><div class="ts-bh">${ic} ${n}</div>` + B.map(x => { const hh = LOG_HTML.get(x), si = x.e ? songIdx(s, x) : -1; return `<div class="ts-i${si !== -1 ? ' ts-song' : ''}"${si !== -1 ? ` data-song="${si}"` : ''}>${mo ? `<span class="ts-mo">${x.up ? '' : ymOfT(s, x.t).m + '월'}</span>` : ''}<span class="ts-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${id === 'win' && x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}</span></div>`; }).join('') + `</div>`;
+    h += `<div class="ts-box ${id}"><div class="ts-bh">${ic} ${n}</div>` + B.map(x => { const hh = LOG_HTML.get(x), si = x.e ? songIdx(s, x) : -1; return `<div class="ts-i${si !== -1 ? ' ts-song' : ''}"${si !== -1 ? ` data-song="${si}"` : ''}>${mo ? `<span class="ts-mo">${x.up ? '' : ymOfT(s, x.t).m + '월'}</span>` : ''}<span class="ts-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${id === 'win' && x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}${x.lv ? liveBtnHTML(x.lv, '무대 보기') : ''}</span></div>`; }).join('') + `</div>`;
   }
   if (flav.length) h += `<details class="ts-more" open><summary>☕ 일상 ${flav.length}건</summary>${flav.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   h += `</div>`;
@@ -316,7 +316,7 @@ function lifeLogHTML(s) {
   let h = '', lastA = -1;
   for (const it of items) {
     if (it.a !== lastA) { lastA = it.a; h += `<div class="log-y">${it.a}세</div>`; }
-    h += `<div class="log-i ${it.k}">${nl(it.x)}</div>`;
+    h += `<div class="log-i ${it.k}">${nl(it.x)}${it.lv ? `<div>${liveBtnHTML(it.lv, '무대 보기')}</div>` : ''}</div>`;
   }
   return `<div class="log-tab">${h || '<div class="empty">아직 기록이 없다.</div>'}</div>`;
 }
@@ -528,7 +528,15 @@ function showEventRaw() {
   if (!s.pending) { $('#modal').classList.add('hidden'); return; }
   if (UI.minimized) { $('#modal').classList.add('hidden'); goBtnSync(); return; }
   goBtnSync();
-  const ev = EVENTS[s.pending.id], d = s.pending.d, hx = ev.html ? ev.html(s, d) : '';
+  const ev = EVENTS[s.pending.id], d = s.pending.d;
+  // 실시간 창 (12-1): 결과 창보다 먼저 한 번만 (보고 나면 결과 창이 뜬다). 설정에 따라 건너뛴다
+  if (ev.live && !d.lvSeen) {
+    d.lvSeen = 1;
+    let sp = null; try { sp = ev.live(s, d); } catch (e) { }
+    if (sp && liveWant(sp)) { $('#modal').classList.add('hidden'); liveOpen(sp, () => showEvent()); return; }
+  }
+  if (liveOn()) return;
+  const hx = ev.html ? ev.html(s, d) : '';
   UI.res = null;
   let h = `<button class="m-min" data-min>창 내리기</button><div class="m-cat">${U.esc(ev.cat || '')}</div><div class="m-title">${U.esc(typeof ev.title === 'function' ? ev.title(s, d) : ev.title)}</div>${hx ? `<div class="m-html">${hx}</div>` : `<div class="m-text">${rich(ev.text(s, d))}</div>`}`;
   if (ev.form) {
@@ -1336,7 +1344,7 @@ function songCardHTML(c) {
     + (c.top != null ? `<div class="sc-peak">${U.esc(c.top)}</div>` : `<div class="sc-peak${c.peak ? '' : ' out'}">${c.peak ? `최고 ${c.peak}위` : '차트 100위 밖'}${c.wins ? ` · 음악방송 1위 ${c.wins}회` : ''}</div>`)
     + (fans ? `<div class="sc-fans">${fans}</div>` : '')
     + (c.lines && c.lines.length ? `<div class="sc-h">${U.esc(c.lh || '듣는 사람 반응')}</div>${c.lines.map(x => `<div class="sc-l">${U.esc(x)}</div>`).join('')}` : '')
-    + (c.cmp ? `<div class="sc-cmp">${U.esc(c.cmp)}</div>` : '') + (c.bill ? billBtnHTML(c.bill) : '') + `</div>`;
+    + (c.cmp ? `<div class="sc-cmp">${U.esc(c.cmp)}</div>` : '') + (c.bill ? billBtnHTML(c.bill) : '') + (c.live ? liveBtnHTML(c.live) : '') + `</div>`;
 }
 function billKey(b) { UI.billMap = UI.billMap || {}; const k = UI.billN = (UI.billN || 0) + 1; UI.billMap[k] = b; delete UI.billMap[k - 400]; return k; }
 function billBtnHTML(b) { return `<button class="bill-bn" data-bill="${billKey(b)}">🧾 정산서<span class="bb-t">${U.esc(b.t || '')}</span></button>`; }
@@ -1511,6 +1519,7 @@ function panelMenu() {
     <button class="btn" id="m-import">세이브 파일 불러오기</button>
     <button class="btn" data-logsize="1">인생 기록 글자 크게</button>
     <button class="btn" data-logsize="-1">인생 기록 글자 작게</button>
+    <div class="lv-set"><span>실시간 창</span>${LIVE_MODES.map(([k, n]) => `<button class="btn sm${liveMode() === k ? ' primary' : ''}" data-livemode="${k}">${n}</button>`).join('')}</div>
     <button class="btn" data-panel="help">도움말</button>
     <button class="btn" id="m-title">첫 화면으로 (자동 저장됨)</button>
     <button class="btn danger" id="m-newlife">이 인생을 그만두고 새로 시작</button>
@@ -1577,6 +1586,10 @@ function setLogSize(d) {
 // ───── 버튼 처리 ─────
 document.addEventListener('click', e => {
   const t = e.target.closest('button, [data-pick], [data-cat], [data-grp], [data-apg], [data-trk], [data-job], [data-panel], [data-lifesec], [data-moneycard], [data-song], [data-bill], input[type=checkbox]');
+  // 실시간 창 (12-1): 결과 바로 보기 · 다시 보기
+  if (t && t.dataset.liveskip != null) { liveClose(); return; }
+  if (t && t.dataset.live) { const sp = (UI.liveMap || {})[t.dataset.live]; if (sp) liveOpen(sp, null); return; }
+  if (t && t.dataset.livemode) { liveSetMode(t.dataset.livemode); renderPanel(); return; }
   // 곡 결과 카드 · 정산서 작은 창 (v118 UI C1 · C2)
   if (t && t.dataset.popclose != null) { popClose(); return; }
   if (t && t.dataset.bill) { const b = (UI.billMap || {})[t.dataset.bill]; if (b) popOpen(billHTML(b)); return; }
@@ -1667,6 +1680,7 @@ document.addEventListener('change', e => { if (e.target.dataset && e.target.data
 $('#file-input').addEventListener('change', e => { const f = e.target.files[0]; if (f) importSave(f); e.target.value = ''; });
 // ESC: 맨 위에 떠 있는 창부터 하나씩 닫는다 (확인 창 → 패널 → 사건 창은 잠시 내리기 → 인생 결산은 기록 보기로)
 function escClose() {
+  if (liveOn()) { liveClose(); return true; }
   if (!$('#pop').classList.contains('hidden')) { popClose(); return true; }
   if (UI.turn) { if (UI.turn.why) turnClose(''); return true; }
   if (!$('#confirm').classList.contains('hidden')) { $('#confirm').classList.add('hidden'); UI.onConfirm = null; return true; }
@@ -1697,6 +1711,8 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' || e.code === 'Escape') { if (escClose()) e.preventDefault(); return; }
+  // 실시간 창이 떠 있으면 스페이스바 · 엔터 = 결과 바로 보기 (뒤의 창보다 먼저)
+  if (liveOn() && (e.code === 'Space' || e.key === 'Enter')) { e.preventDefault(); if (!e.repeat) liveClose(); return; }
   if (UI.res && (e.code === 'Space' || e.key === 'Enter') && !$('#modal').classList.contains('hidden')) { e.preventDefault(); if (!e.repeat && Date.now() - (UI.enterT || 0) > 400) resOk(); return; }
   if ((e.key === 'Enter' || e.keyCode === 229) && e.target.matches && e.target.matches('#mcard input[data-k]')) {
     if (e.isComposing || e.keyCode === 229) { if (e.key === 'Enter' || e.code === 'Enter' || e.code === 'NumpadEnter') UI.enterComp = true; return; }

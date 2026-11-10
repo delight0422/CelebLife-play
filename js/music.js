@@ -423,6 +423,7 @@ function fakeNominees(s, n, not, show) {
 E({
   // 후보에 오른 해만 발표 창을 띄운다. 후보에도 못 들면 창 없이 요약의 특별한 일에만 남는다 (턴제 실험 7차)
   id: 'award_show', cat: '연말 시상식', tag: 'career', keepPop: (s, d) => !!(d.rows && d.rows.length), autoNoHtml: true,
+  live: (s, d) => d.live,
   cond: s => true,
   init(s, d) {
     if (!s.cere || (!s.cere.rows.length && !(s.cere.seen || []).length)) { d.skip = true; return; }
@@ -440,6 +441,10 @@ E({
       d.prem[r.job] = (d.prem[r.job] || 0) + (AW_PREM[r.cat] || 0.02);
       d.fans += Math.round(totalFans(s) * (AW_FAN[r.cat] || 0.02) + 1000);
     }
+    // 실시간 창 (12-1): 가수 · 아이돌로 가요 시상식 후보에 오르면, 상 발표 전에 최근 곡 무대를 시상식에서 한 번 더 한다
+    const mr = d.rows.find(r => r.show === '가요' && (r.job === 'idol' || r.job === 'solo'));
+    const mw = mr && s.works.slice().reverse().find(w => w.card && w.card.live && w.card.live.k === mr.job && w.y >= d.y - 1);
+    if (mw) d.live = liveAgain(mw.card.live, { place: CERE_N[mr.show] });
     s.cere = null;
   },
   // 제목에는 결과를 쓰지 않는다 (발표 전까지 모른다)
@@ -759,6 +764,7 @@ function sideCast(s, g, kind) {
 }
 E({
   id: 'idol_side', cat: '스케줄', tag: 'career',
+  live: (s, d) => d.live,
   title: (s, d) => d.n || '스케줄',
   cond: s => s.tracks.idol.st === 'active' && !(s.tracks.idol.promo > 0),
   init(s, d) {
@@ -800,6 +806,9 @@ E({
       g.f[main] = Math.min(FANCAP[main], g.f[main] + gfan);
       fxo = { stress: 4, rep: 1 };
       line = `「${g.name}」 팬미팅을 열었다. ${g.fandom} 앞에서 노래하고, 게임을 하고, 편지를 읽었다.`;
+      // 실시간 창 (12-1): 팬미팅 (토크는 내 예능 · 유머, 노래는 그룹 실력)
+      d.live = liveStage({ k: 'meet', place: '팬미팅', g: g.name, fd: g.fandom, mem: idolPpl(s, g).map(x => [x.id === s.me ? actCall(s, 'idol') : callName(x.name), '']), mi: 0,
+        z: { fans: (Math.log10(1 + gf) - 4) / 1.2, var: (lv(p, 'variety') + (p.tal.humor - 50) * 0.3 - 35) / 20, perf: (groupPower(s, g) - 45) / 18, star: (g.star - 50) / 25 }, sc: 70 });
     } else {
       if (has(p, 'variety')) practice(s, p, 'variety', 1);
       if (has(p, 'vocal')) useSkill(s, p, 'vocal', 0.5);
@@ -1003,6 +1012,9 @@ function idolRelease(s, t, c, debut) {
   if (tired > 1) F.push({ z: -tired / 4, g: ['오래 봐도 질리지 않는다'], b: ['예전만큼 새롭지는 않다'] });
   if (c === g.sig) F.push({ z: 0.5, g: ['역시 이 그룹다운 콘셉트다'], b: ['늘 하던 콘셉트라 뻔하다'] });
   const card = songCardMake({ t: title, by: g.name, peak, wins, fans: [['그룹 팬', gain.kr + gain.jp + gain.us], ['내 팬', my.kr + my.jp + my.us]], bill: pay > 0 || t.debt > 0 ? t.lastBill : null }, F, sc, g);
+  // 실시간 창 (12-1): 데뷔 무대 · 컴백 첫 음악방송. 카드와 같은 요인으로 장면을 만든다 (내 몫: 내 실력 · 스타성)
+  card.live = liveStage({ k: 'idol', place: debut ? '데뷔 무대' : '음악방송', t: title, g: g.name, fd: g.fandom, mem: idolPpl(s, g).map(x => [x.id === s.me ? actCall(s, 'idol') : callName(x.name), (g.pos[x.id] || '').split(' · ')[0]]), mi: 0,
+    z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, tw: F[4].z, cf: F[5].z, star: F[6].z, me: (Math.max(lv(p, 'vocal'), lv(p, 'rap'), lv(p, 'dance')) * 0.6 + p.tal.star * 0.4 - 45) / 18 }, sc, wins, cand: sc >= 66, debut });
   addWork(s, { type: debut ? '데뷔 앨범' : '앨범', title, by: g.name, sc, pay, note: chartText(peak) + (wins ? ` · 음악방송 1위 ${wins}회` : ''), card });
   if (peak === 1 && !s.flags.no1) { s.flags.no1 = true; milestone(s, `${age(s)}세에 ${g.name}의 ${josa(`「${title}」`, '으로')} 음원 차트 1위를 했다.`); }
   for (const id of g.members) { const m = s.people[id]; if (m) bond(s, m, sc >= 65 ? 3 : 1); }
@@ -1141,6 +1153,7 @@ E({
 });
 E({
   id: 'idol_cbres', cat: '앨범 성적', title: '앨범 성적표', tag: 'career',
+  live: (s, d) => d.card && d.card.live,
   init(s, d) { const t = s.tracks.idol; if (t.st !== 'active') { d.skip = true; return; } d.r = idolRelease(s, t, d.c, d.debut); d.card = d.r.card; teamRel(s, 'idol', t, d.r.peak, !d.r.peak || d.r.peak > 60); },
   html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + songCardHTML(d.card) : '',
   text(s, d) {
@@ -2102,6 +2115,7 @@ SONG_CB.solo = (s, d, c) => {
 };
 E({
   id: 'solo_relres', cat: '음원 성적', title: '신곡 성적', tag: 'career',
+  live: (s, d) => d.card && d.card.live,
   init(s, d) {
     const t = s.tracks.solo;
     if (t.st !== 'indie' && t.st !== 'signed') { d.skip = true; return; }
@@ -2129,6 +2143,9 @@ E({
     const F = [{ z: (sp - 45) / 18, g: { vocal: ['목소리가 곡을 꽉 채운다', '노래 실력이 확실하다'], rap: ['랩이 귀에 꽂힌다', '플로우가 살아 있다'], perf: ['퍼포먼스가 눈을 못 떼게 한다', '무대 장악력이 대단하다'] }[ty], b: { vocal: ['노래가 곡을 다 못 받쳐 준다'], rap: ['랩이 조금 어설프다'], perf: ['무대가 아직 덜 여물었다'] }[ty] },
       RX.q(d.q), RX.fans(totalFans(s), d.gain), RX.trend(!!d.tr), RX.cf(cScoreB(cf)), RX.promo(signed ? t.tier : 0)];
     d.card = songCardMake({ t: d.title, by: actName(s, 'solo'), peak: d.peak, fans: [['내 팬', d.gain]], bill: d.bill }, F, sc, t);
+    // 실시간 창 (12-1): 솔로는 음악방송 1위가 없어서 1위 발표 장면도 없다
+    d.card.live = liveStage({ k: 'solo', place: t.rel === 1 ? '데뷔 무대' : '음악방송', t: d.title, g: actName(s, 'solo'), cn: actCall(s, 'solo'), mem: [[actCall(s, 'solo'), '']], mi: 0,
+      z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, cf: F[4].z, star: (p.tal.star - 50) / 25, me: F[0].z }, sc, debut: t.rel === 1 });
     addWork(s, { type: '싱글', title: d.title, by: actName(s, 'solo'), sc, pay: d.sale || 0, note: chartText(d.peak) + (d.self ? ' · 자작곡' : ''), card: d.card });
     if (t.rel === 1) milestone(s, `${age(s)}세에 첫 솔로곡 ${josa(`「${d.title}」`, '을를')} 냈다.`);
     if (d.peak && d.peak <= 10 && !t.hitMs) { t.hitMs = true; milestone(s, `${age(s)}세에 ${josa(`「${d.title}」`, '으로')} 음원 차트 ${d.peak}위에 올랐다.`); }

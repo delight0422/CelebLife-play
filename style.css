@@ -739,3 +739,56 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .won-f .won-eq { color: var(--violet); font-weight: 600; font-size: 14px; }
 .won-f .won-btns { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
 .won-f .won-btns .btn { min-width: 58px; }
+
+/* ───── 실시간 창 (12단계 12-1): 무대. 조명 · 무대 바닥 · 객석 응원봉, 반응은 객석의 함성 · 응원법 · 떼창만 ───── */
+.live-ov { z-index: 80; background: rgba(8, 5, 20, .72); }
+.mcard.live-card { max-width: 560px; padding: 14px 14px 12px; background: #130e24; color: #f3eefe; border: 1px solid #2c2347; overflow: hidden; }
+.lv-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.lv-place { font-size: 12px; font-weight: 700; color: #cdbdff; background: rgba(123, 92, 255, .24); padding: 2px 9px; border-radius: 999px; }
+.lv-t { font-weight: 800; font-size: 16px; }
+.lv-g { margin-left: auto; font-size: 12px; color: #a99bd0; }
+.lv-stage { position: relative; height: 300px; border-radius: 14px; overflow: hidden; background: radial-gradient(120% 85% at 50% 0%, hsl(var(--hue) 38% 20%) 0%, #0b0716 62%); transition: filter .6s; filter: brightness(calc(.75 + .45 * var(--glow))); }
+.lv-lights i { position: absolute; top: -10%; width: 30%; height: 95%; background: linear-gradient(180deg, hsla(var(--hue), 90%, 82%, calc(.12 + .4 * var(--glow))) 0%, transparent 78%); transform-origin: 50% 0; clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%); animation: lvSweep 3.4s ease-in-out infinite alternate; transition: opacity .6s; }
+.lv-lights i:nth-child(1) { left: 2%; animation-delay: -.6s; }
+.lv-lights i:nth-child(2) { left: 24%; animation-delay: -2.1s; animation-direction: alternate-reverse; }
+.lv-lights i:nth-child(3) { left: 46%; animation-delay: -1.2s; }
+.lv-lights i:nth-child(4) { left: 68%; animation-delay: -2.8s; animation-direction: alternate-reverse; }
+@keyframes lvSweep { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }
+.lv-floor { position: absolute; left: 7%; right: 7%; bottom: 31%; height: 22%; border-radius: 50% / 34%; background: linear-gradient(180deg, hsla(var(--hue), 30%, 45%, .32), hsla(var(--hue), 30%, 18%, .12)); display: flex; align-items: center; justify-content: center; }
+.lv-mem { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; padding: 0 8px; }
+.lm { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, .13); color: #ece6ff; box-shadow: 0 0 calc(12px * var(--glow)) hsla(var(--hue), 90%, 75%, .55); transition: box-shadow .6s; }
+.lm.me { background: var(--pink); color: #fff; font-weight: 700; }
+.lv-crowd { position: absolute; left: 0; right: 0; bottom: 0; height: 30%; background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .6)); }
+.lv-crowd i { position: absolute; left: var(--x); bottom: calc(var(--y) * .75); width: 4px; height: 15px; border-radius: 3px; background: linear-gradient(180deg, hsl(var(--hue) 95% 84%) 0 48%, #4a4262 48%); box-shadow: 0 0 8px hsla(var(--hue), 90%, 72%, .7); opacity: calc(.35 + .65 * var(--glow)); transform-origin: 50% 100%; animation: lvStick 1.1s ease-in-out infinite alternate; animation-delay: calc(-1 * var(--d)); transition: opacity .6s; }
+@keyframes lvStick { from { transform: rotate(-13deg); } to { transform: rotate(13deg); } }
+.lv-bub { position: absolute; inset: 0; pointer-events: none; }
+.lb { position: absolute; max-width: 84%; text-align: center; font-weight: 800; line-height: 1.25; animation: lvPop 2.6s ease-out forwards; text-shadow: 0 2px 12px rgba(0, 0, 0, .7); }
+.lb.big { font-size: 23px; color: #fff; }
+.lb.call { font-size: 20px; color: hsl(var(--hue) 90% 82%); }
+.lb.sing { font-size: 23px; color: #ffe08a; }
+.lb.soft { font-size: 14px; color: #bdb3dc; font-weight: 600; }
+.lb.bad { font-size: 15px; color: #ffa3b5; font-weight: 700; }
+.lb.win { font-size: 27px; color: #ffd84a; }
+@keyframes lvPop { 0% { opacity: 0; transform: translateY(12px) scale(.82); } 12% { opacity: 1; transform: translateY(0) scale(1.07); } 24% { transform: scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateY(-28px); } }
+.lv-stage.fx-drum .lv-lights i { animation-duration: .45s; opacity: .55; }
+.lv-stage.fx-win { animation: lvFlash .45s ease-out 4; }
+@keyframes lvFlash { 50% { filter: brightness(1.9); } }
+.lv-cap { margin-top: 10px; text-align: center; font-size: 14px; color: #ddd4fb; min-height: 20px; }
+.lv-cap.in { animation: lvCap .4s ease-out; }
+@keyframes lvCap { from { opacity: 0; transform: translateY(5px); } }
+.lv-pips { display: flex; gap: 4px; justify-content: center; margin: 8px 0 10px; }
+.lv-pips i { width: 18px; height: 3px; border-radius: 2px; background: #3a3058; transition: background .3s; }
+.lv-pips i.on { background: #b9a4ff; }
+.lv-btns { display: flex; justify-content: center; }
+.lv-re { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; border: 1px solid var(--line); background: var(--violet-soft); color: var(--violet); border-radius: 999px; padding: 4px 11px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+.lv-re:hover { background: #e4dcff; }
+.ts-x .lv-re { margin: 6px 0 2px; }
+.lv-set { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 4px 2px; }
+.lv-set span { font-size: 13.5px; color: var(--ink2); margin-right: 4px; }
+@media (max-width: 560px) {
+  .lv-stage { height: 240px; }
+  .lb.big, .lb.sing { font-size: 19px; }
+  .lb.call { font-size: 17px; }
+  .lb.win { font-size: 22px; }
+}
+@media (prefers-reduced-motion: reduce) { .lv-lights i, .lv-crowd i { animation: none; } }

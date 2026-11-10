@@ -562,7 +562,11 @@ function choose(s, i) {
   s.pending = null;
   const r = c.f ? c.f(s, p.d) : '';
   applyLocks(s);
-  if (r) { addLog(s, r, ev.tag || 'ev'); s.log[s.log.length - 1].e = ev.id; }
+  if (r) {
+    addLog(s, r, ev.tag || 'ev'); s.log[s.log.length - 1].e = ev.id;
+    // 실시간 창이 있던 사건은 기록에 장면(spec)을 남긴다: 요약 창의 '▶ 무대 보기' (12-1)
+    if (ev.live) { try { const sp = ev.live(s, p.d); if (sp) s.log[s.log.length - 1].lv = sp; } catch (e) { } }
+  }
   // 고른 뒤 이어서 생긴 사건도 고를 게 없으면 창 없이 처리한다
   autoEvs(s); pullNow(s); pullBack(s); autoEvs(s);
   save(s);
