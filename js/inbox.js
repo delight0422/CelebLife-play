@@ -68,21 +68,30 @@ function applyOpenMonth(s) {
   const q = s.queue.find(x => x.id === 'ap_open');
   if (q) q.d.ids = q.d.ids.concat(fresh); else queueEv(s, 'ap_open', 0, { ids: fresh });
 }
+function apOpenGroups(s, d) {
+  const all = JOB_APPLY.concat(ACT_APPLY), groups = [];
+  for (const id of d.ids) {
+    const a = all.find(x => x.id === id);
+    if (!a) continue;
+    const gn = a.g || `${a.ic || ''} ${a.n}`.trim();
+    let g = groups.find(x => x.n === gn);
+    if (!g) groups.push(g = { n: gn, act: ACT_APPLY.includes(a), items: [], p: 0 });
+    g.items.push(a.n);
+    let p = 0; try { p = typeof apP === 'function' ? apP(s, a) : 0; } catch (e) { }
+    g.p = Math.max(g.p, p || 0);
+  }
+  groups.sort((a, b) => b.p - a.p);
+  for (const g of groups) g.line = g.items.length === 1 ? `· ${g.act ? g.n : `${g.n} — ${g.items[0]}`}` : `· ${g.n} — ${g.items.length}곳 (${g.items.slice(0, 3).join(', ')}${g.items.length > 3 ? ' 등' : ''})`;
+  return groups;
+}
 E({
   id: 'ap_open', cat: '📝 지원', title: '새로 지원할 수 있는 곳', tag: 'career', noCh: true,
   cond: s => true,
-  text(s, d) {
-    const all = JOB_APPLY.concat(ACT_APPLY), groups = [];
-    for (const id of d.ids) {
-      const a = all.find(x => x.id === id);
-      if (!a) continue;
-      const gn = a.g || `${a.ic || ''} ${a.n}`.trim();
-      let g = groups.find(x => x.n === gn);
-      if (!g) groups.push(g = { n: gn, act: ACT_APPLY.includes(a), items: [] });
-      g.items.push(a.n);
-    }
-    const lines = groups.map(g => g.items.length === 1 ? `· ${g.act ? g.n : `${g.n} — ${g.items[0]}`}` : `· ${g.n} — ${g.items.length}곳 (${g.items.slice(0, 3).join(', ')}${g.items.length > 3 ? ' 등' : ''})`);
-    return `이제 지원할 수 있는 곳이 생겼다.\n\n${lines.join('\n')}`;
+  // v118 UI D1: 묶음을 합격 가능성(그 묶음에서 가장 높은 곳) 높은 순으로, 가능성은 숫자 없이 막대로만 (html)
+  text(s, d) { return `이제 지원할 수 있는 곳이 생겼다.\n\n${apOpenGroups(s, d).map(g => g.line).join('\n')}`; },
+  html(s, d) {
+    const G = apOpenGroups(s, d);
+    return `<div class="apo"><div class="apo-h">이제 지원할 수 있는 곳이 생겼다.</div>${G.map(g => `<div class="apo-r"><span class="apo-n">${U.esc(g.line.slice(2))}</span><span class="apo-bar ${g.p >= 0.6 ? 'hi' : g.p >= 0.25 ? 'mid' : 'lo'}"><i style="width:${Math.max(4, Math.round(g.p * 100))}%"></i></span></div>`).join('')}</div>`;
   },
   ch: (s, d) => {
     const act = d.ids.some(id => ACT_APPLY.some(a => a.id === id)), job = d.ids.some(id => JOB_APPLY.some(a => a.id === id));

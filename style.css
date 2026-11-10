@@ -216,7 +216,6 @@ button { font: inherit; color: inherit; }
 .choice.tr { border-color: #ffb08f; }
 .choice .h { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
 .m-stats { margin-top: 12px; font-size: 12px; color: var(--muted); }
-.restore { position: fixed; right: 18px; bottom: 18px; z-index: 40; background: var(--violet); color: #fff; border: none; border-radius: 999px; padding: 10px 18px; font-weight: 700; cursor: pointer; box-shadow: var(--shadow); }
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .field input { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font: inherit; }
 /* 체크 칸 한 줄 (오디션 지원자·그룹 멤버 고르기) */
@@ -599,6 +598,7 @@ button.ap-tog { width: 100%; background: none; border: 0; padding: 0; color: inh
 .turn-btns { display: flex; align-items: center; gap: 6px; margin-left: 4px; }
 .turn-go { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; font-size: 15px; font-weight: 800; border-radius: 12px; box-shadow: 0 4px 14px rgba(123, 92, 255, .35); }
 kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; background: rgba(255, 255, 255, .22); border: 1px solid rgba(255, 255, 255, .35); }
+.turn-go.waiting { background: var(--pink); box-shadow: 0 4px 14px rgba(255, 92, 154, .35); }
 .btn:not(.primary) kbd { background: var(--violet-soft); border-color: var(--line); color: var(--ink2); }
 /* 넘어가는 동안: 화면 전체가 어두워지고 가운데에 날짜 */
 .turn-dim { background: rgba(24, 14, 44, .58); z-index: 60; }
@@ -680,3 +680,62 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 @container (max-width: 380px) { .pf-tbn { gap: 5px; } .pf-tb { font-size: 12px; } }
 /* v91: 환생한 사람의 힌트 */
 .soul-hint { color: var(--violet); font-weight: 700; }
+
+/* v118 UI: 레드닷 · 사슬 잠금 · 상태 칸 아래 회사 박스 · 빨간 경고 */
+.soon-banner, .lt-card, .ltile { position: relative; }
+.rdot { position: absolute; top: 7px; right: 7px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--card); }
+.job-bn.bad { border-color: var(--red); background: linear-gradient(90deg, #fde7eb, var(--card)); }
+.job-bn.bad .sb-s { color: var(--red); font-weight: 700; }
+.lnote.bad { color: var(--red); font-weight: 700; }
+.co-mini { margin-top: 12px; padding: 9px 11px; border: 1px solid var(--line); border-radius: 12px; background: var(--card2); cursor: pointer; transition: border-color .15s; }
+.co-mini:hover { border-color: var(--violet); }
+.co-mini .co-mh { display: flex; align-items: center; font-weight: 800; font-size: 13px; margin-bottom: 4px; }
+.co-mini .co-mh .bn-arr { margin-left: auto; }
+.co-mini .co-ms { font-size: 12px; color: var(--muted); }
+.co-mini .row { font-size: 12.5px; }
+/* 사슬로 X자를 친 잠금 */
+.locked { position: relative; overflow: hidden; cursor: default !important; }
+.locked > * { opacity: .4; }
+.locked::before, .locked::after { content: ''; position: absolute; left: -15%; right: -15%; top: calc(50% - 3px); height: 6px; border-radius: 3px; background: repeating-linear-gradient(90deg, #8f87a6 0 9px, transparent 9px 12px); transform: rotate(16deg); pointer-events: none; }
+.locked::after { transform: rotate(-16deg); }
+.locked:hover { border-color: var(--line) !important; background: inherit; }
+/* v118 UI C1 · C2: 곡 발매 결과 카드 · 정산서 · 작은 창 */
+.pop-ov { z-index: 70; }
+.pop-card { max-width: 420px; }
+.scard { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; background: linear-gradient(180deg, var(--violet-soft), var(--card) 70%); margin-bottom: 10px; }
+.scard .sc-top { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.scard .sc-t { font-weight: 800; font-size: 16px; color: var(--ink); }
+.scard .sc-by { font-size: 12px; color: var(--muted); }
+.scard .sc-peak { font-size: 20px; font-weight: 800; color: var(--violet); margin: 4px 0 2px; }
+.scard .sc-peak.out { color: var(--muted); font-size: 16px; }
+.scard .sc-fans { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.scard .sc-h { font-size: 12px; color: var(--muted); font-weight: 700; margin-top: 6px; }
+.scard .sc-l { font-size: 13.5px; color: var(--ink2); padding: 2px 0 2px 10px; border-left: 3px solid var(--line); margin: 3px 0; }
+.scard .sc-cmp { font-size: 12.5px; color: var(--ink2); margin-top: 6px; font-weight: 700; }
+.bill-bn { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 8px; padding: 8px 10px; border: 1px dashed var(--violet); border-radius: 10px; background: var(--card); font-weight: 800; color: var(--violet); cursor: pointer; text-align: left; }
+.bill-bn .bb-t { font-weight: 600; font-size: 12px; color: var(--muted); }
+.bill .bill-h { font-weight: 800; font-size: 15px; margin-bottom: 8px; padding-right: 28px; }
+.bill table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.bill td { padding: 4px 2px; }
+.bill td:last-child { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bill tr.sep td { padding: 0; border-top: 1px solid var(--ink2); height: 4px; }
+.bill tr.tot td { font-weight: 800; color: var(--ink); }
+.bill .bill-note { margin-top: 10px; font-size: 13px; color: var(--ink2); background: var(--card2); border-radius: 8px; padding: 8px 10px; }
+.mon-row.has-bill, tr.has-card, .ts-song { cursor: pointer; }
+.mon-row.has-bill:hover, tr.has-card:hover td, .ts-song:hover { background: var(--violet-soft); }
+/* v118 UI D1: 새로 지원할 수 있는 곳 (가능성은 막대로만) */
+.apo .apo-h { font-weight: 700; margin-bottom: 6px; }
+.apo .apo-r { display: flex; align-items: center; gap: 10px; margin: 4px 0; }
+.apo .apo-n { flex: 1; min-width: 0; font-size: 13px; }
+.apo .apo-bar { flex: 0 0 72px; height: 7px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.apo .apo-bar i { display: block; height: 100%; border-radius: 4px; background: var(--muted); }
+.apo .apo-bar.hi i { background: var(--mint); }
+.apo .apo-bar.mid i { background: var(--gold); }
+.apo .apo-bar.lo i { background: var(--red); }
+
+/* v118 UI D4: 돈 적는 칸 (천만 원 단위 · ±1억 · ±10억) */
+.won-f .won-row { display: flex; align-items: center; gap: 10px; }
+.won-f .won-row input { flex: 0 0 120px; width: 120px; text-align: right; }
+.won-f .won-eq { color: var(--violet); font-weight: 600; font-size: 14px; }
+.won-f .won-btns { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.won-f .won-btns .btn { min-width: 58px; }

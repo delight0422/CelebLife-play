@@ -40,7 +40,7 @@ function turnGo(max) {
   if (UI.overlay) closePanel();
   const p = me(s);
   // 요약에는 이번에 넘어간 동안 생긴 일만 넣는다 (창에서 고른 결과 · 버튼으로 한 일은 이미 아는 일이라 넣지 않는다)
-  UI.turn = { max, kid: age(s) < 7, n: 0, last: s.log[s.log.length - 1] || null, t0: s.t, inbox: new Set(s.inbox.map(m => m.id)), money: s.money, fans: totalFans(s), stress: Math.round(s.stress), g0: growSnap(s), why: '' };
+  UI.turn = { max, kid: age(s) < 7, n: 0, last: s.log[s.log.length - 1] || null, t0: s.t, inbox: new Set(s.inbox.map(m => m.id)), money: s.money, fans: totalFans(s), stress: Math.round(s.stress), g0: growSnap(s), why: '', co: trackOn(s, 'agency') ? s.tracks.agency.money : null, inc: (MONEY_TAP = {}) };
   $('#tcard').innerHTML = turnRunHTML(s);
   $('#turn').classList.remove('hidden');
   UI.timer = setTimeout(turnStep, TURN_MS);
@@ -116,20 +116,27 @@ function turnSumHTML(s, T) {
   // 바뀐 것: 돈 · 팬 · 스트레스
   const dm = s.money - T.money, df = totalFans(s) - T.fans, st = Math.round(s.stress);
   const ch = [`<span class="${dm >= 0 ? 'pos' : 'neg'}">돈 ${dm >= 0 ? '+' : '-'}${fmtWon(Math.abs(dm))}</span>`].concat(df ? [`팬 ${df > 0 ? '+' : '-'}${fmtFans(Math.abs(df))}`] : [], st !== T.stress ? [`스트레스 ${T.stress}→${st}`] : []);
+  // 회사 대표면 회사 돈 변화도 (v118 UI A3)
+  if (T.co != null && trackOn(s, 'agency')) { const dc = s.tracks.agency.money - T.co; ch.splice(1, 0, `<span class="${dc >= 0 ? 'pos' : 'neg'}">회사 돈 ${dc >= 0 ? '+' : '-'}${fmtWon(Math.abs(dc))}</span>`); }
+  MONEY_TAP = null;
   h += `<div class="ts-ch">${ch.map(x => `<span class="chip">${x}</span>`).join('')}</div>`;
-  const main = L.filter(x => x.k !== 'flavor'), flav = L.filter(x => x.k === 'flavor');
+  // 일상은 같은 문장을 한 요약에 한 번만 (v118 UI A2)
+  const main = L.filter(x => x.k !== 'flavor'), flav = L.filter(x => x.k === 'flavor').filter((x, i, A) => A.findIndex(y => y.x === x.x) === i);
   const box = {};
   for (const x of main) (box[tsCat(x)] = box[tsCat(x)] || []).push(x);
   // 성장 칸 맨 아래: 이번에 오른 특기 · 재능 · 숙련도 · 평판 · 인지도 (이번에 처음 배운 특기는 위에 따로 있다)
   const ups = growLines(T.g0, growSnap(s)).map(x => ({ x, up: true }));
   if (ups.length) (box.grow = box.grow || []).push(...ups);
+  // 큰 정산이 들어왔으면 돈 칸에 한 줄 (v118 UI A4): 한 번에 1,000만 원 넘게 들어왔고 매달 들어오는 돈이 아닌 것
+  const bigs = Object.entries(T.inc || {}).filter(([k, o]) => !o.reg && o.big >= 1000e4).sort((a, b) => b[1].v - a[1].v).slice(0, 3).map(([k, o]) => ({ x: `💰 ${k} +${fmtWon(o.v)}`, up: true }));
+  if (bigs.length) (box.money = box.money || []).unshift(...bigs);
   const mo = T.n > 1;
   h += `<div class="ts-body"><div class="ts-sec">✨ 특별한 일</div>`;
-  if (!main.length && !ups.length) h += `<div class="empty">특별한 일 없이 지나갔다.</div>`;
+  if (!main.length && !ups.length && !bigs.length) h += `<div class="empty">특별한 일 없이 지나갔다.</div>`;
   for (const [id, ic, n] of TS_CATS) {
     const B = box[id];
     if (!B) continue;
-    h += `<div class="ts-box ${id}"><div class="ts-bh">${ic} ${n}</div>` + B.map(x => { const hh = LOG_HTML.get(x); return `<div class="ts-i">${mo ? `<span class="ts-mo">${x.up ? '' : ymOfT(s, x.t).m + '월'}</span>` : ''}<span class="ts-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${id === 'win' && x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}</span></div>`; }).join('') + `</div>`;
+    h += `<div class="ts-box ${id}"><div class="ts-bh">${ic} ${n}</div>` + B.map(x => { const hh = LOG_HTML.get(x), si = x.e ? songIdx(s, x) : -1; return `<div class="ts-i${si >= 0 ? ' ts-song' : ''}"${si >= 0 ? ` data-song="${si}"` : ''}>${mo ? `<span class="ts-mo">${x.up ? '' : ymOfT(s, x.t).m + '월'}</span>` : ''}<span class="ts-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${id === 'win' && x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}</span></div>`; }).join('') + `</div>`;
   }
   if (flav.length) h += `<details class="ts-more" open><summary>☕ 일상 ${flav.length}건</summary>${flav.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   h += `</div>`;
@@ -165,7 +172,7 @@ function showTitle() {
   if (sv && !sv.ended) $('#continue-info').textContent = `(${sv.people[sv.me].name} · ${age(sv)}세)`;
   show('title-screen');
 }
-function closeAll() { ['#modal', '#panel', '#confirm', '#turn'].forEach(id => $(id).classList.add('hidden')); $('#ev-restore').classList.add('hidden'); UI.overlay = null; UI.turn = null; clearTimeout(UI.timer); }
+function closeAll() { ['#modal', '#panel', '#confirm', '#turn'].forEach(id => $(id).classList.add('hidden'));  UI.overlay = null; UI.turn = null; clearTimeout(UI.timer); }
 
 // ───── 태어나기 ─────
 function showBirth() { S = newLife(); renderBirth(); show('birth-screen'); }
@@ -211,11 +218,14 @@ function stageLabel(s) {
   if (married(s) && a >= 30 && !s.slots.some(sl => sl.act === 'job')) return '전업주부';
   return s.slots.some(sl => sl.act === 'job') ? '아르바이트 중' : '진로를 찾는 중';
 }
+// 진행 버튼 (v118 UI A1): 선택 창을 내려 둔 동안에는 '선택 대기중'. 누르거나 스페이스를 치면 그 창이 다시 뜬다 (떠 있던 '다시 보기' 버튼은 없앴다)
+function goBtnSync() { const b = $('#btn-go'); if (!b) return; const w = !!(S && S.pending && UI.minimized); b.classList.toggle('waiting', w); b.innerHTML = w ? '선택 대기중 <kbd>Space</kbd>' : '진행 ▶ <kbd>Space</kbd>'; }
 function render() {
   if (!S) return;
   // 박스 하나를 그리다 오류가 나도 나머지는 그리고 게임은 계속 간다 (오류는 콘솔에 남긴다)
   for (const f of [renderTop, renderSchedule, renderSide]) { try { f(); } catch (e) { console.error('화면 그리기 오류', f.name, e); } }
   $('#ended-bar').classList.toggle('hidden', !S.ended);
+  goBtnSync();
 }
 function renderTop() {
   const s = S, p = me(s);
@@ -383,13 +393,14 @@ function renderJobsCard() {
     if (!c || !trackOn(s, id)) continue;
     any = true;
     // 일정에 그 직업 활동 칸이 있어야 일한다. 고정된 칸(회사 연습시간·촬영)이 있으면 그 일을 이미 하고 있다
-    let st = '', cls = '';
+    let st = '', cls = '', dot = false;
     if (c.act) {
       const n = jobSlots(s, id), x = jobTask(s, id), f = jobForced(s, id);
       st = !n ? '일정에 빈 칸이 없어 이번 달은 쉰다' : x ? `${f ? '🔒 ' : ''}${x.n}${f > 1 ? ` · 고정 ${f}칸` : ''}` : '할 일을 고르지 않았다 · 평가가 떨어진다';
-      cls = !n ? ' off' : !x ? ' warn' : '';
+      cls = !n ? ' off' : !x ? ' bad' : '';
+      dot = (!!n && !x) || pickDue(s, id);
     }
-    h += `<button class="soon-banner job-bn${cls}" data-job="${id}"><span class="sb-ic">${jobIc(id)}</span><span><span class="sb-t">${U.esc(jobName(id))}</span>${st ? `<br><span class="sb-s">${U.esc(st)}</span>` : ''}</span><span class="sb-n">›</span></button>`;
+    h += `<button class="soon-banner job-bn${cls}" data-job="${id}">${dot ? '<span class="rdot"></span>' : ''}<span class="sb-ic">${jobIc(id)}</span><span><span class="sb-t">${U.esc(jobName(id))}</span>${st ? `<br><span class="sb-s">${U.esc(st)}</span>` : ''}</span><span class="sb-n">›</span></button>`;
   }
   const rows = [];
   const row = (key, title, st) => rows.push(`<div class="trk" data-trk="${key}"><b>${title}</b><div class="st">${U.esc(st)}</div></div>`);
@@ -430,6 +441,15 @@ function renderPeopleCard() {
   el.querySelectorAll('.pp-line').forEach(fitLine);
 }
 // 상태: 군 복무·병은 맨 위에 눈에 띄게 (누르면 자세히)
+// 상태 칸 아래 회사 박스 (v118 UI B1): 회사 돈 · 지난달 순수익, 적자면 버틸 수 있는 기간. 누르면 회사 창. 회사를 차리기 전에는 사슬로 잠가 둔다
+function coMiniHTML(s) {
+  const t = trackOn(s, 'agency') ? s.tracks.agency : null;
+  if (!t) return `<div class="co-mini locked"><div class="co-mh">🏢 회사</div><div class="co-ms">아직 차린 회사가 없다</div></div>`;
+  const V = Object.values(t.lastL || {}), net = V.reduce((a, v) => a + v, 0), out = -V.filter(v => v < 0).reduce((a, v) => a + v, 0);
+  const R = [['회사 돈', fmtWon(t.money), t.money < 0 ? 'neg' : ''], ['지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg']];
+  if (net < 0 && out > 0) R.push(['버틸 수 있는 기간', t.money > 0 ? `약 ${Math.floor(t.money / out)}개월` : '바닥났다', 'neg']);
+  return `<div class="co-mini" data-panel="company"><div class="co-mh">🏢 ${U.esc(t.name)}<span class="bn-arr">›</span></div>${R.map(([k, v, c]) => `<div class="row"><span>${k}</span><b class="${c}">${v}</b></div>`).join('')}</div>`;
+}
 function renderStatusCard() {
   const s = S;
   let st = `<div class="card-h">❤ 상태</div>`;
@@ -439,6 +459,7 @@ function renderStatusCard() {
   st += `<div class="row"><span>팬</span><b>${fmtFans(totalFans(s))}</b></div>`;
   st += `<div class="row"><span>인지도</span><b>${fameWord(s.fame || 0)}</b></div>${bar(s.fame || 0, 100, 'pop')}`;
   st += `<div class="row"><span>평판 (주변 사람)</span><b>${repWord(s.rep)}</b></div>${bar(s.rep, 100, 'rep')}`;
+  st += coMiniHTML(s);
   $('#status-card').innerHTML = st;
 }
 // 재정: 현금(크게) → 빚 → 지난달 → 맨 아래 총자산(집에 든 내 돈까지). 누르면 재정 창
@@ -472,7 +493,8 @@ function renderSkillsCard() {
     sk += `<div class="cat-grid">`;
     for (let i = 0; i < cats.length; i += 2) {
       const pair = cats.slice(i, i + 2);
-      for (const { c, ks } of pair) { const open = !!UI.openCats[c.id]; sk += `<div class="cat-h" data-cat="${c.id}">${open ? '▾' : '▸'} ${c.ic} ${c.n}<span class="n">${ks.length}</span></div>`; }
+      // 접힌 줄에도 그 계열에서 가장 높은 특기와 레벨 (v118 UI B5)
+      for (const { c, ks } of pair) { const open = !!UI.openCats[c.id]; sk += `<div class="cat-h" data-cat="${c.id}">${open ? '▾' : '▸'} ${c.ic} ${c.n}<span class="n">${SKILLS[ks[0]].n} ${Math.floor(p.sk[ks[0]].lv)}</span></div>`; }
       if (pair.length < 2) sk += `<div class="cat-h cat-empty"></div>`;
       if (pair.some(({ c }) => UI.openCats[c.id])) for (let j = 0; j < 2; j++) { const x = pair[j]; sk += `<div class="cat-body">${x && UI.openCats[x.c.id] ? body(x.ks) : ''}</div>`; }
     }
@@ -504,13 +526,14 @@ const TR_BADGE = '<span class="trb">🔥 유행</span>';
 function showEventRaw() {
   const s = S;
   if (!s.pending) { $('#modal').classList.add('hidden'); return; }
-  if (UI.minimized) { $('#modal').classList.add('hidden'); $('#ev-restore').classList.remove('hidden'); return; }
+  if (UI.minimized) { $('#modal').classList.add('hidden'); goBtnSync(); return; }
+  goBtnSync();
   const ev = EVENTS[s.pending.id], d = s.pending.d, hx = ev.html ? ev.html(s, d) : '';
   UI.res = null;
   let h = `<button class="m-min" data-min>창 내리기</button><div class="m-cat">${U.esc(ev.cat || '')}</div><div class="m-title">${U.esc(typeof ev.title === 'function' ? ev.title(s, d) : ev.title)}</div>${hx ? `<div class="m-html">${hx}</div>` : `<div class="m-text">${rich(ev.text(s, d))}</div>`}`;
   if (ev.form) {
     // type 'check': 체크 칸 한 줄 (오디션 지원자·그룹 멤버 고르기). 나머지는 글자 적는 칸
-    h += ev.form(s, d).map(f => f.type === 'check' ? `<label class="ck-row"><input type="checkbox" data-k="${f.k}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}${f.tr ? TR_BADGE : ''}</span>${f.sub ? `<span class="ck-h">${U.esc(f.sub)}</span>` : ''}</span></label>` : `<div class="field"><label>${U.esc(f.label)}</label><input data-k="${f.k}" value="${U.esc(f.value || '')}" maxlength="${f.max || 20}" placeholder="${U.esc(f.ph || '')}"></div>`).join('');
+    h += ev.form(s, d).map(f => f.type === 'won' ? wonFieldHTML(f) : f.type === 'check' ? `<label class="ck-row"><input type="checkbox" data-k="${f.k}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}${f.tr ? TR_BADGE : ''}</span>${f.sub ? `<span class="ck-h">${U.esc(f.sub)}</span>` : ''}</span></label>` : `<div class="field"><label>${U.esc(f.label)}</label><input data-k="${f.k}" value="${U.esc(f.value || '')}" maxlength="${f.max || 20}" placeholder="${U.esc(f.ph || '')}"></div>`).join('');
     h += `<div class="choices"><button class="btn primary" data-submit>확인</button>${ev.cancel ? '<button class="btn" data-cancel>그만두기</button>' : ''}</div><div class="why" id="form-err"></div>`;
   } else {
     h += `<div class="choices">` + evChoices(s).map((c, i) => { const ok = !c.ok || c.ok(s); return `<button class="choice${c.tr ? ' tr' : ''}" data-choice="${i}" ${ok ? '' : 'disabled'}><div class="t">${U.esc(c.t)}${c.tr ? TR_BADGE : ''}</div>${c.h ? `<div class="h">${U.esc(c.h)}</div>` : ''}${c.warn ? `<div class="h ch-warn">⚠️ ${U.esc(c.warn)}</div>` : ''}</button>`; }).join('') + `</div>`;
@@ -523,10 +546,23 @@ function showEventRaw() {
   $('#mcard').className = 'mcard';
   $('#mcard').innerHTML = h;
   $('#modal').classList.remove('hidden');
-  $('#ev-restore').classList.add('hidden');
+  
   // 글자를 적는 창은 바로 적을 수 있게 첫 칸에 커서를 둔다 (Enter로 확인)
   if (ev.form) { const i = $('#mcard input[data-k]:not([type=checkbox])'); if (i && FINE_POINTER) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
   if (ev.onShow) ev.onShow(s, d, $('#mcard'));
+}
+// 돈 적는 칸 (v118 UI D4): 천만 원 단위로 적고, 아래 버튼으로 ±1억 · ±10억 (가진 돈까지만). 옆에 'X억 원'으로 읽어 준다
+function wonFieldHTML(f) {
+  const v = Math.max(0, Math.floor((f.value || 0) / 1e6) / 10), mx = f.max != null ? Math.max(0, Math.floor(f.max / 1e6) / 10) : '';
+  return `<div class="field won-f"><label>${U.esc(f.label)} (천만 원)</label><div class="won-row"><input data-k="${f.k}" data-won data-wmax="${mx}" value="${v}" inputmode="decimal" maxlength="8"><span class="won-eq">${v > 0 ? '= ' + fmtWon(wonVal(v)) : ''}</span></div><div class="won-btns">${[-100, -10, 10, 100].map(n => `<button type="button" class="btn sm" data-wonadd="${n}" data-wk="${f.k}">${n < 0 ? '−' : '+'}${Math.abs(n) / 10}억</button>`).join('')}</div></div>`;
+}
+function wonEq(i) { const e = i.parentNode.querySelector('.won-eq'), w = wonVal(i.value); if (e) e.textContent = w > 0 ? '= ' + fmtWon(w) : ''; }
+function wonAdd(k, n) {
+  const i = $(`#mcard input[data-k="${k}"]`); if (!i) return;
+  let v = (parseFloat(String(i.value).replace(/[^0-9.]/g, '')) || 0) + n;
+  const mx = i.dataset.wmax === '' ? Infinity : +i.dataset.wmax;
+  v = Math.max(0, Math.min(mx, v));
+  i.value = String(Math.round(v * 10) / 10); wonEq(i);
 }
 // 글자 적는 창에서 Enter = 확인. 한글을 적는 중(조합 중)에 누른 Enter는 조합이 끝난 뒤 확인한다. 두 번 눌리지 않게 0.4초 안의 Enter는 한 번만
 function formEnter() {
@@ -580,7 +616,7 @@ function resShow(o) {
   $('#mcard').className = 'mcard res-card';
   $('#mcard').innerHTML = h;
   $('#modal').classList.remove('hidden');
-  $('#ev-restore').classList.add('hidden');
+  
   $('#mcard').scrollTop = 0;
 }
 function resOk() { const o = UI.res; UI.res = null; if (o && o.next) o.next(); }
@@ -1255,8 +1291,15 @@ function jobTaskHTML(s, id) {
     for (const x of jobTasks(id)) if (cur && cur.id === x.id) h += `<div class="act lrow"><div><div class="a-t">${U.esc(`${x.ic} ${x.n}`)}<span class="tag">하는 중</span></div><div class="lr-eff">${U.esc(x.eff.map(([k, v]) => `${k} ${v}`).join(' · '))}</div></div><span class="act-fixed">🔒 고정</span></div>`;
     return h + jobPicksHTML(s, id, true);
   }
+  // 할 일이 하나뿐이면 저절로 한다: 고르는 버튼 없이 '하는 중'만 (v118 UI B4)
+  const V = jobTasks(id).filter(x => !x.show || x.show(s));
+  if (V.length === 1) {
+    const x = V[0];
+    h += n ? `<div class="act lrow"><div><div class="a-t">${U.esc(`${x.ic} ${x.n}`)}<span class="tag">하는 중</span></div><div class="lr-eff">${U.esc(x.eff.map(([k, v]) => `${k} ${v}`).join(' · '))}</div></div></div>` : `<div class="lnote">일정에 빈 칸이 없다 (고정 일정이 다 차 있다)</div>`;
+    return h + jobPicksHTML(s, id, n > 0);
+  }
   if (!n) h += `<div class="lnote">일정에 빈 칸이 없다 (고정 일정이 다 차 있다)</div>`;
-  else if (!cur) h += `<div class="lnote warn">할 일을 고르지 않으면 평가가 크게 떨어진다</div>`;
+  else if (!cur) h += `<div class="lnote bad">할 일을 고르지 않으면 평가가 크게 떨어진다</div>`;
   for (const x of jobTasks(id).filter(x => !x.show || x.show(s))) {
     const on = !!cur && cur.id === x.id;
     h += actRow({ t: `${x.ic} ${x.n}`, tag: on ? '하는 중' : '', eff: x.eff.map(([k, v]) => `${k} ${v}`).join(' · '), ok: n > 0 || on, why: '일정에 빈 칸이 없다 (고정 일정이 다 차 있다)', btn: on ? '그만하기' : '하기', run: s => { s.jobDo = s.jobDo || {}; if (on) { delete s.jobDo[id]; return `${josa(x.n, '을를')} 그만했다.`; } s.jobDo[id] = x.id; return ''; } });
@@ -1264,9 +1307,12 @@ function jobTaskHTML(s, id) {
   return h + jobPicksHTML(s, id, !!cur && n > 0);
 }
 // 골라서 하는 일 (v117: 밴드 · 아이돌 그룹의 팀 활동). 그 직업 일을 하고 있을 때만 고를 수 있다
+// 골라서 한 일은 직업마다 언제 했는지 적어 둔다. 고를 수 있는 일이 있는데 석 달 넘게 하나도 안 했으면 그 직업 배너에 레드닷 (v118 UI B4)
+function pickWrap(id, a) { if (!a.run) return a; const r = a.run; return Object.assign({}, a, { run: s => { (s.pickT = s.pickT || {})[id] = s.t; return r(s); } }); }
+function pickDue(s, id) { const c = CAREERS[id]; if (!c.picks || !jobN(s, id)) return false; let P = []; try { P = c.picks(s, s.tracks[id]) || []; } catch (e) { } const last = (s.pickT || {})[id]; return P.some(a => a.ok) && (last == null || s.t - last >= 3); }
 function jobPicksHTML(s, id, on) {
   const c = CAREERS[id], P = c.picks ? c.picks(s, s.tracks[id]) : [];
-  return P.length ? `<div class="sec-h">🖐️ 골라서 하는 일</div>` + P.map(a => actRow(Object.assign({}, a, on ? {} : { ok: false, why: '일정에 이 일을 넣어야 할 수 있다' }))).join('') : '';
+  return P.length ? `<div class="sec-h">🖐️ 골라서 하는 일</div>` + P.map(a => actRow(Object.assign({}, pickWrap(id, a), on ? {} : { ok: false, why: '일정에 이 일을 넣어야 할 수 있다' }))).join('') : '';
 }
 // 직업 활동 두 갈래 (7-4단계부터): 칸만 넣어 두면 자동으로 하는 일 + 칸을 넣은 채로 골라서 하는 일 (c.picks)
 function jobAutoHTML(s, id, n) {
@@ -1275,19 +1321,39 @@ function jobAutoHTML(s, id, n) {
   if (!n) h += `<div class="lnote">일정에 빈 칸이 없다 (고정 일정이 다 차 있다)</div>`;
   for (const x of (c.autoList ? c.autoList(s, t) : [])) h += `<div class="act lrow"><div><div class="a-t">${U.esc(`${x.ic} ${x.n}`)}${n && x.tag !== false ? '<span class="tag">하는 중</span>' : ''}</div><div class="lr-eff">${U.esc(x.eff)}</div></div></div>`;
   const P = c.picks ? c.picks(s, t) : [];
-  if (P.length) h += `<div class="sec-h">🖐️ 골라서 하는 일</div>` + P.map(a => actRow(Object.assign({}, a, n ? {} : { ok: false, why: '일정에 빈 칸이 없다 (고정 일정이 다 차 있다)' }))).join('');
+  if (P.length) h += `<div class="sec-h">🖐️ 골라서 하는 일</div>` + P.map(a => actRow(Object.assign({}, pickWrap(id, a), n ? {} : { ok: false, why: '일정에 빈 칸이 없다 (고정 일정이 다 차 있다)' }))).join('');
   return h;
 }
 // 프로필의 걸어온 길 탭: 인생 기록 전체 (v89). 받은 상은 작품 탭 아래에
 function pfLogTab(s) { return lifeLogHTML(s); }
 function pfAwardsHTML(s) { return s.awards.length ? `<div class="sec-h">🏆 받은 상 (${s.awards.length})</div><table class="list"><tr><th>해</th><th>상</th></tr>${s.awards.slice().reverse().map(a => `<tr><td>${a.y}</td><td>${U.esc(a.n)}</td></tr>`).join('')}</table>` : ''; }
 // 프로필의 작품 탭: 종류별 편수, 그리고 작품마다 해·종류·제목·성적·수입 (수입은 그 작품으로 들어온 돈을 모두 더한 것)
+// ───── 곡 발매 결과 카드 (v118 UI C1) · 정산서 (C2) ─────
+// 카드와 정산서는 작은 창(#pop)으로 띄운다. 결과 창 · 작품 탭 · 요약 창 · 재정 창에서 같은 모양
+function songCardHTML(c) {
+  const fans = (c.fans || []).filter(([, v]) => v).map(([n, v]) => `<span class="${v >= 0 ? 'pos' : 'neg'}">${U.esc(n)} ${sgnFans(v)}</span>`).join(' · ');
+  return `<div class="scard"><div class="sc-top"><span class="sc-t">${c.top != null ? U.esc(c.t) : `「${U.esc(c.t)}」`}</span><span class="sc-by">${U.esc(c.by || '')}</span></div>`
+    + (c.top != null ? `<div class="sc-peak">${U.esc(c.top)}</div>` : `<div class="sc-peak${c.peak ? '' : ' out'}">${c.peak ? `최고 ${c.peak}위` : '차트 100위 밖'}${c.wins ? ` · 음악방송 1위 ${c.wins}회` : ''}</div>`)
+    + (fans ? `<div class="sc-fans">${fans}</div>` : '')
+    + (c.lines && c.lines.length ? `<div class="sc-h">${U.esc(c.lh || '듣는 사람 반응')}</div>${c.lines.map(x => `<div class="sc-l">${U.esc(x)}</div>`).join('')}` : '')
+    + (c.cmp ? `<div class="sc-cmp">${U.esc(c.cmp)}</div>` : '') + (c.bill ? billBtnHTML(c.bill) : '') + `</div>`;
+}
+function billKey(b) { UI.billMap = UI.billMap || {}; const k = UI.billN = (UI.billN || 0) + 1; UI.billMap[k] = b; delete UI.billMap[k - 400]; return k; }
+function billBtnHTML(b) { return `<button class="bill-bn" data-bill="${billKey(b)}">🧾 정산서<span class="bb-t">${U.esc(b.t || '')}</span></button>`; }
+function billHTML(b) {
+  return `<div class="bill"><div class="bill-h">🧾 ${U.esc(b.t || '정산서')}</div><table>${b.rows.map(r => r === '-' ? '<tr class="sep"><td colspan="2"></td></tr>' : `<tr${r[2] ? ' class="tot"' : ''}><td>${U.esc(r[0])}</td><td>${r[1] < 0 ? '− ' : ''}${fmtBill(r[1])}</td></tr>`).join('')}</table>${b.note ? `<div class="bill-note">${U.esc(b.note)}</div>` : ''}</div>`;
+}
+function popOpen(h) { $('#pop-card').innerHTML = `<button class="m-close" data-popclose>✕</button>` + h; $('#pop').classList.remove('hidden'); }
+function popClose() { $('#pop').classList.add('hidden'); }
+// 요약 창의 발매 줄: 그 곡의 카드 번호 (없으면 -1)
+const SONG_EVS = new Set(['band_relres', 'solo_relres', 'idol_cbres']);
+function songIdx(s, x) { if (!SONG_EVS.has(x.e)) return -1; const m = /「([^」]+)」/.exec(x.x || ''); if (!m) return -1; for (let i = s.works.length - 1; i >= 0; i--) if (s.works[i].card && s.works[i].card.t === m[1]) return i; return -1; }
 function pfWorksTab(s) {
   if (!s.works.length) return `<div class="empty">아직 세상에 나온 작품이 없다.</div>` + pfAwardsHTML(s);
   const cnt = {};
   for (const w of s.works) cnt[w.type] = (cnt[w.type] || 0) + 1;
   return `<div class="chips" style="margin:2px 0 10px">${Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="chip">${U.esc(k)} ${v}</span>`).join('')}</div>`
-    + `<table class="list"><tr><th>해</th><th>종류</th><th>제목</th><th>성적</th><th>수입</th></tr>${s.works.slice().reverse().map(w => `<tr><td>${w.y}</td><td>${U.esc(w.type)}</td><td>「${U.esc(w.title)}」</td><td>${U.esc(w.note || '')}</td><td style="white-space:nowrap">${w.pay ? fmtWon(w.pay) : '-'}</td></tr>`).join('')}</table>` + pfAwardsHTML(s);
+    + `<table class="list"><tr><th>해</th><th>종류</th><th>제목</th><th>성적</th><th>수입</th></tr>${s.works.map((w, i) => [w, i]).reverse().map(([w, i]) => `<tr${w.card ? ` class="has-card" data-song="${i}"` : ''}><td>${w.y}</td><td>${U.esc(w.type)}</td><td>「${U.esc(w.title)}」${w.card ? ' 🎧' : ''}</td><td>${U.esc(w.note || '')}</td><td style="white-space:nowrap">${w.pay ? fmtWon(w.pay) : '-'}</td></tr>`).join('')}</table>` + pfAwardsHTML(s);
 }
 function homeNow(s) {
   const r = REGION_BY[s.region], hm = s.home, where = `${r.n} ${s.place}`;
@@ -1326,7 +1392,7 @@ function lifeSecSum(s, k) {
   return { main: '특기 배우기 · 시술 · 여행', sub: `${trip} · 남은 시술 ${surg}가지` };
 }
 function lifeTilesHTML(s) {
-  return `<div class="trks life-tiles">` + LIFE_SECS.map(([k, ic, n]) => { const x = lifeSecSum(s, k); return `<div class="trk ltile" data-lifesec="${k}"><b>${ic} ${n}</b><div class="lt-main">${U.esc(x.main)}</div><div class="st">${U.esc(x.sub)}</div></div>`; }).join('') + `</div>`;
+  return `<div class="trks life-tiles">` + LIFE_SECS.map(([k, ic, n]) => { const x = lifeSecSum(s, k); return `<div class="trk ltile${ltLock(s, k) ? ' locked' : ''}"${ltLock(s, k) ? '' : ` data-lifesec="${k}"`}>${ltDot(s, k)}<b>${ic} ${n}</b><div class="lt-main">${U.esc(x.main)}</div><div class="st">${U.esc(x.sub)}</div></div>`; }).join('') + `</div>`;
 }
 // 묶음 창의 내용
 function lifeSecBody(s, k) {
@@ -1367,7 +1433,13 @@ function lifeSecBody(s, k) {
 // 생활 창 맨 위: 지금 가진 돈 (턴제 실험 6차)
 function lifeCashHTML(s) { return `<div class="life-cash">💰 가진 돈 <b class="${s.money < 0 ? 'neg' : ''}">${fmtWon(s.money)}</b>${s.debt > 0 ? ` <span class="hint">· 빚 ${fmtWon(s.debt)}</span>` : ''}</div>`; }
 function panelLife() { UI.lifeFrom = 'panel'; return `<h2>🏠 생활</h2>` + lifeCashHTML(S) + lifeTilesHTML(S); }
+// 장비 칸 (v118 UI B2): 들일 수 있기 전(독립 전 · 나이)이고 가진 장비도 없으면 사슬로 잠근다
+// 특기를 배워 새로 들일 수 있는 장비가 생기면 오른쪽 위에 레드닷 (장비 창을 열면 꺼진다)
+function eqCanIds(s) { return Object.keys(EQUIP).filter(id => !eqLv(s, id) && (EQUIP[id].slot ? age(s) >= EQUIP[id].min : EQUIP[id].k.some(x => has(me(s), x) || homeKids(s).some(c => has(c, x))))); }
+function ltLock(s, k) { return k === 'equip' && !Object.keys(EQUIP).some(id => eqLv(s, id)) && !!eqBuyWhy(s) && !dormAg(s); }
+function ltDot(s, k) { if (k !== 'equip' || ltLock(s, k)) return ''; const L = eqCanIds(s); if (!s.eqSeen) s.eqSeen = L.slice(); return L.some(id => !s.eqSeen.includes(id)) ? '<span class="rdot"></span>' : ''; }
 function panelLifeSec() {
+  if (UI.lifeSec === 'equip' && S) S.eqSeen = eqCanIds(S);
   const k = UI.lifeSec || 'home', d = LIFE_SECS.find(x => x[0] === k) || LIFE_SECS[0];
   return `${UI.lifeFrom === 'panel' ? '<button class="btn sm ghost back-btn" data-panel="life">← 생활</button>' : ''}<h2>${d[1]} ${d[2]}</h2>` + lifeCashHTML(S) + lifeSecBody(S, k);
 }
@@ -1375,7 +1447,7 @@ function panelLifeSec() {
 function renderLifeCard() {
   const el = $('#life-grid');
   if (!el || !S) return;
-  const h = LIFE_SECS.map(([k, ic, n]) => { const x = lifeSecSum(S, k); return `<div class="card bn-card lt-card" data-lifesec="${k}"><div class="card-h">${ic} ${n}<span class="bn-arr">›</span></div><div class="lt-main">${U.esc(x.main)}</div><div class="st">${U.esc(x.sub)}</div></div>`; }).join('');
+  const h = LIFE_SECS.map(([k, ic, n]) => { const x = lifeSecSum(S, k); return `<div class="card bn-card lt-card${ltLock(S, k) ? ' locked' : ''}"${ltLock(S, k) ? '' : ` data-lifesec="${k}"`}>${ltDot(S, k)}<div class="card-h">${ic} ${n}<span class="bn-arr">›</span></div><div class="lt-main">${U.esc(x.main)}</div><div class="st">${U.esc(x.sub)}</div></div>`; }).join('');
   if (h === UI.lifeHTML) return;
   UI.lifeHTML = h; el.innerHTML = h;
 }
@@ -1398,7 +1470,8 @@ function panelMoney() {
   else {
     h += `<div class="mon-when">${when}</div>`;
     h += `<div class="mon-sum"><div><div class="ms-k">들어온 돈</div><div class="ms-v pos">+${fmtWon(T.iSum)}</div></div><div><div class="ms-k">나간 돈</div><div class="ms-v neg">-${fmtWon(T.eSum)}</div></div><div><div class="ms-k">남은 돈</div><div class="ms-v ${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}</div></div></div>`;
-    const list = (arr, cls) => arr.length ? arr.map(([k, v]) => `<div class="mon-row"><span>${U.esc(k)}</span><b class="${cls}">${v > 0 ? '+' : '-'}${fmtWon(Math.abs(v))}</b></div>`).join('') : '<div class="hint">없음</div>';
+    // 정산서가 있는 수입 줄은 누르면 정산서 (v118 UI C2)
+    const list = (arr, cls) => arr.length ? arr.map(([k, v]) => `<div class="mon-row${v > 0 && (s.bills || {})[k] ? ' has-bill' : ''}"${v > 0 && (s.bills || {})[k] ? ` data-bill="${billKey(s.bills[k])}"` : ''}><span>${U.esc(k)}${v > 0 && (s.bills || {})[k] ? ' 🧾' : ''}</span><b class="${cls}">${v > 0 ? '+' : '-'}${fmtWon(Math.abs(v))}</b></div>`).join('') : '<div class="hint">없음</div>';
     h += `<div class="two-col"><div><div class="sec-h">수입</div>${list(T.inc, 'pos')}</div><div><div class="sec-h">지출</div>${list(T.exp, 'neg')}</div></div>`;
     if (fam) h += `<div class="lnote" style="margin-top:8px">가족이 대 준 돈 ${fmtWon(fam)} (${famPaidWhat(s)})</div>`;
   }
@@ -1490,8 +1563,13 @@ function setLogSize(d) {
 
 // ───── 버튼 처리 ─────
 document.addEventListener('click', e => {
-  const t = e.target.closest('button, [data-pick], [data-cat], [data-grp], [data-apg], [data-trk], [data-job], [data-panel], [data-lifesec], [data-moneycard], input[type=checkbox]');
+  const t = e.target.closest('button, [data-pick], [data-cat], [data-grp], [data-apg], [data-trk], [data-job], [data-panel], [data-lifesec], [data-moneycard], [data-song], [data-bill], input[type=checkbox]');
+  // 곡 결과 카드 · 정산서 작은 창 (v118 UI C1 · C2)
+  if (t && t.dataset.popclose != null) { popClose(); return; }
+  if (t && t.dataset.bill) { const b = (UI.billMap || {})[t.dataset.bill]; if (b) popOpen(billHTML(b)); return; }
+  if (t && t.dataset.song != null && S) { const w = S.works[+t.dataset.song]; if (w && w.card) popOpen(songCardHTML(w.card)); return; }
   if (!t) return;
+  if (t.dataset.wonadd) { wonAdd(t.dataset.wk, +t.dataset.wonadd); return; }
   // 이어할 인생이 있으면 먼저 묻는다 (v116 버그 2: 확인 없이 덮어써서 진행 중인 인생이 사라졌다)
   if (t.id === 'btn-new') { const sv = loadSave(); if (sv && !sv.ended) { askConfirm(`진행 중인 인생(${sv.people[sv.me].name} · ${age(sv)}세)이 있어요.\n새로 시작하면 이 인생은 지워져요. 계속할까요?`, showBirth); return; } return showBirth(); }
   if (t.id === 'btn-reroll') { S = newLife(); renderBirth(); return; }
@@ -1526,7 +1604,7 @@ document.addEventListener('click', e => {
   if (t.dataset.close != null) return closePanel();
   if (t.dataset.logsize) return setLogSize(+t.dataset.logsize);
   if (t.dataset.min != null) { UI.minimized = true; showEvent(); return; }
-  if (t.id === 'ev-restore') { UI.minimized = false; showEvent(); return; }
+
   if (t.dataset.choice != null) { const pre = resPre(S), ci = +t.dataset.choice; try { choose(S, ci); } catch (e) { console.error('선택 오류', S.pending && S.pending.id, e); S.pending = null; toast('선택을 처리하지 못해 건너뛰었어요'); } if (!resAfter(pre, ci)) afterChoice(); return; }
   if (t.dataset.resok != null) { resOk(); return; }
   if (t.dataset.submit != null) { const vals = {}; document.querySelectorAll('#mcard input[data-k]').forEach(i => vals[i.dataset.k] = i.type === 'checkbox' ? i.checked : i.value); const pre = resPre(S), err = submitForm(S, vals); if (err) { $('#form-err').textContent = err; return; } if (!resAfter(pre, -1)) afterChoice(); return; }
@@ -1569,13 +1647,14 @@ document.addEventListener('click', e => {
   if (t.dataset.myprof != null) { UI.pfTab = 'tal'; if (UI.overlay) { UI.overlay = 'profile'; renderPanel(); } else openPanel('profile'); return; }
   if (t.dataset.kid) { UI.kid = t.dataset.kid; if (UI.overlay) { UI.overlay = 'kid'; renderPanel(); } else openPanel('kid'); return; }
 });
-document.addEventListener('input', e => { if (e.target.id === 'pick-q') { UI.pickQ = e.target.value; renderPanel(); } });
+document.addEventListener('input', e => { if (e.target.id === 'pick-q') { UI.pickQ = e.target.value; renderPanel(); } if (e.target.dataset && e.target.dataset.won != null) wonEq(e.target); });
 document.addEventListener('compositionend', e => { if (UI.enterComp && e.target.matches && e.target.matches('#mcard input[data-k]')) { UI.enterComp = false; setTimeout(formEnter, 0); } });
 // 자녀 교육비: 고른 아이의 단계 버튼을 보여 준다
 document.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.kidedu != null) { UI.kidEdu = e.target.value; UI.lifeHTML = null; renderLifeCard(); if (UI.overlay) renderPanel(); } });
 $('#file-input').addEventListener('change', e => { const f = e.target.files[0]; if (f) importSave(f); e.target.value = ''; });
 // ESC: 맨 위에 떠 있는 창부터 하나씩 닫는다 (확인 창 → 패널 → 사건 창은 잠시 내리기 → 인생 결산은 기록 보기로)
 function escClose() {
+  if (!$('#pop').classList.contains('hidden')) { popClose(); return true; }
   if (UI.turn) { if (UI.turn.why) turnClose(''); return true; }
   if (!$('#confirm').classList.contains('hidden')) { $('#confirm').classList.add('hidden'); UI.onConfirm = null; return true; }
   if (!$('#panel').classList.contains('hidden')) { closePanel(); return true; }
@@ -1594,6 +1673,7 @@ document.addEventListener('click', e => {
   if (!FINE_POINTER || !downOnOverlay || e.target !== downOnOverlay) return;
   const id = e.target.id;
   downOnOverlay = null;
+  if (id === 'pop') { popClose(); return; }
   if (id === 'confirm') { $('#confirm').classList.add('hidden'); UI.onConfirm = null; return; }
   if (id === 'panel') { closePanel(); return; }
   if (id === 'modal') {

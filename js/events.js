@@ -1160,3 +1160,27 @@ E({
   },
   ch: () => [{ t: '아직 할 수 있다', f: () => '아직은 이 일이 좋다.' }, { t: '은퇴한다', h: '이번 인생이 여기서 정리된다', f: s => { endLife(s, 'retire', ''); return ''; } }],
 });
+
+// ───── 특기가 꽉 찼을 때 새 특기 (v118 UI E1) ─────
+// 새 특기를 주는 사건에서 특기가 10개면 이 창이 이어서 뜬다: 하나를 그만두고 배울지, 배우지 않을지
+// 그만둘 수 없는 특기: 지금 하는 직업의 대표 특기 · 학업 · 외국어 (skKeepWhy · SK_FREE)
+E({
+  id: 'sk_swap', cat: '특기', title: '특기가 꽉 찼다', tag: 'ev',
+  init(s, d) { if (has(me(s), d.k)) d.skip = true; },
+  text: (s, d) => `${josa(SKILLS[d.k].n, '을를')} 새로 배울 수 있다.\n그런데 특기가 벌써 ${SKILL_CAP}개다. (학업 · 외국어 빼고)`,
+  ch: (s, d) => {
+    const no = { t: '배우지 않는다', f: () => `${josa(SKILLS[d.k].n, '은는')} 배우지 않기로 했다.` };
+    if (skRoom(s, d.k)) return [{ t: '배운다', f: s => `${josa(SKILLS[d.k].n, '을를')} 배우기 시작했다.` + learnMe(s, d.k, d.start) }, no];
+    return [{ t: '특기 하나를 그만두고 배운다', h: '그만둔 특기는 나중에 다시 배우면 1레벨부터', ok: s => skDroppable(s).length > 0, f: s => { fireEvent(s, 'sk_drop', { k: d.k, start: d.start }); return ''; } }, no];
+  },
+});
+E({
+  id: 'sk_drop', cat: '특기', title: '그만둘 특기 고르기', tag: 'ev',
+  init(s, d) { if (has(me(s), d.k)) d.skip = true; },
+  text: (s, d) => `${josa(SKILLS[d.k].n, '을를')} 배우는 대신 그만둘 특기를 고르자.`,
+  ch: (s, d) => {
+    const p = me(s), L = learnedSkills(p).filter(k => !SK_FREE.includes(k)).sort((a, b) => lv(p, a) - lv(p, b));
+    return L.map(k => { const why = skKeepWhy(s, k); return { t: `${SKILLS[k].n} ${lvi(p, k)}레벨`, h: why, ok: () => !why, f: s => { dropSkill(s, k); return `${SKILLS[k].n} 대신 ${josa(SKILLS[d.k].n, '을를')} 배우기로 했다.` + learnMe(s, d.k, d.start); } }; })
+      .concat([{ t: '그만두지 않는다', f: () => `${josa(SKILLS[d.k].n, '은는')} 배우지 않기로 했다.` }]);
+  },
+});

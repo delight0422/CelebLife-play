@@ -264,6 +264,7 @@ function fx(s, o) {
   return parts.length ? ' (' + parts.join(' · ') + ')' : '';
 }
 
+let MONEY_TAP = null;
 function addMoney(s, v, label, ent) {
   v = Math.round(v);
   // 고등학교 졸업 전 일상 지출은 가족 생활비로 처리한다
@@ -272,6 +273,8 @@ function addMoney(s, v, label, ent) {
   if (v > 0) { s.mon.inc += v; if (ent) { s.mon.ent += v; s.earned += v; s.lastEntT = s.t; } }
   else s.mon.exp += -v;
   if (label) { s.mon.items[label] = (s.mon.items[label] || 0) + v; s.yinc[label] = (s.yinc[label] || 0) + v; }
+  // 요약 창의 큰 정산 한 줄 (v118 UI A4): 넘어가는 동안 들어온 돈을 이름별로 모은다. 지난달에도 들어온 돈(월급 · 매달 공연 수입)은 늘 들어오는 돈으로 친다
+  if (label && v > 0) { const seen = s.incSeen = s.incSeen || {}, prev = seen[label]; seen[label] = s.t; if (MONEY_TAP) { const o = MONEY_TAP[label] = MONEY_TAP[label] || { v: 0, big: 0, reg: false }; o.v += v; o.big = Math.max(o.big, v); if (prev === s.t - 1) o.reg = true; } }
 }
 // 직업별 번 돈 (피드백 20): 업계에서 번 돈이 들어올 때 어느 직업으로 번 돈인지도 적는다 (s.jobEarn[직업])
 // 직업은 ① earn에 직접 넘긴 것 ② 그 직업에서만 쓰는 돈 이름(EARN_LABEL) ③ 그 직업의 매달 처리 중이면 그 직업(EARN_JOB) 순서로 정한다
@@ -559,7 +562,7 @@ function choose(s, i) {
   s.pending = null;
   const r = c.f ? c.f(s, p.d) : '';
   applyLocks(s);
-  if (r) addLog(s, r, ev.tag || 'ev');
+  if (r) { addLog(s, r, ev.tag || 'ev'); s.log[s.log.length - 1].e = ev.id; }
   // 고른 뒤 이어서 생긴 사건도 고를 게 없으면 창 없이 처리한다
   autoEvs(s); pullNow(s); pullBack(s); autoEvs(s);
   save(s);
@@ -574,7 +577,7 @@ const LOG_HTML = new WeakMap();
 // 다른 창이 떠 있어 줄을 섰으면, 다음 달까지 기다리지 않고 앞의 창을 닫자마자 띄운다
 // 예: 작곡가로 처음 곡을 팔면 활동명 창이 먼저 뜨고, 제목 창은 그 다음 달로 밀렸다
 // 컴백 회의 · 앨범 발매(내 그룹 · 회사 그룹)도 그달에 와 있으면 앞 창에 답하자마자 이어서 뜬다 (그룹이 여럿이어도 한 달씩 밀리지 않게, 턴제 실험 6차)
-const NOW_EVS = new Set(['slot_up', 'school_start', 'title_pick', 'stage_name', 'song_concept', 'idol_cb', 'idol_cbres', 'co_cb', 'co_song', 'co_res', 'band_fest_play']);
+const NOW_EVS = new Set(['sk_swap', 'sk_drop', 'slot_up', 'school_start', 'title_pick', 'stage_name', 'song_concept', 'idol_cb', 'idol_cbres', 'co_cb', 'co_song', 'co_res', 'band_fest_play', 'band_arr']);
 function pullNow(s) {
   for (let n = 0; n < 8 && !s.pending && !s.ended; n++) {
     const i = s.queue.findIndex(q => NOW_EVS.has(q.id) && q.at <= s.t);
@@ -666,7 +669,15 @@ function actInfo(id) {
 const JOB_TASKS = {};
 function jobTasks(id) { const c = CAREERS[id]; return JOB_TASKS[id] || (c && c.act ? [{ id: 'main', n: c.act.n, ic: c.act.ic, eff: c.act.eff || [] }] : []); }
 // 직업 활동 두 갈래 (2026-11-08, 7-4단계부터): auto 직업은 칸만 넣어 두면 자동으로 하는 일(첫 할 일)을 한다. 골라서 하는 일은 그 직업의 picks
-function jobTask(s, id) { const k = (s.jobDo || {})[id], L = jobTasks(id), c = CAREERS[id]; return (k && L.find(x => x.id === k)) || (jobForced(s, id) || (c && c.auto && jobSlots(s, id)) ? L[0] || null : null); }
+// v118 UI B4: 할 일이 하나뿐인 직업은 칸만 넣어 두면 저절로 그 일을 한다 (고를 게 하나뿐인데 '하기'를 눌러야 해서 몇 달씩 놓치던 것)
+function jobTask(s, id) {
+  const k = (s.jobDo || {})[id], L = jobTasks(id), c = CAREERS[id];
+  const x = k && L.find(x => x.id === k);
+  if (x) return x;
+  if (jobForced(s, id) || (c && c.auto && jobSlots(s, id))) return L[0] || null;
+  const V = L.filter(x => !x.show || x.show(s));
+  return jobSlots(s, id) && V.length === 1 ? V[0] : null;
+}
 function jobSlots(s, id) { return s.slots.filter(sl => sl.act === 'c_' + id).length; }
 function jobForced(s, id) { return s.slots.filter(sl => sl.act === 'c_' + id && sl.lock === 'c_' + id).length; }
 // 같은 직업 활동은 일정에 한 칸만 넣을 수 있다 (0단계). 회사·촬영이 정한 고정 칸은 예외로 지금처럼 두 칸까지 묶인다
@@ -1309,7 +1320,7 @@ function migrate(s) {
   // v116 버그 1 복구: '새 곡 준비' 창이 다른 창에 덮여 사라진 세이브는 곡 일정이 '대기 중'(99에서 줄어드는 값)에 멈춰 있다. 다음 달에 다시 뜨게 한다
   for (const [id, ev, res] of [['band', 'band_rel', 'band_relres'], ['solo', 'solo_rel', 'solo_relres']]) {
     const t = s.tracks && s.tracks[id];
-    if (t && ['indie', 'signed'].includes(t.st) && t.nextRel > 12 && !hasQ(s, ev) && !hasQ(s, res)) t.nextRel = 1;
+    if (t && ['indie', 'signed'].includes(t.st) && t.nextRel > 12 && !hasQ(s, ev) && !hasQ(s, res) && !hasQ(s, 'band_arr')) t.nextRel = 1;
   }
   // v117 팀워크: 예전 세이브의 밴드 · 그룹은 같이 활동한 개월 수만큼(60까지) 팀워크를 안고 시작한다
   { const b = s.tracks && s.tracks.band, i = s.tracks && s.tracks.idol;

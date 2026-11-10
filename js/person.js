@@ -84,9 +84,12 @@ function skRoom(s, k) { return SK_FREE.includes(k) || capCount(me(s)) < SKILL_CA
 function skDecline(s, k) { if (!has(me(s), k)) (s.skNo = s.skNo || {})[k] = 1; }
 function skRefused(s, k) { return !!(s.skNo && s.skNo[k]); }
 // 특기 하나만 권하는 사건: 이미 있으면 늘 된다 (그때는 레벨이 오른다). 없으면 자리가 있고 거절한 적이 없어야 한다
-function skAsk(s, k) { return has(me(s), k) || (skRoom(s, k) && !skRefused(s, k)); }
-// 서너 개 중에 고르는 사건: 거절한 특기도 나온다. 자리만 있으면 된다
-function skOpen(s, k) { return has(me(s), k) || skRoom(s, k); }
+// v118 UI E1: 특기가 꽉 찼어도 그만둘 수 있는 특기가 있으면 새 특기를 주는 사건이 나온다 (받으면 '특기 하나를 그만두고 배운다' 창, learnMe)
+function skDroppable(s) { return learnedSkills(me(s)).filter(k => !SK_FREE.includes(k) && !skKeepWhy(s, k)); }
+function skSwapOK(s, k) { return skRoom(s, k) || skDroppable(s).length > 0; }
+function skAsk(s, k) { return has(me(s), k) || (skSwapOK(s, k) && !skRefused(s, k)); }
+// 서너 개 중에 고르는 사건: 거절한 특기도 나온다. 자리만 있으면 된다 (꽉 찼으면 하나를 그만두고 배운다)
+function skOpen(s, k) { return has(me(s), k) || skSwapOK(s, k); }
 // 그만둘 수 없는 특기: 지금 하는 직업의 대표 특기
 function skKeepWhy(s, k) { for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && c.mainSk && trackOn(s, id) && c.mainSk(s, s.tracks[id]) === k) return `지금 하는 ${CAREER_SHORT[id] || c.n || '직업'}의 대표 특기라 그만둘 수 없다`; } return ''; }
 function dropSkill(s, k) {
@@ -111,7 +114,11 @@ function learnSkill(s, p, k, start) {
 // force (v101): 직업에 들어가거나 일하며 꼭 생기는 특기. 특기가 10개여도 생긴다 (noBump도 마찬가지)
 function learnMe(s, k, start, noBump, force) {
   const p = me(s);
-  if (!has(p, k) && !noBump && !force && !skRoom(s, k)) return ` [특기가 ${SKILL_CAP}개라 새로 배우지 못했다]`;
+  if (!has(p, k) && !noBump && !force && !skRoom(s, k)) {
+    if (!skDroppable(s).length) return ` [특기가 ${SKILL_CAP}개라 새로 배우지 못했다]`;
+    queueEv(s, 'sk_swap', 0, { k, start: start == null ? null : start }, true);
+    return ` [특기가 ${SKILL_CAP}개다]`;
+  }
   if (has(p, k)) {
     if (noBump) return '';
     const sk = p.sk[k], b = lvi(p, k), tw = SKILL_TWIN[k], tb = tw && has(p, tw) ? lvi(p, tw) : 0;

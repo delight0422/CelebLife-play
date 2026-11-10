@@ -314,11 +314,13 @@ function lifeActs(s) {
     if (x.lvs) {
       const cur = counselLv(s), young = a < (x.min || 14);
       const opts = COUNSEL.map((e, lv) => ({ btn: e.n, on: lv === cur, ok: lv === cur || lv === 0 || (!young && s.money >= e.c * 1e4), run: s => { if (lv === cur) return ''; s.subs[id] = lv; return lv ? `${josa(x.n, '을를')} ${e.n}${josa(e.n, '으로').slice(e.n.length)} 받기로 했다. (월 ${e.c}만 원)` : `${josa(x.n, '을를')} 그만뒀다.`; } }));
+      if (young && !cur) continue; // v118 UI B3: 나이가 안 되는 항목은 목록에서 숨긴다
       A.push({ sec: 'subs', t: x.n, tag: cur ? COUNSEL[cur].n : '', price: cur ? `월 ${COUNSEL[cur].c}만 원` : `월 ${COUNSEL[1].c}만~${COUNSEL[3].c}만 원`, eff, note: `1단계 월 ${COUNSEL[1].c}만 · 2단계 ${COUNSEL[2].c}만 · 3단계 ${COUNSEL[3].c}만 원`, ok: true, why: young ? `${x.min || 14}세부터` : '', opts });
       continue;
     }
     // 개인 매니저는 아티스트, 업무 어시스턴트는 스태프로 일하는 동안만 보인다
     if (x.side && !on && !sideNow(s, x.side)) continue;
+    if (!on && a < (x.min || 14)) continue;
     const cost = subCost(s, id);
     A.push({ sec: 'subs', t: x.n, tag: on ? '이용 중' : '', price: `월 ${x.c}만 원`, eff, note: note || '', ok: on || (a >= (x.min || 14) && s.money >= cost * 1e4), why: a < (x.min || 14) ? `${x.min || 14}세부터` : '돈이 모자라다', btn: on ? '그만두기' : '시작하기', danger: on, run: s => { s.subs[id] = !on; return on ? `${josa(x.n, '을를')} 그만뒀다.` : `${josa(x.n, '을를')} 시작했다.`; } });
   }
@@ -327,7 +329,7 @@ function lifeActs(s) {
     // 일정 칸을 늘리는 장비: 단계 없이 들여놓기·처분하기만 있다
     if (x.slot) {
       if (l) A.push({ sec: 'equip', lv: 0.5, t: x.n, tag: '이용 중', price: '일정 한 칸 더', eff: `유지비 월 ${x.up}만 원`, note: x.d, ok: true, btn: '처분하기', danger: true, confirm: `${josa(x.n, '을를')} 처분할까요?\n일정 칸이 하나 줄고, 들인 돈은 돌려받지 못해요.`, run: s => { s.equip[id] = 0; refreshSlots(s); return `${josa(x.n, '을를')} 처분했다. 일정 칸이 하나 줄었다.`; } });
-      else A.push({ sec: 'equip', t: x.n, price: `설치 ${fmtWon(x.c * 1e4)}`, eff: '일정 한 칸 더', note: `${x.d} · 유지비 월 ${x.up}만 원`, ok: !eqBuyWhy(s) && a >= x.min && s.money >= x.c * 1e4, why: eqBuyWhy(s) || (a < x.min ? `${x.min}세부터` : '돈이 모자라다'), btn: '들여놓기', run: s => { addMoney(s, -x.c * 1e4, x.n); s.equip[id] = 1; refreshSlots(s); return `${josa(x.n, '을를')} 들여놓았다. 이제 한 달에 일정을 하나 더 할 수 있다.`; } });
+      else if (a >= x.min) A.push({ sec: 'equip', t: x.n, price: `설치 ${fmtWon(x.c * 1e4)}`, eff: '일정 한 칸 더', note: `${x.d} · 유지비 월 ${x.up}만 원`, ok: !eqBuyWhy(s) && a >= x.min && s.money >= x.c * 1e4, why: eqBuyWhy(s) || (a < x.min ? `${x.min}세부터` : '돈이 모자라다'), btn: '들여놓기', run: s => { addMoney(s, -x.c * 1e4, x.n); s.equip[id] = 1; refreshSlots(s); return `${josa(x.n, '을를')} 들여놓았다. 이제 한 달에 일정을 하나 더 할 수 있다.`; } });
       continue;
     }
     // 내가 배운 특기이거나, 같이 사는 자녀가 배운 특기면 보인다
@@ -345,7 +347,7 @@ function lifeActs(s) {
     A.push({ sec: 'equip', t: x.n, price: `설치 ${fmtWon(x.c * 1e4)}`, eff: `${what} 상승률 +${eqPct(1)}%`, note: `${gear ? gear + ' · ' : ''}유지비 월 ${x.up}만 원`, ok: !eqBuyWhy(s) && s.money >= x.c * 1e4 && (x.out || eqHomeIds(s).length < eqCap(s)), why: eqBuyWhy(s) ? eqBuyWhy(s) : !x.out && eqHomeIds(s).length >= eqCap(s) ? `집에 자리가 없다 (지금 집은 ${eqCap(s)}개까지)` : '돈이 모자라다', btn: '들여놓기', run: s => { addMoney(s, -x.c * 1e4, x.n); s.equip[id] = 1; return `${josa(x.n, '을를')} 들여놓았다.`; } });
   }
   for (const [id, x] of Object.entries(SURGERY)) {
-    if (s.flags[id]) continue;
+    if (s.flags[id] || a < x.min) continue;
     const safe = !x.risk && !x.rest;
     A.push({ sec: 'surgery', t: x.n, price: fmtWon(x.c * 1e4), eff: `외모 재능 +${x.v}`, note: `${x.rest ? `${x.rest}개월 쉰다` : '쉬지 않아도 된다'} · ${x.risk ? `부작용 ${Math.round(x.risk * 100)}%` : '부작용 없음'} · 평생 한 번`, ok: a >= x.min && s.money >= x.c * 1e4 && !s.ill, why: a < x.min ? `${x.min}세부터` : s.ill ? '몸이 회복된 뒤에 할 수 있다' : '돈이 모자라다', danger: !safe, btn: safe ? '받기' : '수술받기', run: s => {
       addMoney(s, -x.c * 1e4, safe ? '시술' : '수술'); s.flags[id] = true;
@@ -355,9 +357,9 @@ function lifeActs(s) {
     } });
   }
   // 새 특기 배우기: 성인이 되면 아직 안 배운 특기를 직접 골라 학원에 등록할 수 있다 (석 달에 한 번)
-  { const left = learnable(s);
+  if (a >= 19) { const left = learnable(s);
     A.push({ sec: 'learn', t: '새 특기 배우기', price: '학원비 한 달 치', eff: '아직 안 배운 특기를 골라 학원에 등록한다', note: '석 달에 한 번', ok: a >= 19 && !s.army && left.length > 0 && !(s.cd.learn > s.t), why: a < 19 ? '성인이 된 뒤에' : s.army ? '군 복무 중' : !left.length && !skRoom(s) ? `특기가 ${SKILL_CAP}개다. 특기 칸에서 하나를 그만둬야 새로 배울 수 있다` : !left.length ? '배울 수 있는 특기를 다 배웠다' : `${s.cd.learn - s.t}개월 뒤에 다시`, btn: '고르기', run: s => { fireEvent(s, 'learn_pick', {}); return ''; } }); }
-  A.push({ sec: 'rest', autoKey: 'trip', autoMin: 450e4, autoH: '켜 두면 반년마다, 가진 돈이 450만 원 이상일 때 저절로 다녀온다', t: '여행 다녀오기', price: '150만 원', eff: '스트레스가 크게 풀린다', note: '반년에 한 번', ok: a >= 19 && s.money >= 150e4 && !(s.cd.trip > s.t) && !s.army, why: a < 19 ? '성인이 된 뒤에' : s.cd.trip > s.t ? '얼마 전에 다녀왔다' : '돈이 모자라다', btn: '다녀오기', run: s => { s.cd.trip = s.t + 6; return U.pick(['제주도', '부산', '오사카', '방콕', '강릉']) + '에 다녀왔다.' + fx(s, { money: -150e4, stress: -35 }); } });
+  if (a >= 19) A.push({ sec: 'rest', autoKey: 'trip', autoMin: 450e4, autoH: '켜 두면 반년마다, 가진 돈이 450만 원 이상일 때 저절로 다녀온다', t: '여행 다녀오기', price: '150만 원', eff: '스트레스가 크게 풀린다', note: '반년에 한 번', ok: a >= 19 && s.money >= 150e4 && !(s.cd.trip > s.t) && !s.army, why: a < 19 ? '성인이 된 뒤에' : s.cd.trip > s.t ? '얼마 전에 다녀왔다' : '돈이 모자라다', btn: '다녀오기', run: s => { s.cd.trip = s.t + 6; return U.pick(['제주도', '부산', '오사카', '방콕', '강릉']) + '에 다녀왔다.' + fx(s, { money: -150e4, stress: -35 }); } });
   return A;
 }
 
