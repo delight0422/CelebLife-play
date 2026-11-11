@@ -13,6 +13,7 @@ const ALB_SRC = [
   { k: 'open', n: '외부 공모', h: '작곡가들에게 두루 곡을 받는다 · 곡은 많지만 수준이 들쭉날쭉', cnt: [5, 9, 13, 17], cost: [0, 0, 0, 0] },
   { k: 'name', n: '지명 의뢰', h: '이름난 작곡가 몇 명에게 따로 부탁한다 · 곡은 적지만 믿을 만하다', cnt: [2, 3, 3, 4], cost: [400e4, 1500e4, 3000e4, 5000e4] },
   { k: 'camp', n: '송캠프', h: '작곡가들을 한데 모아 고른 컨셉으로 곡을 쓰게 한다', cnt: [3, 4, 5, 6], cost: [900e4, 2500e4, 5000e4, 9000e4] },
+  { k: 'in', n: '사내 제작', h: '회사 사내 프로듀서들이 곡을 쓴다 · 곡값은 월급에 들어 있다', cnt: [0, 0, 0, 0], cost: [0, 0, 0, 0] },
   { k: 'mem', n: '멤버 자작곡', h: '작곡할 줄 아는 멤버에게 곡을 받는다', cnt: [0, 0, 0, 0], cost: [0, 0, 0, 0] },
   { k: 'me', n: '내가 쓴 곡', h: '내가 직접 한 곡 쓴다 · 심사 없이 후보에 오른다', cnt: [1, 1, 1, 1], cost: [0, 0, 0, 0] },
 ];
@@ -22,8 +23,9 @@ const ALB_CHEAP = [300e4, 1500e4, 3500e4, 7000e4];
 const ALB_PRICE_M = [0.3, 1, 1, 1];
 function albWriters(x) { return (x.mem || []).filter(p => has(p, 'compose') && lv(p, 'compose') >= 20).slice(0, 2); }
 // 지금 고를 수 있는 곳 (멤버 자작곡은 작곡하는 멤버가 있을 때, 내 곡은 내가 작곡을 할 때)
-function albSrcList(s, x) { return ALB_SRC.filter(z => z.k === 'mem' ? albWriters(x).length : z.k === 'me' ? has(me(s), 'compose') : true); }
-function albSrcCnt(x, z, ncs) { return z.k === 'mem' ? albWriters(x).length : z.k === 'open' ? Math.round(z.cnt[x.tier] * (1 + 0.25 * Math.max(0, (ncs || 1) - 1))) : z.cnt[x.tier]; }
+// 사내 제작은 사내 프로듀서가 있을 때 (v155: 내 회사)
+function albSrcList(s, x) { return ALB_SRC.filter(z => z.k === 'mem' ? albWriters(x).length : z.k === 'me' ? has(me(s), 'compose') : z.k === 'in' ? (x.inh || []).length : true); }
+function albSrcCnt(x, z, ncs) { return z.k === 'mem' ? albWriters(x).length : z.k === 'in' ? (x.inh || []).length : z.k === 'open' ? Math.round(z.cnt[x.tier] * (1 + 0.25 * Math.max(0, (ncs || 1) - 1))) : z.cnt[x.tier]; }
 // 컨셉을 하나 더 고를 때마다 드는 기획비
 function albPlanFee(x) { return Math.max(x.tier ? 300e4 : 50e4, Math.round((x.prod || 0) * 0.1 / 1e5) * 1e5); }
 function albPlanCost(x, cs, src) { return ALB_SRC.filter(z => src.includes(z.k)).reduce((a, z) => a + z.cost[x.tier], 0) + Math.max(0, cs.length - 1) * albPlanFee(x); }
@@ -59,12 +61,18 @@ function albSong(s, x, kind, used) {
   const price = Math.round((100 + L * L * 1.2 + m * 2) * (1 + Math.log10(1 + (c.fame || 0)) / 12) * (kind === 'name' ? 1.2 : 1) * ALB_PRICE_M[x.tier] / 10) * 10 * 1e4;
   return { cid: c.id, q, c: cn, m, price, title: songTitle(), src: kind };
 }
+// 사내 프로듀서가 쓴 곡 (v155): 회사 사람이라 아껴 둔 곡 없이 제 실력대로, 고른 컨셉 가운데 자기가 가장 잘 아는 컨셉으로 쓴다
+function albInSong(s, x, P) {
+  const cm = coCm(P), c = x.cs.slice().sort((a, b) => cm[b] - cm[a])[0];
+  return { cid: P.id, q: Math.round(U.clamp(lv(P, 'compose') * 0.6 + (cm[c] - 30) / 6 + U.normal(0, 7) + 4, 5, 90)), c, m: cm[c], price: 0, title: songTitle(), src: 'in' };
+}
 // ② 모인 데모곡 전부
 function albDemos(s, x) {
   const used = [], out = [], p = me(s);
   for (const z of ALB_SRC) {
     if (!x.src.includes(z.k)) continue;
     if (z.k === 'me') { if (!has(p, 'compose')) continue; const c = x.cs.slice().sort((a, b) => cmGet(s, b) - cmGet(s, a))[0]; out.push({ mine: true, q: Math.round(U.clamp(lv(p, 'compose') * 0.9 + U.normal(0, 5) + cmBonus(s, c), 5, 95)), c, m: cmGet(s, c), price: 0, title: songTitle(), src: 'me' }); continue; }
+    if (z.k === 'in') { for (const P of x.inh || []) out.push(albInSong(s, x, P)); continue; }
     if (z.k === 'mem') { for (const w of albWriters(x)) out.push({ cid: w.id, q: Math.round(U.clamp(lv(w, 'compose') * 0.85 + U.normal(0, 7), 5, 90)), c: U.pick(x.cs), m: null, price: 0, title: songTitle(), src: 'mem' }); continue; }
     const n = Math.max(1, albSrcCnt(x, z, x.cs.length) + (z.k === 'open' ? U.int(-1, 1) : 0));
     for (let i = 0; i < n; i++) out.push(albSong(s, x, z.k, used));
@@ -79,7 +87,7 @@ function albScreen(s, x, demos, judge) {
   if (!judge || demos.length <= ALB_KEEP) return { five: demos.slice(), lost: null };
   const sd = albEarOf(judge);
   const over = d => x.budget != null && d.price > x.budget ? 20 + Math.min(30, (d.price / Math.max(1, x.budget) - 1) * 15) : 0;
-  const seen = demos.map(d => ({ d, v: d.mine ? 999 : d.q + U.normal(0, sd) + (x.cs.includes(d.c) ? 3 : 0) + (d.fav || 0) - over(d) })).sort((a, b) => b.v - a.v);
+  const seen = demos.map(d => ({ d, v: d.mine || d.pass ? 999 : d.q + U.normal(0, sd) + (x.cs.includes(d.c) ? 3 : 0) + (d.fav || 0) - over(d) })).sort((a, b) => b.v - a.v);
   const five = seen.slice(0, ALB_KEEP).map(z => z.d);
   // 값이 헐한 곡도 둘은 있게: 올린 곡이 죄다 비싸면 가장 아쉬운 비싼 곡을 빼고 회사 크기 · 형편에 맞는 곡을 끼워 온다
   if (x.budget != null) {
@@ -131,7 +139,7 @@ function albPlanForm(s, x, fit) {
   const F = [{ type: 'head', label: '컨셉', grid: true }];
   for (const c of TRENDS) F.push({ k: 'c_' + c, type: 'check', on: c === (x.def || x.sig), label: c, tr: c === s.trend, sub: [c === x.sig ? '대표 컨셉' : '', fit ? fit(c) : ''].filter(Boolean).join(' · ') });
   F.push({ type: 'head', label: '곡을 모으는 곳' });
-  for (const z of albSrcList(s, x)) { const n = albSrcCnt(x, z, 1), w = z.k === 'mem' ? albWriters(x).map(p => p.name).join(' · ') : ''; F.push({ k: 's_' + z.k, type: 'check', on: z.k === 'open', label: z.n, sub: `${z.h}${w ? ` (${w})` : ''} · ${n}곡${z.k === 'open' ? '쯤' : ''} · ${z.cost[x.tier] ? fmtWon(z.cost[x.tier]) : '돈 안 듦'}` }); }
+  for (const z of albSrcList(s, x)) { const n = albSrcCnt(x, z, 1), w = z.k === 'mem' ? albWriters(x).map(p => p.name).join(' · ') : z.k === 'in' ? x.inh.map(p => p.name).join(' · ') : ''; F.push({ k: 's_' + z.k, type: 'check', on: z.k === 'open', label: z.n, sub: `${z.h}${w ? ` (${w})` : ''} · ${n}곡${z.k === 'open' ? '쯤' : ''} · ${z.cost[x.tier] ? fmtWon(z.cost[x.tier]) : '돈 안 듦'}` }); }
   return F;
 }
 function albOn(v, k) { return !!v[k] && v[k] !== 'false'; }
