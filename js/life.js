@@ -299,6 +299,7 @@ function lifeActs(s) {
   for (const [id, x] of Object.entries(SUBS)) {
     const on = !!(s.subs && s.subs[id]);
     const [eff, note] = x.d.split(' · ');
+    if (s.army && !x.kids) continue; // 군 복무 중에는 지속 관리를 쓸 수 없다 (v129)
     // 자녀 교육비는 아이가 생긴 뒤에만 보인다. 아이를 골라 없음·약간·보통·많이 중에서 정한다
     if (x.kids) {
       if (!(typeof kids === 'function' && kids(s).length)) continue;

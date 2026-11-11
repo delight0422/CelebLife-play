@@ -682,7 +682,7 @@ function coAlbumCard(s, t, g, o, r) {
   const pw = coPower(s, g);
   const F = [g.kind === 'band' ? { z: (pw - 48) / 18, g: ['연주가 탄탄하다', '합주가 귀에 착 붙는다'], b: ['연주가 아직 덜 여물었다', '라이브가 조금 불안하다'] } : { z: (pw - 45) / 18, g: ['퍼포먼스가 눈을 못 떼게 한다', '라이브가 안정적이다'], b: ['라이브가 조금 불안하다', '무대가 아직 덜 여물었다'] },
     RX.q(o.q), RX.fans(coGFans(g), r.gs), RX.trend(o.c === s.trend), RX.cf(r.cfB), RX.promo(t.f.music.tier), { z: (g.star - 50) / 25, g: ['멤버들 얼굴이 화면을 꽉 채운다'], b: ['눈에 확 띄는 멤버가 없다'] }];
-  if (r.tired > 1) F.push({ z: -r.tired / 4, g: ['오래 봐도 질리지 않는다'], b: ['예전만큼 새롭지는 않다'] });
+  if (r.tired > 1) F.push({ z: -r.tired / 4, g: ['오래 봐도 질리지 않는다'], b: ['비슷한 콘셉트가 이어져 조금 익숙하다'] });
   if (o.c === g.sig) F.push({ z: 0.5, g: ['역시 이 그룹다운 콘셉트다'], b: ['늘 하던 콘셉트라 뻔하다'] });
   const mem = Math.round(r.rev * (1 - g.cut)), rows = [['앨범 · 음원 매출', Math.round(r.rev)], [`멤버 몫 (${Math.round((1 - g.cut) * 100)}%)`, -mem]];
   if (r.rec > 0) rows.push(['멤버 몫에서 비용 회수', Math.round(r.rec)]);

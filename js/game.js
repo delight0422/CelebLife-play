@@ -489,13 +489,19 @@ function fireEvent(s, id, d = {}) {
   const ev = EVENTS[id];
   if (!ev) { console.warn('없는 사건', id); return; }
   const e0 = evalSnap(s);
+  // 창이 준비(init)하며 바꾼 것을 따로 적어 둔다 (v129): 그 창을 보기 전에 요약 창에 결과가 새어 나가지 않게 (ui.js turnSumHTML)
+  const n0 = s.log.length, tok = U.uid(), ag = s.tracks && s.tracks.agency;
+  const pre = { money: s.money, fans: totalFans(s), stress: s.stress, co: ag && typeof ag.money === 'number' ? ag.money : null, grow: typeof growSnap === 'function' ? growSnap(s) : null };
+  const tap0 = MONEY_TAP ? Object.fromEntries(Object.entries(MONEY_TAP).map(([k, o]) => [k, o.v])) : null;
   if (ev.init) ev.init(s, d);
+  for (let i = n0; i < s.log.length; i++) s.log[i].sp = tok;
+  if (tap0) { pre.tap = {}; for (const k in MONEY_TAP) if (MONEY_TAP[k].v !== (tap0[k] || 0)) pre.tap[k] = 1; }
   EV_E0 = { id, dv: evalDiff(e0, evalSnap(s)) };
   if (d.skip) return;
   // 창을 내려 둔 채 다른 창을 열면(회사 돈 꺼내기 등), 기다리던 선택을 버리지 않고 대기열 맨 앞에 돌려 둔다 (v116 버그 1: 밴드 '새 곡 준비'가 사라져 곡이 영영 안 나왔다)
   // re: 이미 한 번 뜬 창이라 다시 띄울 때 init을 또 돌리지 않는다 (fireQ · pullBack)
   if (s.pending && s.pending.id !== id) s.queue.unshift({ id: s.pending.id, at: s.t, d: s.pending.d, re: 1 });
-  s.pending = { id, d };
+  s.pending = { id, d, tok, pre };
   s.done[id] = (s.done[id] || 0) + 1;
   if (ev.cd) s.cd[id] = s.t + ev.cd;
 }

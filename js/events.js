@@ -626,8 +626,11 @@ function startArmy(s) {
   const p = me(s), sk = {};
   for (const k of learnedSkills(p)) sk[k] = lvi(p, k);
   s.army = { left: 18, pay: 0, from: { sk, money: s.money, fans: totalFans(s), stress: Math.round(s.stress) } };
+  // 지속 관리(PT · 피부과 · 상담 · 매니저 등)는 군대에서 쓸 일이 없어 모두 끊긴다 (v129). 자녀 교육비는 그대로
+  const cut = Object.keys(s.subs || {}).filter(id => s.subs[id] && SUBS[id] && !SUBS[id].kids);
+  for (const id of cut) delete s.subs[id];
   const u = s.edu.uni, leave = u && !u.done && s.t < u.end;
-  milestone(s, `${age(s)}세에 입대했다.`); return `입대했다. 머리를 짧게 잘랐다.${leave ? ` ${josa(u.n, '은는')} 휴학했다.` : ''}` + fx(s, { stress: 6 }); }
+  milestone(s, `${age(s)}세에 입대했다.`); return `입대했다. 머리를 짧게 잘랐다.${leave ? ` ${josa(u.n, '은는')} 휴학했다.` : ''}${cut.length ? ` 이용하던 지속 관리(${cut.map(id => SUBS[id].n).join(' · ')})는 모두 끊었다.` : ''}` + fx(s, { stress: 6 }); }
 // 전역 상태 창: 들어갈 때 → 지금 (돈·팬·스트레스·특기)
 E({
   id: 'army_end', cat: '병역', title: '전역',

@@ -696,9 +696,15 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .job-bn.bad .sb-s { color: var(--red); font-weight: 700; }
 .lnote.bad { color: var(--red); font-weight: 700; }
 /* 회사 배너 박스 (v121): 상태 박스 아래 남는 높이를 채운다 */
-.st-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-.st-col > #status-card { flex: none; }
-.st-col > #co-card { flex: 1 0 auto; }
+/* v129: 윗줄 인간관계 · 상태(같은 높이), 아랫줄 장비 · 회사(남는 높이) */
+.ps-duo { grid-template-rows: auto 1fr; }
+#life-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.eq-card .card-h { margin-bottom: 4px; }
+.eq-card .eq-from { font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+.eq-card .eq-list { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.eq-card .eq-list span { background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.eq-card .st { font-size: 12px; color: var(--muted); }
+.eq-card.chainlk > * { opacity: .7; }
 .co-card .card-h { margin-bottom: 4px; }
 .co-card .co-nm { font-size: 13.5px; font-weight: 700; color: var(--ink); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .co-card .row { font-size: 12.5px; }
@@ -857,3 +863,7 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .npc.nx { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .nx-t { flex: 1; min-width: 150px; display: flex; flex-direction: column; gap: 1px; }
 .nx-b { display: flex; align-items: center; gap: 8px; }
+/* v129: 무대 창 아래 진행 칸 여러 개 → 막대 하나 */
+.lv-bar { height: 4px; border-radius: 2px; background: #3a3058; margin: 12px auto 10px; max-width: 320px; overflow: hidden; }
+.lv-bar i { display: block; height: 100%; width: 0; background: #b9a4ff; transition: width .9s linear; }
+@media (max-width: 700px) { #life-grid { grid-template-columns: 1fr 1fr; } #life-grid > :last-child:nth-child(odd) { grid-column: span 2; } }

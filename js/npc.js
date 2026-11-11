@@ -129,6 +129,8 @@ function npcNear(s, f) { const me0 = s.fame || 0; return npcList(s, f).filter(n 
 // 먼저 다가온다: 1년에 두 번쯤. 성격에 따라 협업 제안 · 응원 · 디스 · 같은 시기 경쟁
 function npcApproach(s) {
   const F = npcMyFields(s);
+  // 군 복무 · 자숙 · 입원 중에는 맞붙을 일도, 같이 일할 일도 없다 (v129)
+  if (s.army || s.hiatus || s.ill) return;
   if (!F.length || (s.cd.npc || 0) > s.t || s.pending || !U.chance(0.16)) return;
   const f = U.pick(F), near = npcNear(s, f);
   if (!near.length) return;

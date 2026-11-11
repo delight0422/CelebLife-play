@@ -26,7 +26,7 @@ function liveStage(o) {
 }
 
 // 같은 곡 무대를 다른 자리에서 한 번 더 (시상식 무대 등): 요인은 그대로, 씨앗만 새로. 1위 발표 · 데뷔 인사는 뺀다
-function liveAgain(sp, o) { return Object.assign({}, sp, { seed: U.int(1, 2e9), key: true, wins: 0, cand: 0, debut: 0 }, o || {}); }
+function liveAgain(sp, o) { return Object.assign({}, sp, { seed: U.int(1, 2e9), key: false, wins: 0, cand: 0, debut: 0 }, o || {}); }
 
 // ───── 장면 만들기 ─────
 // 박자(beat)마다 { cap: 자막, L: [[말, 종류]], glow: 조명 세기 0~1, fx: 'drum' · 'win' }
@@ -58,7 +58,7 @@ function liveBeats(sp) {
   // 4. 후렴: 곡이 좋을수록 떼창
   const qv = lvl(z('q'));
   const ch = qv === 2 ? [['♪ 떼창 ♪', 'sing'], ['♪ ♪ ♪', 'sing'], [pk(['노래 너무 좋아!!', '후렴 미쳤다!!']), 'big']] : qv === 1 ? [['♪ ♪', 'sing'], [pk(['노래 좋네', '좋다!']), 'soft']] : [[pk(['……', '짝… 짝…']), 'soft']];
-  if (z('trend') >= 0.5 && R() < 0.6) ch.push(['요즘 노래다!!', 'big']);
+  if (z('trend') >= 0.5 && R() < 0.6) ch.push(['너무 좋아!!', 'big']);
   B.push({ cap: '후렴', glow: 0.6 + qv * 0.15, L: ch });
   // 5. 하이라이트: 아이돌은 댄스 브레이크(팀워크), 솔로는 무대 장악. 내 파트에서 이름을 부른다
   const hl = [];
@@ -182,20 +182,20 @@ function liveHTML(sp) {
     + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.hue, sp.g)}<em>${U.esc(m[0])}</em></span>`).join('')}</div>`
     + `<div class="lv-conf">${Array.from({ length: 26 }, (_, i) => `<i style="left:${(i * 41) % 100}%;--d:${(i * 0.17) % 1.4}s;--c:${(i * 67) % 360}"></i>`).join('')}</div>`
     + `<div class="lv-crowd">${sticks}</div><div class="lv-bub" id="lv-bub"></div><div class="lv-mc" id="lv-mc"></div></div>`
-    + `<div class="lv-pips">${LIVE.B.map(() => '<i></i>').join('')}</div>`
+    + `<div class="lv-bar"><i id="lv-bar"></i></div>`
     + `<div class="lv-btns"><button class="btn primary" data-liveskip>결과 바로 보기</button></div>`;
 }
 function liveNext() {
   const L = LIVE;
   if (!L) return;
   L.i++;
-  const st = $('#lv-stage'), pips = document.querySelectorAll('.lv-pips i');
+  const st = $('#lv-stage'), bar = $('#lv-bar');
   if (L.i >= L.B.length) { liveDone(); return; }
   const b = L.B[L.i];
-  pips.forEach((p, j) => p.classList.toggle('on', j <= L.i));
+  if (bar) bar.style.width = Math.round((L.i + 1) / L.B.length * 100) + '%';
   if (st) { st.style.setProperty('--glow', b.glow); st.classList.remove('fx-drum', 'fx-win'); if (b.fx) st.classList.add('fx-' + b.fx); st.classList.toggle('gather', !!b.gather); st.classList.toggle('lose', !!b.lose); }
-  b.L.forEach(([x, k], j) => L.tm.push(setTimeout(() => liveBubble(x, k), 180 + j * 360)));
-  L.tm.push(setTimeout(liveNext, Math.max(1500, 520 + b.L.length * 360 + 600)));
+  b.L.forEach(([x, k], j) => L.tm.push(setTimeout(() => liveBubble(x, k), 120 + j * 260)));
+  L.tm.push(setTimeout(liveNext, Math.max(1050, 300 + b.L.length * 260 + 350)));
 }
 function liveBubble(x, k) {
   const box = $('#lv-bub');
@@ -217,8 +217,8 @@ function liveBubble(x, k) {
   setTimeout(() => el.remove(), 2600);
 }
 function liveDone() {
-  // 무대가 끝나고 1.5초 뒤에는 조명 · 캐릭터 · 응원봉이 멈춘다 (v128)
-  if (LIVE) LIVE.tm.push(setTimeout(() => { const st = $('#lv-stage'); if (st) st.classList.add('still'); }, 1500));
+  // 무대가 끝나고 1초 뒤에는 조명 · 캐릭터 · 응원봉이 멈춘다 (v128)
+  if (LIVE) { LIVE.tm.push(setTimeout(() => { const st = $('#lv-stage'); if (st) st.classList.add('still'); }, 1000)); LIVE.tm.push(setTimeout(liveClose, 2000)); } // 멈춘 뒤 1초 있다가 저절로 넘어간다 (v129)
   const b = document.querySelector('#live-card [data-liveskip]');
   if (b) { b.textContent = LIVE && LIVE.end ? '결과 보기 ▶' : '닫기'; }
 }

@@ -113,15 +113,17 @@ function growLines(a, b) {
   return L;
 }
 function turnSumHTML(s, T) {
-  const i = T.last ? s.log.lastIndexOf(T.last) + 1 : 0, L = s.log.slice(i).filter(x => x.t > T.t0), p = me(s);
+  // 아직 안 본 창(사건)이 준비하며 남긴 기록 · 돈 · 팬 · 성장은 그 창을 보기 전에 새어 나가지 않게 한다 (v129, game.js fireEvent의 pre)
+  const P = s.pending && s.pending.pre ? s.pending : null, pre = P ? P.pre : null;
+  const i = T.last ? s.log.lastIndexOf(T.last) + 1 : 0, L = s.log.slice(i).filter(x => x.t > T.t0 && !(P && x.sp === P.tok)), p = me(s);
   const a = ymOfT(s, T.t0 + 1), b = ymOfT(s, s.t);
   const range = T.n === 1 ? `${b.y}년 ${b.m}월` : `${a.y}년 ${a.m}월 ~ ${a.y === b.y ? '' : b.y + '년 '}${b.m}월`;
   let h = `<div class="ts-h"><div class="ts-t">${T.n === 1 ? '지난달' : T.n === 12 ? '지난 1년' : `지난 ${T.n}개월`}</div><div class="ts-r">${range}</div></div>`;
   // 바뀐 것: 돈 · 팬 · 스트레스
-  const dm = s.money - T.money, df = totalFans(s) - T.fans, st = Math.round(s.stress);
+  const dm = (pre ? pre.money : s.money) - T.money, df = (pre ? pre.fans : totalFans(s)) - T.fans, st = Math.round(pre ? pre.stress : s.stress);
   const ch = [`<span class="${dm >= 0 ? 'pos' : 'neg'}">돈 ${dm >= 0 ? '+' : '-'}${fmtWon(Math.abs(dm))}</span>`].concat(df ? [`팬 ${df > 0 ? '+' : '-'}${fmtFans(Math.abs(df))}`] : [], st !== T.stress ? [`스트레스 ${T.stress}→${st}`] : []);
   // 회사 대표면 회사 돈 변화도 (v118 UI A3)
-  if (T.co != null && trackOn(s, 'agency')) { const dc = s.tracks.agency.money - T.co; ch.splice(1, 0, `<span class="${dc >= 0 ? 'pos' : 'neg'}">회사 돈 ${dc >= 0 ? '+' : '-'}${fmtWon(Math.abs(dc))}</span>`); }
+  if (T.co != null && trackOn(s, 'agency')) { const dc = (pre && pre.co != null ? pre.co : s.tracks.agency.money) - T.co; ch.splice(1, 0, `<span class="${dc >= 0 ? 'pos' : 'neg'}">회사 돈 ${dc >= 0 ? '+' : '-'}${fmtWon(Math.abs(dc))}</span>`); }
   MONEY_TAP = null;
   h += `<div class="ts-ch">${ch.map(x => `<span class="chip">${x}</span>`).join('')}</div>`;
   // 일상은 같은 문장을 한 요약에 한 번만 (v118 UI A2)
@@ -129,10 +131,10 @@ function turnSumHTML(s, T) {
   const box = {};
   for (const x of main) (box[tsCat(x)] = box[tsCat(x)] || []).push(x);
   // 성장 칸 맨 아래: 이번에 오른 특기 · 재능 · 숙련도 · 평판 · 인지도 (이번에 처음 배운 특기는 위에 따로 있다)
-  const ups = growLines(T.g0, growSnap(s)).map(x => ({ x, up: true }));
+  const ups = growLines(T.g0, pre && pre.grow ? pre.grow : growSnap(s)).map(x => ({ x, up: true }));
   if (ups.length) (box.grow = box.grow || []).push(...ups);
   // 큰 정산이 들어왔으면 돈 칸에 한 줄 (v118 UI A4): 한 번에 1,000만 원 넘게 들어왔고 매달 들어오는 돈이 아닌 것
-  const bigs = Object.entries(T.inc || {}).filter(([k, o]) => !o.reg && o.big >= 1000e4).sort((a, b) => b[1].v - a[1].v).slice(0, 3).map(([k, o]) => ({ x: `💰 ${k} +${fmtWon(o.v)}`, up: true }));
+  const bigs = Object.entries(T.inc || {}).filter(([k, o]) => !o.reg && o.big >= 1000e4 && !(pre && pre.tap && pre.tap[k])).sort((a, b) => b[1].v - a[1].v).slice(0, 3).map(([k, o]) => ({ x: `💰 ${k} +${fmtWon(o.v)}`, up: true }));
   if (bigs.length) (box.money = box.money || []).unshift(...bigs);
   const mo = T.n > 1;
   h += `<div class="ts-body"><div class="ts-sec">✨ 특별한 일</div>`;
@@ -410,7 +412,8 @@ function renderJobsCard() {
   const row = (key, title, st) => rows.push(`<div class="trk" data-trk="${key}"><b>${title}</b><div class="st">${U.esc(st)}</div></div>`);
   s.projects.forEach((w, i) => { const T = WORK_TYPES[w.type]; row('w:' + i, `${T.ic} ${U.esc(T.n)}`, T.status(s, w)); });
   if ((s.brands || []).length) row('brands', '📺 광고 모델', s.brands.map(x => BRAND_BY[x.id].n).join(' · '));
-  if (s.scandal) row('scandal', `🔥 ${U.esc(SC[s.scandal.id].n)}`, s.scandal.resp ? '여론을 지켜보는 중' : '대응을 기다리는 중');
+  // 논란 창을 아직 안 봤으면 직업 활동 칸에 미리 띄우지 않는다 (v129)
+  if (s.scandal && (s.scandal.resp || s.scandal.seen)) row('scandal', `🔥 ${U.esc(SC[s.scandal.id].n)}`, s.scandal.resp ? '여론을 지켜보는 중' : '대응을 기다리는 중');
   if (s.hiatus) row('hiatus', '🤐 자숙', `${s.hiatus.left}개월 남음 (${ymLater(s, s.hiatus.left)})`);
   if (rows.length) h += `<div class="trks">${rows.join('')}</div>`;
   if (!any && !rows.length) h += `<div class="empty">아직 하는 일이 없다. 📝 직업 지원에서 시작할 수 있다.</div>`;
@@ -457,6 +460,19 @@ function renderCoCard() {
   el.className = 'card bn-card co-card'; el.dataset.panel = 'company';
   el.innerHTML = `<div class="card-h">🏢 회사<span class="bn-arr">›</span></div><div class="co-nm">${U.esc(t.name)}</div>${R.map(([k, v, c]) => `<div class="row"><span>${k}</span><b class="${c}">${v}</b></div>`).join('')}`;
 }
+// 장비 박스 (v129): 회사 박스 바로 왼쪽. 지금 쓰는 장비 목록 (부모님 집이면 부모님이 지원해 주신 것, 연습생 · 숙소면 회사 것, 독립했으면 내 집에 있는 것)
+// 내가 직접 살 수 없을 때(독립 전 · 숙소)는 사슬 X를 치고 누를 수 없다
+function renderEqCard() {
+  const s = S, el = $('#eq-card');
+  if (!el || !s) return;
+  const ag = dormAg(s), lock = !!ag || !!eqBuyWhy(s);
+  let L = [], from = '';
+  if (ag) { from = `${ag.n} 연습실`; L = AG_EQ.filter(id => EQUIP[id]).map(id => `${EQUIP[id].n} ${ag.eq || 1}단계`); }
+  else { const have = Object.keys(EQUIP).filter(id => eqLv(s, id)); from = !have.length ? '' : s.home.mode === 'alone' ? '내 집' : '부모님이 지원해 주신 장비'; L = have.map(id => EQUIP[id].slot ? EQUIP[id].n : `${EQUIP[id].n} ${eqLv(s, id)}단계`); }
+  el.className = 'card eq-card' + (lock ? ' chainlk' : ' bn-card');
+  if (lock) el.removeAttribute('data-lifesec'); else el.dataset.lifesec = 'equip';
+  el.innerHTML = (lock ? '' : ltDot(s, 'equip')) + `<div class="card-h">🎛️ 장비${lock ? '' : '<span class="bn-arr">›</span>'}</div>` + (L.length ? `<div class="eq-from">${U.esc(from)}</div><div class="eq-list">${L.map(x => `<span>${U.esc(x)}</span>`).join('')}</div>` : `<div class="st">쓰는 장비 없음</div>`);
+}
 // 상태: 군 복무·병은 맨 위에 눈에 띄게 (누르면 자세히)
 function renderStatusCard() {
   const s = S;
@@ -467,7 +483,7 @@ function renderStatusCard() {
   st += `<div class="row"><span>팬</span><b>${fmtFans(totalFans(s))}</b></div>`;
   st += `<div class="row"><span>인지도</span><b>${fameWord(s.fame || 0)}</b></div>${bar(s.fame || 0, 100, 'pop')}`;
   st += `<div class="row"><span>평판 (주변 사람)</span><b>${repWord(s.rep)}</b></div>${bar(s.rep, 100, 'rep')}`;
-  renderCoCard();
+  renderCoCard(); renderEqCard();
   $('#status-card').innerHTML = st;
 }
 // 재정: 현금(크게) → 빚 → 지난달 → 맨 아래 총자산(집에 든 내 돈까지). 누르면 재정 창
@@ -533,6 +549,7 @@ function showEventRaw() {
   if (!s.pending) { $('#modal').classList.add('hidden'); return; }
   if (UI.minimized) { $('#modal').classList.add('hidden'); goBtnSync(); return; }
   goBtnSync();
+  if (s.pending.id === 'scandal' && s.scandal) s.scandal.seen = 1;
   const ev = EVENTS[s.pending.id], d = s.pending.d;
   // 실시간 창 (12-1): 결과 창보다 먼저 한 번만 (보고 나면 결과 창이 뜬다). 설정에 따라 건너뛴다
   if (ev.live && !d.lvSeen) {
@@ -549,7 +566,10 @@ function showEventRaw() {
     h += ev.form(s, d).map(f => f.type === 'won' ? wonFieldHTML(f) : f.type === 'check' ? `<label class="ck-row"><input type="checkbox" data-k="${f.k}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}${f.tr ? TR_BADGE : ''}</span>${f.sub ? `<span class="ck-h">${U.esc(f.sub)}</span>` : ''}</span></label>` : `<div class="field"><label>${U.esc(f.label)}</label><input data-k="${f.k}" value="${U.esc(f.value || '')}" maxlength="${f.max || 20}" placeholder="${U.esc(f.ph || '')}"></div>`).join('');
     h += `<div class="choices"><button class="btn primary" data-submit>확인</button>${ev.cancel ? '<button class="btn" data-cancel>그만두기</button>' : ''}</div><div class="why" id="form-err"></div>`;
   } else {
-    h += `<div class="choices">` + evChoices(s).map((c, i) => { const ok = !c.ok || c.ok(s); return `<button class="choice${c.tr ? ' tr' : ''}" data-choice="${i}" ${ok ? '' : 'disabled'}><div class="t">${U.esc(c.t)}${c.tr ? TR_BADGE : ''}</div>${c.h ? `<div class="h">${U.esc(c.h)}</div>` : ''}${c.warn ? `<div class="h ch-warn">⚠️ ${U.esc(c.warn)}</div>` : ''}</button>`; }).join('') + `</div>`;
+    const C1 = evChoices(s);
+    // 고를 것이 하나뿐이면 결과 창처럼 보라색 버튼 하나 (스페이스바로 넘어간다, v129)
+    if (C1.length === 1 && (!C1[0].ok || C1[0].ok(s)) && !C1[0].h && !C1[0].warn) h += `<div class="choices"><button class="btn primary" data-choice="0">${U.esc(C1[0].t)} <kbd>Space</kbd></button></div>`;
+    else h += `<div class="choices">` + C1.map((c, i) => { const ok = !c.ok || c.ok(s); return `<button class="choice${c.tr ? ' tr' : ''}" data-choice="${i}" ${ok ? '' : 'disabled'}><div class="t">${U.esc(c.t)}${c.tr ? TR_BADGE : ''}</div>${c.h ? `<div class="h">${U.esc(c.h)}</div>` : ''}${c.warn ? `<div class="h ch-warn">⚠️ ${U.esc(c.warn)}</div>` : ''}</button>`; }).join('') + `</div>`;
   }
   // 자녀 이야기가 나오는 사건: 오른쪽 아래에 그 아이의 재능을 바로 볼 수 있는 버튼
   const kidId = ev.kid ? ev.kid(s, d) : null, kid = kidId && s.people[kidId];
@@ -1148,6 +1168,11 @@ function orgOf(s, n) {
   // 밴드 멤버 · 전 멤버는 만났을 때 소속(기획사)과 상관없이 모두 밴드 묶음으로 (v123)
   const bd = (s.tracks.band || {}).b;
   if (bd && bd.name && ((bd.members || []).includes(n.id) || (['멤버', '전 멤버'].includes(n.rel) && job === 'band'))) return `🎸 밴드 「${bd.name}」`;
+  // 될 수 있으면 가장 작은 묶음으로 (v129): 회사보다 그룹. 내 아이돌 그룹 멤버, 내 회사에 속한 그룹 · 밴드의 멤버
+  const ig = (s.tracks.idol || {}).g;
+  if (ig && ig.name && ((ig.members || []).includes(n.id) || (['멤버', '전 멤버'].includes(n.rel) && job === 'idol'))) return `💫 그룹 「${ig.name}」`;
+  const cg = coCardGroups(s).find(g => (g.members || []).includes(n.id));
+  if (cg) return `${cg.kind === 'band' ? '🎸 밴드' : '💫 그룹'} 「${cg.name}」`;
   const o = n.metOrg || orgGuess(s, n, job);
   return o ? `${ic} ${o}` : `${relJobName(job)} 시절`;
 }
@@ -1478,7 +1503,7 @@ function panelLifeSec() {
 function renderLifeCard() {
   const el = $('#life-grid');
   if (!el || !S) return;
-  const h = LIFE_SECS.map(([k, ic, n]) => { const x = lifeSecSum(S, k); return `<div class="card bn-card lt-card${ltLock(S, k) ? ' chainlk' : ''}"${ltLock(S, k) ? '' : ` data-lifesec="${k}"`}>${ltDot(S, k)}<div class="card-h">${ic} ${n}<span class="bn-arr">›</span></div><div class="lt-main">${U.esc(x.main)}</div><div class="st">${U.esc(x.sub)}</div></div>`; }).join('');
+  const h = LIFE_SECS.filter(x => x[0] !== 'equip').map(([k, ic, n]) => { const x = lifeSecSum(S, k); return `<div class="card bn-card lt-card${ltLock(S, k) ? ' chainlk' : ''}"${ltLock(S, k) ? '' : ` data-lifesec="${k}"`}>${ltDot(S, k)}<div class="card-h">${ic} ${n}<span class="bn-arr">›</span></div><div class="lt-main">${U.esc(x.main)}</div><div class="st">${U.esc(x.sub)}</div></div>`; }).join('');
   if (h === UI.lifeHTML) return;
   UI.lifeHTML = h; el.innerHTML = h;
 }

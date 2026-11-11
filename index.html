@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>연예인으로 살아가기</title>
-<link rel="stylesheet" href="style.css?v=1794337294">
+<link rel="stylesheet" href="style.css?v=1794357003">
 </head>
 <body>
 <div id="app">
@@ -81,13 +81,12 @@
           <div class="duo ps-duo">
             <!-- 인간관계: 박스 자체를 누르면 인간관계 창, 안의 가족·연인 배너는 각자 창 -->
             <div id="people-card" class="card bn-card" data-panel="people"></div>
-            <!-- 상태는 내용만큼만, 그 아래 남는 높이는 회사 배너 박스 (v121) -->
-            <div class="st-col">
-              <div id="status-card" class="card"></div>
-              <div id="co-card" class="card"></div>
-            </div>
+            <!-- 윗줄: 인간관계 · 상태 (같은 높이) / 아랫줄: 장비 · 회사 (남는 높이, v129) -->
+            <div id="status-card" class="card"></div>
+            <div id="eq-card" class="card"></div>
+            <div id="co-card" class="card"></div>
           </div>
-          <!-- 생활: 박스 네 개 (누르면 그 묶음 창) -->
+          <!-- 생활: 박스 세 개 (집 · 지속 관리 · 기타. 장비는 위 회사 박스 왼쪽으로, v129) -->
           <div id="life-grid"></div>
         </div>
       </aside>
@@ -111,35 +110,35 @@
   <div id="toast" class="toast"></div>
   <input type="file" id="file-input" accept=".json,application/json" class="hidden">
 </div>
-<script src="js/util.js?v=1794337294"></script>
-<script src="js/data.js?v=1794337294"></script>
-<script src="js/skills.js?v=1794337294"></script>
-<script src="js/person.js?v=1794337294"></script>
-<script src="js/game.js?v=1794337294"></script>
-<script src="js/life.js?v=1794337294"></script>
-<script src="js/events.js?v=1794337294"></script>
-<script src="js/work.js?v=1794337294"></script>
-<script src="js/inbox.js?v=1794337294"></script>
-<script src="js/family.js?v=1794337294"></script>
-<script src="js/music.js?v=1794337294"></script>
-<script src="js/musicstaff.js?v=1794337294"></script>
-<script src="js/video.js?v=1794337294"></script>
-<script src="js/film.js?v=1794337294"></script>
-<script src="js/scandal.js?v=1794337294"></script>
-<script src="js/vidol.js?v=1794337294"></script>
-<script src="js/mcn.js?v=1794337294"></script>
-<script src="js/company.js?v=1794337294"></script>
-<script src="js/studio.js?v=1794337294"></script>
-<script src="js/dancer.js?v=1794337294"></script>
-<script src="js/anime.js?v=1794337294"></script>
-<script src="js/webnovel.js?v=1794337294"></script>
-<script src="js/illust.js?v=1794337294"></script>
-<script src="js/prof.js?v=1794337294"></script>
-<script src="js/tutor.js?v=1794337294"></script>
-<script src="js/marketer.js?v=1794337294"></script>
-<script src="js/npc.js?v=1794337294"></script>
-<script src="js/chparts.js?v=1794337294"></script>
-<script src="js/live.js?v=1794337294"></script>
-<script src="js/ui.js?v=1794337294"></script>
+<script src="js/util.js?v=1794357003"></script>
+<script src="js/data.js?v=1794357003"></script>
+<script src="js/skills.js?v=1794357003"></script>
+<script src="js/person.js?v=1794357003"></script>
+<script src="js/game.js?v=1794357003"></script>
+<script src="js/life.js?v=1794357003"></script>
+<script src="js/events.js?v=1794357003"></script>
+<script src="js/work.js?v=1794357003"></script>
+<script src="js/inbox.js?v=1794357003"></script>
+<script src="js/family.js?v=1794357003"></script>
+<script src="js/music.js?v=1794357003"></script>
+<script src="js/musicstaff.js?v=1794357003"></script>
+<script src="js/video.js?v=1794357003"></script>
+<script src="js/film.js?v=1794357003"></script>
+<script src="js/scandal.js?v=1794357003"></script>
+<script src="js/vidol.js?v=1794357003"></script>
+<script src="js/mcn.js?v=1794357003"></script>
+<script src="js/company.js?v=1794357003"></script>
+<script src="js/studio.js?v=1794357003"></script>
+<script src="js/dancer.js?v=1794357003"></script>
+<script src="js/anime.js?v=1794357003"></script>
+<script src="js/webnovel.js?v=1794357003"></script>
+<script src="js/illust.js?v=1794357003"></script>
+<script src="js/prof.js?v=1794357003"></script>
+<script src="js/tutor.js?v=1794357003"></script>
+<script src="js/marketer.js?v=1794357003"></script>
+<script src="js/npc.js?v=1794357003"></script>
+<script src="js/chparts.js?v=1794357003"></script>
+<script src="js/live.js?v=1794357003"></script>
+<script src="js/ui.js?v=1794357003"></script>
 </body>
 </html>

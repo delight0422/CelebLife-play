@@ -232,7 +232,8 @@ E({
   text: s => { const sc = s.scandal, T = SC[sc.id]; return `${scText(T.claim, s)} 기사와 댓글이 쏟아지고 있다. ${T.know[sc.truth]}`; },
   ch: s => {
     const sc = s.scandal, T = SC[sc.id], L = T.lab || {}, ag = scAgency(s), m = hiatusMonths(s, T);
-    const go = (resp, delay, log) => s => { sc.resp = resp; queueEv(s, 'scandal_res', delay, {}, true); return log; };
+    // 상습 지각 논란에 사과하거나 자숙하면 마음을 고쳐먹는다: 성실성 재능이 조금 오른다 (v129)
+    const go = (resp, delay, log) => s => { sc.resp = resp; if (sc.id === 'late' && (resp === 'apo' || resp === 'hiatus')) { const p = me(s); p.tal.grit = Math.min(98, p.tal.grit + (resp === 'hiatus' ? U.int(5, 8) : U.int(3, 5))); } queueEv(s, 'scandal_res', delay, {}, true); return log; };
     const C = [
       { t: L.apo || '사과문을 낸다', f: go('apo', 1, `${T.n}에 대해 ${L.apo ? '입장을 밝혔다.' : '사과문을 올렸다.'}`) },
       { t: L.deny || '사실이 아니라고 해명한다', f: go('deny', 1, `${T.n}에 대해 사실이 아니라는 입장문을 냈다.`) },

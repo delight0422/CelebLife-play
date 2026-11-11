@@ -1011,12 +1011,12 @@ function idolRelease(s, t, c, debut) {
   // 발매 결과 카드 (v118 UI C1): 무대 실력 · 곡 · 팬 · 유행 · 팀워크 · 콘셉트 궁합 · 스타성 · 피로도 · 대표 콘셉트
   if (t.lastBill) t.lastBill.t = `「${title}」 앨범 · 음원 정산`;
   const F = [{ z: (groupPower(s, g) - 45) / 18, g: ['퍼포먼스가 눈을 못 떼게 한다', '라이브가 안정적이다'], b: ['라이브가 조금 불안하다', '무대가 아직 덜 여물었다'] }, RX.q(q), RX.fans(gf, gain.kr + gain.jp + gain.us), RX.trend(c === s.trend), RX.tw(twOf(g)), RX.cf(cScoreB(cf)), { z: (g.star - 50) / 25, g: ['멤버들 얼굴이 화면을 꽉 채운다'], b: ['눈에 확 띄는 멤버가 없다'] }];
-  if (tired > 1) F.push({ z: -tired / 4, g: ['오래 봐도 질리지 않는다'], b: ['예전만큼 새롭지는 않다'] });
+  if (tired > 1) F.push({ z: -tired / 4, g: ['오래 봐도 질리지 않는다'], b: ['비슷한 콘셉트가 이어져 조금 익숙하다'] });
   if (c === g.sig) F.push({ z: 0.5, g: ['역시 이 그룹다운 콘셉트다'], b: ['늘 하던 콘셉트라 뻔하다'] });
   const card = songCardMake({ t: title, by: g.name, peak, wins, fans: [['그룹 팬', gain.kr + gain.jp + gain.us], ['내 팬', my.kr + my.jp + my.us]], pay, bill: pay > 0 || t.debt > 0 ? t.lastBill : null }, F, sc, g);
   // 실시간 창 (12-1): 데뷔 무대 · 컴백 첫 음악방송. 카드와 같은 요인으로 장면을 만든다 (내 몫: 내 실력 · 스타성)
   card.live = liveStage({ k: 'idol', place: debut ? '데뷔 무대' : '음악방송', t: title, g: g.name, fd: g.fandom, mem: idolPpl(s, g).map(x => [x.id === s.me ? actCall(s, 'idol') : callName(x.name), (g.pos[x.id] || '').split(' · ')[0]]), mi: 0,
-    z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, tw: F[4].z, cf: F[5].z, star: F[6].z, me: (Math.max(lv(p, 'vocal'), lv(p, 'rap'), lv(p, 'dance')) * 0.6 + p.tal.star * 0.4 - 45) / 18 }, sc, wins, cand: sc >= 66, debut, rv: sc >= 66 && !wins ? npcStageRival(s, g.name) : '' });
+    z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, tw: F[4].z, cf: F[5].z, star: F[6].z, me: (Math.max(lv(p, 'vocal'), lv(p, 'rap'), lv(p, 'dance')) * 0.6 + p.tal.star * 0.4 - 45) / 18 }, sc, wins, cand: sc >= 66, debut, key: !!debut || wins > 0 || sc >= 66, rv: sc >= 66 && !wins ? npcStageRival(s, g.name) : '' });
   addWork(s, { type: debut ? '데뷔 앨범' : '앨범', title, by: g.name, sc, pay, note: chartText(peak) + (wins ? ` · 음악방송 1위 ${wins}회` : ''), card });
   if (peak === 1 && !s.flags.no1) { s.flags.no1 = true; milestone(s, `${age(s)}세에 ${g.name}의 ${josa(`「${title}」`, '으로')} 음원 차트 1위를 했다.`); }
   for (const id of g.members) { const m = s.people[id]; if (m) bond(s, m, sc >= 65 ? 3 : 1); }
@@ -2147,7 +2147,7 @@ E({
       RX.q(d.q), RX.fans(totalFans(s), d.gain), RX.trend(!!d.tr), RX.cf(cScoreB(cf)), RX.promo(signed ? t.tier : 0)];
     d.card = songCardMake({ t: d.title, by: actName(s, 'solo'), peak: d.peak, fans: [['내 팬', d.gain]], pay: gross > 0 ? d.sale : null, bill: d.bill }, F, sc, t);
     // 실시간 창 (12-1): 솔로는 음악방송 1위가 없어서 1위 발표 장면도 없다
-    d.card.live = liveStage({ k: 'solo', place: t.rel === 1 ? '데뷔 무대' : '음악방송', t: d.title, g: actName(s, 'solo'), cn: actCall(s, 'solo'), mem: [[actCall(s, 'solo'), '']], mi: 0,
+    d.card.live = liveStage({ k: 'solo', key: t.rel === 1, place: t.rel === 1 ? '데뷔 무대' : '음악방송', t: d.title, g: actName(s, 'solo'), cn: actCall(s, 'solo'), mem: [[actCall(s, 'solo'), '']], mi: 0,
       z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, cf: F[4].z, star: (p.tal.star - 50) / 25, me: F[0].z }, sc, debut: t.rel === 1 });
     addWork(s, { type: '싱글', title: d.title, by: actName(s, 'solo'), sc, pay: d.sale || 0, note: chartText(d.peak) + (d.self ? ' · 자작곡' : ''), card: d.card });
     if (t.rel === 1) milestone(s, `${age(s)}세에 첫 솔로곡 ${josa(`「${d.title}」`, '을를')} 냈다.`);
