@@ -128,5 +128,7 @@ function ilDoJob(s, j, x, quiet) {
     : big > 0 ? '내 그림이 SNS에서 크게 퍼졌다. 팔로워가 확 늘었다.' : good ? '의뢰인이 아주 마음에 들어 했다.' : big < 0 ? '수정 요청이 쏟아졌다. 그림체가 맞지 않는다는 말을 들었다.' : '무난하게 넘겼다.';
   const r = `${x.who}의 ${josa(j.n, '을를')} 끝냈다. ${how}` + fxt;
   if (quiet) return `${x.who}의 ${josa(j.n, '을를')} 끝냈다. ${how}${j.id === 'emoji' ? '' : ` 작업비 ${fmtWon(fee)}.`}` + fxt + (up ? ` ${up}` : '');
-  return showResult(s, `${x.who} ${j.n}`, r + (up ? `\n\n${up}` : ''), r + (up ? ` ${up}` : ''));
+  // 그림에 대한 반응은 커뮤니티 팝업에서
+  const comm = typeof commSpec === 'function' ? commSpec(s, { k: 'illust', bd: '그림 게시판', t: `${x.who} ${j.n}`, me: actName(s, 'illust'), tn: big > 0 ? 'great' : good ? 'good' : big < 0 ? 'bad' : 'meh' }) : null;
+  return showResult(s, `${x.who} ${j.n}`, r + (up ? `\n\n${up}` : ''), r + (up ? ` ${up}` : ''), null, null, comm);
 }

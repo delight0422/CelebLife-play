@@ -1008,7 +1008,7 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .lv-stage.vn-class .lv-props i.p-rec { left: auto; right: 4%; top: 15%; transform: none; }
 @media (max-width: 700px) { .p-board { left: 10%; right: 10%; top: 16%; height: 26%; } .p-sign { display: none; } .lv-props i.p-stu { transform: translateX(-50%) scale(.62); transform-origin: 50% 100%; } .lv-stage.vn-class .lv-mem { bottom: 36%; } }
 /* 12-3: 지어낸 플랫폼의 대표 색 (사용자가 정함). 라이브온 = 라임 그린, 플리오(PLIO) = 소프트 오렌지. js/live.js의 PF와 같다 */
-:root { --pf-live: #B8F044; --pf-video: #FF914D; }
+:root { --pf-live: #B8F044; --pf-video: #FF914D; --pf-comm: #7C9CFF; }
 /* 영상 플랫폼 (플리오 PLIO) 팝업: 왼쪽 영상, 오른쪽 댓글. 대표 색은 소프트 오렌지 */
 .pf-row { margin: 10px 0 2px; }
 .pf-bn { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 4px 12px 4px 4px; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--ink2); cursor: pointer; margin-top: 6px; }
@@ -1040,6 +1040,27 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .pl-c span { display: block; font-size: 14px; color: #f3eefe; line-height: 1.35; margin: 1px 0 2px; word-break: keep-all; }
 .pl-c em { font-style: normal; font-size: 11.5px; color: #8f86ad; }
 @media (max-width: 700px) { .pl-wrap { grid-template-columns: 1fr; grid-template-rows: minmax(0, .8fr) minmax(0, 1fr); height: min(560px, calc(100vh - 150px)); } .pl-play { width: 54px; height: 54px; font-size: 22px; } .pl-t { font-size: 15px; } }
+/* 커뮤니티 (와글) 팝업: 왼쪽 글 + 실시간 인기글, 오른쪽 댓글. 플리오 팝업의 틀을 같이 쓴다 */
+.pf-bn.comm b { background: var(--pf-comm); color: #0f1838; }
+.pf-bn.comm:hover { border-color: var(--pf-comm); }
+.pf-bn.st-ego { margin-top: 10px; width: 100%; justify-content: flex-start; }
+.pl-logo.cm { background: var(--pf-comm); color: #0f1838; }
+.pl-cm.cm { border-top-color: var(--pf-comm); } .pl-cm.cm .pl-cm-h { color: var(--pf-comm); }
+.cm-wrap .pl-main { gap: 12px; }
+.cm-post { background: #1b1530; border: 1px solid #2c2347; border-top: 2px solid var(--pf-comm); border-radius: 14px; padding: 14px 16px; }
+.cm-bd { font-size: 12px; font-weight: 800; color: var(--pf-comm); margin-bottom: 4px; }
+.cm-t { font-size: 19px; font-weight: 800; color: #fff; line-height: 1.3; word-break: keep-all; }
+.cm-by { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: #b9b0d6; margin: 8px 0 10px; }
+.cm-by .pl-av { flex: 0 0 22px; width: 22px; height: 22px; font-size: 11px; }
+.cm-b { font-size: 15px; color: #ece6ff; line-height: 1.55; word-break: keep-all; }
+.cm-hot { flex: 1; min-height: 0; overflow: hidden; background: #171229; border: 1px solid #2c2347; border-radius: 14px; padding: 10px 14px; }
+.cm-hot-h { font-size: 12.5px; font-weight: 800; color: #ffb38a; margin-bottom: 6px; }
+.cm-hot-i { display: flex; justify-content: space-between; gap: 10px; font-size: 13.5px; color: #d9d2f0; padding: 5px 0; border-top: 1px solid #241c3d; }
+.cm-hot-i span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-hot-i em { font-style: normal; color: var(--pf-comm); font-weight: 700; flex-shrink: 0; }
+.cm-none { padding: 70px 20px; text-align: center; color: #ece6ff; font-size: 17px; }
+.cm-none span { display: block; margin-top: 8px; font-size: 13.5px; color: #8f86ad; }
+@media (max-width: 700px) { .cm-wrap { grid-template-rows: auto minmax(0, 1fr); height: auto; max-height: calc(100vh - 150px); } .cm-hot { display: none; } .cm-t { font-size: 16.5px; } .cm-wrap .pl-cm { max-height: 300px; } }
 /* 라이브 방송 플랫폼 (라이브온). 왼쪽 방송 화면, 오른쪽 채팅 */
 .st-logo { background: var(--pf-live) !important; color: #1c2a05 !important; font-weight: 800; letter-spacing: .5px; }
 .st-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 10px; height: min(560px, calc(100vh - 190px)); min-height: 280px; }

@@ -485,6 +485,8 @@ function renderStatusCard() {
   st += `<div class="row"><span>팬</span><b>${fmtFans(totalFans(s))}</b></div>`;
   st += `<div class="row"><span>인지도</span><b>${fameWord(s.fame || 0)}</b></div>${bar(s.fame || 0, 100, 'pop')}`;
   st += `<div class="row"><span>평판 (주변 사람)</span><b>${repWord(s.rep)}</b></div>${bar(s.rep, 100, 'rep')}`;
+  // 에고서치: 커뮤니티에서 내 이름을 찾아본다 (일곱 살부터)
+  if (typeof commNow === 'function' && age(s) >= 7) st += `<button class="pf-bn comm st-ego" data-commnow><b>💬 ${PF.comm.en}</b><span>내 이름 찾아보기</span></button>`;
   renderCoCard(); renderEqCard();
   $('#status-card').innerHTML = st;
 }
@@ -1704,6 +1706,7 @@ document.addEventListener('click', e => {
   // 곡 결과 카드 · 정산서 작은 창 (v118 UI C1 · C2)
   if (t && t.dataset.popclose != null) { popClose(); return; }
   if (t && t.dataset.plio) { plioToggle(+t.dataset.plio); return; }
+  if (t && t.dataset.commnow != null) { const sp = commNow(S); if (!UI.cmNow.key || !(UI.plioMap || {})[UI.cmNow.key]) UI.cmNow.key = plioKey(sp); plioToggle(UI.cmNow.key); return; }
   if (t && t.dataset.bill) { const b = (UI.billMap || {})[t.dataset.bill]; if (b) popOpen(billHTML(b)); return; }
   if (t && t.dataset.song != null && S) { const c = songCardAt(S, t.dataset.song); if (c) popOpen(songCardHTML(c)); return; }
   if (!t) return;

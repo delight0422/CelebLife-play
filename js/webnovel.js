@@ -101,6 +101,7 @@ for (const id of WB_IDS) {
       const w = t.w, R = [['소속', t.cp ? `${t.cpN} (${agTag(AG[t.cp])} CP사) · CP 몫 ${pctN(t.cut)}` : '없음'], ['등급', W.tiers[t.tier]]];
       R.push(['연재 중', w ? `「${w.title}」 · ${w.g} · ${w.pro ? `${w.plat} 정식 연재` : W.free} · ${w.ep}화 · 독자 ${fmtFans(w.readers)}${w.pro ? ' · ' + wbRankN(id, w) : ''}` : '없음']);
       R.push(['완결작', t.done ? `${t.done}편 · 가장 잘된 작품 「${t.best.title}」 (독자 ${fmtFans(t.best.peak)})` : '없음']);
+      if (t.cmv && w && typeof plioBtnHTML === 'function') R.push({ h: '이번 달 연재 반응', html: plioBtnHTML(t.cmv) });
       R.push({ h: `${W.sn} 장르 숙련도`, bars: wbMBars(s, id) });
       return R;
     },
@@ -127,6 +128,13 @@ for (const id of WB_IDS) {
 
 // ───── 한 달 ─────
 // 끈기가 낮을수록 원고를 미루다 마감을 놓친다 (끈기 50 이상은 놓치지 않는다)
+// 연재 반응은 커뮤니티 팝업에서 (12-3). sub: miss 휴재 · end 완결 · top 1위. 그 밖에는 작품 점수로 분위기를 정한다
+function wbComm(s, id, w, sub) {
+  // 읽는 사람이 거의 없을 때는 커뮤니티에 글도 올라오지 않는다
+  if (typeof commSpec !== 'function' || (w.peak || w.readers || 0) < 100) return null;
+  const sc = wbScore(s, id, w.g) + (w.luck || 0) + 14 + U.normal(0, 6);
+  return commSpec(s, { k: 'serial', bd: `${WB[id].sn} 게시판`, t: w.title, me: actName(s, id), tn: sub || commTone(sc) });
+}
 function wbLazyP(s) { const g = me(s).tal.grit; return g >= 50 ? 0 : 0.25 * Math.pow((50 - g) / 50, 1.5); }
 function wbMonth(s, id, t) {
   if (t.st !== 'active') return;
@@ -156,12 +164,16 @@ function wbMonth(s, id, t) {
     w.done++; w.ep += W.ep; w.miss = 0; aniMGain(s, W.mkey, w.g, 0.6);
   } else if (w.pro) {
     w.miss = (w.miss || 0) + 1;
-    if (w.miss >= 3) { addLog(s, `「${w.title}」 마감을 석 달 동안 못 지켜 ${w.plat}에서 연재가 중단됐다. ` + wbEnd(s, id, t, 'drop'), 'bad'); return; }
+    t.cmv = wbComm(s, id, w, 'miss');
+    if (w.miss >= 3) { addLog(s, `「${w.title}」 마감을 석 달 동안 못 지켜 ${w.plat}에서 연재가 중단됐다. ` + wbEnd(s, id, t, 'drop'), 'bad'); s.log[s.log.length - 1].pl = t.cmv; return; }
     addLog(s, `${lazy ? '원고를 붙잡고는 있었지만 자꾸 미루다 ' : ''}이번 달 「${w.title}」 마감을 못 지켜 휴재했다. 독자들이 떠나고 있다.${w.miss === 2 ? ' 한 달 더 쉬면 연재가 중단된다.' : ''}`, 'bad');
     // 12개월 안에 휴재가 세 번이고 독자가 많으면 잦은 휴재 논란 (v93)
     w.hl = (w.hl || []).filter(x => x > s.t - 12).concat(s.t);
     if (w.hl.length >= 3 && w.readers >= 3000 && !s.scandal && !s.hiatus && !(s.cd.serialSc > s.t)) { w.hl = []; s.cd.serialSc = s.t + 24; s.flags.serialSc = { kind: W.sn, title: w.title }; startScandal(s, 'serial', 'real'); }
   }
+  // 휴재한 달에는 휴재 기록에 커뮤니티 반응을 붙이고, 연재한 달에는 이번 달 반응을 새로 만든다 (직업 창 배너)
+  if (!n && w.pro && t.cmv && t.cmv.tn === 'miss') { const L = s.log[s.log.length - 1]; if (L && L.t === s.t && /휴재했다/.test(L.x)) L.pl = t.cmv; }
+  if (n) t.cmv = wbComm(s, id, w);
   const before = w.readers, target = wbTarget(s, id, t, w);
   if (!n) w.readers = Math.round(w.readers * (w.pro ? 0.88 : 0.95));
   else if (w.readers < target) w.readers += Math.round((target - w.readers) * U.fl(0.06, 0.14) + U.int(5, 40));
@@ -177,7 +189,7 @@ function wbMonth(s, id, t) {
     const r = wbRank(id, w);
     if (n && r <= 10) {
       t.pts += r === 1 ? 1 : r <= 3 ? 0.6 : 0.3;
-      if (r === 1 && !w.top) { w.top = true; jpopAdd(s, id, 4); addFame(s, 1.5); addLog(s, `「${w.title}」이 ${w.plat} 1위에 올랐다!`, 'good'); milestone(s, `${age(s)}세에 ${W.sn} 「${w.title}」로 ${w.plat} 1위를 했다.`); }
+      if (r === 1 && !w.top) { w.top = true; jpopAdd(s, id, 4); addFame(s, 1.5); addLog(s, `「${w.title}」이 ${w.plat} 1위에 올랐다!`, 'good'); t.cmv = wbComm(s, id, w, 'top'); s.log[s.log.length - 1].pl = t.cmv; milestone(s, `${age(s)}세에 ${W.sn} 「${w.title}」로 ${w.plat} 1위를 했다.`); }
       const up = wbTierUp(s, id, t); if (up) addLog(s, up, 'good');
     }
     // 인기작은 연재 중에도 판권 제안이 온다
@@ -185,7 +197,7 @@ function wbMonth(s, id, t) {
   } else if (n && w.readers >= W.promo && !hasQ(s, 'wb_promo') && !(s.cd['wbpro_' + id] > s.t) && U.chance(0.12)) queueEv(s, 'wb_promo', 0, { id });
   // 소속 없이 독자가 모이면 CP사에서 전속 계약 제안이 온다
   if (n && !t.cp && w.readers >= 2000 && !agencyContract(s) && !s.inbox.some(m => m.kind === 'wb_cp_offer') && U.chance(0.025 + t.tier * 0.005)) wbCpOffer(s, id, t);
-  if (n && w.done >= w.len) addLog(s, wbEnd(s, id, t, 'done'), 'good');
+  if (n && w.done >= w.len) { const cm = wbComm(s, id, w, 'end'); addLog(s, wbEnd(s, id, t, 'done'), 'good'); s.log[s.log.length - 1].pl = cm; t.cmv = null; }
 }
 
 // ───── 새 작품: 장르 → 제목 ─────

@@ -227,6 +227,8 @@ E({
 // 논란이 터졌다: 대응을 고른다
 E({
   id: 'scandal', cat: '논란', tag: 'career',
+  // 커뮤니티에서 어떤 말이 도는지 볼 수 있다 (진짜인지 아닌지는 여기서도 알 수 없다)
+  plio: s => s.scandal && typeof commSpec === 'function' ? (s.scandal.cm || (s.scandal.cm = commSpec(s, { k: 'scandal', bd: '이슈 게시판', t: SC[s.scandal.id].n, me: me(s).name, tn: 'meh' }))) : null,
   cond: s => !!s.scandal && !s.scandal.resp,
   title: s => s.scandal ? SC[s.scandal.id].n : '논란',
   text: s => { const sc = s.scandal, T = SC[sc.id]; return `${scText(T.claim, s)} 기사와 댓글이 쏟아지고 있다. ${T.know[sc.truth]}`; },

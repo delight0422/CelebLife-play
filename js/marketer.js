@@ -185,6 +185,7 @@ E({
 });
 E({
   id: 'mk_cb_res', cat: '마케팅', title: '컴백 성적', tag: 'career',
+  plio: (s, d) => d.pl !== undefined ? d.pl : (d.pl = typeof commSpec === 'function' && d.g ? commSpec(s, { k: 'mk', bd: '아이돌 게시판', t: d.g, tn: d.k === 2 ? 'great' : d.k === 1 ? 'good' : d.plan === null || d.plan === undefined ? 'meh' : 'bad' }) : null),
   init(s, d) {
     const t = s.tracks.marketer;
     if (!mkOn(s) || !t.cb) { d.skip = true; return; }
@@ -225,6 +226,7 @@ E({
 });
 E({
   id: 'mk_launch_res', cat: '마케팅', title: '신인 그룹 데뷔', tag: 'career',
+  plio: (s, d) => d.pl !== undefined ? d.pl : (d.pl = typeof commSpec === 'function' && d.g ? commSpec(s, { k: 'mk', bd: '아이돌 게시판', t: d.g, tn: d.k === 2 ? 'great' : d.k === 1 ? 'good' : d.plan === null || d.plan === undefined ? 'meh' : 'bad' }) : null),
   init(s, d) {
     const t = s.tracks.marketer;
     if (!mkOn(s) || !t.launch) { d.skip = true; return; }
@@ -263,6 +265,7 @@ E({
 });
 E({
   id: 'mk_ad_res', cat: '마케팅', title: '광고 결과', tag: 'career',
+  plio: (s, d) => d.pl !== undefined ? d.pl : (d.pl = typeof commSpec === 'function' && d.g ? commSpec(s, { k: 'mk', bd: '아이돌 게시판', t: d.g, tn: d.k === 2 ? 'great' : d.k === 1 ? 'good' : d.plan === null || d.plan === undefined ? 'meh' : 'bad' }) : null),
   init(s, d) {
     const t = s.tracks.marketer;
     if (!mkOn(s) || !t.ad) { d.skip = true; return; }

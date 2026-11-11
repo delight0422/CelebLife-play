@@ -255,7 +255,8 @@ function liveProps(sp) {
 // ───── 라이브 방송 플랫폼 (12-3): 버튜버 (회사 소속 버츄얼 아이돌 · 개인세 버튜버 모두) ─────
 // 지어낸 플랫폼 이름과 대표 색 (사용자가 정함, 2026-11-11). 색은 style.css의 --pf-live · --pf-video와 같다
 // live: 라이브 방송 플랫폼(치지직 감성) · video: 영상 플랫폼(유튜브 감성, 팝업은 아직 안 만듦)
-const PF = { live: { n: '라이브온', c: '#B8F044' }, video: { n: '플리오', en: 'PLIO', c: '#FF914D' } };
+// comm: 커뮤니티(모든 직업이 같이 쓴다). 이름과 색은 임시로 붙였다 (사용자가 정하면 여기와 style.css의 --pf-comm만 바꾸면 된다)
+const PF = { live: { n: '라이브온', c: '#B8F044' }, video: { n: '플리오', en: 'PLIO', c: '#FF914D' }, comm: { n: '와글', en: 'WAGLE', c: '#7C9CFF' } };
 // 왼쪽은 방송 화면(아바타 · LIVE · 시청자 수 · 후원 알림), 오른쪽은 채팅
 // 여기서는 채팅이 곧 현장 반응이다. 줄 종류: chat(채팅) · don(후원) · del(매니저가 지운 채팅) · join(다른 방송인이 들어옴)
 // sp.x = { sub: 방송 종류(debut · d3 · anniv · concert · endure · avatar 새 아바타 공개 · mile 구독자 기념 · grad 졸업 · collab 합방), co: 합방 상대, mgr: 매니저가 있는지(없으면 '삭제된 채팅'), subs: 구독자, nick: 팬들이 부르는 이름, mates: 들어올 방송인 이름들, d3 }. 요인: sk(방송 실력)
@@ -382,12 +383,89 @@ function plioHTML(sp) {
 }
 // 배너: 누르면 팝업이 열리고, 다시 누르면 닫힌다
 function plioKey(sp) { UI.plioMap = UI.plioMap || {}; const k = UI.plioN = (UI.plioN || 0) + 1; UI.plioMap[k] = sp; delete UI.plioMap[k - 400]; return k; }
-function plioBtnHTML(sp, label) { return sp && sp.v === 'plio' ? `<button class="pf-bn plio" data-plio="${plioKey(sp)}"><b>▶ ${PF.video.en}</b><span>${U.esc(label || '플리오에서 반응 보기')}</span></button>` : ''; }
+function plioBtnHTML(sp, label) { if (sp && sp.v === 'comm') return commBtnHTML(sp, label); return sp && sp.v === 'plio' ? `<button class="pf-bn plio" data-plio="${plioKey(sp)}"><b>▶ ${PF.video.en}</b><span>${U.esc(label || '플리오에서 반응 보기')}</span></button>` : ''; }
 function plioToggle(k) {
   const sp = (UI.plioMap || {})[k];
   if (!sp) return;
   if (UI.plioOpen === k && !$('#pop').classList.contains('hidden')) { popClose(); return; }
-  popOpen(plioHTML(sp), 'live-card pf-card'); UI.plioOpen = k;
+  popOpen(sp.v === 'comm' ? commHTML(sp) : plioHTML(sp), 'live-card pf-card'); UI.plioOpen = k;
+}
+
+// ───── 커뮤니티 '와글' 팝업 (12-3) ─────
+// 글로 된 반응이 모이는 곳: 웹툰 · 웹소설 연재, 일러스트, 마케터의 홍보, 논란, 그리고 내 이름을 찾아보는 에고서치. 업계 인물 이야기도 인기글에 섞여 올라온다
+// 플리오와 같은 배너 · 같은 크기의 팝업. spec: { v: 'comm', k: 종류, seed, bd: 게시판, t: 작품 · 그룹 · 논란 이름, me: 내 이름, tn: 분위기(great · good · meh · bad · miss · end · top · none), np: [[인물 이름, 시기]] }
+const CM_POST = {
+  serial: {
+    T: { great: ['「{t}」 이번 화 미쳤다', '아직도 「{t}」 안 본 사람 있음?', '「{t}」 작가 천재인 듯'], good: ['「{t}」 요즘 재밌어짐', '「{t}」 추천받고 정주행 중'], meh: ['「{t}」 계속 볼지 고민된다', '「{t}」 요즘 좀 늘어지지 않냐'], bad: ['「{t}」 하차합니다', '「{t}」 초반이 제일 재밌었다'], miss: ['「{t}」 또 휴재네', '「{t}」 이번에도 안 올라옴'], end: ['「{t}」 완결 났다… 허전하다', '「{t}」 완결 기념으로 정주행 달린다'], top: ['「{t}」 1위 찍었다', '「{t}」 드디어 1위'] },
+    B: { great: '이번 화 마지막 장면 보고 소리 질렀다. 다음 화까지 어떻게 기다리냐.', good: '처음엔 그냥 그랬는데 갈수록 재밌다. 보는 사람이 더 늘었으면 좋겠다.', meh: '나쁘진 않은데 요즘 전개가 느리다. 다들 어떻게 생각함?', bad: '초반엔 좋았는데 이제 못 보겠다. 나는 여기까지인 듯.', miss: '작가 건강이 먼저긴 한데… 너무 자주 쉬는 거 아니냐.', end: '끝까지 다 본 작품이 오랜만이다. 작가님 수고하셨습니다.', top: '오를 줄 알았다. 초반부터 본 사람으로서 뿌듯하다.' },
+    C: { great: ['ㄹㅇ 이번 화 레전드', '작가님 사랑해요', '결제한 돈이 안 아깝다', '미리보기 질렀다', '{me} 작가 믿고 본다'], good: ['나도 재밌게 보는 중', '갈수록 좋아진다', '추천 누르고 간다', '{me} 작가 요즘 폼 좋네'], meh: ['나만 그런 게 아니었네', '그래도 계속 보긴 한다', '몰아서 볼 예정', '좀 더 지켜보자'], bad: ['나도 하차했다', '초심을 잃었다', '아쉽다', '{me} 작가 왜 이러지'], miss: ['기다릴게요…', '휴재 공지도 이제 안 놀랍다', '건강 챙기세요', '독자 다 떠나겠다', '{me} 작가 요즘 무슨 일 있나'], end: ['차기작 기다립니다', '인생작이었다', '외전 내 주세요', '{me} 작가 다음 작품도 본다'], top: ['축하합니다!!', '내가 키웠다', '이제 영상으로 만들어 줘', '{me} 작가 드디어 떴다'] },
+  },
+  illust: {
+    T: { great: ['이 그림 누가 그린 거임?', '{me} 작가 그림 미쳤다'], good: ['{me} 작가 그림체 좋다', '이번 일러 잘 뽑혔네'], meh: ['이번 일러 무난하네', '그림은 평범한 듯'], bad: ['이번 일러 좀 이상하지 않냐', '그림체가 안 어울린다'] },
+    B: { great: '보자마자 저장했다. 다른 그림도 찾아보는 중.', good: '색감이 마음에 든다. 다음 작업도 기대된다.', meh: '나쁘진 않은데 기억에 남지는 않는다.', bad: '원래 분위기랑 너무 다르다. 나만 그렇게 느끼나.' },
+    C: { great: ['배경 화면으로 바꿨다', '팔로우했다', '색감 미쳤다', '{me} 작가 이름 외워 둔다'], good: ['예쁘다', '저장하고 간다', '다음 그림도 기대'], meh: ['무난하다', '그냥 그렇다', '나쁘진 않다'], bad: ['나도 좀 어색했다', '이전 작가가 더 나았다', '수정했으면 좋겠다'] },
+  },
+  mk: {
+    T: { great: ['{t} 이번 홍보 일 잘하네', '{t} 요즘 어디서나 보인다'], good: ['{t} 이번 홍보 괜찮다', '{t} 컴백 소식 여기저기서 본다'], meh: ['{t} 컴백한 줄도 몰랐다', '{t} 홍보가 좀 조용하네'], bad: ['{t} 홍보팀 일 안 하냐', '{t} 홍보가 너무 없다'] },
+    B: { great: '출근길에도 보고 퇴근길에도 봤다. 이번엔 회사가 제대로 민다.', good: '예전보다 눈에 잘 띈다. 이 정도면 괜찮은 듯.', meh: '팬 아니면 컴백한 줄 모를 것 같다. 좀 더 알려 줬으면.', bad: '곡은 괜찮은데 아무도 모른다. 홍보를 하긴 하는 건가.' },
+    C: { great: ['홍보 담당자 상 줘라', '입덕했다', '회사가 드디어 일한다', '이번엔 뜨겠다'], good: ['나도 봤다', '괜찮네', '이번엔 좀 다르다'], meh: ['나도 몰랐다', '아쉽다', '조용하긴 하네'], bad: ['팬들만 속 탄다', '홍보 담당자 누구냐', '곡이 아깝다'] },
+  },
+  scandal: {
+    T: { meh: ['{me} {t} 뭐임?', '{me} 이야기 정리해 준다', '{me} 입장은 언제 나옴?'] },
+    B: { meh: '기사 보고 왔는데 아직 뭐가 맞는지 모르겠다. 아는 사람 있음?' },
+    C: { meh: ['중립 기어 박는다', '입장 나올 때까지 기다리자', '실망이다', '원래 그런 줄 알았다', '팬인데 믿고 기다린다', '사실이면 끝이지', '또 시작이네, 다들 진정해', '기사 제목만 보고 욕하지 말자'] },
+  },
+  ego: {
+    T: { great: ['{me} 요즘 안 나오는 데가 없다', '{me}한테 입덕했다', '{me} 요즘 폼 미쳤다'], good: ['{me} 괜찮지 않냐', '{me} 요즘 눈에 띈다'], meh: ['{me} 누군지 아는 사람?', '{me} 요즘 뭐 함?'], bad: ['{me} 요즘 이미지 안 좋네', '{me} 왜 이렇게 됐냐'] },
+    B: { great: '어딜 가나 이름이 보인다. 나만 좋아하는 줄 알았는데 다들 좋아하네.', good: '처음엔 몰랐는데 볼수록 괜찮다. 더 잘됐으면 좋겠다.', meh: '이름은 들어 본 것 같은데 뭐 하는 사람인지 모르겠다.', bad: '예전엔 좋아했는데 요즘은 이름만 봐도 좀 그렇다.' },
+    C: { great: ['나도 팬이다', '요즘 대세 맞다', '실물이 더 낫다더라', '오래 봤으면 좋겠다'], good: ['나도 눈여겨보는 중', '잘될 것 같다', '호감이다'], meh: ['처음 듣는다', '찾아봐야겠다', '아는 사람만 아는 듯', '이름은 들어 봤다'], bad: ['나도 좀 그렇다', '조용히 지내는 게 낫겠다', '예전이 좋았다', '그래도 지켜보는 중'] },
+  },
+};
+// 인기글 목록에 섞이는 잡담
+const CM_CHAT = ['오늘 저녁 뭐 먹지', '요즘 볼 거 추천 좀', '월요일 실화냐', '다들 주말에 뭐 함', '이번 분기 뭐가 제일 재밌냐', '비 오는 날 듣기 좋은 노래 추천', '야식 참는 법 좀', '다들 최애가 누구임'];
+const CM_NPC = { rookie: ['{n} 신인인데 눈에 띈다', '{n} 요즘 누구냐는 말 많더라'], rise: ['{n} 요즘 폼 미쳤다', '{n} 곧 뜰 것 같다'], peak: ['{n} 요즘 대세 맞지?', '{n} 안 나오는 데가 없다'], fall: ['{n} 예전 같지 않네', '{n} 요즘 조용하다'], rest: ['{n} 요즘 뭐 함?', '{n} 근황 아는 사람'] };
+// 업계 인물 가운데 내가 아는 사람 · 관심 인물 둘까지 (없으면 아무나 한 명)
+function commNpcs(s) {
+  if (typeof npcList !== 'function') return [];
+  const L = npcList(s), K = L.filter(n => n.fol || n.kn);
+  return U.shuffle(K.length ? K : L).slice(0, K.length ? 2 : 1).map(n => [n.n, n.ph || 'rise']);
+}
+function commSpec(s, o) { return { v: 'comm', k: o.k, seed: U.int(1, 2e9), bd: o.bd || '자유 게시판', t: o.t || '', me: o.me || '', tn: o.tn || 'meh', np: commNpcs(s) }; }
+function commTone(sc) { return sc >= 80 ? 'great' : sc >= 65 ? 'good' : sc >= 52 ? 'meh' : 'bad'; }
+// 글 하나와 댓글, 그리고 인기글 목록
+function commParts(sp) {
+  const R = liveRng(sp.seed), pk = a => a[Math.floor(R() * a.length)], P = CM_POST[sp.k] || CM_POST.ego;
+  const tn = P.T[sp.tn] ? sp.tn : 'meh', fill = x => x.split('{t}').join(sp.t).split('{me}').join(sp.me);
+  const used = {}, take = arr => { for (let i = 0; i < 12; i++) { const x = pk(arr); if (!used[x]) { used[x] = 1; return x; } } return null; };
+  const title = fill(pk(P.T[tn])), views = Math.round(300 + R() * 4000 * (tn === 'great' || tn === 'top' ? 6 : 1));
+  // 댓글: 내 이름이 없으면 이름이 들어간 댓글은 뺀다
+  const pool = P.C[tn].filter(x => sp.me || !x.includes('{me}')), C = [];
+  for (let i = 0; i < Math.min(5, pool.length); i++) { const x = take(pool); if (x) C.push({ who: take(PL_NICK) || '익명', x: fill(x), up: Math.round(2 + R() * views * 0.03) }); }
+  C.sort((a, b) => b.up - a.up);
+  // 인기글: 인물 이야기와 잡담
+  const r0 = Math.floor(R() * 2), hot = (sp.np || []).map(([n, ph], i) => { const A = CM_NPC[ph] || CM_NPC.rise; return A[(r0 + i) % A.length].split('{n}').join(n); }); // 두 사람이 같은 말로 올라오지 않게
+  while (hot.length < 4) { const x = take(CM_CHAT); if (!x) break; hot.push(x); }
+  return { title, body: fill(P.B[tn]), who: take(PL_NICK) || '익명', views, up: Math.round(views * (0.03 + R() * 0.08)), C, hot: hot.map(x => [x, 3 + Math.floor(R() * 90)]) };
+}
+function commHTML(sp) {
+  const top = `<div class="pl-top"><span class="pl-logo cm">💬 ${PF.comm.en}</span><span class="pl-sub">${PF.comm.n} · ${U.esc(sp.bd)}</span></div>`;
+  if (sp.tn === 'none') return top + `<div class="cm-none"><b>'${U.esc(sp.me)}'</b> 검색 결과 0건<span>아직 아무도 내 이야기를 하지 않는다</span></div>`;
+  const X = commParts(sp);
+  return top + `<div class="pl-wrap cm-wrap"><div class="pl-main"><div class="cm-post"><div class="cm-bd">${U.esc(sp.bd)}</div><div class="cm-t">${U.esc(X.title)}</div><div class="cm-by"><i class="pl-av" style="background:hsl(${hashN(X.who) % 360} 55% 58%)">${U.esc(X.who.slice(0, 1))}</i>${U.esc(X.who)} · 조회 ${plN(X.views)} · 추천 ${plN(X.up)}</div><div class="cm-b">${U.esc(X.body)}</div></div>`
+    + `<div class="cm-hot"><div class="cm-hot-h">🔥 실시간 인기글</div>${X.hot.map(([x, n]) => `<div class="cm-hot-i"><span>${U.esc(x)}</span><em>[${n}]</em></div>`).join('')}</div></div>`
+    + `<div class="pl-cm cm"><div class="pl-cm-h">댓글 ${X.C.length}개</div><div class="pl-cm-b">${X.C.map(c => `<div class="pl-c"><i class="pl-av" style="background:hsl(${hashN(c.who) % 360} 55% 58%)">${U.esc(c.who.slice(0, 1))}</i><div><b>${U.esc(c.who)}</b><span>${U.esc(c.x)}</span><em>👍 ${plN(c.up)}</em></div></div>`).join('')}</div></div></div>`;
+}
+function commBtnHTML(sp, label) { return sp && sp.v === 'comm' ? `<button class="pf-bn comm" data-plio="${plioKey(sp)}"><b>💬 ${PF.comm.en}</b><span>${U.esc(label || `${PF.comm.n}에서 반응 보기`)}</span></button>` : ''; }
+// 에고서치: 지금 내 이름으로 올라오는 글. 논란이 있으면 그 이야기, 아니면 인지도와 이미지에 따라. 같은 달에는 같은 글이 나온다
+function commNow(s) {
+  if (UI.cmNow && UI.cmNow.t === s.t && UI.cmNow.id === me(s).id) return UI.cmNow.sp;
+  const nm = me(s).name, bd = '자유 게시판';
+  let sp;
+  if (s.scandal && typeof SC !== 'undefined' && SC[s.scandal.id]) sp = commSpec(s, { k: 'scandal', bd: '이슈 게시판', t: SC[s.scandal.id].n, me: nm, tn: 'meh' });
+  else if (totalFans(s) < 300 && (s.fame || 0) < 5) sp = commSpec(s, { k: 'ego', bd, me: nm, tn: 'none' });
+  else sp = commSpec(s, { k: 'ego', bd, me: nm, tn: (s.stigma || 0) >= 15 ? 'bad' : (s.fame || 0) >= 55 ? 'great' : (s.fame || 0) >= 25 ? 'good' : 'meh' });
+  UI.cmNow = { t: s.t, id: me(s).id, sp };
+  return sp;
 }
 // ───── 방송 성과 (결과 창의 상자) ─────
 // 방송 한 번의 숫자: 최고 시청자 수와 채팅에 뜬 후원 합계. 장면이 씨앗으로 정해지니 창을 안 봐도 같은 값이다
