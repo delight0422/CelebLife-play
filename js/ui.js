@@ -732,8 +732,9 @@ function dreamLine(s) {
 // ───── 인생 결산 창 (12-5) ─────
 // 가운데 정렬 배치(예전 시안 C)에 밝은 색과 무대의 막을 입혔다. 색 조합만 다른 시안 세 가지 (A 붉은 막 · B 푸른 막 · C 보랏빛 막). 사용자가 고르면 나머지는 지운다
 // 머리(이름 · 칭호 · 주 직업 테마) → 숫자 → 해마다 그래프 → 대표작 → 트로피 선반 → 걸어온 길(세로 줄) → 인연 → 자녀
-const END_STYLES = [['A', '붉은 막'], ['B', '푸른 막'], ['C', '보랏빛 막']];
-function endStyle() { if (!UI.endStyle) { try { UI.endStyle = localStorage.getItem('celebLife.endStyle') || 'A'; } catch (e) { UI.endStyle = 'A'; } } return UI.endStyle; }
+// P 사진 무대(v149): 사용자가 준 무대 사진(img/ending/stage.webp)을 머리에 그대로 쓰고, 아래는 무대 바닥에서 이어지는 어두운 바탕
+const END_STYLES = [['P', '사진 무대'], ['A', '붉은 막'], ['B', '푸른 막'], ['C', '보랏빛 막']];
+function endStyle() { if (!UI.endStyle) { try { UI.endStyle = localStorage.getItem('celebLife.endStyle2') || 'P'; } catch (e) { UI.endStyle = 'P'; } } return UI.endStyle; }
 // 그래프 자료: 해마다 기록이 있으면 그것, 없으면(예전 세이브) 작품 수입으로 번 돈만 어림한다
 function endYears(s) {
   // 팬도 번 돈도 없던 어린 시절은 그래프에서 뺀다 (처음 무언가 생기기 바로 전 해부터)
@@ -1427,8 +1428,8 @@ function panelJob() {
   if (!ci.some(r => Array.isArray(r) && r[0] === '내 실력')) { const cs = careerSkill(s, id); if (cs) rows.push(['내 실력', cs]); }
   const cl = contractLine(s, id); if (cl) { const m = c.cLeft(s, t); rows.push(['계약 기간', `${cl.replace('계약 ', '')} (${Math.max(0, m)}개월 남음)`]); }
   // 그 직업으로 지금까지 번 돈은 맨 위에
-  const fanTxt = MK.filter(m => (s.fans[m] || 0) >= 1).map(m => `${MK_N[m]} ${fmtFans(s.fans[m])}`).join(' · ') || '아직 없다';
-  const info = [['번 돈', fmtWon((s.jobEarn || {})[id] || 0)], ['내 팬', fanTxt]].concat(POP_JOBS.includes(id) ? [['인기', popTxt(jpop(s, id))]] : [], rows, ci);
+  // 이 일로 모은 팬 (v149): 직업마다 따로 센다. 합친 팬 수는 상태 박스에 있다
+  const info = [['번 돈', fmtWon((s.jobEarn || {})[id] || 0)], ['이 일로 모은 팬', fmtFans(Math.round((s.jf || {})[id] || 0))]].concat(POP_JOBS.includes(id) ? [['인기', popTxt(jpop(s, id))]] : [], rows, ci);
   // 그 일에서 함께 일하는 팀들 (피드백 28 · 29): 내가 그 팀 사람이면 '나'도 들어간다
   for (const x of jobTeams(s, id)) info.push({ h: coTeamName(x.tk), items: coTeamItems(s, x.tk, x.me, x.lead) });
   if (SONG_JOBS.includes(id)) info.push({ h: '곡 컨셉 숙련도', bars: cmBars(s) });
@@ -1788,7 +1789,7 @@ document.addEventListener('click', e => {
   if (t.id === 'end-title') { closeAll(); showTitle(); return; }
   if (t.dataset.endclose != null) { $('#modal').classList.add('hidden'); UI.endPrev = null; return; }
   // 결산 창 시안 바꾸기 (고르시면 이 줄은 없앤다) · 메뉴의 미리 보기
-  if (t.dataset.endstyle) { UI.endStyle = t.dataset.endstyle; try { localStorage.setItem('celebLife.endStyle', UI.endStyle); } catch (e) { } showEnding('keep'); return; }
+  if (t.dataset.endstyle) { UI.endStyle = t.dataset.endstyle; try { localStorage.setItem('celebLife.endStyle2', UI.endStyle); } catch (e) { } showEnding('keep'); return; }
   if (t.dataset.endprev != null) { closePanel(); showEnding(true); return; }
   if (t.dataset.confirm != null) { $('#confirm').classList.add('hidden'); const f = UI.onConfirm; UI.onConfirm = null; if (t.dataset.confirm === '1' && f) f(); return; }
   // 특기 그만두기 (v101 · v102 이름 바뀜): 지금 하는 직업의 대표 특기는 못 그만둔다. 다시 배우면 1레벨부터
@@ -1820,7 +1821,7 @@ document.addEventListener('click', e => {
   if (t.dataset.submit != null) { const vals = {}; document.querySelectorAll('#mcard input[data-k]').forEach(i => vals[i.dataset.k] = i.type === 'checkbox' ? i.checked : i.value); const pre = resPre(S), err = submitForm(S, vals); if (err) { $('#form-err').textContent = err; return; } if (!resAfter(pre, -1)) afterChoice(); return; }
   if (t.dataset.cancel != null) { cancelForm(S); afterChoice(); return; }
   // 창을 내려 둔 채 패널 버튼으로 새 창(회사 돈 꺼내기 등)을 열면 그 창은 바로 보여 준다. 내려 둔 창은 대기열에 돌아가 있다가 새 창을 마치면 다시 뜬다 (v116 버그 1)
-  if (t.dataset.act != null) { const a = UI.acts[+t.dataset.act]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, r = a.run(S); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t, () => { if (UI.overlay === 'company') S.uiOpen = 'company'; }); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
+  if (t.dataset.act != null) { const a = UI.acts[+t.dataset.act]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, jf0 = totalFans(S), jfJ = UI.overlay === 'job' ? UI.jobId : null, r = a.run(S); jfAdd(S, jfJ, totalFans(S) - jf0); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t, () => { if (UI.overlay === 'company') S.uiOpen = 'company'; }); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
   // 오른쪽 생활 카드의 버튼과 탭
   if (t.dataset.lact != null) { const a = (UI.lacts || [])[+t.dataset.lact]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, r = a.run(S); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
   // 오른쪽 생활 칸의 묶음을 누르면 그 묶음 창이 뜬다 (휴대폰 생활 창에서 누르면 그 창이 바뀐다)

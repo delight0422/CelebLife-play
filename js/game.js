@@ -485,6 +485,27 @@ function resDv(s, L0, e0) {
     return;
   }
 }
+// ───── 직업별 팬 (v149) ─────
+// 팬은 나라별(s.fans)로 세고, 그 팬을 어느 직업으로 모았는지를 s.jf에 따로 적는다. 합은 늘 전체 팬과 같다 (jfSync)
+// 직업의 한 달 일 · 그 직업 사건 · 직업 창에서 누른 일로 바뀐 팬은 그 직업 몫, 어느 직업인지 알 수 없는 것(논란 · 일상 · 인물과의 일)은 '그 밖'(_etc) 몫
+// 팬이 저절로 빠질 때(해마다 조금씩 · 나라별 한도)는 모든 몫이 같은 비율로 줄어든다
+function jfAdd(s, id, d) { if (!id || !d) return; const J = s.jf = s.jf || {}; J[id] = Math.max(0, (J[id] || 0) + d); }
+function jfSync(s) {
+  const J = s.jf = s.jf || {}, T = totalFans(s);
+  let S = 0; for (const k in J) S += J[k];
+  if (S < T) J._etc = (J._etc || 0) + (T - S);
+  else if (S > T && S > 0) { const r = T / S; for (const k in J) J[k] *= r; }
+}
+// 사건이 어느 직업의 일인가: 사건 이름의 앞머리로 가린다. 모르는 직업 사건은, 하는 일이 하나뿐이면 그 일로 본다
+const EV_JOB_PRE = [['idol_', 'idol'], ['solo_', 'solo'], ['band_', 'band'], ['player_', 'player'], ['actor_', 'actor'], ['drama_', 'actor'], ['var_', 'variety'], ['tv_', 'variety'], ['model_', 'model'], ['vo_', 'voice'], ['voice_', 'voice'], ['dc_', 'dancer'], ['dancer_', 'dancer'], ['yt_', 'youtube'], ['youtube_', 'youtube'], ['mcn_', 'youtube'], ['vi_', 'vidol'], ['dir_', 'director'], ['script_', 'writer'], ['anr_', 'anr'], ['tr_', 'trainer'], ['atr_', 'acttrainer'], ['prod_', 'producer'], ['il_', 'illust'], ['mk_', 'marketer'], ['pf_', 'prof'], ['prof_', 'prof'], ['tu_', 'tutor'], ['an_', 'animator'], ['adir_', 'adir'], ['co_', 'agency'], ['ded_', 'editor'], ['edit', 'editor']];
+function evJobOf(s, id, d) {
+  if (/^w_/.test(id)) return d && CAREERS[d.kind] ? d.kind : null;
+  if (/^wb_/.test(id)) return d && CAREERS[d.id] ? d.id : null;
+  for (const [p, j] of EV_JOB_PRE) if (id.indexOf(p) === 0) return j;
+  const ev = EVENTS[id];
+  if (ev && ev.tag === 'career') { const on = CAREER_IDS.filter(k => CAREERS[k] && trackOn(s, k)); if (on.length === 1) return on[0]; }
+  return null;
+}
 function fireEvent(s, id, d = {}) {
   const ev = EVENTS[id];
   if (!ev) { console.warn('없는 사건', id); return; }
@@ -493,7 +514,7 @@ function fireEvent(s, id, d = {}) {
   const n0 = s.log.length, tok = U.uid(), ag = s.tracks && s.tracks.agency;
   const pre = { money: s.money, fans: totalFans(s), stress: s.stress, co: ag && typeof ag.money === 'number' ? ag.money : null, grow: typeof growSnap === 'function' ? growSnap(s) : null };
   const tap0 = MONEY_TAP ? Object.fromEntries(Object.entries(MONEY_TAP).map(([k, o]) => [k, o.v])) : null;
-  if (ev.init) ev.init(s, d);
+  if (ev.init) { ev.init(s, d); jfAdd(s, evJobOf(s, id, d), totalFans(s) - pre.fans); }
   for (let i = n0; i < s.log.length; i++) s.log[i].sp = tok;
   if (tap0) { pre.tap = {}; for (const k in MONEY_TAP) if (MONEY_TAP[k].v !== (tap0[k] || 0)) pre.tap[k] = 1; }
   EV_E0 = { id, dv: evalDiff(e0, evalSnap(s)) };
@@ -547,7 +568,9 @@ function submitForm(s, vals) {
   if (!p) return '';
   const ev = EVENTS[p.id];
   s.pending = null;
+  const jf0 = totalFans(s);
   const r = ev.submit(s, p.d, vals) || {};
+  jfAdd(s, evJobOf(s, p.id, p.d), totalFans(s) - jf0);
   applyLocks(s);
   if (r.err) { if (!s.pending) s.pending = p; return r.err; }
   if (r.log) addLog(s, r.log, ev.tag || 'ev');
@@ -571,7 +594,9 @@ function choose(s, i) {
   const c = evChoices(s)[i];
   if (!c || (c.ok && !c.ok(s))) return;
   s.pending = null;
+  const jf0 = totalFans(s);
   const r = c.f ? c.f(s, p.d) : '';
+  jfAdd(s, evJobOf(s, p.id, p.d), totalFans(s) - jf0);
   applyLocks(s);
   if (r) {
     addLog(s, r, ev.tag || 'ev'); s.log[s.log.length - 1].e = ev.id;
@@ -638,7 +663,9 @@ function autoEvs(s) {
     try { tx = ev.text ? ev.text(s, d) : ''; hh = ev.html && !ev.autoNoHtml ? ev.html(s, d) : ''; } catch (e) { }
     const k0 = learnedSkills(me(s)).length, e0 = evalSnap(s), dv0 = EV_E0 && EV_E0.id === p.id ? EV_E0.dv : [];
     s.pending = null;
+    const jf0 = totalFans(s);
     const r = c.f ? c.f(s, d) : '';
+    jfAdd(s, evJobOf(s, p.id, d), totalFans(s) - jf0);
     const dv = dvAdd(dv0, evalDiff(e0, evalSnap(s))).filter(([k]) => !(/→/.test(r || '') && / 평가$/.test(k)));
     applyLocks(s);
     const fresh = learnedSkills(me(s)).length > k0;
@@ -878,7 +905,7 @@ function tick(s) {
   // 학교 수업은 학업을 조금씩 올려 준다. 귀가부는 집에서 공부하는 시간이 있어 더 빨리 오른다
   if (schoolYear(s) >= 1 && !s.edu.graduated && !s.army && has(me(s), 'study')) practice(s, me(s), 'study', s.flags.homeClub ? 0.5 : 0.25);
   if (!s.army) scoutByWork(s);
-  if (!s.army) { for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && trackOn(s, id) && c.monthly) { (s.carM = s.carM || {})[id] = (s.carM[id] || 0) + 1; EARN_JOB = id; const L0 = s.log[s.log.length - 1], e0 = evalSnap(s); try { c.monthly(s, s.tracks[id]); } finally { EARN_JOB = null; } resDv(s, L0, e0); } } worksMonth(s); jobIdleMonth(s); lateMonth(s); stageMonth(s); }
+  if (!s.army) { for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && trackOn(s, id) && c.monthly) { (s.carM = s.carM || {})[id] = (s.carM[id] || 0) + 1; EARN_JOB = id; const L0 = s.log[s.log.length - 1], e0 = evalSnap(s), jf0 = totalFans(s); try { c.monthly(s, s.tracks[id]); } finally { EARN_JOB = null; } jfAdd(s, id, totalFans(s) - jf0); resDv(s, L0, e0); } } worksMonth(s); jobIdleMonth(s); lateMonth(s); stageMonth(s); }
   // 군 복무 중에도 내 회사는 돌아간다 (대표의 할 일은 못 한다)
   else { armyMonth(s); if (typeof coArmy === 'function') coArmy(s); }
   familyMonth(s);
@@ -906,6 +933,7 @@ function tick(s) {
   s.monHist = (s.monHist || []).concat([{ t: s.t, items: s.mon.items, fam: s.mon.familyPaid || 0 }]).slice(-12);
   const fade = age(s) >= 50 ? 0.99 : age(s) >= 35 ? 0.993 : 0.996;
   MK.forEach(m => { s.fans[m] = Math.round(s.fans[m] * fade); });
+  jfSync(s);
   s.peak.fans = Math.max(s.peak.fans, totalFans(s));
   s.peak.money = Math.max(s.peak.money, s.money);
 }
@@ -1186,6 +1214,8 @@ function pfRename(o) {
 }
 function migrate(s) {
   if (!s.pfRen) { pfRename(s); s.pfRen = 1; }
+  // v149: 직업별 팬. 예전 세이브는 지금 팬을 직업마다 번 돈의 비율로 나눠서 시작한다 (번 돈 기록이 없으면 모두 '그 밖')
+  if (!s.jf && s.fans && s.tracks) { s.jf = {}; const T = totalFans(s), E = s.jobEarn || {}, ks = Object.keys(E).filter(k => E[k] > 0 && s.tracks[k]); const sum = ks.reduce((a, k) => a + E[k], 0); if (T > 0 && sum > 0) for (const k of ks) s.jf[k] = T * E[k] / sum; jfSync(s); }
   // 피드백 22: 예전 '영화감독(내 영화 만들기)'을 없앴다. 하던 사람은 영화감독(예전 연출감독) 일로 옮기고, 하던 기획은 접는다
   { const fm = s.tracks.filmmaker;
     if (fm && fm.st !== 'none' && fm.st !== 'ended') {

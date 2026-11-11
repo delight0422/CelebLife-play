@@ -1197,3 +1197,20 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
   .en-name { font-size: 32px; } .en-hero::after { font-size: 110px; }
   .en-n b { font-size: 14px; } .en-body { padding: 0 12px; }
 }
+
+/* 시안 P 사진 무대 (v149): 사용자가 준 무대 사진을 머리에 그대로 쓴다. 이름은 조명이 떨어지는 가운데에, 아래는 무대 바닥에서 이어지는 어두운 바탕 */
+.en.cv-P { --bg: #120b08; --ink: #f4e7d3; --sub: #b59d85; --pap: #1e130e; --ln: #3b271d; --acc: #e2b45c; --c1: #e9c57a; --c2: #ff9a7a; --glow: transparent; }
+.cv-P .en-hero { background: linear-gradient(180deg, transparent 62%, #120b08 100%), url("img/ending/stage.webp") center top / cover no-repeat, #120b08; padding: 15% 23% 9%; min-height: 0; color: #fff; text-shadow: 0 2px 14px rgba(0, 0, 0, .85); }
+.cv-P .en-hero::after { display: none; }
+.cv-P .en-hero > .en-drape, .cv-P .en-hero > .en-val { display: none; }
+.cv-P .en-kicker { color: #f0cf8c; }
+.cv-P .en-title { background: rgba(0, 0, 0, .45); border-color: #e2b45c; color: #f6dca0; text-shadow: none; }
+.cv-P .en-years { color: #d8c5ad; }
+.cv-P .en-badges span { background: rgba(0, 0, 0, .5); color: #f6dca0; text-shadow: none; }
+.cv-P .en-last { border-top-color: rgba(226, 180, 92, .45); color: #f1e3cd; }
+.cv-P .en-body { margin-top: 0; padding-top: 10px; }
+.cv-P .en-w.top { box-shadow: 0 0 26px rgba(226, 180, 92, .2); }
+.cv-P .en-w-r { color: #1b110c; } .cv-P .en-w.top .en-w-r { color: #1b110c; }
+.cv-P .en-tr { box-shadow: 0 6px 14px rgba(226, 180, 92, .14); }
+.cv-P .en-b i { color: #1b110c; }
+@media (max-width: 760px) { .cv-P .en-hero { padding: 20% 16% 10%; background-size: auto 100%, cover, auto; } }
