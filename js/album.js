@@ -169,6 +169,9 @@ function albNpc(s, o) {
   if (albWriters(x).length) src.push('mem');
   const demos = albDemos(s, x), my = o.my ? albMyDemo(s, x) : null;
   if (my) demos.push(my);
+  // v157 자작곡의 길: 심사 피드백을 들었으면 조금 더 잘 쓰고(myB), 공동 프로듀서면 늘 다섯 곡에 오르고 고를 때도 더 챙겨 본다(myPass)
+  if (my && o.myB) my.q = Math.min(95, my.q + o.myB);
+  if (my && o.myPass) { my.pass = true; my.fav = 8; }
   // 가수 본인 · 멤버가 쓴 곡을 조금 더 챙겨 본다 (o.fav: 솔로 · 밴드)
   if (o.fav) for (const d of demos) if (d === my || d.src === 'mem') d.fav = o.fav;
   const sc = albScreen(s, x, demos, o.anr || { sd: 8 });

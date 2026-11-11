@@ -659,7 +659,8 @@ CAREERS.idol = {
     if (t.st === 'trainee') return [{ t: '연습생 그만두기', h: '기획사를 나온다. 다른 회사 오디션은 다시 볼 수 있다', ok: true, danger: true, confirm: '정말 연습생을 그만둘까요?', run: s => { const n = t.agN; quitTrainee(s, '스스로 그만둠'); return `${n} 연습생을 그만뒀다.`; } }];
     if (t.st === 'active') {
       const left = Math.max(0, t.contract - t.months), pen = Math.round(left * 200e4 * t.tier);
-      return songSubActs(s, t).concat([{ t: '그룹 탈퇴', h: `계약이 ${left}개월 남았다 · 위약금 약 ${fmtWon(pen)} · 팬들 반응이 나쁘다`, ok: true, danger: true, confirm: '정말 그룹을 탈퇴할까요?', run: s => { s.debt += pen; const r = '그룹을 탈퇴했다.' + fx(s, { pop: -10, rep: -5, fkr: -Math.round(s.fans.kr * 0.3) }); endGroup(s, '탈퇴'); return r; } }]);
+      // v157: 내 곡 내기 · 가사 내기는 골라서 하는 일로 옮겼다 (idolev.js)
+      return [].concat([{ t: '그룹 탈퇴', h: `계약이 ${left}개월 남았다 · 위약금 약 ${fmtWon(pen)} · 팬들 반응이 나쁘다`, ok: true, danger: true, confirm: '정말 그룹을 탈퇴할까요?', run: s => { s.debt += pen; const r = '그룹을 탈퇴했다.' + fx(s, { pop: -10, rep: -5, fkr: -Math.round(s.fans.kr * 0.3) }); endGroup(s, '탈퇴'); return r; } }]);
     }
     return [];
   },
@@ -678,6 +679,8 @@ function idolTraineeMonth(s, t) {
   for (let i = 0; i < n; i++) for (const k of ks) if (has(p, k)) practice(s, p, k, t.kind === 'band' ? (k === t.part ? 1 : 0.3) : 1.0, mult);
   for (const m of people(s, x => x.trainee === t.ag)) for (const k of (m.part ? [m.part] : ['vocal', 'dance', 'rap'])) { matePot(m, k); mateGrow(s, m, k, 1); }
   addStress(s, 2.5);
+  // v157: 켜 둔 일(연기 · 예능 · 동기 챙기기) · 트레이너 특훈 (idolev.js)
+  if (typeof idolWaysMonth === 'function') idolWaysMonth(s, t);
   const band = t.kind === 'band';
   const mine = (band ? traineeScore(s, t) + idolAgeAdj(age(s)) * 0.5 : idolScore(s)) + pm(s, 'audition', 0) + U.normal(0, 3);
   // 아이돌 연습생 기준: 17세 전에는 같은 나이 또래와 비교한다 (한 살 어릴 때마다 6점 낮게). 오래 있어도 기준은 3점까지만 오른다
@@ -688,10 +691,13 @@ function idolTraineeMonth(s, t) {
   if (t.months % 3 === 0) {
     t.rank = Math.round(t.rks.reduce((a, x) => a + x, 0) / t.rks.length);
     addRes(s, `${t.agN} 월말평가 3개월 평균 ${t.rank}위 (${t.pool}명 중).`);
-    if (!t.team && t.months >= 9 && (t.kind === 'band' || age(s) >= 15) && t.rank <= Math.max(6, t.pool * 0.35) && U.chance(0.45) && !hasQ(s, 'idol_team')) queueEv(s, 'idol_team', 0);
+    // 데뷔조 마지막 한 자리를 놓쳤으면(v157) 다음 데뷔조 1순위
+    if (!t.team && t.months >= 9 && (t.kind === 'band' || age(s) >= 15) && (t.rank <= Math.max(6, t.pool * 0.35) || t.seatLost) && U.chance(t.seatLost ? 0.9 : 0.45) && !hasQ(s, 'idol_team')) queueEv(s, 'idol_team', 0);
   }
   if (t.team) {
     t.prep++;
+    // v157: 데뷔조 인원이 한 명 많을 때가 있다 (마지막 한 자리)
+    if (t.prep === 2 && t.kind !== 'band' && !t.seatQ && U.chance(0.3)) { t.seatQ = true; queueEv(s, 'idol_last_seat', 0); }
     // 중간 점검: 데뷔조 안에서도 순위가 밀리면 빠지고, 회사 사정으로 데뷔가 통째로 무산되기도 한다
     if (t.prep === 3 && !hasQ(s, 'idol_teamcut')) {
       if (t.rank > t.pool * 0.4 && U.chance(0.5)) queueEv(s, 'idol_teamcut', 0, { why: 'rank' });
@@ -711,17 +717,19 @@ function idolActiveMonth(s, t) {
   // 앨범 회의 · 앨범 발매는 그달 다른 일보다 먼저 (다른 창이 먼저 떠서 컴백이 한 달씩 밀리지 않게)
   qFront(s, ['idol_cbres', 'idol_cb']);
   const g = t.g, p = me(s), n = slotsOn(s, 'c_idol');
-  // 그룹 연습으로 노래·춤·랩이 는다. 활동기에는 무대·스케줄로 바빠서 혼자 연습만큼, 쉬는 기간에는 회사 연습실에서 더 많이 (예능은 안 는다)
-  for (let i = 0; i < n; i++) for (const k of ['vocal', 'dance', 'rap']) if (has(p, k)) practice(s, p, k, t.promo > 0 ? 1 : 1.4);
+  // 그룹 연습으로 노래·춤·랩이 는다. v157: 자동으로 하는 일이 시기에 따라 바뀐다 — 활동(무대·스케줄) · 개인 연습(내 포지션 위주) · 활동 준비(녹음·안무, 팀워크도) (idolev.js)
+  const ph = idolAutoPractice(s, t, n);
   // 멤버도 같이 큰다 (v117 밸런스 A). 같이 활동한 시간만큼 팀워크가 조금씩
   const tmI = teamOf(s, 'idol'); if (tmI) teamGrow(s, tmI, 1);
   twAdd(g, twOf(g) < 60 ? 0.5 : -0.3); // 그냥 같이 지내는 것만으로는 60까지. 그 위는 팀 활동 · 사건으로 올리고, 손을 놓으면 천천히 내려온다
   if (t.promo > 0) { t.promo--; addStress(s, 4 * pm(s, 'crowdStress')); }
   else {
-    addStress(s, 1.5);
-    // 앨범과 앨범 사이: 회사가 잡아 주는 광고·예능·화보·팬미팅·라디오 스케줄 (v154: 다음 앨범을 만드는 동안에도 온다. 오는 횟수는 예전과 같게)
-    if (!hasQ(s, 'idol_side') && U.chance(IDOL_SIDE_P)) queueEv(s, 'idol_side', 0);
+    addStress(s, ph === 'prep' ? 2 : 1.5);
+    // 앨범과 앨범 사이: 회사가 잡아 주는 광고·예능·화보·팬미팅·라디오 스케줄 (v154: 다음 앨범을 만드는 동안에도 온다. 오는 횟수는 예전과 같게. v157: 일을 잘 따 오는 매니저면 조금 더)
+    if (!hasQ(s, 'idol_side') && U.chance(IDOL_SIDE_P * (t.mgrK === '열정' ? 1.3 : 1))) queueEv(s, 'idol_side', 0);
   }
+  // v157: 켜 둔 일 · 고정 예능 · 매니저 (idolev.js)
+  idolWaysMonth(s, t);
   // 다음 앨범 (v154 앨범 제작 틀): 활동 둘째 · 셋째 달에 회사가 기획을 시작하고, 심사 · 선정 → 편곡 · 작사 → 녹음을 거쳐 석 달 뒤에 나온다 (컴백 간격은 그대로 5~6달)
   if (t.alb) idolAlbMonth(s, t);
   else if (--t.nextCb <= 0 && !hasQ(s, 'idol_cbres') && !hasQ(s, 'idol_cb')) idolNextComeback(s, t);
@@ -747,6 +755,9 @@ function idolActiveMonth(s, t) {
   if (!t.usDebut && gf > 1.5e6 && U.chance(0.03)) queueEv(s, 'idol_us', 0);
   if (t.tier === 1 && t.months >= 36 && (t.flops || 0) >= 3 && U.chance(0.05)) queueEv(s, 'idol_disband', 0);
   if (t.months >= t.contract) queueEv(s, 'idol_contract', 0);
+  // v157: 계약 끝나기 반년 전 재계약 이야기 · 12월 연말 합동 무대
+  else if (t.contract - t.months === 6 && !t.rn && !hasQ(s, 'idol_renego')) queueEv(s, 'idol_renego', 0);
+  if (calM(s) === 11 && gf >= 5e4 && U.chance(0.2) && !hasQ(s, 'idol_year_stage')) queueEv(s, 'idol_year_stage', 0);
   if (!trackOn(s, 'solo') && t.months >= 30 && (lv(p, 'vocal') >= 40 || lv(p, 'rap') >= 40) && U.chance(0.015) && !s.inbox.some(m => m.kind === 'idol_solo')) sendMsg(s, 'idol_solo', { from: t.agN, title: '솔로 데뷔 제안', months: 8, d: {} });
   if (calM(s) === 11) musicAwards(s, t, g.name, musicRookie(s, true), 'idol');
 }
@@ -778,9 +789,11 @@ function agProd(s, agId, o) {
 // 아이돌 그룹 앨범을 시작한다: 회사가 ①~④를 정하고, 편곡 · 작사 한 달 + 녹음 한 달 뒤(데뷔 앨범은 한 달 뒤)에 성적표가 온다
 function idolAlbStart(s, t, c, debut) {
   const g = t.g, ag = AG[t.ag] || { tier: t.tier || 1 }, P = idolPpl(s, g), who = agProd(s, t.ag, g);
-  const r = albNpc(s, { tier: ag.tier, rep: agPlan(t), sig: g.sig, mem: P.slice(1), cs: [c], ok: debut ? x => x === c : x => cAgeOK(s, P, x, 1), boss: who.p, bossN: who.n, anr: agAnr(s, t.ag), my: !!t.subSong && has(me(s), 'compose'), lyr: !!t.subLyr && has(me(s), 'lyric') });
+  // v157: 자작곡의 길 — 심사 피드백을 들었으면 내 곡이 조금 나아지고(myB), 공동 프로듀서면 내 곡은 늘 후보에 오른다(myPass)
+  const r = albNpc(s, { tier: ag.tier, rep: agPlan(t), sig: g.sig, mem: P.slice(1), cs: [c], ok: debut ? x => x === c : x => cAgeOK(s, P, x, 1), boss: who.p, bossN: who.n, anr: agAnr(s, t.ag), my: !!t.subSong && has(me(s), 'compose'), lyr: !!t.subLyr && has(me(s), 'lyric'), myB: t.myB || 0, myPass: !!t.selfProd });
   const a = albKeep(s, r, true);
   if (debut) a.deb = 1;
+  else if (typeof idolArcAlb === 'function') idolArcAlb(s, t); // 전담 프로듀서와의 인연 (다음 앨범 · 그다음 앨범)
   t.alb = a; t.nextCb = 99;
   if (who.p && who.p.ind) meetAt(s, who.p, `「${g.name}」 ${debut ? '데뷔 앨범' : '앨범'}`, 'idol');
   queueEv(s, 'idol_cbres', debut ? 1 : 3, { c: a.c, debut: !!debut, a });
@@ -789,7 +802,7 @@ function idolAlbStart(s, t, c, debut) {
 // 앨범을 만드는 동안: 곡이 정해진 달에 소식 (내 곡 · 가사가 어떻게 됐는지). 성적표가 사라졌으면 다음 앨범으로
 function idolAlbMonth(s, t) {
   const a = t.alb, k = s.t - a.at;
-  if (k === 1 && !a.deb && !a.told) { a.told = true; addLog(s, albNewsLine(s, a, `「${t.g.name}」 다음 앨범에 실을`), 'career'); }
+  if (k === 1 && !a.deb && !a.told) { a.told = true; addLog(s, albNewsLine(s, a, `「${t.g.name}」 다음 앨범에 실을`), 'career'); if (typeof idolMyArc === 'function') idolMyArc(s, t, a); }
   if (k > 6 && !hasQ(s, 'idol_cbres')) { t.alb = null; t.nextCb = 1; }
 }
 // '내 곡 내기 · 가사 내기' (v154): 켜 두면 다음 앨범부터 내 곡이 데모곡 모집에 들어가 남의 곡과 똑같이 심사를 받고, 실린 곡의 가사를 맡을 수도 있다
@@ -840,7 +853,8 @@ E({
   cond: s => s.tracks.idol.st === 'active' && !(s.tracks.idol.promo > 0),
   init(s, d) {
     const t = s.tracks.idol, g = t.g, p = me(s), gf = groupFans(g), main = t.mkt === 'jp' ? 'jp' : 'kr';
-    const K = U.wpick(IDOL_SIDE, x => x.w(g)), k = K.id;
+    // v157: 예능 감을 익히고 있으면 예능 섭외가 두 배
+    const K = U.wpick(IDOL_SIDE, x => x.w(g) * (x.id === 'show' && (t.ways || []).includes('var') ? 2 : 1)), k = K.id;
     const cast = sideCast(s, g, K), n = cast.length, whole = n === g.members.length + 1;
     const others = cast.filter(id => id !== s.me).map(id => s.people[id].name);
     d.n = K.n;
@@ -1043,7 +1057,9 @@ function idolRelease(s, t, c, debut, a) {
   // 회사 크기 보너스는 아이돌만 따로
   // 컨셉 궁합 (v97): 멤버들의 재능 · 나이 · 랩
   const cf = cFit(s, c, [p].concat(g.members.map(id => s.people[id]).filter(Boolean)), stageYrs(s));
-  const sc = songScore(s, { perf: cPerf(groupPower(s, g), cf), q, fans: gf, tier: 0, trend: c === s.trend, bonus: IDOL_TIER_B[t.tier] + (g.star - 50) * 0.12 + (c === g.sig ? 3 : 0) + Math.min(t.cbCount, 6) * 0.6 + buzz + g.mo - tired + rookie + cScoreB(cf) });
+  // v157: 이번 한 번의 보탬 — 안무 수정(무대) · 내 파트가 늘거나 줄었으면 내 몫 (idolev.js)
+  const ob = typeof idolTakeB === 'function' ? idolTakeB(t) : { st: 0, part: 0 };
+  const sc = songScore(s, { perf: cPerf(groupPower(s, g), cf), q, fans: gf, tier: 0, trend: c === s.trend, bonus: IDOL_TIER_B[t.tier] + (g.star - 50) * 0.12 + (c === g.sig ? 3 : 0) + Math.min(t.cbCount, 6) * 0.6 + buzz + g.mo - tired + rookie + cScoreB(cf) + ob.st });
   g.mo = g.mo * 0.6 + U.normal(0, 4.5);
   const peak = chartFromScore(sc);
   jpopWork(s, 'idol', sc);
@@ -1059,7 +1075,7 @@ function idolRelease(s, t, c, debut, a) {
   MK.forEach(m => { g.f[m] = U.clamp(g.f[m] + gain[m], 0, FANCAP[m]); });
   const wins = showWins(sc, groupFans(g));
   // 내 개인 팬 (v94): 외모 · 스타성, 그리고 노래(랩) · 춤 실력이 좋을수록 그룹 팬 중에서 나를 좋아하는 사람이 많다
-  const share = U.clamp(0.3 + ((p.tal.looks * 0.4 + p.tal.star * 0.3 + Math.max(lv(p, 'vocal'), lv(p, 'rap')) * 0.15 + lv(p, 'dance') * 0.15) - 45) / 80, 0.12, 0.85) * 3 / (g.members.length + 1);
+  const share = U.clamp(0.3 + ((p.tal.looks * 0.4 + p.tal.star * 0.3 + Math.max(lv(p, 'vocal'), lv(p, 'rap')) * 0.15 + lv(p, 'dance') * 0.15) - 45) / 80, 0.12, 0.85) * 3 / (g.members.length + 1) * (1 + ob.part);
   const my = {};
   MK.forEach(m => { my[m] = Math.round(Math.max(0, gain[m]) * share * myRoom(s, m)); s.fans[m] += my[m]; });
   const title = a ? a.title : songTitle();
@@ -1115,7 +1131,7 @@ E({
   id: 'idol_team', cat: '연습생', title: '데뷔조 발탁', tag: 'career', keepPop: true, // v123: 요약에만 남기지 않고 창으로
   cond: s => s.tracks.idol.st === 'trainee',
   text: s => { const t = s.tracks.idol; return `${t.agN}에서 새 ${t.kind === 'band' ? '밴드' : '그룹'} 데뷔조를 꾸린다. 최근 평가 ${t.rank}위로 이름이 올랐다.\n\n이제 반년쯤 데뷔 준비에 들어간다. 준비 중에도 평가가 밀리면 빠질 수 있다.`; },
-  ch: () => [{ t: '열심히 하겠습니다', f: s => { const t = s.tracks.idol; t.team = true; t.prep = 0; return '데뷔조에 들어갔다!' + fx(s, { stress: -4 }); } }],
+  ch: () => [{ t: '열심히 하겠습니다', f: s => { const t = s.tracks.idol; t.team = true; t.prep = 0; t.seatLost = false; t.seatQ = false; return '데뷔조에 들어갔다!' + fx(s, { stress: -4 }); } }],
 });
 // 방출: 회사가 정해서 알려 준다 (연습생은 고를 수 없다)
 function releaseTrainee(s, why) {
@@ -1286,10 +1302,12 @@ E({
   ch(s) {
     const t = s.tracks.idol, ga = groupAges(s, t.g);
     // 멤버 평균 나이가 28세를 넘으면 한 살마다 남을 가능성이 크게 준다
-    const p = U.clamp(U.sig((Math.log10(1 + groupFans(t.g)) - 4.6) * 2) * (ga.avg > 28 ? Math.max(0.3, 1 - (ga.avg - 28) * 0.15) : 1), 0.05, 0.9);
+    // v157: 반년 전 재계약 이야기에서 정한 태도 (idolev.js idolRnOf): 남을 가능성 · 회사 몫이 내려가는 만큼
+    const rn = typeof idolRnOf === 'function' ? idolRnOf(t) : { p: 0, cut: 0.15 }, cut1 = Math.max(0.3, Math.round((t.cut - rn.cut) * 100) / 100);
+    const p = U.clamp(U.sig((Math.log10(1 + groupFans(t.g)) - 4.6) * 2) * (ga.avg > 28 ? Math.max(0.3, 1 - (ga.avg - 28) * 0.15) : 1) + rn.p, 0.05, 0.92);
     return [
       // 재계약 조건 숫자와 남은 빚 (v118 UI C5)
-      { t: '다 같이 재계약하자고 한다', h: `멤버 전원이 남을 가능성 ${fmtPct(p)} · 회사 몫 ${pctN(t.cut)} → ${pctN(Math.max(0.3, t.cut - 0.15))} · 4년 (${ymLater(s, Math.max(0, t.contract + 48 - t.months))}까지)${t.debt > 0 ? ` · 남은 빚 ${fmtWon(t.debt)}은 정산에서 갚는다` : ''}`, f: s => { if (U.chance(p)) { const c0 = t.cut; t.contract += 48; t.cut = Math.max(0.3, t.cut - 0.15); milestone(s, `${age(s)}세에 「${t.g.name}」 멤버 전원이 재계약했다.`); return `멤버 전원 재계약! 그룹이 계속된다. 회사 몫 ${pctN(c0)} → ${pctN(t.cut)}, 계약 ${ymLater(s, Math.max(0, t.contract - t.months))}까지.` + fx(s, { stress: -10 }); } endGroup(s, '계약 만료로 해체'); return '몇몇 멤버가 떠나기로 했다. 그룹은 사실상 해체됐다.' + fx(s, { stress: 6 }); } },
+      { t: '다 같이 재계약하자고 한다', h: `멤버 전원이 남을 가능성 ${fmtPct(p)} · 회사 몫 ${pctN(t.cut)} → ${pctN(cut1)} · 4년 (${ymLater(s, Math.max(0, t.contract + 48 - t.months))}까지)${t.debt > 0 ? ` · 남은 빚 ${fmtWon(t.debt)}은 정산에서 갚는다` : ''}`, f: s => { t.rn = null; if (U.chance(p)) { const c0 = t.cut; t.contract += 48; t.cut = cut1; milestone(s, `${age(s)}세에 「${t.g.name}」 멤버 전원이 재계약했다.`); return `멤버 전원 재계약! 그룹이 계속된다. 회사 몫 ${pctN(c0)} → ${pctN(t.cut)}, 계약 ${ymLater(s, Math.max(0, t.contract - t.months))}까지.` + fx(s, { stress: -10 }); } endGroup(s, '계약 만료로 해체'); return '몇몇 멤버가 떠나기로 했다. 그룹은 사실상 해체됐다.' + fx(s, { stress: 6 }); } },
       { t: '그룹은 정리하고 솔로로 회사에 남는다', h: '같은 회사 소속 솔로 가수가 된다', f: s => { const ag = t.ag; endGroup(s, '계약 만료로 해체'); return startSoloSigned(s, ag, { type: bestSoloType(s) }); } },
       { t: '회사를 떠나 새 길을 찾는다', h: '직업 지원에서 다른 일을 시작할 수 있다', f: s => { endGroup(s, '계약 만료로 해체'); return '회사를 떠났다. 이제 무엇을 할지는 내가 정한다.'; } },
     ];

@@ -1497,7 +1497,11 @@ function jobTaskHTML(s, id) {
   let h = `<div class="sec-h">${c.act.ic} 할 일 <span class="n">일정 ${n}칸${f ? ` · 고정 ${f}칸` : ''}</span></div>`;
   if (f) {
     h += `<div class="lnote">🔒 ${U.esc(lockWhy(s, 'c_' + id) || c.n)} · 정해진 일정이라 그만둘 수 없다</div>`;
-    for (const x of jobTasks(id)) if (cur && cur.id === x.id) h += `<div class="act lrow"><div><div class="a-t">${U.esc(`${x.ic} ${x.n}`)}<span class="tag">하는 중</span></div><div class="lr-eff">${U.esc(x.eff.map(([k, v]) => `${k} ${v}`).join(' · '))}</div></div><span class="act-fixed">🔒 고정</span></div>`;
+    // v157: 자동으로 하는 일이 시기에 따라 바뀌는 직업(아이돌)은 그 목록을 보여 준다 (지금 하는 것에 '하는 중')
+    const AL = c.autoList ? c.autoList(s, s.tracks[id]) : null;
+    if (AL && AL.length > 1) h += `<div class="lnote">🔄 자동으로 하는 일 · 시기에 따라 저절로 바뀐다</div>`;
+    if (AL) for (const x of AL) h += `<div class="act lrow${x.on ? '' : ' off'}"><div><div class="a-t">${U.esc(`${x.ic} ${x.n}`)}${x.on ? '<span class="tag">하는 중</span>' : ''}</div><div class="lr-eff">${U.esc(x.eff)}</div></div>${x.on ? '<span class="act-fixed">🔒 고정</span>' : ''}</div>`;
+    else for (const x of jobTasks(id)) if (cur && cur.id === x.id) h += `<div class="act lrow"><div><div class="a-t">${U.esc(`${x.ic} ${x.n}`)}<span class="tag">하는 중</span></div><div class="lr-eff">${U.esc(x.eff.map(([k, v]) => `${k} ${v}`).join(' · '))}</div></div><span class="act-fixed">🔒 고정</span></div>`;
     return h + jobPicksHTML(s, id, true);
   }
   // 할 일이 하나뿐이면 저절로 한다: 고르는 버튼 없이 '하는 중'만 (v118 UI B4)
@@ -1518,10 +1522,12 @@ function jobTaskHTML(s, id) {
 // 골라서 하는 일 (v117: 밴드 · 아이돌 그룹의 팀 활동). 그 직업 일을 하고 있을 때만 고를 수 있다
 // 골라서 한 일은 직업마다 언제 했는지 적어 둔다. 고를 수 있는 일이 있는데 석 달 넘게 하나도 안 했으면 그 직업 배너에 레드닷 (v118 UI B4)
 function pickWrap(id, a) { if (!a.run) return a; const r = a.run; return Object.assign({}, a, { run: s => { (s.pickT = s.pickT || {})[id] = s.t; return r(s); } }); }
-function pickDue(s, id) { const c = CAREERS[id]; if (!c.picks || !jobN(s, id)) return false; let P = []; try { P = c.picks(s, s.tracks[id]) || []; } catch (e) { } const last = (s.pickT || {})[id]; return P.some(a => a.ok) && (last == null || s.t - last >= 3); }
+// v157: 켜 두는 일(sw)은 레드닷에서 뺀다 (켜 둔 채로 두는 게 정상이라서)
+function pickDue(s, id) { const c = CAREERS[id]; if (!c.picks || !jobN(s, id)) return false; let P = []; try { P = c.picks(s, s.tracks[id]) || []; } catch (e) { } const last = (s.pickT || {})[id]; return P.some(a => a.ok && !a.sw) && (last == null || s.t - last >= 3); }
+// sec: 그 줄 위에 붙이는 작은 안내 (v157 아이돌: '켜 두면 매달 꾸준히 한다' · '한 번 하는 일')
 function jobPicksHTML(s, id, on) {
   const c = CAREERS[id], P = c.picks ? c.picks(s, s.tracks[id]) : [];
-  return P.length ? `<div class="sec-h">🖐️ 골라서 하는 일</div>` + P.map(a => actRow(Object.assign({}, pickWrap(id, a), on ? {} : { ok: false, why: '일정에 이 일을 넣어야 할 수 있다' }))).join('') : '';
+  return P.length ? `<div class="sec-h">🖐️ 골라서 하는 일</div>` + P.map(a => (a.sec ? `<div class="lnote">${U.esc(a.sec)}</div>` : '') + actRow(Object.assign({}, pickWrap(id, a), on ? {} : { ok: false, why: '일정에 이 일을 넣어야 할 수 있다' }))).join('') : '';
 }
 // 직업 활동 두 갈래 (7-4단계부터): 칸만 넣어 두면 자동으로 하는 일 + 칸을 넣은 채로 골라서 하는 일 (c.picks)
 function jobAutoHTML(s, id, n) {
