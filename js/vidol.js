@@ -159,14 +159,14 @@ E({
     return { log: '' };
   },
 });
-// 실시간 창 (12-3): 라이브 방송 플랫폼. sub: 방송 종류 (debut 데뷔 방송 · d3 3D 공개 · anniv 기념 방송 · concert 3D 라이브 · endure 내구 방송)
+// 실시간 창 (12-3): 라이브 방송 플랫폼. sub: 방송 종류 (debut 데뷔 방송 · d3 3D 공개 · anniv 기념 방송 · concert 3D 라이브 · endure 내구 방송 · grad 졸업 방송)
 // 방송 실력(viAppeal)이 채팅 분위기를 정한다. 동기 · 선배가 방송에 들어오기도 한다
 function viLive(s, t, sub, o) {
   o = o || {};
   if (typeof liveStage !== 'function') return null;
   const ap = viAppeal(s, t), nick = (t.sn && t.sn.nick) || t.ch;
-  const T = { debut: `【데뷔】 처음 뵙겠습니다, ${t.ch}입니다!`, d3: `【3D 공개】 ${t.ch}, 움직입니다`, anniv: `【${o.y || 1}주년】 기념 방송`, concert: `【3D LIVE】 ${t.ch} 콘서트`, endure: '【내구】 24시간 방송' };
-  return liveStage({ k: 'stream', place: 'LOOP 라이브', t: T[sub], g: t.ch, cn: nick, mem: [[t.ch, '']], mi: 0, key: o.key !== false, sc: o.sc != null ? o.sc : U.clamp(50 + (ap - 55) * 1.5, 0, 100), z: { sk: (ap - 55) / 12 },
+  const T = { debut: `【데뷔】 처음 뵙겠습니다, ${t.ch}입니다!`, d3: `【3D 공개】 ${t.ch}, 움직입니다`, anniv: `【${o.y || 1}주년】 기념 방송`, concert: `【3D LIVE】 ${t.ch} 콘서트`, endure: '【내구】 24시간 방송', grad: `【졸업】 ${t.ch}의 마지막 방송` };
+  return liveStage({ k: 'stream', place: PF.live.n, t: T[sub], g: t.ch, cn: nick, mem: [[t.ch, '']], mi: 0, key: o.key !== false, sc: o.sc != null ? o.sc : U.clamp(50 + (ap - 55) * 1.5, 0, 100), z: { sk: (ap - 55) / 12 },
     x: { sub, subs: t.subs, nick, mates: viMates(s, t).concat(viSeniors(s, t)).slice(0, 4).map(viName), d3: sub === 'd3' || sub === 'concert' || !!t.d3 } });
 }
 function viDebut(s, given, nick) {
@@ -323,7 +323,7 @@ E({
     } });
     if (d.want) C.push({ t: `${josa(t.corpN, '과와')} 재계약`, h: `회사 몫 ${pctN(Math.max(0.2, t.cut - 0.1))} · 3년`, f: s => { t.tamper = null; t.cut = Math.max(0.2, Math.round((t.cut - 0.1) * 100) / 100); t.months = 0; t.contract = 36; return `${josa(t.corpN, '과와')} 재계약했다.`; } });
     C.push({ t: '개인세로 독립한다', h: '아바타는 회사 것이라 새 아바타로 다시 태어나고, 구독자 일부만 따라온다', f: s => viGoSolo(s, t) });
-    C.push({ t: '졸업한다', h: '버츄얼 아이돌 활동을 마친다', f: s => { viEnd(s, t, '졸업'); milestone(s, `${age(s)}세에 「${t.ch}」 졸업 방송을 했다.`); return `「${t.ch}」 졸업 방송을 했다.`; } });
+    C.push({ t: '졸업한다', h: '버츄얼 아이돌 활동을 마친다', f: s => { const live = viLive(s, t, 'grad', { sc: 75 }); viEnd(s, t, '졸업'); milestone(s, `${age(s)}세에 「${t.ch}」 졸업 방송을 했다.`); const log = `「${t.ch}」 졸업 방송을 했다.`; return showResult(s, '졸업 방송', log, log, live); } });
     return C; },
 });
 // 템퍼링: 계약 기간 중에 다른 회사가 몰래 이적을 제안한다. 걸리면 논란이 되고 다시는 버튜버로 데뷔할 수 없다
@@ -382,7 +382,7 @@ CAREERS.vidol = {
   },
   actions(s, t) {
     if (t.st !== 'active') return [];
-    return [{ t: '졸업 (버츄얼 아이돌 은퇴)', ok: true, danger: true, confirm: '정말 졸업할까요?\n계약이 남아 있어도 활동을 마쳐요.', run: s => { viEnd(s, t, '졸업'); milestone(s, `${age(s)}세에 「${t.ch}」 졸업 방송을 했다.`); return `「${t.ch}」 졸업 방송을 했다.`; } }];
+    return [{ t: '졸업 (버츄얼 아이돌 은퇴)', ok: true, danger: true, confirm: '정말 졸업할까요?\n계약이 남아 있어도 활동을 마쳐요.', run: s => { const live = viLive(s, t, 'grad', { sc: 75 }); viEnd(s, t, '졸업'); milestone(s, `${age(s)}세에 「${t.ch}」 졸업 방송을 했다.`); const log = `「${t.ch}」 졸업 방송을 했다.`; return showResult(s, '졸업 방송', log, log, live); } }];
   },
   monthly(s, t) {
     const n = slotsOn(s, 'c_vidol'), task = n ? (jobTask(s, 'vidol') || {}).id : null, p = me(s);
