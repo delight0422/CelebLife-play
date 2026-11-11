@@ -561,10 +561,16 @@ function showEventRaw() {
   const hx = ev.html ? ev.html(s, d) : '';
   UI.res = null;
   let h = `<button class="m-min" data-min>창 내리기</button><div class="m-cat">${U.esc(ev.cat || '')}</div><div class="m-title">${U.esc(typeof ev.title === 'function' ? ev.title(s, d) : ev.title)}</div>${hx ? `<div class="m-html">${hx}</div>` : `<div class="m-text">${rich(ev.text(s, d))}</div>`}`;
+  let T = null; if (ev.tbl) { try { T = ev.tbl(s, d); } catch (e) { console.error('표 오류', s.pending.id, e); T = null; } }
   if (ev.form) {
-    // type 'check': 체크 칸 한 줄 (오디션 지원자·그룹 멤버 고르기). 나머지는 글자 적는 칸
-    h += ev.form(s, d).map(f => f.type === 'won' ? wonFieldHTML(f) : f.type === 'check' ? `<label class="ck-row"><input type="checkbox" data-k="${f.k}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}${f.tr ? TR_BADGE : ''}</span>${f.sub ? `<span class="ck-h">${U.esc(f.sub)}</span>` : ''}</span></label>` : `<div class="field"><label>${U.esc(f.label)}</label><input data-k="${f.k}" value="${U.esc(f.value || '')}" maxlength="${f.max || 20}" placeholder="${U.esc(f.ph || '')}"></div>`).join('');
+    // type 'check': 체크 칸 한 줄 (오디션 지원자·그룹 멤버 고르기). 나머지는 글자 적는 칸. 표(tbl)가 있으면 체크 줄은 표로 간다
+    h += ev.form(s, d).filter(f => !(T && f.type === 'check')).map(f => f.type === 'won' ? wonFieldHTML(f) : f.type === 'check' ? `<label class="ck-row"><input type="checkbox" data-k="${f.k}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}${f.tr ? TR_BADGE : ''}</span>${f.sub ? `<span class="ck-h">${U.esc(f.sub)}</span>` : ''}</span></label>` : `<div class="field"><label>${U.esc(f.label)}</label><input data-k="${f.k}" value="${U.esc(f.value || '')}" maxlength="${f.max || 20}" placeholder="${U.esc(f.ph || '')}"></div>`).join('');
+    if (T) h += evTblHTML(T, true);
     h += `<div class="choices"><button class="btn primary" data-submit>확인</button>${ev.cancel ? '<button class="btn" data-cancel>그만두기</button>' : ''}</div><div class="why" id="form-err"></div>`;
+  } else if (T) {
+    // 표에서 줄을 고르고 아래 보라색 버튼으로 정한다. 표에 없는 선택지(미루기 등)는 옆에 작은 버튼으로
+    const C1 = evChoices(s);
+    h += evTblHTML(T, false) + `<div class="choices tbl-btns"><button class="btn primary" data-tgo disabled>${U.esc(T.go || '고른 것으로 한다')}</button>${(T.rest || []).map(i => C1[i] ? `<button class="btn" data-choice="${i}">${U.esc(C1[i].t)}</button>` : '').join('')}</div>`;
   } else {
     const C1 = evChoices(s);
     // 고를 것이 하나뿐이면 결과 창처럼 보라색 버튼 하나 (스페이스바로 넘어간다, v129)
@@ -576,7 +582,7 @@ function showEventRaw() {
   // 특기를 고르거나 처음 배우는 사건: 내 프로필(재능·타고난 것)을 바로 볼 수 있는 버튼 (고를 게 하나뿐인 사건에는 없다)
   const myProf = !kid && !ev.form && isSkillEv(ev) && evChoices(s).length >= 2;
   h += `<div class="m-foot"><div class="m-stats">${statLine(s)}</div>${kid ? `<button class="btn sm" data-kid="${kid.id}">👶 ${U.esc(kid.name)} 재능</button>` : myProf ? `<button class="btn sm" data-myprof>👤 내 프로필</button>` : ''}</div>`;
-  $('#mcard').className = 'mcard';
+  $('#mcard').className = 'mcard' + (T ? ' wide' : '');
   $('#mcard').innerHTML = h;
   $('#modal').classList.remove('hidden');
   
@@ -584,6 +590,32 @@ function showEventRaw() {
   if (ev.form) { const i = $('#mcard input[data-k]:not([type=checkbox])'); if (i && FINE_POINTER) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
   if (ev.onShow) ev.onShow(s, d, $('#mcard'));
 }
+// ───── 표로 고르는 창 (v131, FM식) ─────
+// 사건이 tbl(s, d)를 주면 체크 줄 · 선택지 대신 넓은 표로 보여 준다. 줄 = 고를 것 하나, 칸 = [정렬에 쓰는 값, 보이는 글]
+// T = { cols: [[키, 이름]], rows: [{ k: 체크 칸 키(폼) 또는 ci: 선택지 번호, on, tr, ok, cells }], rest: 표 밖에 버튼으로 둘 선택지 번호들, go: 고르는 버튼 글 }
+// 칸 이름을 누르면 그 칸으로 줄을 세우고(다시 누르면 거꾸로), 찾기 칸에 적으면 그 글자가 든 줄만 남는다. 줄을 옮기기만 해서 체크는 그대로 남는다
+function evTblHTML(T, form) {
+  UI.tblT = T; UI.tblS = null;
+  const th = T.cols.map(([k, n]) => `<th data-tsort="${k}">${U.esc(n)}<i></i></th>`).join('');
+  const tr = T.rows.map((r, i) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${U.esc(String(c[1]))}${j === 0 && r.tr ? TR_BADGE : ''}</td>`; }).join('') + `</tr>`).join('');
+  return `<div class="tbl-tools"><input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc"></th>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
+}
+function evTblSort(k) {
+  const T = UI.tblT, tb = $('#ev-tbl tbody');
+  if (!T || !tb) return;
+  const val = tr => { const c = T.rows[+tr.dataset.ti].cells[k]; return c ? c[0] : ''; }, rows = [...tb.children];
+  const num = rows.some(r => typeof val(r) === 'number'), dir = UI.tblS && UI.tblS.k === k ? -UI.tblS.dir : (num ? -1 : 1);
+  UI.tblS = { k, dir };
+  rows.sort((a, b) => { const x = val(a), y = val(b); return (num ? (+x || 0) - (+y || 0) : String(x).localeCompare(String(y), 'ko')) * dir; }).forEach(r => tb.appendChild(r));
+  document.querySelectorAll('#ev-tbl th[data-tsort]').forEach(h => { h.classList.toggle('on', h.dataset.tsort === k); h.querySelector('i').textContent = h.dataset.tsort === k ? (dir > 0 ? ' ▲' : ' ▼') : ''; });
+}
+function evTblFilter(q) {
+  const T = UI.tblT; q = String(q || '').trim();
+  if (!T) return;
+  document.querySelectorAll('#ev-tbl tbody tr').forEach(tr => { const r = T.rows[+tr.dataset.ti]; tr.style.display = !q || Object.values(r.cells).some(c => String(c[1]).includes(q)) ? '' : 'none'; });
+}
+// 작은 창에 띄울 글을 버튼에 걸어 둔다 (정산서 버튼처럼 번호로)
+function popBtnHTML(label, html) { UI.popMap = UI.popMap || {}; const k = UI.popN = (UI.popN || 0) + 1; UI.popMap[k] = html; delete UI.popMap[k - 200]; return `<button class="lv-re" data-pop="${k}">${U.esc(label)}</button>`; }
 // 돈 적는 칸 (v118 UI D4): 천만 원 단위로 적고, 아래 버튼으로 ±1억 · ±10억 (가진 돈까지만). 옆에 'X억 원'으로 읽어 준다
 function wonFieldHTML(f) {
   const v = Math.max(0, Math.floor((f.value || 0) / 1e6) / 10), mx = f.max != null ? Math.max(0, Math.floor(f.max / 1e6) / 10) : '';
@@ -739,6 +771,7 @@ function renderPanel() {
   if (P[k]) h += P[k]();
   else if (typeof window['panel_' + k] === 'function') h += window['panel_' + k]();
   h += pResHTML();
+  $('#pcard').classList.toggle('wide', k === 'company'); // 회사 창은 넓게 (v131)
   $('#pcard').innerHTML = h;
   apPlace();
   if (k === 'pick') { const q = $('#pick-q'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }
@@ -1625,6 +1658,18 @@ function setLogSize(d) {
 
 // ───── 버튼 처리 ─────
 document.addEventListener('click', e => {
+  // 표 (v131): 칸 이름을 누르면 정렬, 줄을 누르면 고르기 (체크 칸이 있으면 체크)
+  const th0 = e.target.closest('#ev-tbl th[data-tsort]');
+  if (th0) { evTblSort(th0.dataset.tsort); return; }
+  const row0 = e.target.closest('#ev-tbl tbody tr');
+  if (row0) {
+    if (row0.classList.contains('off')) return;
+    const cb = row0.querySelector('input[type=checkbox]');
+    if (cb) { if (e.target !== cb) cb.checked = !cb.checked; row0.classList.toggle('sel', cb.checked); return; }
+    document.querySelectorAll('#ev-tbl tr.sel').forEach(x => x.classList.remove('sel')); row0.classList.add('sel');
+    const go = $('#mcard [data-tgo]'); if (go) { go.disabled = false; go.dataset.choice = row0.dataset.trow; }
+    return;
+  }
   const t = e.target.closest('button, [data-pick], [data-cat], [data-grp], [data-apg], [data-trk], [data-job], [data-panel], [data-lifesec], [data-moneycard], [data-song], [data-bill], input[type=checkbox]');
   // 실시간 창 (12-1): 결과 바로 보기 · 다시 보기
   if (t && t.dataset.liveskip != null) { liveClose(); return; }
@@ -1655,6 +1700,7 @@ document.addEventListener('click', e => {
   if (t.dataset.endclose != null) { $('#modal').classList.add('hidden'); return; }
   if (t.dataset.confirm != null) { $('#confirm').classList.add('hidden'); const f = UI.onConfirm; UI.onConfirm = null; if (t.dataset.confirm === '1' && f) f(); return; }
   // 특기 그만두기 (v101 · v102 이름 바뀜): 지금 하는 직업의 대표 특기는 못 그만둔다. 다시 배우면 1레벨부터
+  if (t.dataset.pop) { const hh = (UI.popMap || {})[t.dataset.pop]; if (hh) popOpen(hh); return; }
   if (t.dataset.npcfol) { const n = npcBy(S, t.dataset.npcfol); if (n) { npcFollow(n, !n.fol); save(S); renderPanel(); } return; }
   if (t.dataset.skdropmode != null) { UI.skDrop = !UI.skDrop; renderPanel(); return; }
   if (t.dataset.skdrop) {
@@ -1718,7 +1764,7 @@ document.addEventListener('click', e => {
   if (t.dataset.myprof != null) { UI.pfTab = 'tal'; if (UI.overlay) { UI.overlay = 'profile'; renderPanel(); } else openPanel('profile'); return; }
   if (t.dataset.kid) { UI.kid = t.dataset.kid; if (UI.overlay) { UI.overlay = 'kid'; renderPanel(); } else openPanel('kid'); return; }
 });
-document.addEventListener('input', e => { if (e.target.id === 'pick-q') { UI.pickQ = e.target.value; renderPanel(); } if (e.target.dataset && e.target.dataset.won != null) wonEq(e.target); });
+document.addEventListener('input', e => { if (e.target.id === 'tbl-q') evTblFilter(e.target.value); if (e.target.id === 'pick-q') { UI.pickQ = e.target.value; renderPanel(); } if (e.target.dataset && e.target.dataset.won != null) wonEq(e.target); });
 document.addEventListener('compositionend', e => { if (UI.enterComp && e.target.matches && e.target.matches('#mcard input[data-k]')) { UI.enterComp = false; setTimeout(formEnter, 0); } });
 // 자녀 교육비: 고른 아이의 단계 버튼을 보여 준다
 document.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.kidedu != null) { UI.kidEdu = e.target.value; UI.lifeHTML = null; renderLifeCard(); if (UI.overlay) renderPanel(); } });
@@ -1763,7 +1809,7 @@ document.addEventListener('keydown', e => {
   if (e.code === 'Space' && !(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') && $('#confirm').classList.contains('hidden')) {
     if (!$('#pop').classList.contains('hidden')) { e.preventDefault(); if (!e.repeat) popClose(); return; }
     if (!$('#modal').classList.contains('hidden') && !UI.res) {
-      const B = [...document.querySelectorAll('#mcard [data-choice]')].filter(b => b.offsetParent !== null);
+      const B = $('#ev-tbl') ? [] : [...document.querySelectorAll('#mcard [data-choice]')].filter(b => b.offsetParent !== null);
       if (B.length === 1 && !B[0].disabled && !document.querySelector('#mcard input, #mcard textarea')) { e.preventDefault(); if (!e.repeat && Date.now() - (UI.enterT || 0) > 400) B[0].click(); return; }
     }
   }

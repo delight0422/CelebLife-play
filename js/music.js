@@ -49,6 +49,8 @@ function addCatalog(s, title, kind, sc, mult, job) {
 function songScore(s, o) {
   return U.clamp(o.perf * 0.5 + o.q * 0.35 + Math.log10(1 + o.fans) * 3.2 + (o.tier || 0) * 4 + (o.trend ? 5 : 0) + (o.bonus || 0) + U.normal(0, 7) + 4, 0, 100);
 }
+// 음악방송 1위 횟수 (v131): 곡 점수가 높아도 팬 투표가 받쳐 줘야 한다. 그룹 팬 2만 명 아래는 한 번까지, 10만 명 아래는 세 번까지
+function showWins(sc, fans) { const w = sc >= 75 ? U.int(1, Math.max(1, Math.round((sc - 70) / 3))) : (sc >= 70 && U.chance(0.3) ? 1 : 0); return Math.min(w, fans < 2e4 ? 1 : fans < 1e5 ? 3 : 99); }
 // 회사나 남이 써 준 곡의 완성도
 function boughtQ(tier) { return 24 + tier * 7 + U.normal(0, 7); }
 
@@ -205,10 +207,17 @@ function songCardMake(o, F, sc, prevHolder) { const L = songReact(F); return { t
 // 카드가 있는 결과 창 (v119): html이 있으면 창에 본문(text)이 안 나오므로 본문을 카드 위에 붙인다 (v118에서 본문이 빠져 있었다)
 function cardText(s, d) { const p = s.pending, ev = p && p.d === d ? EVENTS[p.id] : null; return ev && typeof rich === 'function' ? `<div class="m-text">${rich(ev.text(s, d))}</div>` : ''; }
 // 결과 창 선택지: 댓글 모니터링
-function songCommentCh(s, d, line) {
+// 쓴소리까지 다 보면 (v131): 스트레스가 크게 오르고(예전의 7~8배), 대신 절반 확률로 그 직업의 대표 특기가 1레벨 오른다
+function harshGain(s, job) {
+  const c = CAREERS[job], k = c && c.mainSk ? c.mainSk(s, s.tracks[job]) : null, p = me(s);
+  if (!k || !has(p, k) || !U.chance(0.5)) return '';
+  const sk = p.sk[k]; sk.lv = Math.min(100, sk.lv + 1); sk.best = Math.max(sk.best || 0, sk.lv); sk.pot = Math.max(sk.pot || 0, sk.lv); sk.last = s.t;
+  return ` 아픈 말을 곱씹으며 연습했다. (${SKILLS[k].n} +1레벨)`;
+}
+function songCommentCh(s, d, line, job) {
   const add = x => { d.card.lines.push(x); const w = s.works.slice().reverse().find(w => w.card && w.card.t === d.card.t); if (w && w.card !== d.card) w.card.lines.push(x); };
   return [
-    { t: '쓴소리까지 다 본다', f: s => { if (d.card && d.card.harsh) add(d.card.harsh); return line + (d.card && d.card.harsh ? ` 아픈 댓글도 봤다. ${d.card.harsh}` : '') + fx(s, { stress: 4 }); } },
+    { t: '쓴소리까지 다 본다', h: '스트레스가 크게 오른다 · 절반 확률로 대표 특기 +1레벨', f: s => { if (d.card && d.card.harsh) add(d.card.harsh); return line + (d.card && d.card.harsh ? ` 아픈 댓글도 봤다. ${d.card.harsh}` : '') + harshGain(s, job) + fx(s, { stress: 30 }); } },
     { t: '좋은 댓글만 본다', f: s => line + fx(s, { stress: -3 }) },
     { t: '댓글은 안 본다', f: () => line },
   ];
@@ -977,7 +986,6 @@ function idolRelease(s, t, c, debut) {
   g.mo = g.mo * 0.6 + U.normal(0, 4.5);
   const peak = chartFromScore(sc);
   jpopWork(s, 'idol', sc);
-  const wins = sc >= 75 ? U.int(1, Math.max(1, Math.round((sc - 70) / 3))) : (sc >= 70 && U.chance(0.3) ? 1 : 0);
   const main = t.mkt === 'jp' ? 'jp' : 'kr';
   const gain = { kr: 0, jp: 0, us: 0 };
   gain[main] = fanGainRaw(sc, g.f[main], 0.6 + t.tier * 0.25, starCap(g.star, main));
@@ -988,6 +996,7 @@ function idolRelease(s, t, c, debut) {
   else gain.kr = Math.round(pos * 0.05);
   gain.us = t.usDebut ? Math.round(fanGainRaw(sc - 6, g.f.us, 0.5, starCap(g.star, 'us')) * langMult(p, 'en')) : Math.round(pos * 0.02);
   MK.forEach(m => { g.f[m] = U.clamp(g.f[m] + gain[m], 0, FANCAP[m]); });
+  const wins = showWins(sc, groupFans(g));
   // 내 개인 팬 (v94): 외모 · 스타성, 그리고 노래(랩) · 춤 실력이 좋을수록 그룹 팬 중에서 나를 좋아하는 사람이 많다
   const share = U.clamp(0.3 + ((p.tal.looks * 0.4 + p.tal.star * 0.3 + Math.max(lv(p, 'vocal'), lv(p, 'rap')) * 0.15 + lv(p, 'dance') * 0.15) - 45) / 80, 0.12, 0.85) * 3 / (g.members.length + 1);
   const my = {};
@@ -1176,7 +1185,7 @@ E({
   // 빚을 갚느라 정산금이 없으면 남은 비용을 특별한 일에 작게 (v89)
   sub: (s, d) => d.r && d.r.debt > 0 ? `이번 활동 정산금은 연습생·제작 비용을 갚는 데 들어갔다 · 남은 비용 ${fmtWon(d.r.debt)}` : '',
   // 댓글 모니터링 (v118 UI C1)
-  ch: (s, d) => songCommentCh(s, d, `「${d.r.title}」 활동을 했다. ${chartText(d.r.peak)}${d.r.wins ? `, 음악방송 1위 ${d.r.wins}회` : ''}.` + (d.r.debt > 0 || !(d.r.pay > 0) ? '' : ` 정산금 ${fmtWon(d.r.pay)}.`) + (d.r.wrote ? ' ' + d.r.wrote : '')),
+  ch: (s, d) => songCommentCh(s, d, `「${d.r.title}」 활동을 했다. ${chartText(d.r.peak)}${d.r.wins ? `, 음악방송 1위 ${d.r.wins}회` : ''}.` + (d.r.debt > 0 || !(d.r.pay > 0) ? '' : ` 정산금 ${fmtWon(d.r.pay)}.`) + (d.r.wrote ? ' ' + d.r.wrote : ''), 'idol'),
 });
 E({
   id: 'idol_jp', cat: '해외 진출', title: '일본 데뷔 결정', tag: 'career',
@@ -1846,7 +1855,7 @@ E({
   // 순위 · 팬 · 반응은 카드에 있다. 본문에는 곡 정보와 앞으로 들어올 돈만 (예전 세이브의 카드 없는 창은 예전처럼)
   text: (s, d) => `밴드 「${s.tracks.band.b.name}」의 ${josa(`「${d.title}」`, '이가')} 나왔다.${d.w || d.c ? ` (${[d.w ? `작곡 ${d.self ? '나' : d.w}` : '', d.c ? `'${d.c}' 콘셉트` : ''].filter(Boolean).join(' · ')})` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 콘셉트다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n밴드 팬 ${sgnFans(d.gain)} · 내 팬 +${fmtFans(d.my)}`}${d.roy >= 1e4 ? `\n\n매달 들어올 음원 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)` : '\n'}${d.bill ? (d.bill.note ? `\n${d.bill.note}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}.`) : d.signed ? (d.debt > 0 ? `\n이번 앨범 정산금 ${fmtWon(d.gross)}은 ${d.fromTr ? '연습생·' : ''}제작 비용을 갚는 데 들어갔다. 남은 비용 ${fmtWon(d.debt)}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}`) : ''}${d.card ? '' : `\n\n반응: ${d.cm}`}`,
   // 댓글 모니터링 (v118 UI C1)
-  ch: (s, d) => songCommentCh(s, d, `밴드 새 곡 ${josa(`「${d.title}」`, '을를')} 냈다. ${chartText(d.peak)}.`),
+  ch: (s, d) => songCommentCh(s, d, `밴드 새 곡 ${josa(`「${d.title}」`, '을를')} 냈다. ${chartText(d.peak)}.`, 'band'),
 });
 // 편곡 회의 (v118 UI C1): 곡을 내기 전에 편곡 방향을 정한다. 고른 방향이 점수(숨은 값)와 발매 결과 카드의 반응에 나온다
 E({
@@ -2156,7 +2165,7 @@ E({
   },
   html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + songCardHTML(d.card) : '',
   text: (s, d) => `「${d.title}」${d.self ? ` (자작곡${d.c ? ` · '${d.c}' 콘셉트` : ''})` : ''} 성적이 나왔다.${d.c && d.c === s.trend ? ' 요즘 유행하는 콘셉트다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n팬 ${sgnFans(d.gain)}`}${d.sale ? `\n\n음반·음원 정산 ${fmtWon(d.sale)}` : ''}\n매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.card ? '' : `\n\n반응: ${d.cm}`}`,
-  ch: (s, d) => songCommentCh(s, d, `${josa(`「${d.title}」`, '을를')} 발표했다. ${chartText(d.peak)}.`),
+  ch: (s, d) => songCommentCh(s, d, `${josa(`「${d.title}」`, '을를')} 발표했다. ${chartText(d.peak)}.`, 'solo'),
 });
 E({
   id: 'solo_contract', cat: '계약', title: '솔로 계약 만료', tag: 'career',

@@ -865,3 +865,26 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 /* v129: 무대 창 아래 진행 칸 여러 개 → 막대 하나 */
 .lv-bar { height: 4px; border-radius: 2px; background: #3a3058; margin: 12px auto 10px; max-width: 320px; overflow: hidden; }
 .lv-bar i { display: block; height: 100%; width: 0; background: #b9a4ff; }
+/* v131: 표로 고르는 창 (FM식) · 넓은 창 */
+.mcard.wide { max-width: 1040px; }
+#pcard.wide { max-width: 1040px; }
+.tbl-tools { display: flex; gap: 10px; align-items: center; margin: 10px 0 6px; }
+.tbl-tools .search { flex: 0 1 220px; margin: 0; }
+.tbl-wrap { overflow: auto; max-height: min(52vh, 520px); border: 1px solid var(--line); border-radius: 12px; }
+.ev-tbl { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+.ev-tbl th { position: sticky; top: 0; z-index: 1; background: #f1eefb; text-align: left; padding: 7px 10px; font-weight: 800; color: var(--ink2); cursor: pointer; user-select: none; border-bottom: 1px solid var(--line); }
+.ev-tbl th:hover, .ev-tbl th.on { color: var(--violet); }
+.ev-tbl th i { font-style: normal; font-size: 10px; }
+.ev-tbl td { padding: 7px 10px; border-bottom: 1px solid var(--line); }
+.ev-tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ev-tbl .tc { width: 28px; padding-right: 0; cursor: default; }
+.ev-tbl tbody tr { cursor: pointer; }
+.ev-tbl tbody tr:hover { background: var(--card2); }
+.ev-tbl tbody tr.sel { background: var(--violet-soft); }
+.ev-tbl tbody tr.off { opacity: .45; cursor: default; }
+.ev-tbl .tdot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid #c9bfe6; vertical-align: middle; }
+.ev-tbl tr.sel .tdot { border-color: var(--violet); background: var(--violet); box-shadow: inset 0 0 0 2px #fff; }
+.tbl-btns { flex-direction: row; flex-wrap: wrap; align-items: center; }
+.ev-each { display: flex; flex-direction: column; gap: 8px; }
+.ev-each div b { display: block; font-size: 13.5px; }
+.ev-each div span { font-size: 12.5px; color: var(--ink2); }

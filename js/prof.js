@@ -106,6 +106,8 @@ CAREERS.prof = {
     const R = [['학교', `${t.uni} (${TIER_N[t.uniT]} 대학 · ${(UNIS.find(u => u.n === t.uni) || {}).con || ''}) ${t.dept}`], ['자리', pfTitle(t) + (t.route === 'grad' ? '' : ' (현장 경력)')]];
     const sal = pfSal(t); if (sal) R.push(['월급', fmtWon(sal)]);
     if (t.deg) R.push(['학위', t.deg]);
+    // 내 실력 (v131): 강의는 학업 · 교육 · 학과 특기로 한다 (pfLecture). 예전엔 이 줄이 없어서 교육이 쓰이는지 알 수 없었다
+    { const p = me(s), D = PF_DEPTS[t.dept] || { sk: [] }, ks = [...new Set(['study', 'edu'].concat(D.sk))].filter(k => SKILLS[k] && has(p, k)); R.push(['내 실력', ks.map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ') || '-']); }
     if (pfTeaches(t)) R.push(['강의 평가', `${Math.round(t.rep)}`]);
     R.push(['연구·작품 실적', `${t.pts}`]);
     const st = (t.studs || []).map(id => s.people[id]).filter(Boolean);
