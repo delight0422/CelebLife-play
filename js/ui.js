@@ -476,14 +476,14 @@ function renderEqCard() {
   el.innerHTML = (lock ? '' : ltDot(s, 'equip')) + `<div class="card-h">🎛️ 장비${lock ? '' : '<span class="bn-arr">›</span>'}</div>` + (L.length ? `<div class="eq-from">${U.esc(from)}${cost ? ` · ${U.esc(cost)}` : ''}</div><div class="eq-list">${L.map(x => `<span>${U.esc(x)}</span>`).join('')}</div>` : `<div class="st">쓰는 장비 없음</div>`);
 }
 // 상태: 군 복무·병은 맨 위에 눈에 띄게 (누르면 자세히)
-// 집에 따라 바뀌는 배경 (v151): img/home/ 안에 그림이 있으면 게임 화면 뒤에 깐다. 없으면 지금 바탕 그대로
+// 집에 따라 바뀌는 배경 (v151): img/bg/ 안에 그림이 있으면 게임 화면 뒤에 깐다. 없으면 지금 바탕 그대로. 원본은 img/home/ 에 두고 python dev/make_bg.py 로 가볍게 줄여 img/bg/ 에 만든다 (v152)
 // 그림 이름: parents(본가) · dorm(기획사 숙소) · s(원룸) · m(투룸 · 아파트) · l(넓은 아파트) + .webp
 function homeBgKey(s) { if (isDorm(s)) return 'dorm'; const h = s.home || {}; return h.mode !== 'alone' || !h.type ? 'parents' : homeSize(h); }
 function homeBgSync() {
   const el = $('#game-screen'); if (!el || !S) return;
   const k = homeBgKey(S); UI.bgOK = UI.bgOK || {};
-  const set = () => { const ok = UI.bgOK[homeBgKey(S)] === 1; el.classList.toggle('has-bg', ok); if (ok) el.style.setProperty('--home-bg', `url("img/home/${homeBgKey(S)}.webp")`); };
-  if (UI.bgOK[k] == null) { UI.bgOK[k] = 0; const im = new Image(); im.onload = () => { UI.bgOK[k] = 1; set(); }; im.onerror = () => { UI.bgOK[k] = -1; }; im.src = `img/home/${k}.webp`; }
+  const set = () => { const ok = UI.bgOK[homeBgKey(S)] === 1; el.classList.toggle('has-bg', ok); if (ok) el.style.setProperty('--home-bg', `url("img/bg/${homeBgKey(S)}.webp")`); };
+  if (UI.bgOK[k] == null) { UI.bgOK[k] = 0; const im = new Image(); im.onload = () => { UI.bgOK[k] = 1; set(); }; im.onerror = () => { UI.bgOK[k] = -1; }; im.src = `img/bg/${k}.webp`; }
   set();
 }
 function renderStatusCard() {
