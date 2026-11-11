@@ -16,7 +16,14 @@ const HOME_SIZES = ['s', 'm', 'l'];
 const HOME_KIND = { monthly: { s: '원룸', m: '투룸', l: '넓은 아파트' }, jeonse: { s: '원룸', m: '아파트', l: '넓은 아파트' }, own: { s: '원룸', m: '아파트', l: '넓은 아파트' } };
 const SIZE_EQ = { s: 2, m: 4, l: 6 };
 // 값 배수: 월세 보증금·전세금은 작은 집이 기준, 매매는 HOUSE.buy(아파트 값)가 중간 집
-const SIZE_PRICE = { monthly: { s: 1, m: 2, l: 5 }, jeonse: { s: 1, m: 2.2, l: 4.5 }, own: { s: 0.5, m: 1, l: 2.2 } };
+// v151: 원룸을 사는 값은 아파트 값의 절반이 아니라 5분의 1 (서울 원룸 6억 → 2억 4천, 강남 12억 5천 → 5억)
+const SIZE_PRICE = { monthly: { s: 1, m: 2, l: 5 }, jeonse: { s: 1, m: 2.2, l: 4.5 }, own: { s: 0.2, m: 1, l: 2.2 } };
+// 집 크기와 스트레스 (v151): 좁은 집은 스트레스가 더디게 풀리고 넓은 집은 빨리 풀린다. 위치와는 상관없다. 본가는 보통, 기획사 숙소는 조금 더디다
+const SIZE_REST = { s: 0.6, m: 1, l: 1.5 };
+const SIZE_REST_N = { s: '스트레스가 더디게 풀린다', m: '스트레스가 보통으로 풀린다', l: '스트레스가 빨리 풀린다' };
+function homeRest(s) { const h = s.home || {}; if (typeof isDorm === 'function' && isDorm(s)) return 0.8; if (s.army) return 1; if (h.mode !== 'alone' || !h.type) return 1; return SIZE_REST[homeSize(h)] || 1; }
+// 이사 갈 동네: 지금 사는 계열이면 지금 동네, 고향 계열이면 고향, 그 밖에는 처음 정한 동네를 기억해 둔다 (집 창을 열 때마다 이름이 바뀌지 않게)
+function mvPlace(s, rid) { if (rid === s.region) return s.place; if (rid === s.birthRegion && s.birthPlace) return s.birthPlace; s.mvP = s.mvP || {}; return s.mvP[rid] || (s.mvP[rid] = U.pick(REGION_BY[rid].places)); }
 // 매달 드는 돈(월세·관리비·생활비) 배수
 const SIZE_COST = { s: 1, m: 1.5, l: 2.5 };
 // 예전 세이브: 크기가 없으면 월세·전세는 작은 집, 매매(내 아파트)는 중간 집
@@ -255,9 +262,9 @@ function moveTo(s, regionId, type, size) {
   if (type === 'monthly') { addMoney(s, -need, '월세 보증금'); h.deposit = need; }
   if (type === 'jeonse') { addMoney(s, -need, '전세금 (내 돈)'); h.deposit = v; h.loan = v - need; }
   if (type === 'own') { addMoney(s, -need, '집값 (내 돈)'); h.value = v; h.loan = v - need; }
-  if (s.region !== regionId) { s.region = regionId; s.place = U.pick(r.places); }
-  if (type === 'own') milestone(s, `${age(s)}세에 ${r.n} ${s.place}에 내 집(${HOME_KIND.own[size]})을 마련했다.`);
-  return `${r.n} ${josa(s.place, '으로')} 이사했다. (${homeName(type, size)})` + eqFitText(s);
+  if (s.region !== regionId) { const pl = mvPlace(s, regionId); s.region = regionId; s.place = pl; }
+  if (type === 'own') milestone(s, `${age(s)}세에 ${s.place}에 내 집(${HOME_KIND.own[size]})을 마련했다.`);
+  return `${josa(s.place, '으로')} 이사했다. (${homeName(type, size)})` + eqFitText(s);
 }
 function moveHomeParents(s) {
   leaveHome(s);
@@ -275,20 +282,23 @@ function lifeActs(s) {
   const targets = [s.region];
   if (s.region !== 'seoul') targets.push('seoul');
   if (s.region !== 'gangnam') targets.push('gangnam');
+  // 고향으로 내려가는 길도 열어 둔다 (v151)
+  if (s.birthRegion && !targets.includes(s.birthRegion)) targets.push(s.birthRegion);
   const nEq = eqHomeIds(s).length;
   for (const type of ['monthly', 'jeonse', 'own']) for (const rid of targets) for (const size of HOME_SIZES) {
     const r = REGION_BY[rid], v = homePrice(rid, type, size) * 1e4, need = homeNeed(rid, type, size), monthly = homeMonthly(rid, type, size), nm = homeName(type, size);
     const here = rid === s.region && h.mode === 'alone' && h.type === type && homeSize(h) === size && !isDorm(s);
-    const eqTxt = `장비 ${SIZE_EQ[size]}개까지`;
+    const eqTxt = `장비 ${SIZE_EQ[size]}개까지 · ${SIZE_REST_N[size]}`, pn = mvPlace(s, rid);
     const lose = !here && nEq > SIZE_EQ[size] ? ` · 지금 장비 ${nEq}개 중 ${nEq - SIZE_EQ[size]}개는 둘 자리가 없어 처분한다` : '';
     const info = type === 'monthly' ? { price: `보증금 ${fmtWon(need)}`, eff: `매달 월세·생활비 ${monthly}만 원 · ${eqTxt}`, note: lose.slice(3) }
       : type === 'jeonse' ? { price: `전세금 ${fmtWon(v)} · 내 돈 ${fmtWon(need)}`, eff: `월세 없음 · 매달 관리비·생활비 ${monthly}만 원 + 대출 상환 · ${eqTxt}`, note: `전세금 중 내 돈(20%)을 뺀 나머지는 대출 · 나갈 때 전세금을 돌려받는다${lose}` }
         : { price: `집값 ${fmtWon(v)} · 내 돈 ${fmtWon(need)}`, eff: `매달 관리비·생활비 ${monthly}만 원 + 대출 상환 · ${eqTxt}`, note: `집값 중 내 돈(30%)을 뺀 나머지는 대출 · 집값이 조금씩 오르고, 팔 때 돌려받는다${lose}` };
     const back = houseAsset(s);
-    if (here) { A.push(Object.assign({ sec: 'home', homeType: type, t: `${r.n} ${nm}`, tag: '지금 사는 집', ok: false, why: '', btn: '사는 중', run: () => '' }, info)); continue; }
+    if (here) { A.push(Object.assign({ sec: 'home', homeType: type, t: `${pn} ${nm}`, tag: '지금 사는 집', ok: false, why: '', btn: '사는 중', run: () => '' }, info)); continue; }
     if (size === 's' && married(s)) continue; // 결혼하면 원룸에서 살 수 없다
     if (needApt(s) && !isAptHome(type, size)) continue; // 자녀가 셋이면 아파트에서 산다
-    A.push(Object.assign({ sec: 'home', homeType: type, t: `${r.n} ${nm}`, ok: canMove && s.money + Math.max(0, back) >= need, why: canMove ? `돈이 모자라다 (${fmtWon(need)} 필요)` : why, btn: '이사', run: s => moveTo(s, rid, type, size) }, info));
+    if (rid !== s.region) info.note = r.d + (info.note ? ` · ${info.note}` : '');
+    A.push(Object.assign({ sec: 'home', homeType: type, t: `${pn} ${nm}`, ok: canMove && s.money + Math.max(0, back) >= need, why: canMove ? `돈이 모자라다 (${fmtWon(need)} 필요)` : why, btn: '이사', run: s => moveTo(s, rid, type, size) }, info));
   }
   // 집 팔기 (내 집): 판 돈으로 남은 대출을 갚고 나머지를 받은 뒤, 같은 동네 월세 원룸(결혼했으면 투룸)으로 옮긴다
   if (h.mode === 'alone' && h.type === 'own') {
@@ -302,7 +312,7 @@ function lifeActs(s) {
   if (s.friendLoan) A.push({ sec: 'loan', t: `${s.friendLoan.name}에게 빌린 돈 한 번에 갚기`, price: `남은 돈 ${fmtWon(s.friendLoan.left)}`, eff: `지금은 매달 ${fmtWon(s.friendLoan.pay)}씩 저절로 갚는 중`, ok: s.money >= s.friendLoan.left, why: '돈이 모자라다', btn: '갚기', run: s => { const L = s.friendLoan; addMoney(s, -L.left, `${L.name}에게 갚은 돈`); s.friendLoan = null; return `${L.name}에게 빌린 ${josa(fmtWon(L.left), '을를')} 다 갚았다.`; } });
   // 형제자매에게 빌리기: 가장 가까운 형제에게 빌린다
   { const b = bestSib(s); if (a >= 19 && b) { const v = sibLendAmt(s), no = sibLendWhy(s, b); A.push({ sec: 'loan', t: `${b.name}에게 돈 빌리기`, price: fmtWon(v), eff: `형제자매 · 이자 없음 · 매달 ${fmtWon(sibLoanPay(v))}씩 저절로 갚는다`, ok: !no, why: no, btn: '빌리기', confirm: `${b.name}에게 ${josa(fmtWon(v), '을를')} 빌릴까요?\n매달 ${fmtWon(sibLoanPay(v))}씩 저절로 갚아요.`, run: s => sibBorrow(s, b) }); } }
-  if (h.mode === 'alone' && parentsAlive(s).length) A.push({ sec: 'home', homeType: 'parents', t: '본가로 돌아가기', price: `생활비 월 ${homeBase(s)}만 원`, eff: `${josa(REGION_BY[s.birthRegion].n, '으로')} 돌아간다 · 번 돈의 15%도 보탠다`, note: houseAsset(s) ? `지금 집은 정리한다 (${fmtWon(houseAsset(s))} 돌려받음)` : '', ok: canMove && !s.flags.kickedOut && !needApt(s) && !married(s), why: s.flags.kickedOut ? '부모님이 다시 들어오는 건 반대하신다' : needApt(s) ? '아이가 셋이라 아파트에서 살아야 한다' : married(s) ? '결혼했으면 둘이 살 집에서 산다' : why, btn: '돌아가기', run: moveHomeParents });
+  if (h.mode === 'alone' && parentsAlive(s).length) A.push({ sec: 'home', homeType: 'parents', t: '본가로 돌아가기', price: `생활비 월 ${homeBase(s)}만 원`, eff: `${josa(s.birthPlace || '본가', '으로')} 돌아간다 · 번 돈의 15%도 보탠다`, note: houseAsset(s) ? `지금 집은 정리한다 (${fmtWon(houseAsset(s))} 돌려받음)` : '', ok: canMove && !s.flags.kickedOut && !needApt(s) && !married(s), why: s.flags.kickedOut ? '부모님이 다시 들어오는 건 반대하신다' : needApt(s) ? '아이가 셋이라 아파트에서 살아야 한다' : married(s) ? '결혼했으면 둘이 살 집에서 산다' : why, btn: '돌아가기', run: moveHomeParents });
 
   for (const [id, x] of Object.entries(SUBS)) {
     const on = !!(s.subs && s.subs[id]);

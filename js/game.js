@@ -454,6 +454,8 @@ function queueEv(s, id, delay = 0, d = {}, dup) {
 }
 function hasQ(s, id) { return s.queue.some(q => q.id === id) || (s.pending && s.pending.id === id); }
 function evAvail(s, ev) {
+  // 길거리 캐스팅(ev.cast)은 광역시 이상에서만
+  if (ev.cast && !(REGION_BY[s.region] && REGION_BY[s.region].cast)) return false;
   if (ev.once && s.done[ev.id]) return false;
   if (s.cd[ev.id] && s.cd[ev.id] > s.t) return false;
   if (s.army && !ev.army) return false;
@@ -1089,7 +1091,8 @@ function royalties(s) {
 }
 function bodyMonth(s) {
   // 스트레스는 매달 저절로 조금 풀린다 (밝은 성격은 더 빨리)
-  addStress(s, -3 * pm(s, 'stressRegen'));
+  // 집이 좁으면 더디게, 넓으면 빨리 풀린다 (v151, life.js homeRest)
+  addStress(s, -3 * pm(s, 'stressRegen') * (typeof homeRest === 'function' ? homeRest(s) : 1));
   if (s.stress >= 80) s.hiStressM = (s.hiStressM || 0) + 1;
   else { s.hiStressM = Math.max(0, (s.hiStressM || 0) - 1); s.stressWarned = false; }
   if (s.stress >= 70) s.longStress = (s.longStress || 0) + 1;
@@ -1184,10 +1187,10 @@ function myName(s) { return me(s).name; }
 function myGender(s) { return me(s).g; }
 function startLife(s) {
   const r = REGION_BY[s.region], p = me(s);
-  addLog(s, `${s.birthYear}년 ${s.birthMonth + 1}월, ${r.n} ${s.place}의 ${wealthWord(s.wealth)} 집에서 ${p.g === '여' ? '딸' : '아들'}로 태어났다. 이름은 ${p.name}.`, 'birth');
+  addLog(s, `${s.birthYear}년 ${s.birthMonth + 1}월, ${s.place}의 ${wealthWord(s.wealth)} 집에서 ${p.g === '여' ? '딸' : '아들'}로 태어났다. 이름은 ${p.name}.`, 'birth');
   const sib = s.olderSib ? `위로 ${p.g === '여' ? '언니·오빠' : '형·누나'}가 ${s.olderSib}명 있다. ` : '';
   if (s.family.single || sib) addLog(s, `${s.family.single ? '엄마 혼자 키우는 집이다. ' : ''}${sib}`.trim(), 'birth');
-  milestone(s, `${s.birthYear}년, ${r.n} ${s.place}의 ${wealthWord(s.wealth)} 집에서 ${p.g === '여' ? '딸' : '아들'}로 태어났다.`);
+  milestone(s, `${s.birthYear}년, ${s.place}의 ${wealthWord(s.wealth)} 집에서 ${p.g === '여' ? '딸' : '아들'}로 태어났다.`);
   const gf = gifts(p).filter(k => k !== 'looks' && k !== 'star');
   if (gf.length) { const w = gf.map(k => TALENT_BY[k].n).join('·'); milestone(s, `타고난 재능은 ${w}${josa(w, '이').endsWith('이') && josa(w, '이') !== w ? '이었다' : '였다'}.`); }
 }
@@ -1214,6 +1217,8 @@ function pfRename(o) {
 }
 function migrate(s) {
   if (!s.pfRen) { pfRename(s); s.pfRen = 1; }
+  // v151: 지명을 실제 이름으로 (수원 → 수원시 장안구)
+  if (typeof PLACE_OLD !== 'undefined') { if (PLACE_OLD[s.place]) s.place = PLACE_OLD[s.place]; if (PLACE_OLD[s.birthPlace]) s.birthPlace = PLACE_OLD[s.birthPlace]; if (!s.birthPlace && s.birthRegion === s.region) s.birthPlace = s.place; }
   // v149: 직업별 팬. 예전 세이브는 지금 팬을 직업마다 번 돈의 비율로 나눠서 시작한다 (번 돈 기록이 없으면 모두 '그 밖')
   if (!s.jf && s.fans && s.tracks) { s.jf = {}; const T = totalFans(s), E = s.jobEarn || {}, ks = Object.keys(E).filter(k => E[k] > 0 && s.tracks[k]); const sum = ks.reduce((a, k) => a + E[k], 0); if (T > 0 && sum > 0) for (const k of ks) s.jf[k] = T * E[k] / sum; jfSync(s); }
   // 피드백 22: 예전 '영화감독(내 영화 만들기)'을 없앴다. 하던 사람은 영화감독(예전 연출감독) 일로 옮기고, 하던 기획은 접는다
@@ -1489,7 +1494,7 @@ function endTitle(s) {
   return M.k >= 6 ? (END_TOP[M.id] || `전설의 ${M.n}`) : M.k >= 4 ? `이름을 날린 ${M.n}` : M.k >= 2 ? `자리를 잡은 ${M.n}` : lifeTitle(s);
 }
 function endLastLine(s, kind, heir) {
-  if (kind === 'handoff') { const k = heir && s.people[heir]; return k ? `이야기는 ${k.name}에게 이어진다.` : '이야기는 아이에게 이어진다.'; }
+  if (kind === 'handoff') return ''; // 아이에게 넘길 때는 아무 말도 쓰지 않는다 (v151, 사용자 결정)
   if (kind === 'fail') { const k = topSkill(s); return (k && FAIL_SKILL_LINE[k]) || '꿈은 접었지만, 무대 뒤에서 누군가의 꿈을 지켰다.'; }
   const M = endMain(s);
   if (!M) return '';

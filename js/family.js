@@ -255,7 +255,7 @@ function continueAs(s, kidId) {
   const r = REGION_BY[ns.region];
   const handoff = s.ended && s.ended.kind === 'handoff';
   addLog(ns, handoff ? (ka > 0 ? `${old.name}의 ${kid.g === '여' ? '딸' : '아들'} ${kid.name}의 이야기가 ${ka}세부터 이어진다. (${ns.gen}대째)` : `${old.name}의 ${kid.g === '여' ? '딸' : '아들'}로 태어난 ${kid.name}의 이야기가 시작된다. (${ns.gen}대째)`) : `${josa(old.name, '이가')} 은퇴한 뒤, ${old.g === '여' ? '엄마' : '아빠'}의 뒤를 이어 ${kid.name}의 이야기가 시작된다. (${ns.gen}대째)`, 'birth');
-  addLog(ns, `${kid.by}년, ${r.n} ${ns.place}에서 ${kid.g === '여' ? '딸' : '아들'}로 태어났다. 지금 ${ka}세.`, 'birth');
+  addLog(ns, `${kid.by}년, ${ns.place}에서 ${kid.g === '여' ? '딸' : '아들'}로 태어났다. 지금 ${ka}세.`, 'birth');
   milestone(ns, `${kid.by}년, ${old.name}의 ${kid.g === '여' ? '딸' : '아들'}로 태어났다.`);
   const gf = gifts(kid).filter(k => k !== 'looks' && k !== 'star');
   if (gf.length) { const w = gf.map(k => TALENT_BY[k].n).join('·'); milestone(ns, `타고난 재능은 ${w}${josa(w, '이') !== w ? '이었다' : '였다'}.`); }

@@ -190,7 +190,7 @@ function renderBirth() {
   const gf = gifts(p).filter(k => k !== 'looks' && k !== 'star');
   const pips = `<span class="bp-pips">${Array.from({ length: 10 }, (_, i) => `<i class="${i < s.wealth ? 'on' : ''}"></i>`).join('')}</span>`;
   const rows = [
-    ['태어난 곳', U.esc(`${r.n} ${s.place}`)],
+    ['태어난 곳', U.esc(`${s.place}`)],
     ['집안 형편', `${pips}<span>${U.esc(wealthWord(s.wealth))} 집 · ${s.wealth}/10</span>`],
     ['엄마', m ? U.esc(`${pAge(s, m)}세 · ${m.job}`) : '-'],
     ['아빠', d ? U.esc(`${pAge(s, d)}세 · ${d.job}`) : '없음'],
@@ -476,7 +476,18 @@ function renderEqCard() {
   el.innerHTML = (lock ? '' : ltDot(s, 'equip')) + `<div class="card-h">🎛️ 장비${lock ? '' : '<span class="bn-arr">›</span>'}</div>` + (L.length ? `<div class="eq-from">${U.esc(from)}${cost ? ` · ${U.esc(cost)}` : ''}</div><div class="eq-list">${L.map(x => `<span>${U.esc(x)}</span>`).join('')}</div>` : `<div class="st">쓰는 장비 없음</div>`);
 }
 // 상태: 군 복무·병은 맨 위에 눈에 띄게 (누르면 자세히)
+// 집에 따라 바뀌는 배경 (v151): img/home/ 안에 그림이 있으면 게임 화면 뒤에 깐다. 없으면 지금 바탕 그대로
+// 그림 이름: parents(본가) · dorm(기획사 숙소) · s(원룸) · m(투룸 · 아파트) · l(넓은 아파트) + .webp
+function homeBgKey(s) { if (isDorm(s)) return 'dorm'; const h = s.home || {}; return h.mode !== 'alone' || !h.type ? 'parents' : homeSize(h); }
+function homeBgSync() {
+  const el = $('#game-screen'); if (!el || !S) return;
+  const k = homeBgKey(S); UI.bgOK = UI.bgOK || {};
+  const set = () => { const ok = UI.bgOK[homeBgKey(S)] === 1; el.classList.toggle('has-bg', ok); if (ok) el.style.setProperty('--home-bg', `url("img/home/${homeBgKey(S)}.webp")`); };
+  if (UI.bgOK[k] == null) { UI.bgOK[k] = 0; const im = new Image(); im.onload = () => { UI.bgOK[k] = 1; set(); }; im.onerror = () => { UI.bgOK[k] = -1; }; im.src = `img/home/${k}.webp`; }
+  set();
+}
 function renderStatusCard() {
+  homeBgSync();
   const s = S;
   let st = `<div class="card-h">❤ 상태</div>`;
   if (s.army) st += `<div class="st-alert" data-trk="army">🪖 군 복무 중 · 전역까지 ${s.army.left}개월</div>`;
@@ -1063,7 +1074,7 @@ function pfTalTab(p) {
 }
 function pfBornTab(s, p) {
   const r = REGION_BY[s.birthRegion] || REGION_BY[s.region];
-  const rows = [['성별', p.g === '여' ? '여성' : '남성'], ['나이', `${age(s)}세 (${s.birthYear}년 ${s.birthMonth + 1}월생)`], ['태어난 곳', `${r.n} ${s.birthPlace || s.place}`], ['태어난 집', `${wealthWord(s.wealth)} 집 (10단계 중 ${s.wealth})`], ['성격', `${PERSONA_BY[s.persona].n} — ${PERSONA_BY[s.persona].d}`], ['타고난 건강', `${HEALTH_BY[s.health].n} — ${HEALTH_BY[s.health].d}`], ['인상', p.look]];
+  const rows = [['성별', p.g === '여' ? '여성' : '남성'], ['나이', `${age(s)}세 (${s.birthYear}년 ${s.birthMonth + 1}월생)`], ['태어난 곳', `${s.birthPlace || s.place}`], ['태어난 집', `${wealthWord(s.wealth)} 집 (10단계 중 ${s.wealth})`], ['성격', `${PERSONA_BY[s.persona].n} — ${PERSONA_BY[s.persona].d}`], ['타고난 건강', `${HEALTH_BY[s.health].n} — ${HEALTH_BY[s.health].d}`], ['인상', p.look]];
   if (s.flags.dream) rows.push(['어릴 적 장래희망', s.flags.dream]);
   if (s.armyExempt) rows.push(['병역', '생계유지 곤란 사유 병역 감면']);
   return `<table class="list">` + rows.map(([k, v]) => `<tr><td style="width:120px;color:var(--muted)">${k}</td><td>${U.esc(v)}</td></tr>`).join('') + `</table>`;
@@ -1525,10 +1536,10 @@ function pfWorksTab(s) {
     + `<table class="list"><tr><th>해</th><th>종류</th><th>제목</th><th>성적</th><th>수입</th></tr>${s.works.map((w, i) => [w, i]).reverse().map(([w, i]) => `<tr${w.card ? ` class="has-card" data-song="${i}"` : ''}><td>${w.y}</td><td>${U.esc(w.type)}</td><td>「${U.esc(w.title)}」${w.card ? ' 🎧' : ''}</td><td>${U.esc(w.note || '')}</td><td style="white-space:nowrap">${w.pay ? fmtWon(w.pay) : '-'}</td></tr>`).join('')}</table>` + pfAwardsHTML(s);
 }
 function homeNow(s) {
-  const r = REGION_BY[s.region], hm = s.home, where = `${r.n} ${s.place}`;
+  const r = REGION_BY[s.region], hm = s.home, where = `${s.place}`;
   if (isDorm(s)) return { ic: '🏢', k: '기획사 숙소', n: '기획사 숙소', d: '집세가 들지 않는다' };
   if (hm.mode === 'parents') return { ic: '👪', k: '본가', n: `${where} 본가`, d: age(s) >= 19 ? `부모님 집 · 매달 생활비 ${homeBase(s)}만 원과 번 돈의 15%를 보탠다` : '부모님 집' };
-  const t = hm.type || 'monthly', z = homeSize(hm), nm = homeName(t, z), mc = homeMonthly(s.region, t, z), eq = ` · 장비 ${SIZE_EQ[z]}개까지`;
+  const t = hm.type || 'monthly', z = homeSize(hm), nm = homeName(t, z), mc = homeMonthly(s.region, t, z), eq = ` · 장비 ${SIZE_EQ[z]}개까지 · ${SIZE_REST_N[z]}`;
   if (t === 'monthly') return { ic: '🔑', k: '월세', n: `${where} ${nm}`, d: `보증금 ${fmtWon(hm.deposit || 0)} · 매달 월세·생활비 ${mc}만 원${eq}` };
   if (t === 'jeonse') return { ic: '📄', k: '전세', n: `${where} ${nm}`, d: `전세금 ${fmtWon(hm.deposit || 0)}${hm.loan ? ` (남은 대출 ${fmtWon(hm.loan)})` : ''} · 월세 없음 · 매달 관리비·생활비 ${mc}만 원${hm.loan ? ' + 대출 상환' : ''}${eq}` };
   return { ic: '🏠', k: '매매 (내 집)', n: `${where} ${nm}`, d: `지금 집값 ${fmtWon(hm.value || 0)}${hm.loan ? ` (남은 대출 ${fmtWon(hm.loan)})` : ''} · 매달 관리비·생활비 ${mc}만 원${hm.loan ? ' + 대출 상환' : ''}${eq}` };

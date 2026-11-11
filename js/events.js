@@ -142,6 +142,8 @@ E({
 });
 E({
   id: 'child_model', once: true, cat: '캐스팅', title: '아역 모델 제안',
+  // 길거리 캐스팅은 광역시 이상에서만 일어난다 (v151)
+  cast: true,
   p: s => me(s).tal.looks >= 62 ? 0.006 : 0,
   cond: s => age(s) >= 3 && age(s) <= 9,
   text: () => '엄마와 마트에 갔다가 아동복 브랜드 관계자에게 명함을 받았다. 아역 모델을 해 보지 않겠냐고 한다.',
@@ -299,12 +301,12 @@ E({
   id: 'transfer', once: true, p: 0.004, cat: '가족', title: '이사',
   cond: s => age(s) >= 8 && age(s) <= 15,
   init(s, d) { d.r = U.wpick(REGIONS.filter(r => r.id !== s.region), r => r.w).id; d.place = U.pick(REGION_BY[d.r].places); },
-  text: (s, d) => `부모님 일 때문에 ${josa(REGION_BY[d.r].n + ' ' + d.place, '으로')} 이사를 가게 됐다. 전학을 가야 한다.`,
+  text: (s, d) => `부모님 일 때문에 ${josa(d.place, '으로')} 이사를 가게 됐다. 전학을 가야 한다.`,
   ch: (s, d) => [{ t: '새 학교에 적응한다', f: s => {
     // 예전 동네 친구들은 멀어진다: 성인이 되기 전에는 그 친구들과 만나는 사건이 없고, 전학 간 학교에서 새 친구를 사귄다
     for (const n of people(s, n => ['친구', '동기', '선배'].includes(n.rel) && pAge(s, n) < 20)) n.far = true;
     queueEv(s, 'new_friend', U.int(1, 3));
-    s.region = d.r; s.birthRegion = d.r; s.place = d.place; s.birthPlace = d.place; return `${josa(REGION_BY[d.r].n + ' ' + d.place, '으로')} 이사했다.` + fx(s, { stress: 6 }); } }],
+    s.region = d.r; s.birthRegion = d.r; s.place = d.place; s.birthPlace = d.place; return `${josa(d.place, '으로')} 이사했다.` + fx(s, { stress: 6 }); } }],
 });
 
 // 이사 뒤: 전학 간 학교에서 새 친구를 사귄다 (성인이 되기 전까지는 예전 동네 친구 대신 이 친구들과 어울린다)
@@ -313,7 +315,7 @@ E({
   cond: s => age(s) < 19,
   init(s, d) { const g0 = myGender(s); d.c = [0, 1].map(() => { const g = U.chance(0.6) ? g0 : (g0 === '여' ? '남' : '여'); return { g, name: genName(g), trait: U.pick(TRAITS).id, look: U.pick(g === '여' ? LOOKS_F : LOOKS_M) }; }); },
   text: (s, d) => `전학 온 지 얼마 안 됐는데, 반 아이들 몇 명이 먼저 말을 걸어 왔다. 누구랑 친해질까?\n\n` + d.c.map(c => `· ${c.name} (${c.g === '여' ? '여자아이' : '남자아이'}) — ${TRAIT_BY[c.trait].n}`).join('\n'),
-  ch: (s, d) => d.c.map(c => ({ t: c.name, f: s => { makePerson(s, { g: c.g, name: c.name, trait: c.trait, look: c.look, age: age(s), rel: '친구', aff: 55, met: `${REGION_BY[s.region].n} ${s.place} 전학 간 학교 친구` }); return `전학 간 학교에서 ${josa(c.name, '과와')} 친구가 되었다.`; } })),
+  ch: (s, d) => d.c.map(c => ({ t: c.name, f: s => { makePerson(s, { g: c.g, name: c.name, trait: c.trait, look: c.look, age: age(s), rel: '친구', aff: 55, met: `${s.place} 전학 간 학교 친구` }); return `전학 간 학교에서 ${josa(c.name, '과와')} 친구가 되었다.`; } })),
 });
 
 // ════════ 재능이 이끄는 사건 (재능이 높을수록 자주 일어난다) ════════
@@ -579,9 +581,9 @@ E({
   },
   ch(s) {
     const r = REGION_BY[s.region], inSeoul = s.region === 'seoul' || s.region === 'gangnam';
-    const go = (rid, x) => s => { const t = moveTo(s, rid, 'monthly'); s.flags.kickedOut = !!s.flags.homeWarned; milestone(s, `${age(s)}세에 본가를 나와 ${REGION_BY[rid].n} ${s.place}에서 자취를 시작했다.`); return x + ' ' + t; };
+    const go = (rid, x) => s => { const t = moveTo(s, rid, 'monthly'); s.flags.kickedOut = !!s.flags.homeWarned; milestone(s, `${age(s)}세에 본가를 나와 ${s.place}에서 자취를 시작했다.`); return x + ' ' + t; };
     const o = [
-      { t: `${r.n}에서 월세 원룸을 구한다`, h: `보증금 ${HOUSE[s.region].dep}만 원 · 월세·생활비 월 ${r.rent}만 원 · 돈이 모자라면 빚이 된다`, f: go(s.region, '짐을 싸서 본가를 나왔다.') },
+      { t: `${s.place}에서 월세 원룸을 구한다`, h: `보증금 ${HOUSE[s.region].dep}만 원 · 월세·생활비 월 ${r.rent}만 원 · 돈이 모자라면 빚이 된다`, f: go(s.region, '짐을 싸서 본가를 나왔다.') },
     ];
     if (!inSeoul) o.push({ t: '이참에 서울로 올라간다', h: `보증금 ${HOUSE.seoul.dep}만 원 · 월세·생활비 월 ${REGION_BY.seoul.rent}만 원 · 기획사와 방송국이 가깝다`, f: go('seoul', '이참에 서울로 올라왔다.') });
     if (!s.flags.homeWarned) o.push({ t: '생활비를 더 내고 조금만 더 있겠다고 한다', h: '앞으로 생활비 월 30만 원 더 · 다음에 또 말이 나오면 그때는 나가야 한다', f: s => { s.flags.homeWarned = true; s.flags.homeFeeUp = true; return '생활비를 더 내기로 하고 조금만 더 있기로 했다. 집 안 공기가 조금 어색해졌다.' + fx(s, { stress: 5 }); } });
@@ -592,14 +594,14 @@ E({
   id: 'leave_home', fixed: true, once: true, cat: '독립', title: '어디서 살까?',
   // 이 사건 전에 이미 나가 살아 봤으면(월세·전세·내 집) 다시 묻지 않는다
   cond: s => age(s) === 19 && s.t % 12 >= 1 && !isDorm(s) && s.home.mode !== 'alone' && !s.flags.livedAlone,
-  text: s => { const r = REGION_BY[s.region]; return `성인이 됐다. 이제 어디서 살지 정해야 한다.\n\n지금 사는 곳은 ${r.n} ${s.place}. ${r.d}.`; },
+  text: s => { const r = REGION_BY[s.region]; return `성인이 됐다. 이제 어디서 살지 정해야 한다.\n\n지금 사는 곳은 ${s.place}. ${r.d}.`; },
   ch(s) {
     const r = REGION_BY[s.region], inSeoul = s.region === 'seoul' || s.region === 'gangnam';
     // 이미 서울에 살면 '서울로 올라가기'는 보여 주지 않는다 (같은 말이 두 번 나오지 않게)
     return [
       { t: '본가에 남는다', h: `생활비 월 ${homeBase(s)}만 원과 번 돈의 15% 보태기 · 나이가 들수록 더 보탠다`, f: s => { s.home.mode = 'parents'; return '본가에 남기로 했다.'; } },
       inSeoul ? null : { t: '서울로 올라가 월세 원룸을 구한다', h: `보증금 ${HOUSE.seoul.dep}만 원 · 월세·생활비 월 ${REGION_BY.seoul.rent}만 원 · 기획사와 방송국이 가깝다 · 돈이 모자라면 빚이 된다`, f: s => { const x = moveTo(s, 'seoul', 'monthly'); milestone(s, `${age(s)}세에 서울 ${s.place}에서 자취를 시작했다.`); return x; } },
-      { t: `${r.n}에서 월세 원룸을 구한다`, h: `보증금 ${HOUSE[s.region].dep}만 원 · 월세·생활비 월 ${r.rent}만 원`, f: s => moveTo(s, s.region, 'monthly') },
+      { t: `${s.place}에서 월세 원룸을 구한다`, h: `보증금 ${HOUSE[s.region].dep}만 원 · 월세·생활비 월 ${r.rent}만 원`, f: s => moveTo(s, s.region, 'monthly') },
     ].filter(Boolean);
   },
 });
@@ -608,16 +610,16 @@ E({
   id: 'dorm_out', cat: '독립', title: '숙소를 나와야 한다', tag: 'career',
   // 내 집(월세·전세·자가)이 이미 있으면 묻지 않는다 (그 집으로 돌아간다, v89)
   cond: s => !isDorm(s) && age(s) >= 19 && s.home.mode !== 'alone',
-  text: s => { const r = REGION_BY[s.region]; return `${married(s) ? '결혼했으니 기획사 숙소를 나와 가족과 살 집을 구해야 한다.' : '기획사 숙소 생활이 끝났다. 짐을 싸서 나가야 한다.'} 이제 어디서 살까?\n\n지금 지내는 곳은 ${r.n}. ${r.d}.`; },
+  text: s => { const r = REGION_BY[s.region]; return `${married(s) ? '결혼했으니 기획사 숙소를 나와 가족과 살 집을 구해야 한다.' : '기획사 숙소 생활이 끝났다. 짐을 싸서 나가야 한다.'} 이제 어디서 살까?\n\n지금 지내는 곳은 ${s.place}. ${r.d}.`; },
   ch(s) {
     const r = REGION_BY[s.region], inSeoul = s.region === 'seoul' || s.region === 'gangnam', canHome = parentsAlive(s).length && !s.flags.kickedOut;
     const o = [], hm = s.home, own = hm.mode === 'alone', hn = own ? homeNow(s) : null;
     if (own && (!needApt(s) || inApt(s))) o.push({ t: `원래 내 집으로 간다 (${hn.n})`, h: hn.d, f: () => `숙소를 나와 ${josa(hn.n, '으로')} 돌아갔다.` });
     // 결혼했으면 본가로 돌아가지 않고 둘이 살 집을 구한다
-    if (!isSpouse(partner(s))) o.push({ t: '본가로 내려간다', ok: () => canHome, h: canHome ? `${REGION_BY[s.birthRegion].n} · 생활비 월 ${homeBase(s)}만 원과 번 돈의 15% 보태기` : (parentsAlive(s).length ? '부모님이 다시 들어오는 건 반대하신다' : '돌아갈 본가가 없다'), f: s => { moveHomeParents(s); return '숙소를 나와 본가로 돌아갔다.'; } });
+    if (!isSpouse(partner(s))) o.push({ t: '본가로 내려간다', ok: () => canHome, h: canHome ? `${s.birthPlace || '본가'} · 생활비 월 ${homeBase(s)}만 원과 번 돈의 15% 보태기` : (parentsAlive(s).length ? '부모님이 다시 들어오는 건 반대하신다' : '돌아갈 본가가 없다'), f: s => { moveHomeParents(s); return '숙소를 나와 본가로 돌아갔다.'; } });
     // 결혼했으면 원룸 대신 투룸
     const sz = needApt(s) ? 'l' : isSpouse(partner(s)) ? 'm' : 's', mn = homeName('monthly', sz);
-    if (!(own && hm.type === 'monthly')) o.push({ t: `${r.n}에서 ${josa(mn, '을를')} 구한다`, h: `보증금 ${fmtWon(homeNeed(s.region, 'monthly', sz))} · 월세·생활비 월 ${homeMonthly(s.region, 'monthly', sz)}만 원 · 돈이 모자라면 빚이 된다`, f: s => { const x = moveTo(s, s.region, 'monthly', sz); milestone(s, `${age(s)}세에 숙소를 나와 ${REGION_BY[s.region].n} ${s.place}에서 자취를 시작했다.`); return x; } });
+    if (!(own && hm.type === 'monthly')) o.push({ t: `${s.place}에서 ${josa(mn, '을를')} 구한다`, h: `보증금 ${fmtWon(homeNeed(s.region, 'monthly', sz))} · 월세·생활비 월 ${homeMonthly(s.region, 'monthly', sz)}만 원 · 돈이 모자라면 빚이 된다`, f: s => { const x = moveTo(s, s.region, 'monthly', sz); milestone(s, `${age(s)}세에 숙소를 나와 ${s.place}에서 자취를 시작했다.`); return x; } });
     if (!inSeoul) o.push({ t: `서울에서 ${josa(mn, '을를')} 구한다`, h: `보증금 ${fmtWon(homeNeed('seoul', 'monthly', sz))} · 월세·생활비 월 ${homeMonthly('seoul', 'monthly', sz)}만 원 · 기획사와 방송국이 가깝다`, f: s => { const x = moveTo(s, 'seoul', 'monthly', sz); milestone(s, `${age(s)}세에 숙소를 나와 서울 ${s.place}에서 자취를 시작했다.`); return x; } });
     return o;
   },
@@ -962,7 +964,7 @@ function marryNow(s, wedding = 2000e4, why) {
   // 결혼하면 본가에서 나와 둘이 살 집을 구한다 (지금 사는 동네 월세 투룸부터. 생활 창에서 옮길 수 있다). 원룸에 살고 있었으면 이사할 집을 고른다 (home_wed)
   let mv = '';
   // 기획사 숙소에 살다 결혼하면 숙소를 나와 신혼집으로 간다 (숙소를 나올 때 묻는 창은 다시 띄우지 않는다)
-  if (s.home.mode === 'parents' && !isDorm(s) && !s.army) { moveTo(s, s.region, 'monthly', 'm'); mv = ` ${wasDorm ? '기획사 숙소' : '본가'}에서 나와 ${REGION_BY[s.region].n} ${s.place}에 신혼집(${homeName('monthly', 'm')})을 구했다.`; if (wasDorm) s.dormWas = false; }
+  if (s.home.mode === 'parents' && !isDorm(s) && !s.army) { moveTo(s, s.region, 'monthly', 'm'); mv = ` ${wasDorm ? '기획사 숙소' : '본가'}에서 나와 ${s.place}에 신혼집(${homeName('monthly', 'm')})을 구했다.`; if (wasDorm) s.dormWas = false; }
   else if (s.home.mode === 'alone' && homeSize(s.home) === 's' && !isDorm(s) && !s.army) queueEv(s, 'home_wed', 0);
   return (why || `${josa(p.name, '과와')} 결혼했다!`) + (sv > 0 ? ` 두 사람의 재산을 합쳤다. (${josa(p.name, '이가')} 모아 둔 돈 ${fmtWon(sv)})` : '') + mv + fx(s, { money: -wedding, stress: -12 });
 }
@@ -970,7 +972,7 @@ function marryNow(s, wedding = 2000e4, why) {
 E({
   id: 'home_wed', cat: '결혼', title: '둘이 살 집',
   cond: s => married(s) && (s.home.mode === 'parents' || (s.home.mode === 'alone' && homeSize(s.home) === 's')) && !isDorm(s) && !s.army && !needApt(s),
-  text: s => `${josa(partner(s).name, '과와')} 둘이 살기에 ${s.home.mode === 'parents' ? '본가는 불편하다. 둘이 살 집을 구하자' : '지금 원룸은 너무 좁다. 이사할 집을 고르자'}.\n\n지금 사는 곳은 ${REGION_BY[s.region].n} ${s.place}.`,
+  text: s => `${josa(partner(s).name, '과와')} 둘이 살기에 ${s.home.mode === 'parents' ? '본가는 불편하다. 둘이 살 집을 구하자' : '지금 원룸은 너무 좁다. 이사할 집을 고르자'}.\n\n지금 사는 곳은 ${s.place}.`,
   ch: s => ['monthly', 'jeonse', 'own'].map(type => {
     const need = homeNeed(s.region, type, 'm'), mc = homeMonthly(s.region, type, 'm'), nm = homeName(type, 'm'), back = Math.max(0, houseAsset(s));
     return { t: `${josa(nm, '으로')} 옮긴다`, h: `${type === 'monthly' ? `보증금 ${fmtWon(need)}` : `내 돈 ${fmtWon(need)} · 나머지는 대출`} · 매달 ${mc}만 원${type === 'monthly' ? ' · 돈이 모자라면 빚이 된다' : ''}`, ok: type === 'monthly' ? undefined : s => s.money + back >= need, f: s => moveTo(s, s.region, type, 'm') };
@@ -981,7 +983,7 @@ const KID_APT = [['monthly', 'l'], ['jeonse', 'm'], ['own', 'm']];
 E({
   id: 'home_kids', cat: '가족', title: '아이 셋과 살 집',
   cond: s => needApt(s) && !inApt(s) && !isDorm(s) && !s.army,
-  text: s => `아이가 셋이 되니 지금 집은 너무 좁다. 아파트로 이사해야 한다.\n\n지금 사는 곳은 ${REGION_BY[s.region].n} ${s.place}.`,
+  text: s => `아이가 셋이 되니 지금 집은 너무 좁다. 아파트로 이사해야 한다.\n\n지금 사는 곳은 ${s.place}.`,
   ch: s => KID_APT.map(([type, size]) => {
     const need = homeNeed(s.region, type, size), mc = homeMonthly(s.region, type, size), nm = homeName(type, size), back = Math.max(0, houseAsset(s));
     return { t: `${josa(nm, '으로')} 옮긴다`, h: `${type === 'monthly' ? `보증금 ${fmtWon(need)}` : `내 돈 ${fmtWon(need)} · 나머지는 대출`} · 매달 ${mc}만 원${type === 'monthly' ? ' · 돈이 모자라면 빚이 된다' : ''}`, ok: type === 'monthly' ? undefined : s => s.money + back >= need, f: s => moveTo(s, s.region, type, size) };
@@ -1184,4 +1186,32 @@ E({
     return L.map(k => { const why = skKeepWhy(s, k); return { t: `${SKILLS[k].n} ${lvi(p, k)}레벨`, h: why, ok: () => !why, f: s => { dropSkill(s, k); return `${SKILLS[k].n} 대신 ${josa(SKILLS[d.k].n, '을를')} 배우기로 했다.` + learnMe(s, d.k, d.start); } }; })
       .concat([{ t: '그만두지 않는다', f: () => `${josa(SKILLS[d.k].n, '은는')} 배우지 않기로 했다.` }]);
   },
+});
+
+// ───── 고향 섭외 (v151) ─────
+// 이름이 알려지면 태어난 곳에서 연락이 온다: 노래 · 연주하는 사람은 고향 축제 무대, 그 밖의 사람은 고향 홍보대사. 지금 고향 쪽에 살면 더 자주 온다
+// 고향 이름: '부산광역시 해운대구' → 해운대구 · '포항시 남구' → 포항시 · '해남군' → 해남군
+function homeTown(s) { const P = String(s.birthPlace || '').split(' '); return /특별시$|광역시$/.test(P[0]) && P[1] ? P[1] : P[0] || ''; }
+E({
+  id: 'home_call', cd: 18, cat: '섭외', title: '고향에서 온 연락', tag: 'career',
+  p: s => (0.004 + (s.fame || 0) / 100 * 0.012) * (s.region === s.birthRegion ? 1.5 : 1),
+  cond: s => age(s) >= 16 && (s.fame || 0) >= 20 && !!homeTown(s) && !s.army && !s.hiatus && !s.scandal,
+  init(s, d) {
+    d.town = homeTown(s);
+    d.stage = ['idol', 'solo', 'band', 'player'].find(id => CAREERS[id] && trackOn(s, id)) || '';
+    d.fee = Math.round((200 + (s.fame || 0) * 40) * U.fl(0.8, 1.3)) * 1e4;
+  },
+  text: (s, d) => d.stage ? `고향 ${d.town}에서 연락이 왔다. 올해 ${d.town} 축제 무대에 서 달라고 한다. "우리 동네가 낳은 스타"라며 현수막도 걸겠다고 한다.` : `고향 ${d.town}에서 연락이 왔다. ${d.town} 홍보대사를 맡아 달라고 한다. "우리 동네의 자랑"이라고 한다.`,
+  ch: (s, d) => [
+    { t: d.stage ? '고향 축제 무대에 선다' : '홍보대사를 맡는다', h: `${fmtWon(d.fee)} · 고향 사람들이 반긴다`, f: s => {
+      earn(s, d.fee, d.stage ? '행사 출연료' : '홍보대사 사례비', d.stage || undefined);
+      const gain = Math.round(Math.max(200, fanGain(s, 68, 'kr', 0.4)) * (d.stage ? 1.5 : 0.8));
+      const log = (d.stage ? `고향 ${d.town} 축제 무대에 섰다. 객석이 온통 아는 얼굴 같았다.` : `고향 ${d.town} 홍보대사가 됐다. 동네 어귀에 내 얼굴이 걸렸다.`) + fx(s, { fkr: gain, rep: 2, stress: d.stage ? 2 : -2 });
+      if (!d.stage || typeof liveStage !== 'function') return log;
+      // 고향 무대는 실시간 창으로: 처음 보는 객석이 아니라 모두가 내 편이다
+      const nm = actName(s, d.stage);
+      return showResult(s, `${d.town} 축제`, log, log, liveStage({ k: 'solo', vn: 'fest', place: `${d.town} 축제`, t: '고향 무대', g: nm, cn: typeof callName === 'function' ? callName(nm) : nm, mem: [[nm, '']], mi: 0, key: true, sc: 86, z: { fans: 1.6, perf: 0.8, q: 0.6, me: 1.2 } }));
+    } },
+    { t: '정중히 거절한다', f: s => `고향 ${d.town}의 제안을 정중히 거절했다.` },
+  ],
 });
