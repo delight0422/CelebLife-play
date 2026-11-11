@@ -469,5 +469,7 @@ function voDoJob(s, j) {
     live = liveStage({ k: 'booth', vn: 'booth', place: '녹음 부스', t: `${j.title || j.who} · ${j.n}`, g: me0, mem: [[me0, '']].concat(ani && j.id !== 'extra' ? [['동료 성우', ''], ['동료 성우', '']] : []), mi: 0,
       key: t.jobs === 1 || firstLead || j.id === 'movie' || big !== 0 || !!up, big, sc: big > 0 ? 88 : good ? 72 : big < 0 ? 28 : 48, z: { voice: (p.tal.voice - 50) / 15 }, x: { kind, title: j.title || j.who } });
   }
-  return showResult(s, nm, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), live);
+  // 애니가 방영된 뒤 반응은 플리오 팝업에서 (애니 배역만)
+  const plio = typeof plioSpec === 'function' && ['extra', 'sup', 'lead', 'movie'].includes(j.id) ? plioSpec({ k: 'anime', t: `「${j.title}」 ${j.id === 'movie' ? '극장판 예고편' : '본편 클립'}`, ch: j.who, me: j.id === 'extra' ? '' : actName(s, 'voice'), sc: big > 0 ? 88 : good ? 72 : big < 0 ? 28 : 48, rv: big > 0 ? 2 : good ? 1 : big < 0 ? -2 : 0, mul: j.id === 'movie' ? 3 : j.id === 'extra' ? 0.4 : 1 }) : null;
+  return showResult(s, nm, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), live, null, plio);
 }

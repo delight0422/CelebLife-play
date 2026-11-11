@@ -226,7 +226,8 @@ ACT_APPLY.push({
     const gain = Math.round(y.subs * U.fl(0.005, 0.02) * Math.min(1.5, Math.max(0.4, ytAppeal(s, t) / 55)) + 100);
     t.subs += gain; y.subs += Math.round(t.subs * U.fl(0.005, 0.015));
     t.peak = Math.max(t.peak || 0, t.subs);
-    return showResult(s, 'MCN 합작 영상', `${josa(m.n, '이가')} 잡아 준 합작으로 ${y.mode === 'vt' ? '버튜버' : '유튜버'} ${josa(mcnCrName(x), '과와')} 함께 영상을 찍었다. (상대 구독자 ${fmtFans(y.subs)})\n\n구독자 ${sgnFans(gain)}`, `${josa(mcnCrName(x), '과와')} 합작 영상. 구독자 ${sgnFans(gain)}.`);
+    return showResult(s, 'MCN 합작 영상', `${josa(m.n, '이가')} 잡아 준 합작으로 ${y.mode === 'vt' ? '버튜버' : '유튜버'} ${josa(mcnCrName(x), '과와')} 함께 영상을 찍었다. (상대 구독자 ${fmtFans(y.subs)})\n\n구독자 ${sgnFans(gain)}`, `${josa(mcnCrName(x), '과와')} 합작 영상. 구독자 ${sgnFans(gain)}.`, null, null,
+      typeof plioSpec === 'function' ? (sc => plioSpec({ k: 'collab', t: `${t.ch} × ${mcnCrName(x)}`, ch: t.ch, me: (t.sn && t.sn.nick) || t.ch, sc, rv: sc >= 72 ? 2 : sc >= 55 ? 1 : 0, vw: (t.subs + y.subs) * U.fl(0.1, 0.4) }))(U.clamp(ytAppeal(s, t) + 12 + U.normal(0, 7), 0, 100)) : null);
   },
 });
 

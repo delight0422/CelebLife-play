@@ -269,7 +269,8 @@ ACT_APPLY.push({
     const t = viT(s), p = me(s); s.cd.viCover = s.t + 3;
     const sc = U.clamp(lv(p, 'vocal') * 0.7 + Math.log10(1 + t.subs) * 3 + U.normal(0, 8), 0, 100), gain = Math.round(t.subs * (sc >= 70 ? U.fl(0.03, 0.08) : sc >= 50 ? U.fl(0.01, 0.03) : U.fl(0, 0.01)) + sc * 5);
     t.subs += gain; useSkill(s, p, 'vocal', 1);
-    return showResult(s, '커버곡', `「${t.ch}」 커버곡을 올렸다. ${sc >= 70 ? '노래 잘한다는 댓글이 쏟아졌다.' : sc >= 50 ? '팬들이 좋아했다.' : '조회수가 아쉬웠다.'}\n\n구독자 ${sgnFans(gain)}`, `커버곡을 올렸다. 구독자 ${sgnFans(gain)}.`);
+    return showResult(s, '커버곡', `「${t.ch}」 커버곡을 올렸다. ${sc >= 70 ? '노래 잘한다는 댓글이 쏟아졌다.' : sc >= 50 ? '팬들이 좋아했다.' : '조회수가 아쉬웠다.'}\n\n구독자 ${sgnFans(gain)}`, `커버곡을 올렸다. 구독자 ${sgnFans(gain)}.`, null, null,
+      typeof plioSpec === 'function' ? plioSpec({ k: 'cover', t: `【커버】 ${t.ch}`, ch: t.ch, me: (t.sn && t.sn.nick) || t.ch, sc, rv: sc >= 70 ? 2 : sc >= 50 ? 1 : 0, vw: t.subs * (0.15 + sc / 120) }) : null);
   },
 });
 ACT_APPLY.push({

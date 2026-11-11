@@ -577,6 +577,8 @@ function choose(s, i) {
     addLog(s, r, ev.tag || 'ev'); s.log[s.log.length - 1].e = ev.id;
     // 실시간 창이 있던 사건은 기록에 장면(spec)을 남긴다: 요약 창의 '▶ 무대 보기' (12-1)
     if (ev.live) { try { const sp = ev.live(s, p.d); if (sp) s.log[s.log.length - 1].lv = sp; } catch (e) { } }
+    // 공개 뒤 반응(플리오)도 기록에 남긴다: 요약 창 · 걸어온 길의 배너 (12-3)
+    if (ev.plio) { try { const pl = ev.plio(s, p.d); if (pl) s.log[s.log.length - 1].pl = pl; } catch (e) { } }
   }
   // 고른 뒤 이어서 생긴 사건도 고를 게 없으면 창 없이 처리한다
   autoEvs(s); pullNow(s); pullBack(s); autoEvs(s);
@@ -648,6 +650,9 @@ function autoEvs(s) {
     addLog(s, x, ev.tag || 'ev');
     const L = s.log[s.log.length - 1];
     L.sp = ti || ev.cat || '알림'; L.c = ev.cat || ''; L.e = ev.id;
+    // 창 없이 처리된 결과도 요약 창에서 장면(▶ 무대 보기)과 플리오 반응을 볼 수 있게 남긴다 (12-3)
+    if (ev.live) { try { const sp = ev.live(s, d); if (sp) L.lv = sp; } catch (e) { } }
+    if (ev.plio) { try { const pl = ev.plio(s, d); if (pl) L.pl = pl; } catch (e) { } }
     // ev.sub: 기록 아래 작게 덧붙이는 말 (아이돌 정산이 빚 갚는 데 들어갔을 때 남은 비용 등)
     if (ev.sub) { try { const sb = ev.sub(s, d); if (sb) L.sub = sb; } catch (e) { } }
     if (dv.length) L.dv = dv;

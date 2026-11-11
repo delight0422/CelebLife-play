@@ -339,6 +339,8 @@ E({
     else jpopAdd(s, 'actor', (sc - 50) / 20);
     for (const c of cast.concat(dir ? [dir] : [])) bond(s, c, sc >= 60 ? U.int(3, 8) : U.int(-4, 2));
     d.sc = sc;
+    // 방영 · 공개 뒤 반응은 플리오 팝업에서 (12-3)
+    if (typeof plioSpec === 'function') d.plio = plioSpec({ k: T.mv ? 'mv' : 'drama', t: `「${pj.title}」 ${T.mv ? '뮤직비디오' : pj.tk === 'movie' ? '예고편 · 명장면' : '하이라이트'}`, ch: `${T.n} 「${pj.title}」`, me: actName(s, 'actor'), sc, rv: ({ '연기 대호평': 2, '연기 호평': 1, '연기 혹평': -1, '연기 대혹평': -2 })[d.review] || 0, vw: Math.pow(10, (T.mv ? 4.5 : 3.8) + sc / 25) });
     addWork(s, { type: T.n, title: pj.title, by: roleTxt(pj), sc, pay: d.fee, note: `${d.res} · ${d.review}` });
     if (t.works === 1) milestone(s, `${age(s)}세에 ${T.n} ${josa(`「${pj.title}」`, '으로')} 첫 작품에 출연했다.`);
     if (d.up && t.tier >= 4 && !t.leadMs) { t.leadMs = true; milestone(s, `${age(s)}세에 ${josa(`「${pj.title}」`, '으로')} ${josa(ACTOR_TIERS[t.tier], '이가')} 되었다.`); }
@@ -348,6 +350,7 @@ E({
     + (d.review === '연기 대혹평' ? `\n\n연기 장면만 모은 영상이 조롱거리가 됐다. 작품을 본 사람이 많을수록 비웃음도 커졌다.` : d.bad ? '\n\n연기력 논란 기사가 났다.' : '')
     + (d.oldSchool && d.bad ? '\n\n교복 입은 모습이 어색해서 몰입이 안 된다는 말이 많았다.' : '')
     + (d.up ? `\n\n이 작품으로 '${ACTOR_TIERS[s.tracks.actor.tier]}' 소리를 듣게 됐다. 더 큰 배역이 들어올 것이다.` : ''),
+  plio: (s, d) => d.plio,
   ch: (s, d) => [{ t: '확인', f: () => `「${d.pj.title}」 공개. ${d.res}, ${d.review}.` }],
 });
 // 작품 홍보 예능: 공개를 앞둔 작품의 배우들이 함께 예능에 나간다. 재밌게 나오면 작품 성적이 조금 오른다
@@ -577,7 +580,9 @@ function doShow(s, sh) {
   const out = /여행|리얼/.test(sh.genre), first = !s.works.some(w => w.type === '예능' && w.title !== sh.title);
   const live = typeof liveStage === 'function' ? liveStage({ k: 'show', vn: out ? 'outdoor' : 'studio', place: out ? '야외 촬영' : '예능 스튜디오', t: sh.title, g: sh.bc, cn: callName(p.name), mem: [[callName(p.name), '']].concat(['MC', '고정', '게스트'].slice(0, U.int(2, 3)).map(n => [n, ''])), mi: 0,
     key: big !== 0 || !!sh.fixed || first, big, fixed: sh.fixed, z: { var: (varScore(s) - 45) / 18 }, sc: big > 0 ? 90 : good ? 70 : big < 0 ? 25 : 45 }) : null;
-  return showResult(s, `${sh.bc} 「${sh.title}」`, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), live);
+  // 방송이 나간 뒤 반응은 플리오 팝업에서
+  const plio = typeof plioSpec === 'function' ? plioSpec({ k: 'show', t: `「${sh.title}」 ${big > 0 ? '레전드 장면 모음' : '이번 주 클립'}`, ch: sh.bc, me: actName(s, 'variety'), sc: big > 0 ? 90 : good ? 70 : big < 0 ? 25 : 45, rv: big > 0 ? 2 : good ? 1 : big < 0 ? -2 : 0, mul: 1 + VAR_POW[tier] * 0.5 }) : null;
+  return showResult(s, `${sh.bc} 「${sh.title}」`, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), live, null, plio);
 }
 // 예능인 등급: 쌓인 점수와 팬이 문턱을 넘으면 오른다. 오른 등급을 알리는 문장을 돌려준다 (안 올랐으면 '')
 function varTierUp(s, t) {
@@ -591,11 +596,11 @@ function varTierUp(s, t) {
 // 다른 창(활동명 정하기 등)이 이미 떠 있으면 그다음에 뜬다
 // live: 그 일의 실시간 창 (12-3: 예능 녹화). 창을 볼 차례면 결과도 따로 창으로 뜬다
 E({ id: 'work_res', cat: '작품 성적', tag: 'career', title: (s, d) => d.title, text: (s, d) => d.text, ch: (s, d) => [{ t: '확인', f: () => d.log }],
-  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live,
+  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live, plio: (s, d) => d.plio,
   // 방송 성과(d.boxes: 최고 시청자 · 후원 · 구독자)는 글 아래 상자로 (창 없이 처리될 때는 글만 남긴다)
   autoNoHtml: true, html: (s, d) => d.boxes && d.boxes.length && typeof stResHTML === 'function' ? `<div class="m-text">${rich(d.text)}</div>` + stResHTML(d.boxes) : '' });
-function showResult(s, title, text, log, live, boxes) {
-  const d = { title, text, log: log || text, live: live || null, boxes: boxes || null };
+function showResult(s, title, text, log, live, boxes, plio) {
+  const d = { title, text, log: log || text, live: live || null, boxes: boxes || null, plio: plio || null };
   if (s.pending) queueEv(s, 'work_res', 0, d, true); else fireEvent(s, 'work_res', d);
   return '';
 }

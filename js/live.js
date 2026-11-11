@@ -310,6 +310,63 @@ function liveStreamHTML(sp) {
     + `<div class="lv-bar"><i id="lv-bar"></i></div>`
     + `<div class="lv-btns"><button class="btn primary" data-liveskip>결과 바로 보기</button></div>`;
 }
+// ───── 영상 플랫폼 '플리오(PLIO)' 팝업 (12-3) ─────
+// 작품이 공개 · 방영된 뒤 사람들의 반응은 여기서만 본다 (세트장 · 무대 창에는 현장 반응만. 사용자 규칙 2026-11-11)
+// 실시간 창이 아니다: 결과 창 · 요약 창의 배너를 누르면 열리고, 다시 누르면 닫힌다
+// spec은 작게: { v, k: 종류, seed, t: 영상 제목, ch: 채널, me: 댓글에 나올 내 이름, sc: 작품 반응 0~100, rv: 나에 대한 평 2 ~ -2, vw: 조회수 }. 댓글은 씨앗으로 그때그때 만든다
+const PL_KIND = { drama: '본편 클립', mv: '뮤직비디오', show: '예능 클립', anime: '애니 클립', cover: '커버 영상', clip: '강의 영상', collab: '합작 영상' };
+const PL_NICK = LV_NICK.concat(['정주행중', '밤고구마', '퇴근길', '치즈김밥', '주말내내', '리모컨주인', '보리차', '참새방앗간', '소파지박령', '삼각김밥', '새우깡', '귤한박스']);
+// 작품에 대한 댓글 (종류마다 · 반응마다)
+const PL_WORK = {
+  drama: { great: ['이번 화 엔딩 미쳤다', '다음 화 언제 나와요ㅠㅠ', '올해 본 것 중에 제일 재밌다', '연출 · 대본 · 연기 다 된다', '정주행 세 번째', '주변에 다 추천하는 중'], good: ['생각보다 재밌는데?', '다음 화 기다려진다', '볼만하다', '입소문 탈 만하네'], meh: ['그냥저냥', '시간 때우기로는 괜찮음', '중간부터 좀 늘어진다', '무난하다'], bad: ['1화 보고 하차', '전개가 왜 이래', '시간이 아깝다', '기대가 너무 컸나'] },
+  mv: { great: ['영상미 미쳤다', '몇 번째 돌려 보는지 모르겠다', '색감 뭐야', '노래랑 찰떡이다'], good: ['영상 예쁘다', '노래 좋네', '또 보러 옴'], meh: ['무난한 뮤비', '노래는 좋은데 영상은 평범'], bad: ['뭘 말하려는지 모르겠다', '조회수가 말해 준다'] },
+  show: { great: ['이번 회차 레전드', '배 찢어지는 줄ㅋㅋㅋ', '이 클립만 열 번 봤다', '편집자 일 잘하네ㅋㅋ', '올해의 예능'], good: ['재밌게 봤어요', 'ㅋㅋㅋ 웃기네', '다음 주도 본다'], meh: ['무난했다', '평소보다 조용했네', '그냥저냥'], bad: ['이번 회는 노잼', '채널 돌렸다', '뭘 본 건지 모르겠다'] },
+  anime: { great: ['작화 · 성우 · 음악 다 미쳤다', '이번 분기 원픽', '원작 팬인데 만족', '다음 화까지 어떻게 기다려'], good: ['재밌다', '다음 화 기대', '원작 잘 살렸네'], meh: ['평범하다', '원작이 더 낫다', '볼만은 하다'], bad: ['작화 무너졌네', '원작이 아깝다', '3화까지 보고 하차'] },
+  video: { great: ['알고리즘이 나를 여기로 데려왔다', '이걸 이제야 봤네', '구독 누르고 갑니다', '조회수 더 올라가야 한다'], good: ['잘 보고 가요', '구독했어요', '다음 영상도 기다릴게요'], meh: ['음, 그냥저냥', '무난하네요'], bad: ['…', '다음 영상은 더 재밌길', '조회수가 말해 준다'] },
+};
+// 나에 대한 댓글 (평 2 대호평 · 1 호평 · 0 무난 · -1 혹평 · -2 대혹평). {n} = 내 이름
+const PL_ME = {
+  act: { 2: ['{n} 연기 미쳤다… 소름', '{n} 인생 캐릭터 만났네', '{n} 나오는 장면만 돌려 본다', '{n} 누구야? 이름 외워 간다'], 1: ['{n} 잘하네', '{n} 여기서 처음 봤는데 눈에 띈다', '{n} 다음 작품도 볼 듯'], 0: ['{n}도 나왔네', '{n} 무난했다'], '-1': ['{n} 연기가 좀 어색하다…', '{n} 나오면 몰입이 깨진다'], '-2': ['{n} 연기 클립 보고 왔다…', '{n} 때문에 하차했다', '{n} 캐스팅 누가 했냐'] },
+  show: { 2: ['{n} 예능감 뭐야ㅋㅋㅋ', '{n} 고정 시켜라', '{n} 나올 때마다 터진다', '{n} 다시 봤다'], 1: ['{n} 웃기네ㅋㅋ', '{n} 또 나왔으면'], 0: ['{n}도 나왔네', '{n} 분량이 좀 적었다'], '-1': ['{n} 분량 어디 갔어', '{n} 좀 겉돌았다'], '-2': ['{n} 나올 때 갑분싸', '{n} 억지 텐션 보기 힘들다'] },
+  voice: { 2: ['{n} 목소리가 캐릭터 그 자체', '{n} 성우 연기 소름', '성우 누군가 했더니 {n}이었네'], 1: ['{n} 목소리 잘 어울린다', '{n} 성우 좋다'], 0: ['{n}도 나왔네', '성우는 무난했다'], '-1': ['{n} 목소리가 캐릭터랑 안 맞는다', '{n} 톤이 좀 뜬다'], '-2': ['{n} 미스캐스팅', '{n} 목소리 때문에 몰입이 안 된다'] },
+  video: { 2: ['{n} 이 사람 뭐야 바로 구독', '{n} 폼 미쳤다', '{n} 더 유명해져야 한다'], 1: ['{n} 잘하네', '{n} 응원합니다'], 0: ['{n} 화이팅', '{n} 꾸준히 올려 줘요'], '-1': ['{n}… 다음엔 더 잘하자', '{n} 이번 건 좀 아쉽다'], '-2': ['{n} 이건 좀…', '{n} 영상 내리는 게 낫겠다'] },
+};
+const PL_ME_OF = { drama: 'act', mv: 'act', show: 'show', anime: 'voice' };
+function plioSpec(o) {
+  const sc = Math.round(U.clamp(o.sc || 0, 0, 100));
+  return { v: 'plio', k: o.k, seed: U.int(1, 2e9), t: o.t || '', ch: o.ch || '', me: o.me || '', sc, rv: o.rv || 0, vw: Math.max(30, Math.round(o.vw != null ? o.vw : Math.pow(10, 3.4 + sc / 26) * (o.mul || 1))) };
+}
+function plN(n) { n = Math.round(n); return n >= 1e8 ? (Math.round(n / 1e7) / 10) + '억' : n >= 1e5 ? Math.round(n / 1e4) + '만' : n >= 1e4 ? (Math.round(n / 1e3) / 10) + '만' : n.toLocaleString(); }
+// 댓글 목록: 작품 이야기 네 개 + 내 이야기 세 개를 섞는다. 반응은 대체로 한쪽이지만 다른 의견도 하나쯤 낀다
+function plioComments(sp) {
+  const R = liveRng(sp.seed), pk = a => a[Math.floor(R() * a.length)];
+  const T = ['bad', 'meh', 'good', 'great'], ti = sp.sc >= 80 ? 3 : sp.sc >= 65 ? 2 : sp.sc >= 52 ? 1 : 0;
+  const W = PL_WORK[sp.k] || PL_WORK.video, M = PL_ME[PL_ME_OF[sp.k] || 'video'];
+  const used = {}, take = arr => { for (let i = 0; i < 12; i++) { const x = pk(arr); if (!used[x]) { used[x] = 1; return x; } } return null; };
+  const out = [];
+  for (let i = 0; i < 4; i++) { const k = i === 3 ? U.clamp(ti + (R() < 0.5 ? -1 : 1), 0, 3) : ti, x = take(W[T[k]]); if (x) out.push(x); }
+  if (sp.me) for (let i = 0; i < 3; i++) { const rv = i === 2 && sp.rv !== 0 ? sp.rv - Math.sign(sp.rv) : sp.rv, x = take(M[rv] || M[0]); if (x) out.push(x.replace('{n}', sp.me)); }
+  // 섞고, 닉네임과 좋아요를 붙인다 (위에 있을수록 좋아요가 많다)
+  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+  let up = Math.max(3, sp.vw * (0.002 + 0.004 * R()));
+  return out.map(x => { const c = { who: take(PL_NICK) || '익명', x, up: Math.round(up) }; up *= 0.3 + 0.45 * R(); return c; });
+}
+function plioHTML(sp) {
+  const C = plioComments(sp), R = liveRng(sp.seed + 7), hue = hashN('pl' + sp.t) % 360, like = Math.round(sp.vw * (0.02 + 0.04 * R())), cn = Math.max(C.length, Math.round(sp.vw * (0.001 + 0.003 * R())));
+  return `<div class="pl-top"><span class="pl-logo">▶ ${PF.video.en}</span><span class="pl-sub">${PF.video.n}</span></div>`
+    + `<div class="pl-wrap"><div class="pl-main"><div class="pl-video" style="--hue:${hue}"><span class="pl-kind">${U.esc(PL_KIND[sp.k] || '영상')}</span><span class="pl-play">▶</span><span class="pl-dur">${1 + Math.floor(R() * 14)}:${String(Math.floor(R() * 60)).padStart(2, '0')}</span></div>`
+    + `<div class="pl-t">${U.esc(sp.t)}</div><div class="pl-meta"><span class="pl-ch"><i style="background:hsl(${(hue + 40) % 360} 60% 55%)"></i>${U.esc(sp.ch)}</span><span>조회수 ${plN(sp.vw)}회</span><span class="pl-like">👍 ${plN(like)}</span></div></div>`
+    + `<div class="pl-cm"><div class="pl-cm-h">댓글 ${plN(cn)}개</div><div class="pl-cm-b">${C.map(c => `<div class="pl-c"><i class="pl-av" style="background:hsl(${hashN(c.who) % 360} 55% 58%)">${U.esc(c.who.slice(0, 1))}</i><div><b>${U.esc(c.who)}</b><span>${U.esc(c.x)}</span><em>👍 ${plN(c.up)}</em></div></div>`).join('')}</div></div></div>`;
+}
+// 배너: 누르면 팝업이 열리고, 다시 누르면 닫힌다
+function plioKey(sp) { UI.plioMap = UI.plioMap || {}; const k = UI.plioN = (UI.plioN || 0) + 1; UI.plioMap[k] = sp; delete UI.plioMap[k - 400]; return k; }
+function plioBtnHTML(sp, label) { return sp && sp.v === 'plio' ? `<button class="pf-bn plio" data-plio="${plioKey(sp)}"><b>▶ ${PF.video.en}</b><span>${U.esc(label || '플리오에서 반응 보기')}</span></button>` : ''; }
+function plioToggle(k) {
+  const sp = (UI.plioMap || {})[k];
+  if (!sp) return;
+  if (UI.plioOpen === k && !$('#pop').classList.contains('hidden')) { popClose(); return; }
+  popOpen(plioHTML(sp), 'live-card pf-card'); UI.plioOpen = k;
+}
 // ───── 방송 성과 (결과 창의 상자) ─────
 // 방송 한 번의 숫자: 최고 시청자 수와 채팅에 뜬 후원 합계. 장면이 씨앗으로 정해지니 창을 안 봐도 같은 값이다
 function liveStreamStat(sp) {

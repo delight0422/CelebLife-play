@@ -209,7 +209,8 @@ function tuVid(s, t) {
   t.stu = tuAdd(s, t, add); if (big) t.pts += 1;
   const x = `맛보기 강의 영상을 올렸다. ${big ? "명언 같은 한마디가 밈이 되어 여기저기 퍼졌다. '그 강사 누구냐'는 말이 돈다." : good ? '조회수가 꽤 나왔다.' : '조회수가 별로 안 나왔다.'} (수강생 +${fmtFans(add)})` + fx(s, { fame: big ? 4 : good ? 1 : 0, fkr: Math.round((big ? 2e4 : good ? 1500 : 0) * (1 + TU_POW[t.tier] * 0.5) * myRoom(s, 'kr')) });
   const up = tuTierUp(s, t);
-  return showResult(s, '맛보기 강의 영상', x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''));
+  const plio = typeof plioSpec === 'function' ? plioSpec({ k: 'clip', t: `${t.subj} 맛보기 강의`, ch: `${me(s).name} ${t.subj}`, me: me(s).name, sc: big ? 90 : good ? 68 : 40, rv: big ? 2 : good ? 1 : 0, vw: (t.stu * 3 + 2000) * (big ? 30 : good ? 3 : 0.5) }) : null;
+  return showResult(s, '맛보기 강의 영상', x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), null, null, plio);
 }
 
 // ───── 지원: 학원 3줄 + 인강 회사 3줄 (처음에도, 일하는 중에도) ─────

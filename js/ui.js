@@ -144,7 +144,7 @@ function turnSumHTML(s, T) {
   for (const [id, ic, n] of TS_CATS) {
     const B = box[id];
     if (!B) continue;
-    h += `<div class="ts-box ${id}"><div class="ts-bh">${ic} ${n}</div>` + B.map(x => { const hh = LOG_HTML.get(x), si = x.e ? songIdx(s, x) : -1; return `<div class="ts-i${si !== -1 ? ' ts-song' : ''}"${si !== -1 ? ` data-song="${si}"` : ''}>${mo ? `<span class="ts-mo">${x.up ? '' : ymOfT(s, x.t).m + '월'}</span>` : ''}<span class="ts-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${id === 'win' && x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}${x.lv ? liveBtnHTML(x.lv, '무대 보기') : ''}</span></div>`; }).join('') + `</div>`;
+    h += `<div class="ts-box ${id}"><div class="ts-bh">${ic} ${n}</div>` + B.map(x => { const hh = LOG_HTML.get(x), si = x.e ? songIdx(s, x) : -1; return `<div class="ts-i${si !== -1 ? ' ts-song' : ''}"${si !== -1 ? ` data-song="${si}"` : ''}>${mo ? `<span class="ts-mo">${x.up ? '' : ymOfT(s, x.t).m + '월'}</span>` : ''}<span class="ts-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${id === 'win' && x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}${x.lv ? liveBtnHTML(x.lv, '무대 보기') : ''}${x.pl ? plioBtnHTML(x.pl) : ''}</span></div>`; }).join('') + `</div>`;
   }
   if (flav.length) h += `<details class="ts-more" open><summary>☕ 일상 ${flav.length}건</summary>${flav.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   h += `</div>`;
@@ -324,7 +324,7 @@ function lifeLogHTML(s) {
   let h = '', lastA = -1;
   for (const it of items) {
     if (it.a !== lastA) { lastA = it.a; h += `<div class="log-y">${it.a}세</div>`; }
-    h += `<div class="log-i ${it.k}">${nl(it.x)}${it.lv ? `<div>${liveBtnHTML(it.lv, '무대 보기')}</div>` : ''}</div>`;
+    h += `<div class="log-i ${it.k}">${nl(it.x)}${it.lv ? `<div>${liveBtnHTML(it.lv, '무대 보기')}</div>` : ''}${it.pl ? `<div>${plioBtnHTML(it.pl)}</div>` : ''}</div>`;
   }
   return `<div class="log-tab">${h || '<div class="empty">아직 기록이 없다.</div>'}</div>`;
 }
@@ -565,6 +565,8 @@ function showEventRaw() {
   const hx = ev.html ? ev.html(s, d) : '';
   UI.res = null;
   let h = `<button class="m-min" data-min>창 내리기</button><div class="m-cat">${U.esc(ev.cat || '')}</div><div class="m-title">${U.esc(typeof ev.title === 'function' ? ev.title(s, d) : ev.title)}</div>${hx ? `<div class="m-html">${hx}</div>` : `<div class="m-text">${rich(ev.text(s, d))}</div>`}`;
+  // 공개 뒤 반응: 결과 글 아래에 플리오 배너 (12-3)
+  if (ev.plio) { let pl = null; try { pl = ev.plio(s, d); } catch (e) { } if (pl) h += `<div class="pf-row">${plioBtnHTML(pl)}</div>`; }
   let T = null; if (ev.tbl) { try { T = ev.tbl(s, d); } catch (e) { console.error('표 오류', s.pending.id, e); T = null; } }
   if (ev.form) {
     // type 'check': 체크 칸 한 줄 (오디션 지원자·그룹 멤버 고르기). 나머지는 글자 적는 칸. 표(tbl)가 있으면 체크 줄은 표로 간다
@@ -1438,8 +1440,9 @@ function billBtnHTML(b) { return `<button class="bill-bn" data-bill="${billKey(b
 function billHTML(b) {
   return `<div class="bill"><div class="bill-h">🧾 ${U.esc(b.t || '정산서')}</div><table>${b.rows.map(r => r === '-' ? '<tr class="sep"><td colspan="2"></td></tr>' : `<tr${r[2] ? ' class="tot"' : ''}><td>${U.esc(r[0])}</td><td>${r[1] < 0 ? '− ' : ''}${fmtBill(r[1])}</td></tr>`).join('')}</table>${b.note ? `<div class="bill-note">${U.esc(b.note)}</div>` : ''}</div>`;
 }
-function popOpen(h) { $('#pop-card').innerHTML = `<button class="m-close" data-popclose>✕</button>` + h; $('#pop').classList.remove('hidden'); }
-function popClose() { $('#pop').classList.add('hidden'); }
+// cls: 큰 팝업(플리오 · 커뮤니티)은 실시간 창과 같은 크기 · 같은 어두운 바탕 ('live-card pf-card')
+function popOpen(h, cls) { const c = $('#pop-card'); c.className = 'mcard pop-card' + (cls ? ' ' + cls : ''); c.innerHTML = `<button class="m-close" data-popclose>✕</button>` + h; $('#pop').classList.remove('hidden'); UI.plioOpen = null; }
+function popClose() { $('#pop').classList.add('hidden'); UI.plioOpen = null; }
 // 요약 창의 발매 줄: 그 곡의 카드 번호 (없으면 -1). 내 회사 그룹 앨범(v119)은 'co|그룹 id|제목'
 const SONG_EVS = new Set(['band_relres', 'solo_relres', 'idol_cbres', 'co_res']);
 function songIdx(s, x) {
@@ -1698,6 +1701,7 @@ document.addEventListener('click', e => {
   if (t && t.dataset.livemode) { liveSetMode(t.dataset.livemode); renderPanel(); return; }
   // 곡 결과 카드 · 정산서 작은 창 (v118 UI C1 · C2)
   if (t && t.dataset.popclose != null) { popClose(); return; }
+  if (t && t.dataset.plio) { plioToggle(+t.dataset.plio); return; }
   if (t && t.dataset.bill) { const b = (UI.billMap || {})[t.dataset.bill]; if (b) popOpen(billHTML(b)); return; }
   if (t && t.dataset.song != null && S) { const c = songCardAt(S, t.dataset.song); if (c) popOpen(songCardHTML(c)); return; }
   if (!t) return;
