@@ -753,7 +753,7 @@ function idolActiveMonth(s, t) {
   const gf = groupFans(g);
   if (!t.jpDebut && t.months >= 18 && (t.tier >= 2 || g.f.jp > 2e4) && U.chance(0.04)) queueEv(s, 'idol_jp', 0);
   if (!t.usDebut && gf > 1.5e6 && U.chance(0.03)) queueEv(s, 'idol_us', 0);
-  if (t.tier === 1 && t.months >= 36 && (t.flops || 0) >= 3 && U.chance(0.05)) queueEv(s, 'idol_disband', 0);
+  // 해체 위기는 v158부터 앨범을 낼 때 회사가 평가한다 (idolev.js idolReview)
   if (t.months >= t.contract) queueEv(s, 'idol_contract', 0);
   // v157: 계약 끝나기 반년 전 재계약 이야기 · 12월 연말 합동 무대
   else if (t.contract - t.months === 6 && !t.rn && !hasQ(s, 'idol_renego')) queueEv(s, 'idol_renego', 0);
@@ -1094,6 +1094,8 @@ function idolRelease(s, t, c, debut, a) {
   // v154: 발매 뒤 2~3달째(활동 둘째 달이나 그다음 달)에 다음 앨범 기획이 시작되고, 석 달 뒤에 나온다
   t.cbCount++; t.promo = 2; t.nextCb = U.int(2, 3); t.alb = null;
   t.flops = sc < 50 ? (t.flops || 0) + 1 : Math.max(0, (t.flops || 0) - 1);
+  // v158 회사 평가: 최근 두 앨범이 회사 기대에 못 미치면 해체 이야기가 나온다 (idolev.js)
+  idolReview(s, t, sc, debut);
   t.yearBest = Math.max(t.yearBest || 0, sc);
   // 발매 결과 카드 (v118 UI C1): 무대 실력 · 곡 · 팬 · 유행 · 팀워크 · 컨셉 궁합 · 스타성 · 피로도 · 대표 컨셉
   if (t.lastBill) t.lastBill.t = `「${title}」 앨범 · 음원 정산`;
@@ -1286,30 +1288,42 @@ E({
     { t: '미국 활동을 준비한다', f: s => { const t = s.tracks.idol, g = t.g; t.usDebut = true; const add = Math.round((5e4 + groupFans(g) * 0.04) * langMult(me(s), 'en')); g.f.us += add; const tag = learnMe(s, 'en', 1, true); useSkill(s, me(s), 'en', 2); milestone(s, `${age(s)}세에 ${josa(`「${g.name}」`, '으로')} 미국에 진출했다.`); return '미국 데뷔 싱글을 냈다. 빌보드 차트에 이름이 올랐다.' + fx(s, { fus: Math.round(add * 0.3), stress: 8 }) + tag; } },
   ],
 });
+// v158: 앨범을 낼 때 회사가 평가해서 꺼낸다 (idolev.js idolReview). 회사 크기마다 기대와 참을성이 다르다. 끝나면 다른 회사 제안이 올 수 있다
 E({
-  id: 'idol_disband', cat: '그룹', title: '그룹 해체 위기', tag: 'career',
+  id: 'idol_disband', cat: '그룹', title: '그룹 해체 위기', tag: 'career', bg: 'meeting',
   cond: s => s.tracks.idol.st === 'active',
-  text: s => `「${s.tracks.idol.g.name}」의 앨범 성적이 세 번 넘게 좋지 않았다. 회사에서 그룹 활동을 정리하자는 이야기가 나왔다.`,
-  ch: () => [
-    { t: '받아들인다', f: s => { endGroup(s, '해체'); return '그룹이 해체됐다.' + fx(s, { stress: 6 }); } },
-    { t: '한 번만 더 해 보자고 설득한다', h: '받아 줄 가능성 30%', f: s => { if (U.chance(0.3)) { s.tracks.idol.flops = 1; return '마지막 기회를 얻었다. 다음 앨범에 모든 걸 걸어야 한다.' + fx(s, { stress: 10 }); } endGroup(s, '해체'); return '설득은 실패했다. 그룹이 해체됐다.' + fx(s, { stress: 10 }); } },
-  ],
+  init(s, d) { const t = s.tracks.idol, b = agBoss(s, t.ag); meetAt(s, b, `${t.agN} 대표`, 'idol'); d.b = b.id; },
+  text: (s, d) => {
+    const t = s.tracks.idol, b = d.b && s.people[d.b], who = b ? `대표 ${josa(b.name, '이가')}` : '회사에서';
+    if (d.last) return `마지막 기회라던 앨범도 기대에 못 미쳤다. ${who} 더는 어렵다고 했다.\n\n「${t.g.name}」 활동은 여기까지다.`;
+    return `「${t.g.name}」의 최근 앨범 성적이 회사 기대에 못 미쳤다. ${who} 멤버들을 불러 그룹 활동을 정리하자고 했다.\n\n${t.tier === 1 ? '작은 회사라 앨범을 낼수록 빚이 쌓인다고 한다.' : '회사는 곧 데뷔할 신인 그룹에 힘을 싣기로 했다고 한다.'} 그룹 팬 ${fmtFans(groupFans(t.g))}.`;
+  },
+  ch: (s, d) => {
+    const t = s.tracks.idol, mf = s.fans.kr + s.fans.jp + s.fans.us;
+    const end = (x, st) => { endGroup(s, '해체'); idolMoveQ(s); return x + fx(s, { stress: st }); };
+    if (d.last) return [{ t: '받아들인다', f: s => end('그룹이 해체됐다. 멤버들과 숙소에서 마지막 밤을 보냈다.', 8) }];
+    // 내 팬이 많을수록 회사가 한 번 더 들어준다
+    const pp = U.clamp(0.2 + Math.log10(1 + mf) * 0.03, 0.2, 0.45);
+    return [
+      { t: '받아들인다', f: s => end('그룹이 해체됐다.', 6) },
+      { t: '한 번만 더 해 보자고 설득한다', h: `받아 줄 가능성 ${fmtPct(pp)} · 받아 주면 다음 앨범이 마지막 기회다`, f: s => { if (U.chance(pp)) { t.lastCh = true; return '마지막 기회를 얻었다. 다음 앨범에 모든 걸 걸어야 한다.' + fx(s, { stress: 10 }); } return end('설득은 실패했다. 그룹이 해체됐다.', 10); } },
+    ];
+  },
 });
 E({
   id: 'idol_contract', cat: '그룹', title: '계약 만료', tag: 'career',
   cond: s => s.tracks.idol.st === 'active',
   text: s => { const t = s.tracks.idol, ga = groupAges(s, t.g); return `「${t.g.name}」의 계약 기간이 끝났다. 데뷔 ${Math.floor(t.months / 12)}년 차, 그룹 팬 ${fmtFans(groupFans(t.g))}, 멤버 평균 ${Math.round(ga.avg)}세.\n\n멤버들도 각자 생각이 있다.${ga.avg > 28 ? ' 다들 나이가 있어서 각자 다른 길을 생각하는 눈치다.' : ''}`; },
   ch(s) {
-    const t = s.tracks.idol, ga = groupAges(s, t.g);
-    // 멤버 평균 나이가 28세를 넘으면 한 살마다 남을 가능성이 크게 준다
+    const t = s.tracks.idol;
     // v157: 반년 전 재계약 이야기에서 정한 태도 (idolev.js idolRnOf): 남을 가능성 · 회사 몫이 내려가는 만큼
-    const rn = typeof idolRnOf === 'function' ? idolRnOf(t) : { p: 0, cut: 0.15 }, cut1 = Math.max(0.3, Math.round((t.cut - rn.cut) * 100) / 100);
-    const p = U.clamp(U.sig((Math.log10(1 + groupFans(t.g)) - 4.6) * 2) * (ga.avg > 28 ? Math.max(0.3, 1 - (ga.avg - 28) * 0.15) : 1) + rn.p, 0.05, 0.92);
+    // v158: 전원 잔류 · 몇 명만 잔류(줄어든 채로 계속) · 해체 세 갈래 (idolev.js idolRenewP · idolRenew). 멤버 평균 나이가 28세를 넘으면 한 살마다 크게 준다
+    const rn = idolRnOf(t), cut1 = Math.max(0.3, Math.round((t.cut - rn.cut) * 100) / 100), P = idolRenewP(s, t);
     return [
       // 재계약 조건 숫자와 남은 빚 (v118 UI C5)
-      { t: '다 같이 재계약하자고 한다', h: `멤버 전원이 남을 가능성 ${fmtPct(p)} · 회사 몫 ${pctN(t.cut)} → ${pctN(cut1)} · 4년 (${ymLater(s, Math.max(0, t.contract + 48 - t.months))}까지)${t.debt > 0 ? ` · 남은 빚 ${fmtWon(t.debt)}은 정산에서 갚는다` : ''}`, f: s => { t.rn = null; if (U.chance(p)) { const c0 = t.cut; t.contract += 48; t.cut = cut1; milestone(s, `${age(s)}세에 「${t.g.name}」 멤버 전원이 재계약했다.`); return `멤버 전원 재계약! 그룹이 계속된다. 회사 몫 ${pctN(c0)} → ${pctN(t.cut)}, 계약 ${ymLater(s, Math.max(0, t.contract - t.months))}까지.` + fx(s, { stress: -10 }); } endGroup(s, '계약 만료로 해체'); return '몇몇 멤버가 떠나기로 했다. 그룹은 사실상 해체됐다.' + fx(s, { stress: 6 }); } },
+      { t: '재계약한다', h: `멤버 전원이 남을 가능성 ${fmtPct(P.pa)} · 몇 명만 남아 계속할 가능성 ${fmtPct(P.pc - P.pa)} · 회사 몫 ${pctN(t.cut)} → ${pctN(cut1)} · 4년 (${ymLater(s, Math.max(0, t.contract + 48 - t.months))}까지)${t.debt > 0 ? ` · 남은 빚 ${fmtWon(t.debt)}은 정산에서 갚는다` : ''}`, f: s => idolRenew(s, t, P.pa, P.pc, cut1) },
       { t: '그룹은 정리하고 솔로로 회사에 남는다', h: '같은 회사 소속 솔로 가수가 된다', f: s => { const ag = t.ag; endGroup(s, '계약 만료로 해체'); return startSoloSigned(s, ag, { type: bestSoloType(s) }); } },
-      { t: '회사를 떠나 새 길을 찾는다', h: '직업 지원에서 다른 일을 시작할 수 있다', f: s => { endGroup(s, '계약 만료로 해체'); return '회사를 떠났다. 이제 무엇을 할지는 내가 정한다.'; } },
+      { t: '재계약하지 않고 떠난다', h: '그룹은 남은 멤버들이 정한다 · 다른 회사에서 제안이 올 수 있다', f: s => { const n = t.g.name; endGroup(s, '재계약 안 함'); idolMoveQ(s); return `「${n}」 재계약서에 도장을 찍지 않았다. 숙소 짐을 챙겨 나왔다.`; } },
     ];
   },
 });

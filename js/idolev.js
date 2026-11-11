@@ -565,3 +565,89 @@ E({
     ];
   },
 });
+
+// ═════════ v158 밸런스: 해체 · 재계약 · 이적 ═════════
+// 들어가기는 어렵고 버티기는 너무 쉬웠다 (자동 플레이 300명: 첫 계약 7년 안에 끝나는 그룹 1%, 10년 넘게 가는 그룹 73%).
+// 회사 평가: 셋째 앨범부터, 최근 두 앨범 점수 평균이 회사 기대에 못 미치면 회사가 해체를 꺼낸다 (숨은 값).
+// 소형 회사는 기대가 낮아도 참을성이 적고, 대형 회사는 기대가 높아도 오래 기다려 준다 → 첫 계약 안에 소형 절반 · 중형 15% · 대형 5%쯤 끝난다
+const IDOL_BAR = [0, 58, 62, 74], IDOL_CUT_P = [0, 0.2, 0.2, 0.15];
+// music.js idolRelease에서 앨범을 낼 때마다 부른다
+function idolReview(s, t, sc, debut) {
+  t.scs = (t.scs || []).concat(Math.round(sc)).slice(-2);
+  if (debut || !t.g || hasQ(s, 'idol_disband')) return;
+  const bar = IDOL_BAR[t.tier] || 60;
+  // 설득해서 얻은 마지막 기회: 이번 앨범 하나로 정해진다
+  if (t.lastCh) {
+    t.lastCh = false;
+    if (sc < bar) queueEv(s, 'idol_disband', 2, { last: true });
+    else addLog(s, `마지막 기회라던 앨범이 기대를 넘겼다. 「${t.g.name}」 활동이 이어진다.`, 'career');
+    return;
+  }
+  if (t.cbCount >= 3 && t.scs.length === 2 && (t.scs[0] + t.scs[1]) / 2 < bar && U.chance(IDOL_CUT_P[t.tier] || 0.2)) queueEv(s, 'idol_disband', 2);
+}
+// 그룹이 끝나면 (해체 · 재계약 불발 · 재계약 안 함) 다른 회사에서 제안이 올 수 있다: 새 그룹으로 다시 데뷔(26세까지) · 솔로 계약
+function idolMoveOffers(s) {
+  const t = s.tracks.idol, p = me(s), a = age(s), mf = s.fans.kr + s.fans.jp + s.fans.us, jt = jobTier(s, 'idol');
+  // 아직 다른 계약에 묶여 있으면 (그룹과 같이 하던 솔로 계약 · 배우 소속사 · 내 회사) 제안이 오지 않는다
+  if (trackOn(s, 'agency') || agencyContract(s) || (trackOn(s, 'solo') && s.tracks.solo.st === 'signed')) return [];
+  // 내 팬 · 등급이 클수록 큰 회사에서 연락이 온다
+  const top = mf >= 3e5 || jt >= 4 ? 3 : mf >= 4e4 || jt >= 2 ? 2 : 1;
+  const P = AGENCIES.filter(x => x.kind === 'music' && x.id !== t.ag && !x.soloOnly && x.mkt !== 'us' && x.tier <= top && (x.mkt !== 'jp' || lv(p, 'jp') >= (x.needJp || 0)));
+  const near = L => L.filter(x => x.tier >= top - 1), out = [];
+  if (a <= 26 && U.chance(0.25 + top * 0.1)) { const L = near(P); if (L.length) out.push({ ag: U.pick(L).id, k: 'group' }); }
+  if (!trackOn(s, 'solo') && (has(p, 'vocal') || has(p, 'rap')) && U.chance(0.15 + top * 0.15)) { const L = near(P).filter(x => !out.some(o => o.ag === x.id)); if (L.length) out.push({ ag: U.pick(L).id, k: 'solo', type: bestSoloType(s) }); }
+  return out;
+}
+function idolMoveQ(s) {
+  const o = idolMoveOffers(s);
+  if (o.length) queueEv(s, 'idol_move', 1, { o });
+}
+E({
+  id: 'idol_move', cat: '이적', title: '다른 회사의 제안', tag: 'career', bg: 'meeting',
+  cond: s => s.tracks.idol.st === 'ended',
+  text: (s, d) => `그룹 활동이 끝났다는 기사가 난 뒤로 다른 회사에서 연락이 왔다.\n\n` + d.o.map(o => `· ${AG[o.ag].n} (${TIER_N[AG[o.ag].tier]} 기획사) — ${o.k === 'group' ? '새 그룹으로 다시 데뷔하자고 한다' : `솔로 ${josa(soloTypeN(o.type), '으로')} 계약하자고 한다`}`).join('\n'),
+  ch: (s, d) => d.o.map(o => {
+    const ag = AG[o.ag], why = contractWhy(s);
+    if (o.k === 'group') return { t: `${ag.n}의 새 그룹으로 다시 데뷔한다`, ok: s => !agencyContract(s) && !trackOn(s, 'agency'), h: why || `숙소에 들어가 석 달쯤 데뷔 준비 · 그룹 계약 5년 · 회사 몫 ${pctN(idolRedebutCut(ag))}`, f: s => idolRedebut(s, o.ag) };
+    return { t: `${josa(ag.n, '과와')} 솔로 계약을 한다`, ok: s => !agencyContract(s) && !trackOn(s, 'agency') && !trackOn(s, 'solo'), h: why || '계약 조건은 협상할 수 있다', f: s => soloNego(s, o.ag, o.type || bestSoloType(s), 0.4) };
+  }).concat([{ t: '지금은 쉬면서 생각한다', f: () => '제안은 고맙게 듣고, 당분간은 쉬면서 생각하기로 했다.' }]),
+});
+function idolRedebutCut(ag) { return Math.max(0.3, Math.round((ag.cut - 0.05) * 100) / 100); }
+// 다시 데뷔: 데뷔조로 바로 들어가 석 달 뒤 새 그룹으로 데뷔한다 (연습생 평가 · 방출 없이)
+function idolRedebut(s, agId) {
+  const ag = AG[agId], old = s.tracks.idol;
+  s.tracks.idol = { st: 'trainee', kind: 'idol', part: null, ag: agId, agN: ag.n, tier: ag.tier, cut: idolRedebutCut(ag), gMonths: 60, mkt: ag.mkt, months: 0, cEnd: 999, fails: 0, rank: 1, pool: U.int(18, 30), team: true, prep: 3, debt: 0, hist: old.hist || [], sn: old.sn, redeb: true };
+  milestone(s, `${age(s)}세에 ${ag.n}에서 새 그룹으로 다시 데뷔하기로 했다.`);
+  return `${ag.n}에서 새 그룹으로 다시 데뷔하기로 했다. 숙소에 들어가 석 달쯤 데뷔 준비를 한다. (그룹 계약 5년 · 회사 몫 ${pctN(s.tracks.idol.cut)})`;
+}
+// 재계약: 전원이 남거나, 몇 명만 남아 줄어든 채로 계속하거나, 해체된다
+// pc: 그룹이 이어질 가능성 (그룹 팬 40만 명쯤이면 반반) · pa: 그중 전원이 남을 가능성 (그룹이 클수록)
+function idolRenewP(s, t) {
+  const ga = groupAges(s, t.g), L = Math.log10(1 + groupFans(t.g)), rn = idolRnOf(t);
+  const pc = U.clamp(U.sig((L - 5.6) * 2) * (ga.avg > 28 ? Math.max(0.3, 1 - (ga.avg - 28) * 0.15) : 1) + rn.p, 0.05, 0.9);
+  return { pc, pa: pc * U.clamp(0.3 + 0.5 * U.sig((L - 6) * 2), 0.3, 0.8) };
+}
+function idolRenew(s, t, pa, pc, cut1) {
+  const g = t.g, r = Math.random(), M = idMem(s, t), c0 = t.cut;
+  t.rn = null;
+  if (r < pa || (r < pc && !M.length)) {
+    t.contract += 48; t.cut = cut1;
+    milestone(s, `${age(s)}세에 「${g.name}」 멤버 전원이 재계약했다.`);
+    return `멤버 전원 재계약! 그룹이 계속된다. 회사 몫 ${pctN(c0)} → ${pctN(t.cut)}, 계약 ${ymLater(s, Math.max(0, t.contract - t.months))}까지.` + fx(s, { stress: -10 });
+  }
+  if (r < pc && M.length >= 2) {
+    // 몇 명만 남는다: 떠난 멤버 몫만큼 팬이 떠나고, 파트를 다시 나누느라 팀워크가 흔들린다
+    const k = U.int(1, Math.max(1, Math.floor(M.length / 2))), out = U.shuffle(M).slice(0, k);
+    for (const x of out) { x.rel = '전 멤버'; g.members = g.members.filter(id => id !== x.id); delete g.pos[x.id]; bond(s, x, 2); }
+    const keep = 1 - 0.5 * k / (M.length + 1);
+    MK.forEach(m => { g.f[m] = Math.round(g.f[m] * keep); });
+    twAdd(g, -10);
+    g.pos = assignIdolPos(s, [s.me].concat(g.members)); t.pos = g.pos[s.me];
+    t.contract += 48; t.cut = cut1;
+    const nm = out.map(x => x.name).join(', ');
+    milestone(s, `${age(s)}세에 「${g.name}」 ${g.members.length + 1}명이 재계약했다.`);
+    return `${josa(nm, '은는')} 재계약하지 않고 떠났다. 「${g.name}」 ${g.members.length + 1}명이 남아 계속한다. 그룹 팬 ${Math.round((1 - keep) * 100)}%쯤이 함께 떠났다. 파트를 다시 나눴다 — 내 포지션은 ${t.pos}.\n\n회사 몫 ${pctN(c0)} → ${pctN(t.cut)}, 계약 ${ymLater(s, Math.max(0, t.contract - t.months))}까지.` + fx(s, { stress: 4 });
+  }
+  endGroup(s, '계약 만료로 해체'); idolMoveQ(s);
+  return '멤버 절반 넘게 떠나기로 했다. 그룹은 사실상 해체됐다.' + fx(s, { stress: 6 });
+}
