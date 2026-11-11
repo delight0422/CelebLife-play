@@ -40,11 +40,12 @@ function idolAutoPractice(s, t, n) {
 // ───── 골라서 하는 일: 켜 두면 매달 꾸준히 한다 (두 가지까지, 언제든 바꿀 수 있다) ─────
 const IDOL_WAY_MAX = 2;
 const IDOL_WAYS = [
-  { id: 'song', ic: '🎼', n: '내 곡 내기', f: 'subSong', show: (s, t) => t.st === 'active' && has(me(s), 'compose'), h: s => `다음 앨범 데모곡 모집에 내 곡을 낸다 · 남의 곡과 똑같이 A&R 심사를 받는다 · 작곡 ${lvi(me(s), 'compose')}레벨` },
-  { id: 'lyr', ic: '✍️', n: '가사 내기', f: 'subLyr', show: (s, t) => t.st === 'active' && has(me(s), 'lyric'), h: s => `실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡 · 작사 ${lvi(me(s), 'lyric')}레벨` },
+  // v159: 여섯 가지가 늘 보인다. 지금 할 수 없는 것은 막힌 채로 이유(no)를 보여 준다
+  { id: 'song', ic: '🎼', n: '내 곡 내기', f: 'subSong', show: (s, t) => t.st === 'active' && has(me(s), 'compose'), no: (s, t) => t.st !== 'active' ? '데뷔한 뒤에 할 수 있다' : '작곡 특기가 있어야 한다', h: s => has(me(s), 'compose') ? `다음 앨범 데모곡 모집에 내 곡을 낸다 · 남의 곡과 똑같이 A&R 심사를 받는다 · 작곡 ${lvi(me(s), 'compose')}레벨` : '다음 앨범 데모곡 모집에 내 곡을 낸다 · 남의 곡과 똑같이 A&R 심사를 받는다' },
+  { id: 'lyr', ic: '✍️', n: '가사 내기', f: 'subLyr', show: (s, t) => t.st === 'active' && has(me(s), 'lyric'), no: (s, t) => t.st !== 'active' ? '데뷔한 뒤에 할 수 있다' : '작사 특기가 있어야 한다', h: s => has(me(s), 'lyric') ? `실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡 · 작사 ${lvi(me(s), 'lyric')}레벨` : '실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡' },
   { id: 'act', ic: '🎭', n: '연기 연습', sk: 'acting', show: () => true, h: (s, t) => `연기 ↑ · 스트레스 조금 ↑${t.st === 'active' ? ' · 연기가 늘면 웹드라마 제안이 온다' : ''}` },
-  { id: 'fan', ic: '💬', n: '팬 소통', show: (s, t) => t.st === 'active', h: () => '라이브 방송 · 메시지 · 내 팬 ↑ · 그룹 팬 조금 ↑ · 스트레스 조금 ↑ · 가끔 말실수' },
-  { id: 'mate', ic: '🤝', n: t => t.st === 'active' ? '멤버 챙기기' : '동기 챙기기', show: (s, t) => t.st === 'active' || idMates(s, t).length > 0, h: (s, t) => `${t.st === 'active' ? '멤버 사이 ↑ · 팀워크 ↑' : '동기 사이 ↑'} · 스트레스 ↓ · 밥값` },
+  { id: 'fan', ic: '💬', n: '팬 소통', show: (s, t) => t.st === 'active', no: () => '데뷔한 뒤에 할 수 있다', h: () => '라이브 방송 · 메시지 · 내 팬 ↑ · 그룹 팬 조금 ↑ · 스트레스 조금 ↑ · 가끔 말실수' },
+  { id: 'mate', ic: '🤝', n: t => t.st === 'active' ? '멤버 챙기기' : '동기 챙기기', show: (s, t) => t.st === 'active' || idMates(s, t).length > 0, no: () => '같이 지내는 동기가 없다', h: (s, t) => `${t.st === 'active' ? '멤버 사이 ↑ · 팀워크 ↑' : '동기 사이 ↑'} · 스트레스 ↓ · 밥값` },
   { id: 'var', ic: '😆', n: '예능 감 익히기', sk: 'variety', show: () => true, h: (s, t) => `예능 ↑ · 스트레스 조금 ↑${t.st === 'active' ? ' · 개인 예능 섭외가 더 자주 온다' : ''}` },
 ];
 function idolWayN(t, w) { return typeof w.n === 'function' ? w.n(t) : w.n; }
@@ -59,14 +60,12 @@ function idolWaySet(s, t, w, v) {
 }
 function idolPicks(s, t) {
   if (s.army || (t.st !== 'active' && !idTr(s))) return [];
-  const n = idolWayCnt(s, t), W = IDOL_WAYS.filter(w => w.show(s, t));
-  const A = W.map((w, i) => {
-    const on = idolWayOn(t, w), room = !w.sk || has(me(s), w.sk) || skRoom(s, w.sk);
-    return { sw: true, sec: i === 0 ? `켜 두면 매달 꾸준히 한다 · ${IDOL_WAY_MAX}가지까지 (지금 ${n}가지)` : '', t: `${w.ic} ${idolWayN(t, w)}`, tag: on ? '켜 둠' : '', h: w.h(s, t), btn: on ? '끄기' : '켜기', ok: on || (n < IDOL_WAY_MAX && room), why: !room ? `특기가 ${SKILL_CAP}개라 ${SKILLS[w.sk].n} 특기를 새로 배울 수 없다` : `${IDOL_WAY_MAX}가지까지만 켜 둘 수 있다 · 하나를 먼저 끈다`, run: s => idolWaySet(s, t, w, !on) };
+  const n = idolWayCnt(s, t);
+  // v159: '한 번 하는 일'(외부 레슨 · 게릴라 공연)은 뺐다 (사용자 결정: 직업 창에는 켜 두는 일만. 한 번 하는 일이 필요하면 활동 지원으로)
+  return IDOL_WAYS.map((w, i) => {
+    const can = w.show(s, t), on = can && idolWayOn(t, w), room = !w.sk || has(me(s), w.sk) || skRoom(s, w.sk);
+    return { sw: true, on, sec: i === 0 ? `켜 두면 매달 꾸준히 한다 · ${IDOL_WAY_MAX}가지까지 (지금 ${n}가지)` : '', t: `${w.ic} ${idolWayN(t, w)}`, tag: on ? '켜 둠' : '', h: w.h(s, t), btn: on ? '끄기' : '켜기', ok: on || (can && n < IDOL_WAY_MAX && room), why: !can ? w.no(s, t) : !room ? `특기가 ${SKILL_CAP}개라 ${SKILLS[w.sk].n} 특기를 새로 배울 수 없다` : `${IDOL_WAY_MAX}가지까지만 켜 둘 수 있다 · 하나를 먼저 끈다`, run: s => idolWaySet(s, t, w, !on) };
   });
-  // 한 번 하는 일: 외부 레슨 · 게릴라 공연 (칼군무 맞추기는 활동 준비로, 멤버 코칭 · 밥 먹기는 멤버 챙기기로 합쳤다)
-  const O = t.st === 'active' ? teamPicks(s, 'idol').filter(a => /레슨|게릴라/.test(a.t)) : [];
-  return A.concat(O.map((a, i) => Object.assign({}, a, i === 0 ? { sec: '한 번 하는 일' } : {})));
 }
 CAREERS.idol.picks = (s, t) => idolPicks(s, t);
 
@@ -166,7 +165,7 @@ E({
     if (!x) { d.skip = true; return; }
     d.tr = x.id; meetAt(s, x, `${t.agN} 연습생`, 'idol');
   },
-  text: (s, d) => { const t = idT(s), x = s.people[d.tr]; return `월말 평가가 끝나고 ${x.job} ${josa(x.name, '이가')} 따로 불렀다. 최근 평가 ${t.rank || '-'}위(${t.pool}명 중).\n\n"${SKILLS[d.k].n}이 몇 달째 제자리야. 이대로면 데뷔조는 어려워."`; },
+  text: (s, d) => { const t = idT(s), x = s.people[d.tr]; return `월말 평가가 끝나고 ${x.job} ${josa(x.name, '이가')} 따로 불렀다. 최근 평가 ${t.rank || '-'}위(${t.pool}명 중).\n\n"${josa(SKILLS[d.k].n, '이가')} 몇 달째 제자리야. 이대로면 데뷔조는 어려워."`; },
   ch: (s, d) => {
     const t = idT(s), x = s.people[d.tr];
     return [
@@ -232,7 +231,7 @@ E({
   id: 'idol_pd_note', cat: '앨범', title: '프로듀서의 지적', tag: 'career', p: 0.06, cd: 12,
   cond: s => idOn(s) && !!idT(s).alb && !idT(s).alb.deb && !idT(s).pdArc,
   init(s, d) { const t = idT(s), w = agProd(s, t.ag, t.g); if (!w.p) { d.skip = true; return; } d.x = w.p.id; d.n = w.n; meetAt(s, w.p, `「${t.g.name}」 앨범`, 'idol'); },
-  text: (s, d) => { const t = idT(s); return `녹음실에서 ${josa(d.n, '이가')} 녹음을 멈췄다. "${t.pos.split(' · ')[0]}가 이 정도밖에 안 돼? 다시."\n\n몇 번을 다시 불러도 고개를 젓는다. 부스 밖에서 멤버들이 내 눈치를 본다.`; },
+  text: (s, d) => { const t = idT(s); return `녹음실에서 ${josa(d.n, '이가')} 녹음을 멈췄다. "${josa(t.pos.split(' · ')[0], '이가')} 이 정도밖에 안 돼? 다시."\n\n몇 번을 다시 불러도 고개를 젓는다. 부스 밖에서 멤버들이 내 눈치를 본다.`; },
   ch: (s, d) => {
     const t = idT(s), x = s.people[d.x], k = has(me(s), 'rap') && lv(me(s), 'rap') > lv(me(s), 'vocal') ? 'rap' : 'vocal';
     return [
@@ -253,7 +252,7 @@ E({
   id: 'idol_pd_part', cat: '앨범', title: '이번 앨범의 내 파트', tag: 'career', bg: 'meeting',
   cond: s => idOn(s) && !!idT(s).pdArc,
   init(s, d) { const t = idT(s), x = s.people[t.pdArc.id]; if (!x) { d.skip = true; return; } d.x = x.id; d.v = t.pdArc.v; },
-  text: (s, d) => { const x = s.people[d.x]; return d.v > 0 ? `다음 앨범 파트 분배표가 나왔다. 내 파트가 눈에 띄게 늘었다.\n\n${x.name}: "지난번에 밤늦게까지 남아서 연습하던 거 봤어. 이번엔 네가 이 부분 맡아."` : `다음 앨범 파트 분배표가 나왔다. 내 파트가 줄었다. 후렴 한 줄이 다른 멤버에게 넘어갔다.\n\n녹음실에서 ${x.name}은 나와 눈을 마주치지 않는다.`; },
+  text: (s, d) => { const x = s.people[d.x]; return d.v > 0 ? `다음 앨범 파트 분배표가 나왔다. 내 파트가 눈에 띄게 늘었다.\n\n${x.name}: "지난번에 밤늦게까지 남아서 연습하던 거 봤어. 이번엔 네가 이 부분 맡아."` : `다음 앨범 파트 분배표가 나왔다. 내 파트가 줄었다. 후렴 한 줄이 다른 멤버에게 넘어갔다.\n\n녹음실에서 ${josa(x.name, '은는')} 나와 눈을 마주치지 않는다.`; },
   ch: (s, d) => {
     const t = idT(s), x = s.people[d.x], k = CAREERS.idol.mainSk(s, t) || 'vocal';
     if (d.v > 0) return [{ t: '기대에 맞춰 준비한다', f: s => { t.partB = (t.partB || 0) + 0.25; bond(s, x, 4); practice(s, me(s), k, 2); return `${x.name} 프로듀서가 이번 앨범에서 내 파트를 늘려 줬다.` + fx(s, { stress: 3 }); } }];
@@ -413,11 +412,11 @@ E({
   cond: s => idOn(s) && idT(s).promo > 0,
   init(s, d) {
     const t = idT(s), g = t.g, gm = idMain(t), w = s.works.filter(x => x.by === g.name).slice(-1)[0];
-    d.song = w ? w.title : '데뷔곡'; d.sc = Math.round(U.clamp(55 + (boomStageS(s, t) - 35) * 1.2 + U.normal(0, 6), 40, 98)); d.vw = Math.round(Math.pow(10, 3.6 + d.sc / 30));
+    d.song = w ? w.title : '데뷔곡'; d.sc = Math.round(U.clamp(55 + (boomStageS(s, t) - 35) * 1.2 + U.normal(0, 6), 40, 98)); d.vw = Math.round(Math.pow(10, 3.6 + d.sc / 30) * PL_VW); // v159: 플리오 조회수와 같게 (PL_VW)
     d.my = Math.round((600 + groupFans(g) * 0.004) * U.clamp((d.sc - 40) / 30, 0.2, 2) * popSpeed(s) * myRoom(s, gm)); d.gf = Math.round(d.my * 0.6);
     s.fans[gm] += d.my; g.f[gm] = Math.min(FANCAP[gm], g.f[gm] + d.gf);
   },
-  plio: (s, d) => d.pl || (d.pl = plioSpec({ k: 'stage', t: `${idT(s).g.name} ${actName(s, 'idol')} 직캠 「${d.song}」`, ch: `${PF.video.n} 직캠`, me: actName(s, 'idol'), sc: d.sc, rv: d.sc >= 75 ? 2 : 1, vw: d.vw, sx: liveSx([me(s)]) })),
+  plio: (s, d) => d.pl || (d.pl = plioSpec({ k: 'stage', t: `${idT(s).g.name} ${actName(s, 'idol')} 직캠 「${d.song}」`, ch: `${PF.video.n} 직캠`, me: actName(s, 'idol'), sc: d.sc, rv: d.sc >= 75 ? 2 : 1, vw: d.vw / PL_VW, sx: liveSx([me(s)]) })),
   text: (s, d) => `음악방송 「${d.song}」 무대의 내 직캠이 조회수 ${plN(d.vw)}회를 넘겼다. "이 멤버 이름이 뭐예요?" 댓글이 줄을 선다.\n\n내 개인 팬 +${fmtFans(d.my)} · 그룹 팬 +${fmtFans(d.gf)}`,
   ch: (s, d) => [
     { t: '확인', f: () => `내 「${d.song}」 직캠이 ${plN(d.vw)}회를 넘겼다.` },
@@ -568,7 +567,7 @@ E({
 
 // ═════════ v158 밸런스: 해체 · 재계약 · 이적 ═════════
 // 들어가기는 어렵고 버티기는 너무 쉬웠다 (자동 플레이 300명: 첫 계약 7년 안에 끝나는 그룹 1%, 10년 넘게 가는 그룹 73%).
-// 회사 평가: 셋째 앨범부터, 최근 두 앨범 점수 평균이 회사 기대에 못 미치면 회사가 해체를 꺼낸다 (숨은 값).
+// 회사 평가: 넷째 앨범부터(v159, 예전 셋째), 최근 두 앨범 점수 평균이 회사 기대에 못 미치면 회사가 해체를 꺼낸다 (숨은 값).
 // 소형 회사는 기대가 낮아도 참을성이 적고, 대형 회사는 기대가 높아도 오래 기다려 준다 → 첫 계약 안에 소형 절반 · 중형 15% · 대형 5%쯤 끝난다
 const IDOL_BAR = [0, 58, 62, 74], IDOL_CUT_P = [0, 0.2, 0.2, 0.15];
 // music.js idolRelease에서 앨범을 낼 때마다 부른다
@@ -579,11 +578,12 @@ function idolReview(s, t, sc, debut) {
   // 설득해서 얻은 마지막 기회: 이번 앨범 하나로 정해진다
   if (t.lastCh) {
     t.lastCh = false;
-    if (sc < bar) queueEv(s, 'idol_disband', 2, { last: true });
+    if (sc < bar) queueEv(s, 'idol_disband', 3, { last: true });
     else addLog(s, `마지막 기회라던 앨범이 기대를 넘겼다. 「${t.g.name}」 활동이 이어진다.`, 'career');
     return;
   }
-  if (t.cbCount >= 3 && t.scs.length === 2 && (t.scs[0] + t.scs[1]) / 2 < bar && U.chance(IDOL_CUT_P[t.tier] || 0.2)) queueEv(s, 'idol_disband', 2);
+  // v159: 넷째 앨범부터 보고, 활동이 끝나고 한 달 더 지나서 꺼낸다 (예전: 셋째 앨범 · 두 달 뒤 — 너무 빨랐다)
+  if (t.cbCount >= 4 && t.scs.length === 2 && (t.scs[0] + t.scs[1]) / 2 < bar && U.chance(IDOL_CUT_P[t.tier] || 0.2)) queueEv(s, 'idol_disband', 3);
 }
 // 그룹이 끝나면 (해체 · 재계약 불발 · 재계약 안 함) 다른 회사에서 제안이 올 수 있다: 새 그룹으로 다시 데뷔(26세까지) · 솔로 계약
 function idolMoveOffers(s) {

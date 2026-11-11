@@ -308,7 +308,7 @@ E({
     d.oldSchool = pf.old;
     d.review = perf > ACT_BIG.hi ? '연기 대호평' : perf > 12 ? '연기 호평' : perf > -5 ? '무난한 연기' : perf > ACT_BIG.lo ? '연기 혹평' : '연기 대혹평';
     d.good = /호평/.test(d.review); d.bad = /혹평/.test(d.review);
-    d.res = T.mv ? `조회수 ${fmtFans(Math.round(Math.pow(10, 4.5 + sc / 25))).replace('명', '회')}` : pj.tk === 'drama' ?`최고 시청률 ${U.clamp((sc - 30) / 3.5, 0.6, 32).toFixed(1)}%` : pj.tk === 'web' ? `누적 조회수 ${fmtFans(Math.round(Math.pow(10, 4 + sc / 22))).replace('명', '회')}` : pj.tk === 'ott' ? `OTT 주간 순위 ${sc >= 80 ? '1위' : sc >= 70 ? U.int(2, 5) + '위' : sc >= 58 ? U.int(5, 15) + '위' : '20위 밖'}` : `관객 ${fmtFans(Math.min(1.7e7, Math.round(Math.pow(10, 4.3 + sc / 30))))}`;
+    d.res = T.mv ? `조회수 ${fmtFans(Math.round(Math.pow(10, 4.5 + sc / 25) * PL_VW)).replace('명', '회')}` : pj.tk === 'drama' ?`최고 시청률 ${U.clamp((sc - 30) / 3.5, 0.6, 32).toFixed(1)}%` : pj.tk === 'web' ? `누적 조회수 ${fmtFans(Math.round(Math.pow(10, 4 + sc / 22))).replace('명', '회')}` : pj.tk === 'ott' ? `OTT 주간 순위 ${sc >= 80 ? '1위' : sc >= 70 ? U.int(2, 5) + '위' : sc >= 58 ? U.int(5, 15) + '위' : '20위 밖'}` : `관객 ${fmtFans(Math.min(1.7e7, Math.round(Math.pow(10, 4.3 + sc / 30))))}`;
     d.gain = Math.max(0, fanGain(s, sc, 'kr', [0.3, 0.8, 1.6][pj.ri] * (T.mv ? 0.4 : 1)));
     s.fans.kr += d.gain; s.fans.jp += Math.round(d.gain * 0.03);
     d.fee = Math.round(pj.fee * (1 - (t.cut || 0)));

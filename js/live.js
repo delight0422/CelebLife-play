@@ -377,9 +377,11 @@ PL_ME.stage = { 2: ['{n} 직캠 떴다', '{n} 무대 체질이다', '{n}만 보�
 // 만든 사람(감독 · 작가)에 대한 댓글. {n}에는 '○○ 감독' · '○○ 작가'가 들어간다
 PL_ME.make = { 2: ['{n} 이름 기억해 둔다', '{n} 다음 작품도 무조건 본다', '만든 사람이 {n}이라더라, 역시'], 1: ['{n} 잘 만드네', '{n} 다음 작품 기대된다'], 0: ['{n} 작품이구나', '{n} 무난하게 뽑았다'], '-1': ['{n} 이번엔 좀 아쉽다', '{n} 감이 떨어졌나'], '-2': ['{n} 작품은 이제 거른다', '{n} 왜 이렇게 만들었지'] };
 const PL_ME_OF = { drama: 'act', mv: 'act', show: 'show', anime: 'voice', stage: 'stage', film: 'make', animk: 'make', stagew: 'make' };
+// v159: 조회수가 너무 커서 10분의 1로 (사용자 결정). 댓글 좋아요 · 싫어요는 조회수를 따라 같이 10분의 1, 영상 좋아요 · 싫어요는 100분의 1 (plioHTML)
+const PL_VW = 0.1;
 function plioSpec(o) {
   const sc = Math.round(U.clamp(o.sc || 0, 0, 100));
-  const sp = { v: 'plio', k: o.k, seed: U.int(1, 2e9), t: o.t || '', ch: o.ch || '', me: o.me || '', sc, rv: o.rv || 0, vw: Math.max(30, Math.round(o.vw != null ? o.vw : Math.pow(10, 3.4 + sc / 26) * (o.mul || 1))) };
+  const sp = { v: 'plio', k: o.k, seed: U.int(1, 2e9), t: o.t || '', ch: o.ch || '', me: o.me || '', sc, rv: o.rv || 0, vw: Math.max(5, Math.round((o.vw != null ? o.vw : Math.pow(10, 3.4 + sc / 26) * (o.mul || 1)) * PL_VW)) };
   // 썸네일 캐릭터 (v154 보탬): 성별 · 의상 (무대 영상은 그 무대의 것을 그대로)
   if (o.sx) sp.sx = o.sx;
   if (o.cos) sp.cos = o.cos;
@@ -412,7 +414,7 @@ function plioComments(sp) {
   for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
   // 곡 결과 카드에 나온 반응은 맨 위에 (가장 공감을 많이 받은 댓글)
   for (const x of (sp.ln || []).slice().reverse()) out.unshift(x);
-  let up = Math.max(3, sp.vw * (0.002 + 0.004 * R()));
+  let up = Math.max(1, sp.vw * (0.002 + 0.004 * R()));
   // 싫어요 (v154 보탬): 다른 씨앗으로 따로 정한다 (댓글 · 좋아요는 예전과 같게)
   const R2 = liveRng(sp.seed + 11);
   return out.map(x => { const c = { who: take(PL_NICK) || '익명', x, up: Math.round(up) }; c.dn = Math.round(up * (con.has(x) ? 0.35 + 0.8 * R2() : 0.005 + 0.05 * R2())); up *= 0.3 + 0.45 * R(); return c; });
@@ -432,7 +434,7 @@ function plioThumbHTML(sp, hue) {
   return `<div class="pl-video sc-${K[0]}" style="--hue:${hue}"><div class="pl-bg"></div>${ph ? `<div class="pl-ph" style="background-image:url('img/pl/${ph}.webp')"></div>` : ''}<div class="pl-chars n${n}">${chars}</div><span class="pl-kind">${U.esc(PL_KIND[sp.k] || '영상')}</span><span class="pl-dur">${1 + Math.floor(R() * 14)}:${String(Math.floor(R() * 60)).padStart(2, '0')}</span><i class="pl-prog"><b style="width:${Math.round(15 + R() * 70)}%"></b></i></div>`;
 }
 function plioHTML(sp) {
-  const C = plioComments(sp), R = liveRng(sp.seed + 7), hue = hashN('pl' + sp.t) % 360, like = Math.round(sp.vw * (0.02 + 0.04 * R())), cn = Math.max(C.length, Math.round(sp.vw * (0.001 + 0.003 * R())));
+  const C = plioComments(sp), R = liveRng(sp.seed + 7), hue = hashN('pl' + sp.t) % 360, like = Math.round(sp.vw * (0.002 + 0.004 * R())), cn = Math.max(C.length, Math.round(sp.vw * (0.001 + 0.003 * R())));
   return `<div class="pl-top"><span class="pl-logo">▶ ${PF.video.en}</span><span class="pl-sub">${PF.video.n}</span></div>`
     + `<div class="pl-wrap"><div class="pl-main">${plioThumbHTML(sp, hue)}`
     + `<div class="pl-t">${U.esc(sp.t)}</div><div class="pl-meta"><span class="pl-ch"><i style="background:hsl(${(hue + 40) % 360} 60% 55%)"></i>${U.esc(sp.ch)}</span><span>조회수 ${plN(sp.vw)}회</span><span class="pl-like">👍 ${plN(like)}</span><span class="pl-like dn">👎 ${plN(plioDislike(sp, like))}</span></div></div>`
@@ -607,6 +609,7 @@ function liveSprite(key, hue) {
 // img/ch/의 부품(몸 · 뒷머리 · 얼굴 · 앞머리)을 겹쳐 그린다. 회색 옷은 그룹 색, 회색 머리는 머리색으로 물들인다
 // 부품 목록은 js/chparts.js(CH_PARTS). 그림이 없거나 아직 안 읽혔으면 위의 도트 캐릭터가 그대로 보인다
 const CH = { img: {}, n: 0, ok: false, started: false };
+const CH_NO_HAIR = ['hair_11'];
 const CH_HAIR = [[52, 44, 58], [52, 44, 58], [84, 58, 44], [84, 58, 44], [128, 84, 52], [196, 160, 96], [226, 210, 170], [222, 112, 160], [116, 148, 228], [186, 180, 204], [150, 66, 78], [108, 176, 150]];
 function chLoad() {
   if (CH.started || typeof CH_PARTS === 'undefined') return;
@@ -644,7 +647,10 @@ function chPaint(cv) {
   const ml = (P.cos || []).filter(n => /_m$/.test(n) && !/_(practice|project)_/.test(n) && has(n));
   const ck = D.cos ? `cos_${D.cos}_${sx}` : '';
   const body = ck && has(ck) ? ck : male && ml.length ? ml[g % ml.length] : P.body[g % P.body.length];
-  const hair = hl[h % hl.length], face = P.face[(h >> 5) % P.face.length], hc = CH_HAIR[(h >> 9) % CH_HAIR.length];
+  // v159: hair_11(뒷머리 없는 아주 짧은 머리)은 여자 캐릭터에 쓰지 않는다 (사용자 결정). 그 머리였던 사람만 다른 머리로 (다른 사람 머리는 그대로)
+  let hair = hl[h % hl.length];
+  if (CH_NO_HAIR.includes(hair)) { const ok = hl.filter(n => !CH_NO_HAIR.includes(n)); hair = ok[(h >> 3) % ok.length]; }
+  const face = P.face[(h >> 5) % P.face.length], hc = CH_HAIR[(h >> 9) % CH_HAIR.length];
   const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
   chLayer(ctx, hair + '_b', 'hair', hc); chLayer(ctx, body, 'fit', +D.hue); chLayer(ctx, face, ''); chLayer(ctx, hair + '_f', 'hair', hc);
   if (D.mic) chLayer(ctx, 'prop_mic', '');

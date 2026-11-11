@@ -1522,11 +1522,25 @@ function jobTaskHTML(s, id) {
 // 골라서 하는 일 (v117: 밴드 · 아이돌 그룹의 팀 활동). 그 직업 일을 하고 있을 때만 고를 수 있다
 // 골라서 한 일은 직업마다 언제 했는지 적어 둔다. 고를 수 있는 일이 있는데 석 달 넘게 하나도 안 했으면 그 직업 배너에 레드닷 (v118 UI B4)
 function pickWrap(id, a) { if (!a.run) return a; const r = a.run; return Object.assign({}, a, { run: s => { (s.pickT = s.pickT || {})[id] = s.t; return r(s); } }); }
-// v157: 켜 두는 일(sw)은 레드닷에서 뺀다 (켜 둔 채로 두는 게 정상이라서)
-function pickDue(s, id) { const c = CAREERS[id]; if (!c.picks || !jobN(s, id)) return false; let P = []; try { P = c.picks(s, s.tracks[id]) || []; } catch (e) { } const last = (s.pickT || {})[id]; return P.some(a => a.ok && !a.sw) && (last == null || s.t - last >= 3); }
-// sec: 그 줄 위에 붙이는 작은 안내 (v157 아이돌: '켜 두면 매달 꾸준히 한다' · '한 번 하는 일')
+// v159 켜 두는 일(sw): 하나도 안 켜 뒀을 때, 또는 고를 수 있는 것이 바뀌었을 때(새로 켤 수 있게 됨 · 막힘 · 이름이 바뀜)만 레드닷. 직업 창을 열면 본 것으로 친다
+function pickSig(P) { return P.filter(a => a.sw).map(a => `${a.t}:${a.ok ? 1 : 0}:${a.on ? 1 : 0}`).join('|'); }
+function pickDue(s, id) {
+  const c = CAREERS[id]; if (!c.picks || !jobN(s, id)) return false;
+  let P = []; try { P = c.picks(s, s.tracks[id]) || []; } catch (e) { }
+  const W = P.filter(a => a.sw);
+  if (W.length) {
+    if (!W.some(a => a.on) && W.some(a => a.ok)) return true;
+    const S0 = s.pickSig = s.pickSig || {}, sg = pickSig(P);
+    if (S0[id] == null) S0[id] = sg; // 예전 세이브: 지금 것을 본 것으로 친다
+    if (S0[id] !== sg) return true;
+  }
+  const last = (s.pickT || {})[id];
+  return P.some(a => a.ok && !a.sw) && (last == null || s.t - last >= 3);
+}
+// sec: 그 줄 위에 붙이는 작은 안내 (v157 아이돌: '켜 두면 매달 꾸준히 한다')
 function jobPicksHTML(s, id, on) {
   const c = CAREERS[id], P = c.picks ? c.picks(s, s.tracks[id]) : [];
+  if (P.some(a => a.sw)) (s.pickSig = s.pickSig || {})[id] = pickSig(P);
   return P.length ? `<div class="sec-h">🖐️ 골라서 하는 일</div>` + P.map(a => (a.sec ? `<div class="lnote">${U.esc(a.sec)}</div>` : '') + actRow(Object.assign({}, pickWrap(id, a), on ? {} : { ok: false, why: '일정에 이 일을 넣어야 할 수 있다' }))).join('') : '';
 }
 // 직업 활동 두 갈래 (7-4단계부터): 칸만 넣어 두면 자동으로 하는 일 + 칸을 넣은 채로 골라서 하는 일 (c.picks)
@@ -1536,6 +1550,7 @@ function jobAutoHTML(s, id, n) {
   if (!n) h += `<div class="lnote">일정에 빈 칸이 없다 (고정 일정이 다 차 있다)</div>`;
   for (const x of (c.autoList ? c.autoList(s, t) : [])) h += `<div class="act lrow"><div><div class="a-t">${U.esc(`${x.ic} ${x.n}`)}${n && x.tag !== false ? '<span class="tag">하는 중</span>' : ''}</div><div class="lr-eff">${U.esc(x.eff)}</div></div></div>`;
   const P = c.picks ? c.picks(s, t) : [];
+  if (P.some(a => a.sw)) (s.pickSig = s.pickSig || {})[id] = pickSig(P);
   if (P.length) h += `<div class="sec-h">🖐️ 골라서 하는 일</div>` + P.map(a => actRow(Object.assign({}, pickWrap(id, a), n ? {} : { ok: false, why: '일정에 빈 칸이 없다 (고정 일정이 다 차 있다)' }))).join('');
   return h;
 }
