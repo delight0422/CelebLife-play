@@ -973,6 +973,24 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .lv-stage.vn-runway .p-cam { bottom: 2%; font-size: 46px; }
 .lv-stage.vn-runway .p-cam.l { left: 24%; } .lv-stage.vn-runway .p-cam.r { right: 24%; }
 @media (max-width: 700px) { .lv-stage.vn-runway .lv-floor { left: 22%; right: 22%; } .lv-stage.vn-runway .p-cam { font-size: 30px; } .lv-stage.vn-runway .p-cam.l { left: 12%; } .lv-stage.vn-runway .p-cam.r { right: 12%; } .p-head { transform: translate(-50%, 0) scale(.7); } }
+/* 12-3: 녹음 부스 (성우). 흡음벽, 왼쪽 유리창 너머 음향 감독, 오른쪽 모니터, 마이크, REC 등 */
+.lv-stage.vn-booth { background: repeating-linear-gradient(90deg, #2b2636 0 40px, #25202f 40px 80px); }
+.lv-stage.vn-booth .lv-lights, .lv-stage.vn-booth .lv-crowd { display: none; }
+.lv-stage.vn-booth .lv-floor { left: 0; right: 0; bottom: 0; height: 30%; border-radius: 0; background: linear-gradient(180deg, #54463c, #33291f); }
+.lv-stage.vn-booth .lv-mem { bottom: 12%; padding: 0 16%; gap: 18px; }
+.lv-stage.vn-booth .lv-mem .lm:not(.me) { opacity: .8; }
+.p-win { position: absolute; left: 6%; top: 17%; width: 33%; height: 30%; border: 6px solid #15121c; border-radius: 10px; background: linear-gradient(180deg, #3d4a63, #26304a); box-shadow: inset 0 0 30px rgba(140, 190, 255, .25); display: flex; align-items: flex-end; justify-content: center; gap: 12%; font-size: 46px; padding-bottom: 3%; }
+.p-mon { position: absolute; right: 6%; top: 17%; width: 31%; height: 30%; border: 6px solid #15121c; border-radius: 10px; background: #0d0b14; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #7f7896; font-size: 13.5px; font-weight: 700; text-align: center; padding: 0 8px; transition: background .5s, box-shadow .5s, color .5s; overflow: hidden; }
+.p-mon span { font-size: 48px; filter: grayscale(1) brightness(.55); transition: filter .5s; }
+.p-mon b { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-stage.play .p-mon { background: linear-gradient(135deg, hsl(var(--hue) 70% 42%), hsl(calc(var(--hue) + 60) 70% 55%)); color: #fff; box-shadow: 0 0 40px hsla(var(--hue), 90%, 70%, .6); }
+.lv-stage.play .p-mon span { filter: none; animation: lvBob .4s steps(2) infinite alternate; }
+.lv-props i.p-rec { left: 50%; top: 19%; transform: translateX(-50%); background: #3a2030; color: #7a5a66; font-weight: 800; font-size: 14px; padding: 4px 12px; border-radius: 6px; letter-spacing: 1px; }
+.lv-stage.rec .lv-props i.p-rec { background: #e0304a; color: #fff; box-shadow: 0 0 18px rgba(224, 48, 74, .8); }
+/* 마이크는 내 캐릭터 바로 옆에 */
+.lv-stage.vn-booth .lm.me { position: relative; }
+.lv-stage.vn-booth .lm.me::after { content: '🎙️'; position: absolute; right: -30px; top: 16%; font-size: 38px; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .6)); }
+@media (max-width: 700px) { .p-win, .p-mon { font-size: 30px; top: 20%; height: 22%; } .p-mon span { font-size: 30px; } .p-mon { font-size: 11.5px; } .lv-stage.vn-booth .lm.me::after { font-size: 24px; right: -18px; } .lv-stage.vn-booth .lv-mem { padding: 0 4%; gap: 6px; } }
 /* 12-3: 지어낸 플랫폼의 대표 색 (사용자가 정함). 라이브온 = 라임 그린, 플리오(PLIO) = 소프트 오렌지. js/live.js의 PF와 같다 */
 :root { --pf-live: #B8F044; --pf-video: #FF914D; }
 /* 라이브 방송 플랫폼 (라이브온). 왼쪽 방송 화면, 오른쪽 채팅 */

@@ -461,5 +461,13 @@ function voDoJob(s, j) {
   addWork(s, { type: '성우', pay: j.fee, title: nm, by: VO_TIERS[t.tier], sc: big > 0 ? 85 : good ? 70 : big < 0 ? 30 : 45, note: big > 0 ? '화제가 됐다' : good ? '반응이 좋았다' : big < 0 ? '혹평' : '무난' });
   const how = big > 0 ? '"목소리가 캐릭터 그 자체"라는 말이 퍼졌다.' : good ? '목소리 연기가 잘 맞는다는 말을 들었다.' : big < 0 ? '캐릭터와 목소리가 안 맞는다는 혹평이 돌았다.' : '무난하게 녹음을 마쳤다.';
   const x = `${josa(nm, '을를')} 녹음했다. ${how}` + fxt;
-  return showResult(s, nm, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''));
+  // 실시간 창 (12-3): 녹음 부스. '중요할 때만'에서는 첫 녹음 · 첫 애니 주연 · 극장판 주연 · 화제나 혹평 · 등급이 오른 녹음만
+  let live = null;
+  if (typeof liveStage === 'function') {
+    const ani = ['extra', 'sup', 'lead', 'movie'].includes(j.id), kind = ani ? 'ani' : j.id === 'game' ? 'game' : j.id === 'dub' ? 'dub' : 'narr', me0 = actName(s, 'voice');
+    const firstLead = j.id === 'lead' && !t.leads; if (j.id === 'lead') t.leads = (t.leads || 0) + 1;
+    live = liveStage({ k: 'booth', vn: 'booth', place: '녹음 부스', t: `${j.title || j.who} · ${j.n}`, g: me0, mem: [[me0, '']].concat(ani && j.id !== 'extra' ? [['동료 성우', ''], ['동료 성우', '']] : []), mi: 0,
+      key: t.jobs === 1 || firstLead || j.id === 'movie' || big !== 0 || !!up, big, sc: big > 0 ? 88 : good ? 72 : big < 0 ? 28 : 48, z: { voice: (p.tal.voice - 50) / 15 }, x: { kind, title: j.title || j.who } });
+  }
+  return showResult(s, nm, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), live);
 }

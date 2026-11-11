@@ -49,6 +49,7 @@ function liveBeats(sp) {
   if (sp.k === 'set') return liveSet(sp, R, pk, z, lvl, mine);
   if (sp.k === 'show') return liveTv(sp, R, pk, z, lvl, mine);
   if (sp.k === 'runway') return liveRunway(sp, R, pk, z, lvl, mine);
+  if (sp.k === 'booth') return liveBooth(sp, R, pk, z, lvl, mine);
   // 1. 등장: 팬이 많을수록 객석이 크다
   const f = lvl(z('fans'));
   B.push({ cap: `조명이 켜지고 ${josa(g, '이가')} 무대에 선다`, glow: 0.35 + f * 0.15,
@@ -175,9 +176,27 @@ function liveRunwayProps() {
   for (let i = 0; i < 12; i++) { const side = i % 2 ? 1 : -1, r = (i * 5) % 7; h += `<b class="p-fl" style="left:${50 + side * (17 + r * 4.6 + (i % 3) * 4)}%;top:${20 + r * 9.5}%;--d:${(i * 0.19) % 0.9}s"></b>`; }
   return `<div class="lv-props">${h}<i class="p-cam l">📸</i><i class="p-cam r">📸</i></div>`;
 }
+// ───── 녹음 부스 (12-3): 성우의 녹음 ─────
+// 마이크 앞에 서서 녹음한다. 왼쪽 유리창 너머에 음향 감독, 오른쪽에 모니터(애니 · 게임 · 외화 · 내레이션 화면)가 있다
+// 들리는 건 음향 감독의 말(mc: 큐 · 컷 · 오케이)과 같이 녹음하는 동료 · 스태프 소리뿐. 방영 뒤 반응은 여기 나오지 않는다
+// sp.x = { kind: 'ani' · 'game' · 'dub' · 'narr', title: 모니터에 뜰 이름 }. 요인: voice(목소리). rec: 녹음 등이 켜진다 · play: 모니터에 방금 녹음한 장면이 돈다
+function liveBooth(sp, R, pk, z, lvl, mine) {
+  const B = [], q = sp.big > 0 ? 3 : sp.sc >= 60 ? 2 : sp.big < 0 ? 0 : 1, vv = lvl(z('voice')), narr = (sp.x || {}).kind === 'narr';
+  B.push({ cap: '큐 사인', glow: 0.5, rec: 1, L: [['자, 들어갑니다. 큐!', 'mc'], ['쉿…', 'soft']] });
+  B.push({ cap: narr ? '첫 문장' : '첫 대사', glow: 0.6, rec: 1, L: q === 3 ? [['와…', 'big'], ['소름 돋았어', 'big'], ['컷! 오케이!!', 'mc']] : q === 2 ? [['오, 좋다', 'soft'], ['컷! 오케이!', 'mc']] : q === 1 ? [['……', 'soft'], ['컷! 한 번만 더 갈게요', 'mc'], ['네!', 'soft']] : [['어…?', 'bad'], ['톤이 좀…', 'bad'], [narr ? '컷! 다시 갈게요. 너무 딱딱해요' : '컷! 다시 갈게요. 캐릭터가 안 보여요', 'mc']] });
+  B.push({ cap: narr ? '긴 문단' : '감정 대사', glow: 0.5, rec: 1, L: q >= 2 && vv === 2 ? [['큐!', 'mc'], ['목소리 뭐야…', 'big'], [narr ? '귀에 쏙쏙 들어온다' : '훌쩍…', 'soft'], ['컷! 좋았어요', 'mc']] : q >= 2 ? [['큐!', 'mc'], ['끄덕끄덕', 'soft'], ['컷! 좋아요', 'mc']] : q === 1 ? [['큐!', 'mc'], ['……', 'soft'], ['컷! 이걸로 갈게요', 'mc']] : [['큐!', 'mc'], ['발음이 꼬였다…', 'bad'], ['컷! 다시!', 'mc']] });
+  B.push({ cap: '모니터', glow: 0.75, play: 1, L: [['모니터 한번 볼게요', 'mc']].concat(q === 3 ? [[narr ? '화면이 살아나네!' : '캐릭터 그 자체네!', 'big'], ['짝짝짝', 'soft']] : q === 2 ? [[narr ? '화면이랑 잘 붙네요' : '입이 딱 맞네요', 'soft']] : q === 1 ? [['음… 괜찮네요', 'soft']] : [[narr ? '화면이랑 따로 노네…' : '입이 안 맞네…', 'bad'], ['수군수군…', 'bad']]) });
+  B.push({ cap: '마무리', glow: q >= 2 ? 1 : 0.7, L: [['수고하셨습니다!', 'mc']].concat(q === 3 ? [['짝짝짝짝짝!!', 'big'], ['다음에도 꼭 같이 해요!', 'big'], [`${mine}!!`, 'call']] : q === 2 ? [['짝짝짝!', 'soft'], ['수고하셨습니다!!', 'big']] : q === 1 ? [['수고하셨습니다', 'soft']] : [['수고하셨습니다…', 'soft']]) });
+  return B;
+}
+function liveBoothProps(sp) {
+  const X = sp.x || {}, ic = { ani: '🎞️', game: '🎮', dub: '🎬', narr: '📺' }[X.kind] || '🎞️';
+  return `<div class="lv-props"><div class="p-win"><span>🎧</span><span>🎚️</span></div><div class="p-mon"><span>${ic}</span><b>${U.esc(X.title || '')}</b></div><i class="p-rec">REC</i></div>`;
+}
 // 세트장 소품 (그림 글자): 조명 · 카메라 · 슬레이트, 야외는 해 · 나무, 스튜디오는 ON AIR
 function liveProps(sp) {
   if (sp.k === 'runway') return liveRunwayProps();
+  if (sp.k === 'booth') return liveBoothProps(sp);
   if (sp.k !== 'set' && sp.k !== 'show') return '';
   const cam = '<i class="p-cam l">🎥</i><i class="p-cam r">🎥</i>';
   return `<div class="lv-props">` + (sp.vn === 'outdoor' ? '<i class="p-sun">☀️</i><i class="p-tree l">🌳</i><i class="p-tree r">🌲</i>' + cam + '<i class="p-clap">🎬</i>' : sp.vn === 'studio' ? '<i class="p-air">ON AIR</i>' + cam + '<i class="p-clap">🎬</i>' : '<i class="p-light l">💡</i><i class="p-light r">💡</i>' + cam + '<i class="p-clap">🎬</i>') + `</div>`;
@@ -380,9 +399,9 @@ function liveHTML(sp) {
   // 1위 발표 때만 보이는 다른 팀들 (무대 양옆)
   const oth = k => [0, 1, 2].map(i => `<span class="lm" style="--i:${i + k}">${liveChar('rival' + sp.seed + (i + k), (sp.hue + 90 + (k ? 110 : 0)) % 360, 'rival' + sp.seed + k)}</span>`).join('');
   return `<div class="lv-top"><span class="lv-place">${U.esc(sp.place)}</span>${sp.t ? `<span class="lv-t">「${U.esc(sp.t)}」</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
-    + `<div class="lv-stage${sp.vn ? ' vn-' + sp.vn : ''}${sp.k === 'set' || sp.k === 'show' || sp.k === 'runway' ? ' mcon' : ''}" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"><div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
+    + `<div class="lv-stage${sp.vn ? ' vn-' + sp.vn : ''}${sp.k === 'set' || sp.k === 'show' || sp.k === 'runway' || sp.k === 'booth' ? ' mcon' : ''}" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"><div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
     + `<div class="lv-floor"></div><div class="lv-oth l">${oth(0)}</div><div class="lv-oth r">${oth(3)}</div>`
-    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.k === 'set' || sp.k === 'show' ? (sp.hue + i * 67) % 360 : sp.hue, sp.k === 'set' || sp.k === 'show' ? sp.g + i : sp.g)}<em>${sp.k === 'band' || sp.k === 'player' ? livePartIc(m[1]) + ' ' : ''}${U.esc(m[0])}</em></span>`).join('')}</div>`
+    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? (sp.hue + i * 67) % 360 : sp.hue, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? sp.g + i : sp.g)}<em>${sp.k === 'band' || sp.k === 'player' ? livePartIc(m[1]) + ' ' : ''}${U.esc(m[0])}</em></span>`).join('')}</div>`
     + `<div class="lv-conf">${Array.from({ length: 26 }, (_, i) => `<i style="left:${(i * 41) % 100}%;--d:${(i * 0.17) % 1.4}s;--c:${(i * 67) % 360}"></i>`).join('')}</div>`
     + liveProps(sp)
     + `<div class="lv-crowd">${sticks}</div><div class="lv-bub" id="lv-bub"></div><div class="lv-mc" id="lv-mc"></div></div>`
@@ -397,7 +416,7 @@ function liveNext() {
   const st = $('#lv-stage');
   if (L.i >= L.B.length) { liveDone(); return; }
   const b = L.B[L.i];
-  if (st) { st.style.setProperty('--glow', b.glow); st.classList.remove('fx-drum', 'fx-win'); if (b.fx) st.classList.add('fx-' + b.fx); st.classList.toggle('gather', !!b.gather); st.classList.toggle('lose', !!b.lose); if (b.clap) { st.classList.remove('clap'); void st.offsetWidth; st.classList.add('clap'); } if (b.walk != null) st.style.setProperty('--walk', b.walk); st.classList.toggle('fl1', b.flash === 1); st.classList.toggle('fl2', b.flash === 2); }
+  if (st) { st.style.setProperty('--glow', b.glow); st.classList.remove('fx-drum', 'fx-win'); if (b.fx) st.classList.add('fx-' + b.fx); st.classList.toggle('gather', !!b.gather); st.classList.toggle('lose', !!b.lose); if (b.clap) { st.classList.remove('clap'); void st.offsetWidth; st.classList.add('clap'); } if (b.walk != null) st.style.setProperty('--walk', b.walk); st.classList.toggle('fl1', b.flash === 1); st.classList.toggle('fl2', b.flash === 2); st.classList.toggle('rec', !!b.rec); st.classList.toggle('play', !!b.play); }
   if (b.view != null) { const v = $('#st-view'); if (v) v.textContent = b.view.toLocaleString(); }
   b.L.forEach((e, j) => L.tm.push(setTimeout(() => (L.sp.k === 'stream' ? liveChat(e[0], e[1], e[2]) : liveBubble(e[0], e[1])), 120 + j * 260)));
   L.tm.push(setTimeout(liveNext, liveBeatMs(b)));
