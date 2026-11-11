@@ -314,7 +314,9 @@ function liveStreamHTML(sp) {
 // 작품이 공개 · 방영된 뒤 사람들의 반응은 여기서만 본다 (세트장 · 무대 창에는 현장 반응만. 사용자 규칙 2026-11-11)
 // 실시간 창이 아니다: 결과 창 · 요약 창의 배너를 누르면 열리고, 다시 누르면 닫힌다
 // spec은 작게: { v, k: 종류, seed, t: 영상 제목, ch: 채널, me: 댓글에 나올 내 이름, sc: 작품 반응 0~100, rv: 나에 대한 평 2 ~ -2, vw: 조회수 }. 댓글은 씨앗으로 그때그때 만든다
-const PL_KIND = { drama: '본편 클립', mv: '뮤직비디오', show: '예능 클립', anime: '애니 클립', cover: '커버 영상', clip: '강의 영상', collab: '합작 영상' };
+// film: 내가 연출하거나 쓴 작품 · animk: 내가 만든 애니 · stage: 곡 무대 영상 · vlog: 스트리머가 매달 올리는 영상
+const PL_KIND = { drama: '본편 클립', mv: '뮤직비디오', show: '예능 클립', anime: '애니 클립', cover: '커버 영상', clip: '강의 영상', collab: '합작 영상', film: '본편 클립', animk: '애니 클립', stage: '무대 영상', vlog: '새 영상' };
+const PL_WORK_OF = { film: 'drama', animk: 'anime', vlog: 'video', cover: 'video', clip: 'video', collab: 'video' };
 const PL_NICK = LV_NICK.concat(['정주행중', '밤고구마', '퇴근길', '치즈김밥', '주말내내', '리모컨주인', '보리차', '참새방앗간', '소파지박령', '삼각김밥', '새우깡', '귤한박스']);
 // 작품에 대한 댓글 (종류마다 · 반응마다)
 const PL_WORK = {
@@ -322,6 +324,8 @@ const PL_WORK = {
   mv: { great: ['영상미 미쳤다', '몇 번째 돌려 보는지 모르겠다', '색감 뭐야', '노래랑 찰떡이다'], good: ['영상 예쁘다', '노래 좋네', '또 보러 옴'], meh: ['무난한 뮤비', '노래는 좋은데 영상은 평범'], bad: ['뭘 말하려는지 모르겠다', '조회수가 말해 준다'] },
   show: { great: ['이번 회차 레전드', '배 찢어지는 줄ㅋㅋㅋ', '이 클립만 열 번 봤다', '편집자 일 잘하네ㅋㅋ', '올해의 예능'], good: ['재밌게 봤어요', 'ㅋㅋㅋ 웃기네', '다음 주도 본다'], meh: ['무난했다', '평소보다 조용했네', '그냥저냥'], bad: ['이번 회는 노잼', '채널 돌렸다', '뭘 본 건지 모르겠다'] },
   anime: { great: ['작화 · 성우 · 음악 다 미쳤다', '이번 분기 원픽', '원작 팬인데 만족', '다음 화까지 어떻게 기다려'], good: ['재밌다', '다음 화 기대', '원작 잘 살렸네'], meh: ['평범하다', '원작이 더 낫다', '볼만은 하다'], bad: ['작화 무너졌네', '원작이 아깝다', '3화까지 보고 하차'] },
+  // 무대 영상: 노래 실력을 콕 집는 말은 곡 결과 카드의 반응(sp.ln)이 맡고, 여기는 두루 맞는 말만 둔다. 쓴소리는 넣지 않는다 (쓴소리 댓글은 따로 골라서 본다)
+  stage: { great: ['무대 찢었다', '이 곡은 무대로 봐야 한다', '직캠 조회수 좀 봐', '몇 번째 보는지 모르겠다', '출근길에 보고 퇴근길에 또 본다'], good: ['무대 좋다', '노래 좋네', '또 보러 왔다', '볼수록 괜찮다'], meh: ['무난한 무대', '곡이 좀 심심하다', '나쁘지 않다'], bad: ['다음 곡을 기대할게', '무대는 열심히 했다', '아쉽다'] },
   video: { great: ['알고리즘이 나를 여기로 데려왔다', '이걸 이제야 봤네', '구독 누르고 갑니다', '조회수 더 올라가야 한다'], good: ['잘 보고 가요', '구독했어요', '다음 영상도 기다릴게요'], meh: ['음, 그냥저냥', '무난하네요'], bad: ['…', '다음 영상은 더 재밌길', '조회수가 말해 준다'] },
 };
 // 나에 대한 댓글 (평 2 대호평 · 1 호평 · 0 무난 · -1 혹평 · -2 대혹평). {n} = 내 이름
@@ -331,23 +335,41 @@ const PL_ME = {
   voice: { 2: ['{n} 목소리가 캐릭터 그 자체', '{n} 성우 연기 소름', '성우 누군가 했더니 {n}이었네'], 1: ['{n} 목소리 잘 어울린다', '{n} 성우 좋다'], 0: ['{n}도 나왔네', '성우는 무난했다'], '-1': ['{n} 목소리가 캐릭터랑 안 맞는다', '{n} 톤이 좀 뜬다'], '-2': ['{n} 미스캐스팅', '{n} 목소리 때문에 몰입이 안 된다'] },
   video: { 2: ['{n} 이 사람 뭐야 바로 구독', '{n} 폼 미쳤다', '{n} 더 유명해져야 한다'], 1: ['{n} 잘하네', '{n} 응원합니다'], 0: ['{n} 화이팅', '{n} 꾸준히 올려 줘요'], '-1': ['{n}… 다음엔 더 잘하자', '{n} 이번 건 좀 아쉽다'], '-2': ['{n} 이건 좀…', '{n} 영상 내리는 게 낫겠다'] },
 };
-const PL_ME_OF = { drama: 'act', mv: 'act', show: 'show', anime: 'voice' };
+PL_ME.stage = { 2: ['{n} 직캠 떴다', '{n} 무대 체질이다', '{n}만 보인다', '{n} 누구야? 이름 외워 간다'], 1: ['{n} 잘한다', '{n} 눈에 띈다'], 0: ['{n} 화이팅', '{n} 응원해요'] };
+// 만든 사람(감독 · 작가)에 대한 댓글. {n}에는 '○○ 감독' · '○○ 작가'가 들어간다
+PL_ME.make = { 2: ['{n} 이름 기억해 둔다', '{n} 다음 작품도 무조건 본다', '만든 사람이 {n}이라더라, 역시'], 1: ['{n} 잘 만드네', '{n} 다음 작품 기대된다'], 0: ['{n} 작품이구나', '{n} 무난하게 뽑았다'], '-1': ['{n} 이번엔 좀 아쉽다', '{n} 감이 떨어졌나'], '-2': ['{n} 작품은 이제 거른다', '{n} 왜 이렇게 만들었지'] };
+const PL_ME_OF = { drama: 'act', mv: 'act', show: 'show', anime: 'voice', stage: 'stage', film: 'make', animk: 'make' };
 function plioSpec(o) {
   const sc = Math.round(U.clamp(o.sc || 0, 0, 100));
-  return { v: 'plio', k: o.k, seed: U.int(1, 2e9), t: o.t || '', ch: o.ch || '', me: o.me || '', sc, rv: o.rv || 0, vw: Math.max(30, Math.round(o.vw != null ? o.vw : Math.pow(10, 3.4 + sc / 26) * (o.mul || 1))) };
+  const sp = { v: 'plio', k: o.k, seed: U.int(1, 2e9), t: o.t || '', ch: o.ch || '', me: o.me || '', sc, rv: o.rv || 0, vw: Math.max(30, Math.round(o.vw != null ? o.vw : Math.pow(10, 3.4 + sc / 26) * (o.mul || 1))) };
+  // ln: 맨 위에 올릴 댓글 (곡 결과 카드에 이미 나온 반응 한두 줄)
+  if (o.ln && o.ln.length) sp.ln = o.ln.slice(0, 2);
+  return sp;
+}
+// 연출 · 연기 평 글에서 나에 대한 평을 읽는다 ('○○ 대호평' 2 · '호평' 1 · '혹평' -1 · '대혹평' -2)
+function plioRv(review) { const x = String(review || ''); return /대호평/.test(x) ? 2 : /호평/.test(x) ? 1 : /대혹평/.test(x) ? -2 : /혹평/.test(x) ? -1 : 0; }
+// 곡 발매 결과(아이돌 · 솔로 · 밴드 · 연주가 · 내 회사 그룹)의 무대 영상. 한 번 만들면 사건에 붙여 둔다 (d.pl)
+function plioSong(s, d, job) {
+  if (d.pl !== undefined) return d.pl;
+  const c = d.card || (d.r && d.r.card);
+  if (!c || !c.t) return d.pl = null;
+  const sc = d.sc != null ? d.sc : d.r && d.r.sc != null ? d.r.sc : c.peak ? U.clamp(92 - c.peak * 0.3, 55, 92) : 45;
+  return d.pl = plioSpec({ k: 'stage', t: `${c.by ? c.by + ' ' : ''}「${c.t}」 무대`, ch: `${PF.video.n} 뮤직`, me: job && job !== 'co' ? actName(s, job) : '', sc, rv: sc >= 80 ? 2 : sc >= 65 ? 1 : 0, vw: Math.pow(10, 3.8 + sc / 22), ln: (c.lines || []).slice(0, 2).map(x => evPlain(x).replace(/^"|"$/g, '')) });
 }
 function plN(n) { n = Math.round(n); return n >= 1e8 ? (Math.round(n / 1e7) / 10) + '억' : n >= 1e5 ? Math.round(n / 1e4) + '만' : n >= 1e4 ? (Math.round(n / 1e3) / 10) + '만' : n.toLocaleString(); }
 // 댓글 목록: 작품 이야기 네 개 + 내 이야기 세 개를 섞는다. 반응은 대체로 한쪽이지만 다른 의견도 하나쯤 낀다
 function plioComments(sp) {
   const R = liveRng(sp.seed), pk = a => a[Math.floor(R() * a.length)];
   const T = ['bad', 'meh', 'good', 'great'], ti = sp.sc >= 80 ? 3 : sp.sc >= 65 ? 2 : sp.sc >= 52 ? 1 : 0;
-  const W = PL_WORK[sp.k] || PL_WORK.video, M = PL_ME[PL_ME_OF[sp.k] || 'video'];
+  const W = PL_WORK[PL_WORK_OF[sp.k] || sp.k] || PL_WORK.video, M = PL_ME[PL_ME_OF[sp.k] || 'video'];
   const used = {}, take = arr => { for (let i = 0; i < 12; i++) { const x = pk(arr); if (!used[x]) { used[x] = 1; return x; } } return null; };
   const out = [];
   for (let i = 0; i < 4; i++) { const k = i === 3 ? U.clamp(ti + (R() < 0.5 ? -1 : 1), 0, 3) : ti, x = take(W[T[k]]); if (x) out.push(x); }
   if (sp.me) for (let i = 0; i < 3; i++) { const rv = i === 2 && sp.rv !== 0 ? sp.rv - Math.sign(sp.rv) : sp.rv, x = take(M[rv] || M[0]); if (x) out.push(x.replace('{n}', sp.me)); }
   // 섞고, 닉네임과 좋아요를 붙인다 (위에 있을수록 좋아요가 많다)
   for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+  // 곡 결과 카드에 나온 반응은 맨 위에 (가장 공감을 많이 받은 댓글)
+  for (const x of (sp.ln || []).slice().reverse()) out.unshift(x);
   let up = Math.max(3, sp.vw * (0.002 + 0.004 * R()));
   return out.map(x => { const c = { who: take(PL_NICK) || '익명', x, up: Math.round(up) }; up *= 0.3 + 0.45 * R(); return c; });
 }

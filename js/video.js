@@ -1,5 +1,5 @@
 'use strict';
-// 방송·영상 쪽 직업 (5단계): 배우, 연기 트레이너, 예능인, 유튜버·버튜버, 편집자, 모델 · 브랜드 광고
+// 방송·영상 쪽 직업 (5단계): 배우, 연기 트레이너, 예능인, 스트리머·버튜버, 편집자, 모델 · 브랜드 광고
 // 공통 부품: 드라마 장르 유행(s.trendTV.drama), 연말 연기대상(ceremony, music.js의 시상식 창을 같이 쓴다)
 // 직업 활동을 하면 관련 특기가 혼자 연습할 때보다 빨리 는다 (직업 경험)
 
@@ -530,7 +530,7 @@ E({
 });
 
 // 활동명 정하기 창에 쓰는 직업 이름
-Object.assign(CAREER_SHORT, { actor: '배우', variety: '예능인', youtube: '유튜버', model: '모델' });
+Object.assign(CAREER_SHORT, { actor: '배우', variety: '예능인', youtube: '스트리머', model: '모델' });
 
 // ════════ 예능인 ════════
 // v95: 예능(강함)과 외모 가산점. 외모는 깎이지 않고, 50보다 낮을수록 가산점이 커진다 (40은 +1, 30은 +3, 20은 +6, 10 이하는 +10)
@@ -737,12 +737,12 @@ E({
   init(s, d) { const sh = genShow(s, 0, true); sendMsg(s, 'var_fixed', { from: sh.bc, title: '예능 고정 멤버 제안', months: 4, d: { sh } }); s.flags.varGood = 0; d.skip = true; },
 });
 
-// ════════ 유튜버 · 버튜버 ════════
-// 채널 컨셉(유튜브 유행과 같은 목록)마다 중요한 특기가 다르다. 편집 실력(또는 고용한 편집자)이 영상 완성도를 올린다
-// 유튜버는 얼굴이 보여 외모가 보태고, 버튜버는 아바타 품질과 소속사가 처음 시청자 수를 좌우한다
+// ════════ 스트리머 · 버튜버 ════════
+// 채널 컨셉(플리오 유행과 같은 목록)마다 중요한 특기가 다르다. 편집 실력(또는 고용한 편집자)이 영상 완성도를 올린다
+// 스트리머는 얼굴이 보여 외모가 보태고, 버튜버는 아바타 품질과 소속사가 처음 시청자 수를 좌우한다
 // 구독자가 닿을 수 있는 높이: 10^((매력 + YT_REACH) / 16). 클수록 채널이 크게 자란다
 const YT_REACH = 27;
-// 한 달 수입: 유튜버는 구독자 × 1~3원 × 칸(최대 2) × YT_INC, 버튜버는 구독자 × VT_INC원 (후원·멤버십)
+// 한 달 수입: 스트리머는 구독자 × 1~3원 × 칸(최대 2) × YT_INC, 버튜버는 구독자 × VT_INC원 (후원·멤버십)
 const YT_INC = 12, VT_INC = 20;
 // 채널 분야마다 보는 것 (v96, 8-4 사용자 표). 특기는 채널 점수에 섞고(하나면 강함, 둘이면 각각 보통), 재능은 가산점(하나면 강함, 둘이면 각각 보통)
 const YT_FIT = { 먹방: ['variety'], 챌린지: ['dance', 'variety'], 브이로그: ['variety', 'edit'], '게임 방송': ['game', 'variety'], '숏폼 밈': ['variety', 'edit'], ASMR: ['voice', 'music'], 리뷰: ['variety', 'insight'], '커버 영상': ['vocal', 'dance'], 그림: ['art', 'variety'], '단편 애니메이션': ['art', 'direct'] };
@@ -764,7 +764,7 @@ function ytSkMix(s, t) {
 }
 // 분야가 보는 재능 (ASMR 목소리 · 음감, 리뷰 통찰력): 하나면 강함, 둘이면 각각 보통 가산점
 function ytFitTal(s, t) { const p = me(s), F = YT_FIT[t.cat] || []; return F.filter(k => TALENT_BY[k]).reduce((a, k) => a + talB(p.tal[k], F.length === 1), 0); }
-// 채널의 매력: 채널 특기 + 끈기(보통, 가산점) + (버튜버: 아바타·소속사) + 스타성 + 유행. 유튜버 외모는 v95에서 뺐다
+// 채널의 매력: 채널 특기 + 끈기(보통, 가산점) + (버튜버: 아바타·소속사) + 스타성 + 유행. 스트리머 외모는 v95에서 뺐다
 function ytAppeal(s, t) {
   const p = me(s);
   const look = t.mode === 'vt' ? avQ(t) * 5 + (t.corp ? AG[t.corp].tier * 6 : 0) : 0;
@@ -773,8 +773,8 @@ function ytAppeal(s, t) {
 // 버츄얼 아이돌 합격 (v99, 8-5): 방송 점수(vidol.js viSk)와 같다. 오디션 때는 컨셉을 고르기 전이라 나한테 가장 잘 맞는 컨셉으로 본다 (v100). 연기는 뺐다
 function vtScore(s) { return Math.max(...ytCats(true).map(c => viSk(s, c))); }
 function ytBlock(s) { return s.army ? '군 복무 중' : s.tracks.idol.st === 'trainee' ? '연습생은 개인 채널을 못 연다' : age(s) < 14 ? '14세부터 할 수 있다' : ''; }
-function ytName(t) { return t.mode === 'vt' ? '버튜버' : '유튜버'; }
-// 실시간 창 (12-3): 개인세 버튜버도 라이브 방송 플랫폼(라이브온)에서 방송한다. 유튜버(영상)는 해당 없음
+function ytName(t) { return t.mode === 'vt' ? '버튜버' : '스트리머'; }
+// 실시간 창 (12-3): 개인세 버튜버도 라이브 방송 플랫폼(라이브온)에서 방송한다. 스트리머(영상)는 해당 없음
 // sub: debut 데뷔 방송 · avatar 새 아바타 공개 · mile 구독자 기념 방송 · grad 졸업 방송
 // 손님: 내가 아는 버튜버 인물(업계 인물). 없으면 가끔 모르는 버튜버가 들른다 (데뷔 방송은 빼고)
 function ytCut(t) { return t.mcn ? t.mcn.cut : t.corp ? t.cut : 0; }
@@ -790,8 +790,8 @@ function ytLive(s, t, sub, o) {
     x: { sub, subs: Math.max(300, t.subs || 0), nick, co: o.co || '', mgr: !!t.corp, mates: mates.slice(0, 4), d3: avQ(t) >= 4 } });
 }
 CAREERS.youtube = {
-  n: '유튜버', ic: '▶️',
-  desc: '영상을 올리거나(유튜버) 아바타로 인터넷 방송을 한다(개인세 버튜버). 채널 컨셉에 맞는 특기와 편집이 중요하다. 버튜버는 아바타가 처음 시청자 수를 좌우한다. 회사에 들어가는 버튜버는 버츄얼 아이돌이다.',
+  n: '스트리머', ic: '▶️',
+  desc: '영상을 올리거나(스트리머) 아바타로 인터넷 방송을 한다(개인세 버튜버). 채널 컨셉에 맞는 특기와 편집이 중요하다. 버튜버는 아바타가 처음 시청자 수를 좌우한다. 회사에 들어가는 버튜버는 버츄얼 아이돌이다.',
   act: { n: '채널 활동 (촬영·편집·방송)', ic: '▶️', g: '직업 활동', eff: [['예능', '↑', 1], ['팬', '↑', 1], ['돈', '↑', 0], ['스트레스', '↑', 0]] },
   status(s, t) {
     if (t.st === 'prep') return `버튜버 데뷔 준비 중 · ${VT_AV[t.av].n} 제작 (${t.left}개월 남음)${t.corpN ? ' · ' + t.corpN : ''}`;
@@ -808,7 +808,7 @@ CAREERS.youtube = {
   info(s, t) {
     const p = me(s), ks = [...new Set(YT_SK[t.cat] || ['variety'])];
     if (t.st === 'prep') return [['준비', `${VT_AV[t.av].n} (${t.left}개월 남음)`], ['소속', t.corpN || '개인세']];
-    return [['채널', `「${t.ch}」 · ${t.cat}`], ['소속', t.mcn ? `${t.mcn.n} (${TIER_N[mcnTierT(s, t)]} MCN) · MCN 몫 ${pctN(t.mcn.cut)}` : t.corpN ? `${t.corpN} · 회사 몫 ${pctN(t.cut)}` : '개인'], t.mcn ? ['MCN 지원', `광고 연결 · 편집팀 (무료) · 기획·썸네일 · 합작 주선 · 굿즈 · 개인 행사 · 논란 대응`] : null, ['구독자', `${fmtFans(t.subs)} (가장 많을 때 ${fmtFans(t.peak || t.subs)})`], ['수입', t.subs < 1000 ? '구독자 1,000명부터 들어온다' : `지난달 ${fmtWon(t.lastInc || 0)} (최근 1년 평균 ${fmtWon(incAvg(t))})`], ['내 실력', ks.concat('edit').filter((k, i, a) => a.indexOf(k) === i && has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ') || '-'], t.mode === 'vt' ? ['아바타', VT_AV[t.av].n] : null, ['편집', t.editor ? '편집자 고용 중 (월 150만 원)' : t.mcn ? `${t.mcn.n} 편집팀 (무료) · 담당 ${mcnEdLine(s, mcnMyEd(s, t))}` : '혼자 한다']].filter(Boolean);
+    return [['채널', `「${t.ch}」 · ${t.cat}`], ['소속', t.mcn ? `${t.mcn.n} (${TIER_N[mcnTierT(s, t)]} MCN) · MCN 몫 ${pctN(t.mcn.cut)}` : t.corpN ? `${t.corpN} · 회사 몫 ${pctN(t.cut)}` : '개인'], t.mcn ? ['MCN 지원', `광고 연결 · 편집팀 (무료) · 기획·썸네일 · 합작 주선 · 굿즈 · 개인 행사 · 논란 대응`] : null, ['구독자', `${fmtFans(t.subs)} (가장 많을 때 ${fmtFans(t.peak || t.subs)})`], ['수입', t.subs < 1000 ? '구독자 1,000명부터 들어온다' : `지난달 ${fmtWon(t.lastInc || 0)} (최근 1년 평균 ${fmtWon(incAvg(t))})`], ['내 실력', ks.concat('edit').filter((k, i, a) => a.indexOf(k) === i && has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ') || '-'], t.mode === 'vt' ? ['아바타', VT_AV[t.av].n] : null, t.mode !== 'vt' && t.vid && typeof plioBtnHTML === 'function' ? { h: '가장 최근 영상', html: plioBtnHTML(t.vid, '이번 달 영상 반응 보기') } : null, ['편집', t.editor ? '편집자 고용 중 (월 150만 원)' : t.mcn ? `${t.mcn.n} 편집팀 (무료) · 담당 ${mcnEdLine(s, mcnMyEd(s, t))}` : '혼자 한다']].filter(Boolean);
   },
   actions(s, t) {
     if (t.st !== 'active') return [];
@@ -837,14 +837,21 @@ CAREERS.youtube = {
     const before = t.subs;
     if (t.subs < target) t.subs += Math.round((target - t.subs) * U.fl(0.02, 0.06) * Math.min(2, n) + U.int(3, 20));
     else t.subs = Math.round(t.subs * U.fl(0.99, 1.0));
+    // 이번 달에 올린 영상 (v144): 반응은 플리오에서 본다. 직업 창에 가장 최근 영상의 배너가 있고, 크게 터지거나 차갑게 식은 달에는 기록에도 남는다
+    if (t.mode !== 'vt' && typeof plioSpec === 'function') {
+      const dev = U.normal(0, 10), vs = U.clamp(ytAppeal(s, t) + 8 + dev, 0, 100);
+      t.vid = plioSpec({ k: 'vlog', t: `【${t.cat}】 ${calM(s) + 1}월 새 영상`, ch: t.ch, me: (t.sn && t.sn.nick) || '', sc: vs, rv: dev >= 12 ? 2 : dev >= 0 ? 1 : dev >= -12 ? 0 : -1, vw: Math.max(40, t.subs * (0.08 + vs / 140)) * (dev >= 15 ? 4 : 1) });
+      if (dev >= 15) { const add = Math.round(t.subs * U.fl(0.02, 0.05) + 50); t.subs += add; addLog(s, `「${t.ch}」 이번 달 영상이 알고리즘을 탔다. 조회수가 평소의 몇 배로 뛰었다. (구독자 ${sgnFans(add)})`, 'good'); s.log[s.log.length - 1].pl = t.vid; }
+      else if (dev <= -17 && t.subs >= 1000) { addLog(s, `「${t.ch}」 이번 달 영상은 반응이 차가웠다.`, 'career'); s.log[s.log.length - 1].pl = t.vid; }
+    }
     t.peak = Math.max(t.peak || 0, t.subs);
     s.fans[mk] += Math.round(Math.max(0, t.subs - before) * 0.5 * myRoom(s, mk));
-    // 수입: 유튜버는 조회수 광고 수익, 버튜버는 방송 후원과 멤버십 (소속이면 회사 몫을 뗀다)
+    // 수입: 스트리머는 조회수 광고 수익, 버튜버는 방송 후원과 멤버십 (소속이면 회사 몫을 뗀다)
     const cut = t.mcn ? t.mcn.cut : t.corp ? t.cut : 0;
     const inc = t.mode === 'vt' ? t.subs * VT_INC * U.fl(0.6, 1.4) : t.subs * U.fl(1, 3) * Math.min(2, n) * YT_INC;
     t.lastInc = t.subs >= 1000 ? Math.round(inc * (1 - cut)) : 0;
     incPush(t, t.lastInc);
-    if (t.lastInc) earn(s, t.lastInc, t.mode === 'vt' ? '방송 후원·멤버십' : '유튜브 광고 수익', 'youtube');
+    if (t.lastInc) earn(s, t.lastInc, t.mode === 'vt' ? '방송 후원·멤버십' : '플리오 광고 수익', 'youtube');
     if (before < 1000 && t.subs >= 1000) addLog(s, `「${t.ch}」 구독자가 1,000명을 넘었다. 이제 ${t.mode === 'vt' ? '방송 후원과 멤버십' : '영상 광고'} 수익이 들어온다. (이번 달 ${fmtWon(t.lastInc)})`, 'good');
     ytCareerOffer(s, t);
     for (const [v, label] of [[1e5, '실버 버튼'], [1e6, '골드 버튼'], [1e7, '다이아 버튼']]) if (before < v && t.subs >= v) { jpopAdd(s, 'youtube', 3); addFame(s, 2); addLog(s, `「${t.ch}」 구독자 ${fmtFans(v)} 돌파! ${label}을 받았다.`, 'good'); milestone(s, `${age(s)}세에 「${t.ch}」 구독자 ${fmtFans(v)}을 넘겼다.`);
@@ -868,14 +875,14 @@ function ytCareerOffer(s, t) {
   }
 }
 JOB_APPLY.push({
-  id: 'youtube_open', trk: 'youtube', g: '▶️ 유튜버', n: '유튜브 채널 열기',
+  id: 'youtube_open', trk: 'youtube', g: '▶️ 스트리머', n: '플리오 채널 열기',
   show: s => !trackOn(s, 'youtube'),
   h: s => '얼굴을 보이고 영상을 올린다 · 채널 컨셉을 고른다',
   ok: s => !ytBlock(s), why: s => ytBlock(s),
   run: s => { fireEvent(s, 'yt_cat', { mode: 'yt' }); return ''; },
 });
 VT_AV.forEach((av, i) => { if (!av) return; JOB_APPLY.push({
-  id: 'youtube_vt' + i, trk: 'youtube', g: '▶️ 유튜버', n: `버튜버 개인세 준비: ${av.n}`,
+  id: 'youtube_vt' + i, trk: 'youtube', g: '▶️ 스트리머', n: `버튜버 개인세 준비: ${av.n}`,
   show: s => !s.flags.vtBan && !trackOn(s, 'youtube') && (!av.art || lv(me(s), 'art') >= av.art - 20),
   // 버츄얼 아이돌 기획사 · MCN 대표면 내 회사 소속 버튜버라 아바타 값은 회사 돈으로 (v105)
   h: s => `${av.c ? fmtWon(av.c) + (ownCoNew(s, 'youtube', true) ? ' (회사 돈)' : '') : '무료'} · 만드는 데 ${av.m}개월`,
@@ -889,7 +896,7 @@ function vtSolo(s) { const t = s.tracks.youtube; return t.st === 'active' && t.m
 function vtAudP(s, ag) { const t = s.tracks.youtube; return audP(vtScore(s) + pm(s, 'audition', 0) + (vtSolo(s) ? Math.log10(1 + t.subs / 1000) * 4 : 0), ag.thr); }
 // 회사 소속 버튜버(버츄얼 아이돌)의 오디션·계약·활동은 js/vidol.js
 const VT_CARRY = 0.3, VT_TAMPER_CATCH = 0.03;
-// 채널 컨셉 고르기 (유튜브 채널을 열 때 · 버튜버 아바타가 다 됐을 때 · 바꿀 때)
+// 채널 컨셉 고르기 (플리오 채널을 열 때 · 버튜버 아바타가 다 됐을 때 · 바꿀 때)
 // 바꿀 때는 지금 컨셉을 빼고 보여 주고, '역시 그만둔다'를 고르면 아무것도 잃지 않는다
 E({
   id: 'yt_cat', cat: '채널', title: '채널 컨셉', tag: 'career',
@@ -920,8 +927,8 @@ E({
     if (d.mode === 'yt') {
       const old = s.tracks.youtube;
       s.tracks.youtube = { st: 'active', mode: 'yt', ch, cat: d.cat, subs: Math.round(totalFans(s) * 0.05), months: 0, peak: 0, corp: null, cut: 0, sn: old.sn, hist: old.hist || [] };
-      milestone(s, `${age(s)}세에 유튜브 채널 ${josa(`「${ch}」`, '을를')} 열었다.`);
-      return { log: `유튜브 채널 ${josa(`「${ch}」`, '을를')} 열었다. 일정에 채널 활동을 넣어야 영상을 올린다.` + learnMe(s, 'edit', 1, true) };
+      milestone(s, `${age(s)}세에 플리오 채널 ${josa(`「${ch}」`, '을를')} 열었다.`);
+      return { log: `플리오 채널 ${josa(`「${ch}」`, '을를')} 열었다. 일정에 채널 활동을 넣어야 영상을 올린다.` + learnMe(s, 'edit', 1, true) };
     }
     const given = (v.given || '').trim();
     if (!given) return { err: 'RP 이름은 비울 수 없어요' };
@@ -939,27 +946,27 @@ E({
   },
 });
 // ════════ 편집자 ════════
-// 유튜버·제작사의 영상을 편집한다. 혼자 일감을 받거나(프리랜서), 영상 제작사 편집팀에 들어간다(직원)
+// 스트리머·제작사의 영상을 편집한다. 혼자 일감을 받거나(프리랜서), 영상 제작사 편집팀에 들어간다(직원)
 // 편집 특기가 가장 중요하고, 연출을 할 줄 알면 조금 보탠다
 const EDIT_SAL = [0, 210, 250, 300];
 const EDIT_THR = [0, 22, 34, 46];
 const EDIT_BAR = [0, 45, 50, 55]; // 회사 편집팀 석 달 평가 기준 (크기별)
 EMP_N.editor = '편집자';
-// 편집 숙련도 (피드백 24): 같은 종류의 영상을 많이 편집할수록 오른다 (0~100, s.emast { yt 유튜브 영상 · show 예능 · drama 드라마 · film 영화 })
+// 편집 숙련도 (피드백 24): 같은 종류의 영상을 많이 편집할수록 오른다 (0~100, s.emast { yt 플리오 영상 · show 예능 · drama 드라마 · film 영화 })
 // 편집 품질을 올린다 (최대 +5). 창의력이 높으면 빨리 오른다 (곡·각본·연출 숙련도와 같은 셈)
-const EM_N = { yt: '유튜브 영상', show: '예능', drama: '드라마', film: '영화' };
+const EM_N = { yt: '플리오 영상', show: '예능', drama: '드라마', film: '영화' };
 function emGet(s, k) { return (s.emast || {})[k] || 0; }
 function emGain(s, k, amt) { if (!EM_N[k]) return; const M = s.emast = s.emast || {}, m = M[k] || 0; M[k] = Math.min(100, m + amt * (1 - m / 100) * (0.6 + me(s).tal.creative / 100)); }
 function emBonus(s, k) { return EM_N[k] ? (emGet(s, k) - 15) / 17 : 0; }
 function emBars(s) { return Object.keys(EM_N).map(k => ({ n: EM_N[k], v: emGet(s, k) })).sort((a, b) => b.v - a.v); }
-// 편집 품질 (v95): 영상 편집(강함), 유튜브 · 예능을 편집할 때만 유머 감각(강함, 가산점)
+// 편집 품질 (v95): 영상 편집(강함), 플리오 · 예능을 편집할 때만 유머 감각(강함, 가산점)
 // v96: 드라마 · 영화 편집은 연출 레벨만큼 가산점 (fitB, 레벨 1에 0.1)
 function editQ(s, k) { const p = me(s); return lv(p, 'edit') * 0.95 + (k === 'yt' || k === 'show' ? talB(p.tal.humor, true) : k === 'drama' || k === 'film' ? fitB(p, ['direct']) : 0) + emBonus(s, k) + U.normal(0, 7); }
-// 편집자 합격 (v99, 8-5): 영상 편집(강함) + 포트폴리오 재능(보통, 가산점). 회사 편집팀은 예술 감각, 유튜브 영상만 맡는 곳(MCN · 크리에이터 전속)은 유머 감각
+// 편집자 합격 (v99, 8-5): 영상 편집(강함) + 포트폴리오 재능(보통, 가산점). 회사 편집팀은 예술 감각, 플리오 영상만 맡는 곳(MCN · 크리에이터 전속)은 유머 감각
 function editScore(s, yt) { const p = me(s); return lv(p, 'edit') * 0.85 + talB(yt ? p.tal.humor : p.tal.aesth, false); }
 // 프리랜서 일감 (피드백 19): m 걸리는 개월, dem 난이도(이보다 잘하면 평판이 오르고 못하면 떨어진다), rw 평판이 움직이는 크기
 const EDIT_CLIENTS = [
-  { n: '유튜버 채널 영상', fee: 80, rep: 0, m: 1, dem: 22, rw: 0.6, mk: 'yt' },
+  { n: '스트리머 채널 영상', fee: 80, rep: 0, m: 1, dem: 22, rw: 0.6, mk: 'yt' },
   { n: '예능 클립 편집', fee: 200, rep: 20, m: 1, dem: 34, rw: 0.9, mk: 'show' },
   { n: '드라마 예고편', fee: 400, rep: 40, m: 2, dem: 46, rw: 1.2, mk: 'drama' },
   { n: '영화 본편 편집', fee: 1500, rep: 65, m: 3, dem: 58, rw: 1.5, mk: 'film' },
@@ -986,13 +993,13 @@ function editJobDone(s, t) {
   let reg = '';
   t.regs = t.regs || [];
   if (gap >= 5 && !t.regs.some(r => r.who === j.who)) { t.regs.push({ who: j.who, n: j.n }); if (t.regs.length > 6) t.regs.shift(); reg = ` ${josa(j.who, '이가')} 단골이 됐다.`; }
-  if (j.rep === 0 && gap >= 10) dedOfferMaybe(s, j.who.replace('유튜버 ', ''));
+  if (j.rep === 0 && gap >= 10) dedOfferMaybe(s, j.who.replace('스트리머 ', ''));
   const word = gap >= 10 ? '의뢰인이 아주 만족했다' : gap >= 0 ? '좋다는 말을 들었다' : gap >= -10 ? '수정 요청을 받고 겨우 맞췄다' : '수정이 계속되다 편집비가 깎였다';
   addRes(s, `${j.who}의 ${josa(j.n, '을를')} 끝냈다. ${word}. 편집비 ${fmtWon(fee)} · 업계 평판 ${Math.round(r0)} → ${Math.round(t.rep)}.${reg}`);
 }
 CAREERS.editor = {
   n: '편집자', ic: '🎞️',
-  desc: '유튜버·제작사의 영상을 편집한다. 혼자 일감을 받거나, 방송인 한 명의 전담 편집자가 되거나, 영상 제작사 편집팀에 들어간다. 편집이 가장 중요하다.',
+  desc: '스트리머·제작사의 영상을 편집한다. 혼자 일감을 받거나, 방송인 한 명의 전담 편집자가 되거나, 영상 제작사 편집팀에 들어간다. 편집이 가장 중요하다.',
   act: { n: '영상 편집 작업', ic: '🎞️', g: '직업 활동', eff: [['영상 편집', '↑↑', 1], ['스트레스', '↑', 0]] },
   status(s, t) { if (t.st !== 'active') return t.endNote || ''; if (t.mode === 'ded') return `「${t.cr.ch}」 전담 편집자 · 구독자 ${fmtFans(t.cr.subs)} · 월급 ${fmtWon(t.sal)}${t.cr.st === 'down' ? ' · 방송 중단' : ''}`; return t.mode === 'emp' ? `${t.agN} 편집팀${t.lead ? ' 팀장' : ''} · 평가 ${Math.round(t.rep)} · 월급 ${fmtWon(t.sal)}` : `프리랜서 편집자 · 맡은 작업 ${t.jobs}건 · 업계 평판 ${Math.round(t.rep)}${t.job ? ' · 작업 중' : ''}`; },
   short(s, t) { return t.mode === 'emp' ? `${t.agN} 편집자` : t.mode === 'ded' ? `「${t.cr.ch}」 전담 편집자` : '프리랜서 편집자'; },
@@ -1004,7 +1011,7 @@ CAREERS.editor = {
   mainSk() { return 'edit'; },
   info(s, t) {
     const p = me(s), cr = t.cr, c = cr && s.people[cr.id];
-    const how = t.mode === 'emp' ? ['회사', `${t.agN}${t.mcn ? ` (${TIER_N[mcnTierOf(s, t.mcn)]} MCN)` : ''} 편집팀${t.lead ? ' 팀장' : ''} · 월급 ${fmtWon(t.sal)}`] : t.mode === 'ded' ? ['전담 방송인', `${cr.vt ? '버튜버' : '유튜버'} ${c ? c.name : ''} · 「${cr.ch}」 · ${cr.cat} · 구독자 ${fmtFans(cr.subs)}`] : ['일하는 방식', '프리랜서 (일감은 일정에 편집 작업을 넣으면 들어온다)'];
+    const how = t.mode === 'emp' ? ['회사', `${t.agN}${t.mcn ? ` (${TIER_N[mcnTierOf(s, t.mcn)]} MCN)` : ''} 편집팀${t.lead ? ' 팀장' : ''} · 월급 ${fmtWon(t.sal)}`] : t.mode === 'ded' ? ['전담 방송인', `${cr.vt ? '버튜버' : '스트리머'} ${c ? c.name : ''} · 「${cr.ch}」 · ${cr.cat} · 구독자 ${fmtFans(cr.subs)}`] : ['일하는 방식', '프리랜서 (일감은 일정에 편집 작업을 넣으면 들어온다)'];
     const R = [how, ['내 실력', ['edit', 'direct'].filter(k => has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ')], [t.mode === 'emp' ? '업무 평가' : '업계 평판', `${Math.round(t.rep)}`], ['맡은 작업', `${t.jobs}건`]];
     if (t.mode === 'ded') R.splice(1, 0, ['월급', `${fmtWon(t.sal)}${cr.st === 'down' ? ' (방송이 멈춰 일감이 거의 없다)' : ''}`]);
     R.push({ h: '편집 숙련도', bars: emBars(s) });
@@ -1056,7 +1063,7 @@ function startEditor(s, o = {}) {
 JOB_APPLY.push({
   id: 'editor_free', trk: 'editor', g: '🎞️ 편집자', n: '프리랜서 영상 편집자로 시작하기',
   show: s => !trackOn(s, 'editor'),
-  h: s => '일정에 편집 작업을 넣으면 유튜버·제작사 일감이 들어온다',
+  h: s => '일정에 편집 작업을 넣으면 스트리머·제작사 일감이 들어온다',
   ok: s => !s.army && age(s) >= 16 && lv(me(s), 'edit') >= 20,
   why: s => s.army ? '군 복무 중' : age(s) < 16 ? '16세부터 할 수 있다' : '영상 편집을 더 배워야 한다',
   run: s => { startEditor(s); return '프리랜서 영상 편집자로 일을 시작했다. 일정에 편집 작업을 넣으면 일감이 들어온다.'; },
@@ -1100,7 +1107,7 @@ E({
     two.forEach((c, i) => {
       const isReg = i === 0 && !!reg;
       let who = isReg ? reg.who : null;
-      while (!who || d.js.some(j => j.who === who && j.n === c.n)) who = c.rep === 0 ? `유튜버 ${ytNick()}` : U.pick(PROD_CO);
+      while (!who || d.js.some(j => j.who === who && j.n === c.n)) who = c.rep === 0 ? `스트리머 ${ytNick()}` : U.pick(PROD_CO);
       d.js.push({ n: c.n, mk: c.mk, rep: c.rep, m: c.m, dem: c.dem + U.int(-4, 6), rw: c.rw, reg: isReg, fee: Math.round(c.fee * (1 + t.rep / 50) * (isReg ? 1.25 : 1) * U.fl(0.8, 1.2)) * 1e4, who });
     });
   },
@@ -1118,10 +1125,10 @@ E({
   } })),
 });
 
-// ── 유튜버 전담 편집자: 프리랜서와 회사 사이. 방송인 한 명과 계약해 그 채널 영상만 편집한다 ──
+// ── 스트리머 전담 편집자: 프리랜서와 회사 사이. 방송인 한 명과 계약해 그 채널 영상만 편집한다 ──
 // 채널이 클수록 월급이 크고, 내 편집 실력이 채널 성장을 돕는다. 방송인이 논란으로 무너지면 일감이 확 준다
 Object.assign(IND_JOBS, {
-  '유튜버': { sk: { variety: [20, 70] }, tal: ['express', 'humor', 'star'] },
+  '스트리머': { sk: { variety: [20, 70] }, tal: ['express', 'humor', 'star'] },
   '버튜버': { sk: { variety: [20, 70], vocal: [10, 60] }, tal: ['voice', 'humor', 'star'] },
 });
 function dedPay(subs) { return Math.round(U.clamp(100 + Math.sqrt(subs) * 0.5, 100, 1500)) * 1e4; }
@@ -1129,12 +1136,12 @@ function dedThr(subs) { return 15 + 10 * Math.log10(Math.max(1e3, subs) / 1e3); 
 function dedScore(s) { return editScore(s, true) + empExpBonus(s, 'editor') + ((s.tracks.editor || {}).rep || 0) * 0.08; }
 // 전담 편집자를 구하는 방송인. size: 구독자 자릿수 (3.5면 3천~3만)
 function makeCreator(s, size, ch) {
-  const vt = U.chance(0.3), p = makeIndustry(s, vt ? '버튜버' : '유튜버', { age: U.int(20, 36) });
+  const vt = U.chance(0.3), p = makeIndustry(s, vt ? '버튜버' : '스트리머', { age: U.int(20, 36) });
   const subs = Math.round(Math.pow(10, size + U.fl(0, 1)));
   const cat = U.pick(ytCats(vt));
   return { id: p.id, ch: ch || (vt ? vtRpName(p.g) : ytChName(cat)), cat, vt, subs, appeal: 16 * Math.log10(subs) - 15 + U.fl(-2, 5), st: 'ok' };
 }
-function creatorName(s, cr) { const c = s.people[cr.id]; return `${cr.vt ? '버튜버' : '유튜버'} ${c ? c.name : ''}`; }
+function creatorName(s, cr) { const c = s.people[cr.id]; return `${cr.vt ? '버튜버' : '스트리머'} ${c ? c.name : ''}`; }
 function startDed(s, cr, pay) {
   const t = s.tracks.editor;
   if (!trackOn(s, 'editor')) startEditor(s, { mode: 'ded' }); else { t.mode = 'ded'; }
@@ -1180,7 +1187,7 @@ function dedMonth(s, t, n) {
   if (t.mode === 'ded' && t.months >= t.dedEnd && cr.st === 'ok') queueEv(s, 'ded_renew', 0);
 }
 JOB_APPLY.push({
-  id: 'editor_ded', trk: 'editor', g: '🎞️ 편집자', n: '유튜버 전담 편집자 구하기', tag: '전담',
+  id: 'editor_ded', trk: 'editor', g: '🎞️ 편집자', n: '스트리머 전담 편집자 구하기', tag: '전담',
   show: s => !(trackOn(s, 'editor') && s.tracks.editor.mode === 'ded') && age(s) >= 17,
   h: s => '전담 편집자를 찾는 방송인 세 명 중 한 명에게 지원한다',
   ok: s => !s.army && lv(me(s), 'edit') >= 25 && !agencyContract(s) && !hasQ(s, 'ded_res') && !(s.cd.dedApply > s.t),
@@ -1202,11 +1209,11 @@ E({
     { t: '거절한다', f: () => '전담 편집 제안을 거절했다.' },
   ] : [{ t: '확인', f: () => `${creatorName(s, d.cr)}의 전담 편집자 자리에 떨어졌다.` }],
 });
-// 프리랜서로 맡은 유튜버 영상이 마음에 들면, 그 유튜버가 전담을 제안하기도 한다 (메시지함)
+// 프리랜서로 맡은 스트리머 영상이 마음에 들면, 그 스트리머가 전담을 제안하기도 한다 (메시지함)
 function dedOfferMaybe(s, ch) {
   if (!U.chance(0.15) || s.inbox.some(m => m.kind === 'ded_offer')) return;
   const cr = makeCreator(s, 3.3, ch); cr.vt = false;
-  sendMsg(s, 'ded_offer', { from: `유튜버 「${cr.ch}」`, title: '전담 편집자 제안', months: 3, d: { cr, pay: dedPay(cr.subs) } });
+  sendMsg(s, 'ded_offer', { from: `스트리머 「${cr.ch}」`, title: '전담 편집자 제안', months: 3, d: { cr, pay: dedPay(cr.subs) } });
 }
 INBOX.ded_offer = {
   ic: '🎞️',

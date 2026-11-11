@@ -195,7 +195,7 @@ function coTeamItems(s, tk, meSk, meLead) {
   for (const p of coStaffSorted(s, c)) out.push(line(p));
   return out;
 }
-// 함께 일하게 되면 팀 사람들이 인간관계(동료)에 들어온다. 유튜버는 MCN 편집팀의 담당 편집자만 만난다 (mcnMonth)
+// 함께 일하게 되면 팀 사람들이 인간관계(동료)에 들어온다. 스트리머는 MCN 편집팀의 담당 편집자만 만난다 (mcnMonth)
 function coMeetJob(s, id) {
   if (id === 'youtube') return;
   for (const x of jobTeams(s, id)) { const b = coBase(x.tk), where = coTeamName(x.tk); for (const p of coTeamPeople(s, x.tk)) if (p.rel === '업계') meetAt(s, p, where, id, b.n); }

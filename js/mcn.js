@@ -1,6 +1,6 @@
 'use strict';
 // ════════ MCN (6-3단계) ════════
-// 유튜버와 개인세 버튜버를 관리하는 회사 (AGENCIES kind 'mcn'). 들어가도 채널·구독자·이름은 그대로다 (환생 없음). 소속만 생긴다: s.tracks.youtube.mcn
+// 스트리머와 개인세 버튜버를 관리하는 회사 (AGENCIES kind 'mcn'). 들어가도 채널·구독자·이름은 그대로다 (환생 없음). 소속만 생긴다: s.tracks.youtube.mcn
 // MCN이 해 주는 일: 광고·협찬 연결 · 편집 지원 · 성장 지원(기획·썸네일) · 같은 MCN 크리에이터와 합작 주선 · 굿즈 판매 · 개인 행사 · 논란 대응
 // MCN 몫은 보통 20~30%, 5% 단위 (mcnCutFor). MCN과 채널의 크기 차이가 아주 클 때만 그 밖으로 나간다. 계약 2~3년, 끝나면 재계약하거나 나간다 (나가도 채널은 그대로)
 // 내가 차리는 MCN(회사 대표)은 js/company.js의 분야 'mcn'. 업계 크리에이터(mcnMakeCreator)는 양쪽이 같이 쓴다
@@ -74,11 +74,11 @@ function mcnGap(subs, tier) { return Math.round((Math.log10(Math.max(1, subs)) -
 function mcnCutFor(subs, tier) { return U.clamp(Math.round((0.25 - mcnGap(subs, tier) * 0.05) * 100) / 100, 0.1, 0.4); }
 function mcnCutMe(s, ag) { return mcnCutFor(s.tracks.youtube.subs, mcnTierOf(s, ag.id)); }
 
-// ───── 업계 크리에이터 (유튜버·버튜버) ─────
+// ───── 업계 크리에이터 (스트리머·버튜버) ─────
 // x.yt = { ch: 채널, cat, mode: yt|vt, subs, tg: 혼자 크면 닿을 구독자, mcn: 소속 MCN id 또는 내 회사 'me' }
 function mcnMakeCreator(s, o = {}) {
   const vt = o.vt != null ? o.vt : U.chance(0.3);
-  const x = makeIndustry(s, vt ? '버튜버' : '유튜버', { age: U.int(18, 34), aff: 40 });
+  const x = makeIndustry(s, vt ? '버튜버' : '스트리머', { age: U.int(18, 34), aff: 40 });
   const cat = U.pick(ytCats(vt)), ch = vt ? vtRpName(x.g) : ytChName(cat);
   (s.usedNames = s.usedNames || []).push(ch);
   const subs = Math.round(o.subs || Math.pow(10, U.fl(3, 4.5)));
@@ -86,7 +86,7 @@ function mcnMakeCreator(s, o = {}) {
   return x;
 }
 function mcnCrName(x) { return `「${x.yt.ch}」`; }
-// 한 달 수익 (크리에이터 전체 몫): 유튜버는 광고 수익, 버튜버는 후원·멤버십
+// 한 달 수익 (크리에이터 전체 몫): 스트리머는 광고 수익, 버튜버는 후원·멤버십
 function mcnCrRev(x) { const y = x.yt; if (y.subs < 1000) return 0; return y.mode === 'vt' ? y.subs * VT_INC * U.fl(0.6, 1.4) : y.subs * U.fl(1, 3) * 2 * YT_INC; }
 // 최근 1년 구독자 변화 (누구나 볼 수 있는 숫자): 혼자 클 수 있는 높이가 지금보다 높으면 오르는 중
 function mcnTrend(x) { const y = x.yt; return Math.round(U.clamp((y.tg / Math.max(1, y.subs) - 1) * 40, -25, 150) + (hashN(y.ch) % 11) - 5); }
@@ -94,25 +94,25 @@ function mcnTrend(x) { const y = x.yt; return Math.round(U.clamp((y.tg / Math.ma
 // ───── 가입 신청 · 영입 제안 ─────
 function mcnBlock(s) {
   const t = s.tracks.youtube;
-  if (!trackOn(s, 'youtube') || t.st !== 'active') return '채널을 운영하는 유튜버·개인세 버튜버만 들어갈 수 있다';
+  if (!trackOn(s, 'youtube') || t.st !== 'active') return '채널을 운영하는 스트리머·개인세 버튜버만 들어갈 수 있다';
   if (t.mcn) return `지금 ${josa(t.mcn.n, '과와')} 계약 중이다`;
   if (agencyContract(s)) return contractWhy(s);
   return '';
 }
 function mcnJoinP(s, ag) { return U.clamp(0.3 + Math.log10(Math.max(1, s.tracks.youtube.subs) / ag.min) * 0.45, 0.08, 0.95); }
 for (const ag of mcnAgencies()) JOB_APPLY.push({
-  id: 'mcn_join_' + ag.id, trk: 'youtube', g: '▶️ 유튜버', get n() { return `${ag.n} 가입 신청 (MCN)`; }, get tag() { return agTag(ag, mcnTierOf(S, ag.id)); },
+  id: 'mcn_join_' + ag.id, trk: 'youtube', g: '▶️ 스트리머', get n() { return `${ag.n} 가입 신청 (MCN)`; }, get tag() { return agTag(ag, mcnTierOf(S, ag.id)); },
   show: s => trackOn(s, 'youtube') && s.tracks.youtube.st === 'active' && !s.tracks.youtube.mcn,
   h: s => `구독자 ${fmtFans(ag.min)}부터 · 수익의 ${pctN(mcnCutMe(s, ag))}를 MCN이 가져간다${s.tracks.youtube.subs >= ag.min ? ` · 받아 줄 가능성 ${fmtPct(mcnJoinP(s, ag))}` : ''} · 결과는 다음 달`,
   ok: s => !mcnBlock(s) && s.tracks.youtube.subs >= ag.min && !(s.cd['mcn_' + ag.id] > s.t) && !hasQ(s, 'mcn_res'),
   why: s => mcnBlock(s) || (s.tracks.youtube.subs < ag.min ? `구독자가 ${fmtFans(ag.min)}을 넘어야 한다` : s.cd['mcn_' + ag.id] > s.t ? '같은 MCN은 1년 뒤에 다시 신청할 수 있다' : '다른 MCN 결과를 기다리는 중'),
   run: s => { s.cd['mcn_' + ag.id] = s.t + 12; queueEv(s, 'mcn_res', 1, { ag: ag.id, p: mcnJoinP(s, ag) }); return `${ag.n}에 가입 신청을 했다.`; },
 });
-// MCN 편집팀 (피드백 24): 편집자가 MCN에 들어가 소속 유튜버·버튜버 영상을 편집한다 (영상 제작사 편집팀과 같은 직원 계약)
+// MCN 편집팀 (피드백 24): 편집자가 MCN에 들어가 소속 스트리머·버튜버 영상을 편집한다 (영상 제작사 편집팀과 같은 직원 계약)
 for (const ag of mcnAgencies()) JOB_APPLY.push({
   id: 'editor_mcn_' + ag.id, trk: 'editor', g: '🎞️ 편집자', get n() { return `${ag.n} 편집팀 채용 (MCN)`; }, get tag() { return `월급 ${EDIT_SAL[mcnTierOf(S, ag.id)]}만 원`; },
   show: s => !(trackOn(s, 'editor') && s.tracks.editor.mode === 'emp') && age(s) >= 20,
-  h: s => lv(me(s), 'edit') >= 30 ? `소속 유튜버·버튜버 영상을 편집한다 · 합격 가능성 ${fmtPct(audP(editScore(s, true) + empExpBonus(s, 'editor'), EDIT_THR[mcnTierOf(s, ag.id)]))} · 결과는 다음 달` : '영상 편집이 30레벨 이상이어야 지원할 수 있다',
+  h: s => lv(me(s), 'edit') >= 30 ? `소속 스트리머·버튜버 영상을 편집한다 · 합격 가능성 ${fmtPct(audP(editScore(s, true) + empExpBonus(s, 'editor'), EDIT_THR[mcnTierOf(s, ag.id)]))} · 결과는 다음 달` : '영상 편집이 30레벨 이상이어야 지원할 수 있다',
   ok: s => !s.army && !agencyContract(s) && lv(me(s), 'edit') >= 30 && !hasQ(s, 'edit_res') && !(s.cd['editm_' + ag.id] > s.t),
   why: s => s.army ? '군 복무 중' : agencyContract(s) ? contractWhy(s) : lv(me(s), 'edit') < 30 ? '영상 편집을 더 배워야 한다' : hasQ(s, 'edit_res') ? '결과를 기다리는 중' : '얼마 전에 지원했다 (반년 뒤 다시)',
   run: s => { s.cd['editm_' + ag.id] = s.t + 6; { const k = mcnTierOf(s, ag.id); queueEv(s, 'edit_res', 1, { tier: k, co: ag.n, mcn: ag.id, p: audP(editScore(s, true) + empExpBonus(s, 'editor'), EDIT_THR[k]) }); } return `${ag.n} 편집팀 채용에 지원했다.`; },
@@ -172,7 +172,7 @@ INBOX.mcn_offer = {
   ]; },
 };
 
-// ───── 소속 중 한 달 (유튜버 직업의 monthly에서 부른다) ─────
+// ───── 소속 중 한 달 (스트리머 직업의 monthly에서 부른다) ─────
 // 계약 기간이 줄고, MCN이 잡아 온 유료 광고 영상(PPL) 수익이 가끔 들어온다 (MCN 몫을 뗀다)
 function mcnMonth(s, t, n) {
   const m = t.mcn, k = mcnTierT(s, t);
@@ -226,7 +226,7 @@ ACT_APPLY.push({
     const gain = Math.round(y.subs * U.fl(0.005, 0.02) * Math.min(1.5, Math.max(0.4, ytAppeal(s, t) / 55)) + 100);
     t.subs += gain; y.subs += Math.round(t.subs * U.fl(0.005, 0.015));
     t.peak = Math.max(t.peak || 0, t.subs);
-    return showResult(s, 'MCN 합작 영상', `${josa(m.n, '이가')} 잡아 준 합작으로 ${y.mode === 'vt' ? '버튜버' : '유튜버'} ${josa(mcnCrName(x), '과와')} 함께 영상을 찍었다. (상대 구독자 ${fmtFans(y.subs)})\n\n구독자 ${sgnFans(gain)}`, `${josa(mcnCrName(x), '과와')} 합작 영상. 구독자 ${sgnFans(gain)}.`, null, null,
+    return showResult(s, 'MCN 합작 영상', `${josa(m.n, '이가')} 잡아 준 합작으로 ${y.mode === 'vt' ? '버튜버' : '스트리머'} ${josa(mcnCrName(x), '과와')} 함께 영상을 찍었다. (상대 구독자 ${fmtFans(y.subs)})\n\n구독자 ${sgnFans(gain)}`, `${josa(mcnCrName(x), '과와')} 합작 영상. 구독자 ${sgnFans(gain)}.`, null, null,
       typeof plioSpec === 'function' ? (sc => plioSpec({ k: 'collab', t: `${t.ch} × ${mcnCrName(x)}`, ch: t.ch, me: (t.sn && t.sn.nick) || t.ch, sc, rv: sc >= 72 ? 2 : sc >= 55 ? 1 : 0, vw: (t.subs + y.subs) * U.fl(0.1, 0.4) }))(U.clamp(ytAppeal(s, t) + 12 + U.normal(0, 7), 0, 100)) : null);
   },
 });

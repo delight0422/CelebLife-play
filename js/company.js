@@ -8,9 +8,9 @@
 // 회사 사람(연습생·소속 아티스트·직원·지원자)은 업계 사람(rel '업계')이라 인간관계 창에는 나오지 않는다. x.co에 회사 안에서의 자리를 둔다
 //   x.co = { f: 분야, role: 'cand'(지원자)|'tr'(연습생)|'art'(소속 아티스트)|'staff'(직원), kind: 'idol'|'band'|'vt', part: 밴드 파트, gid, job, k, sal, since, cost }
 //   버츄얼 아이돌 멤버는 x.co에 { given: RP 이름, subs: 구독자, d3: 3D 모델 } 도 둔다
-//   MCN 크리에이터(분야 mcn)는 연습생이 아니라 이미 활동 중인 업계 유튜버·버튜버다 (x.yt, js/mcn.js). t.crs에 두고 x.co = { f: 'mcn', role: 'art', kind: 'cr', cut, left, months, since, subs0 }
+//   MCN 크리에이터(분야 mcn)는 연습생이 아니라 이미 활동 중인 업계 스트리머·버튜버다 (x.yt, js/mcn.js). t.crs에 두고 x.co = { f: 'mcn', role: 'art', kind: 'cr', cut, left, months, since, subs0 }
 
-const CO_FIELDS = { music: { n: '기획사', ic: '🎤', kinds: ['idol', 'band'], what: '연습생을 뽑아 키우고 아이돌 그룹이나 밴드로 데뷔시킨다' }, vidol: { n: '버츄얼 아이돌 기획사', ic: '🎙️', kinds: ['vt'], what: '연습생을 뽑아 키우고 기수로 묶어 버츄얼 아이돌로 데뷔시킨다' }, mcn: { n: 'MCN', ic: '📡', kinds: [], what: '활동 중인 유튜버·버튜버를 영입해 광고를 잡아 주고 수익을 나눈다' }, video: { n: '영상 제작사', ic: '🎬', kinds: [], what: '웹드라마·드라마·OTT 시리즈·영화를 기획해 만들고 플랫폼·방송사·극장에 건다' }, anime: { n: '애니메이션 제작사', ic: '🎨', kinds: [], what: '웹 애니·TV 애니·OTT 애니·극장판을 기획해 만들고 플랫폼·방송사·극장에 건다' } };
+const CO_FIELDS = { music: { n: '기획사', ic: '🎤', kinds: ['idol', 'band'], what: '연습생을 뽑아 키우고 아이돌 그룹이나 밴드로 데뷔시킨다' }, vidol: { n: '버츄얼 아이돌 기획사', ic: '🎙️', kinds: ['vt'], what: '연습생을 뽑아 키우고 기수로 묶어 버츄얼 아이돌로 데뷔시킨다' }, mcn: { n: 'MCN', ic: '📡', kinds: [], what: '활동 중인 스트리머·버튜버를 영입해 광고를 잡아 주고 수익을 나눈다' }, video: { n: '영상 제작사', ic: '🎬', kinds: [], what: '웹드라마·드라마·OTT 시리즈·영화를 기획해 만들고 플랫폼·방송사·극장에 건다' }, anime: { n: '애니메이션 제작사', ic: '🎨', kinds: [], what: '웹 애니·TV 애니·OTT 애니·극장판을 기획해 만들고 플랫폼·방송사·극장에 건다' } };
 const CO_SEED = 1e8;
 // 분야 더하기: 어느 분야든 중형이 되면, 회사 돈으로 다른 분야를 연다
 const CO_ADD_COST = 5e8;
@@ -864,6 +864,7 @@ function coAlbumCard(s, t, g, o, r) {
 E({
   // v131: 내가 아이돌일 때처럼 늘 창으로 뜬다 (예전엔 요약에만 남았다). 아이돌 그룹은 무대 창도 먼저 나온다
   id: 'co_res', cat: '앨범 성적', tag: 'career', keepPop: true,
+  plio: (s, d) => typeof plioSong === 'function' ? plioSong(s, d, 'co') : null,
   live: (s, d) => d.card && d.card.live,
   title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 앨범 성적표`,
   init(s, d) { const g = coGroup(s, d.gid); if (!g || !coOn(s)) { d.skip = true; return; } d.r = coAlbum(s, g, d); d.card = d.r.card; d.up = coTierCheck(s, coT(s)); d.rank = coRankCheck(s, coT(s)); },
@@ -1070,7 +1071,7 @@ function coAddField(s, t, f) {
 }
 
 // ───── MCN (mcn 분야) ─────
-// 연습생 대신 이미 활동 중인 업계 유튜버·버튜버에게 영입 제안을 보낸다 (환생 없음: 채널·구독자·이름 그대로)
+// 연습생 대신 이미 활동 중인 업계 스트리머·버튜버에게 영입 제안을 보낸다 (환생 없음: 채널·구독자·이름 그대로)
 // 수입: 크리에이터 수익 중 회사 몫 + 광고 영업 수수료(대표가 영업을 하면 더). 편집자 직원이 크리에이터를 맡으면 더 빨리 큰다
 // 계약이 끝나면 크리에이터가 남을지 정한다: 계약하는 동안 많이 컸을수록, 회사가 클수록, 회사 몫이 낮을수록 남는다
 function coMcnP(s, t, x, cut) {
@@ -1086,7 +1087,7 @@ function coMcnWhy(s, t) {
 E({
   id: 'co_mpick', cat: 'MCN', title: '영입 조건', tag: 'career',
   cond: s => coOn(s),
-  text: s => `업계 유튜버·버튜버에게 영입 제안을 보낸다. 수익 중 회사 몫을 정하자. 몫이 클수록 회사가 버는 돈은 많지만, 받아들이는 크리에이터는 줄어든다.
+  text: s => `업계 스트리머·버튜버에게 영입 제안을 보낸다. 수익 중 회사 몫을 정하자. 몫이 클수록 회사가 버는 돈은 많지만, 받아들이는 크리에이터는 줄어든다.
 
 회사와 크기 차이가 아주 큰 크리에이터는 몫을 5%씩 다르게 부른다.`,
   ch: s => CO_MCN_CUTS.map(c => ({ t: `회사 몫 ${pctN(c)}`, f: s => { fireEvent(s, 'co_mscout', { cut: c }); return ''; } })).concat([{ t: '그만둔다', f: () => '' }]),
@@ -1101,13 +1102,13 @@ function coMcnCand(s, t) {
 }
 // 크리에이터마다 회사 몫: 대표가 고른 기본 몫에서, 회사 크기와 열 배 넘게 차이 나면 5%씩 바뀐다 (큰 크리에이터는 낮게, 아주 작은 크리에이터는 높게)
 function coMcnCut(t, x, base) { const g = mcnGap(x.yt.subs, coTier(t, 'mcn')), adj = g >= 2 ? -(g - 1) : g <= -2 ? -g - 1 : 0; return U.clamp(Math.round((base + adj * 0.05) * 100) / 100, 0.1, 0.4); }
-function coCrLabel(s, x) { return `${mcnCrName(x)} · ${x.yt.mode === 'vt' ? '버튜버' : '유튜버'} · ${x.yt.cat} (${x.name} · ${pAge(s, x)}세)`; }
+function coCrLabel(s, x) { return `${mcnCrName(x)} · ${x.yt.mode === 'vt' ? '버튜버' : '스트리머'} · ${x.yt.cat} (${x.name} · ${pAge(s, x)}세)`; }
 E({
   id: 'co_mscout', cat: 'MCN', title: '영입 후보', tag: 'career',
   tbl: (s, d) => {
     const t = coT(s);
     const rows = d.ids.map(id => s.people[id]).filter(Boolean).map(x => { const cut = coMcnCut(t, x, d.cut), p = coMcnP(s, t, x, cut), tr = mcnTrend(x); return { k: x.id, tr: (x.yt.mode === 'vt' ? '버튜버' : '캠튜버') === s.trendTV.yt, cells: {
-      ch: [x.yt.ch, mcnCrName(x)], kind: [x.yt.mode, x.yt.mode === 'vt' ? '버튜버' : '유튜버'], cat: [x.yt.cat, x.yt.cat], who: [x.name, `${x.name} (${pAge(s, x)}세)`], subs: [x.yt.subs, fmtFans(x.yt.subs)], tr: [tr, `${tr >= 0 ? '+' : ''}${tr}%`],
+      ch: [x.yt.ch, mcnCrName(x)], kind: [x.yt.mode, x.yt.mode === 'vt' ? '버튜버' : '스트리머'], cat: [x.yt.cat, x.yt.cat], who: [x.name, `${x.name} (${pAge(s, x)}세)`], subs: [x.yt.subs, fmtFans(x.yt.subs)], tr: [tr, `${tr >= 0 ? '+' : ''}${tr}%`],
       ag: [x.yt.mcn ? 1 : 0, x.yt.mcn ? (AG[x.yt.mcn] ? AG[x.yt.mcn].n : '다른 MCN') : '없음'], cut: [cut, pctN(cut)], p: [p, fmtPct(p)] } }; });
     return { cols: [['ch', '채널'], ['kind', '종류'], ['cat', '분야'], ['who', '이름'], ['subs', '구독자'], ['tr', '최근 1년'], ['ag', '소속'], ['cut', '회사 몫'], ['p', '받아들일 가능성']], rows };
   },
@@ -1308,7 +1309,7 @@ JOB_TASKS.agency = [
 ];
 CAREERS.agency = {
   n: '회사 대표', ic: '🏢',
-  desc: '내 회사를 차려 운영한다. 기획사는 연습생을 뽑아 아이돌 그룹이나 밴드로, 버츄얼 아이돌 기획사는 기수로 데뷔시킨다. MCN은 활동 중인 유튜버·버튜버를 영입한다. 영상 제작사는 드라마·영화를, 애니메이션 제작사는 애니메이션을 기획해 만든다. 어느 분야든 중형이 되면 다른 분야를 더할 수 있다. 회사 돈은 내 돈과 따로다.',
+  desc: '내 회사를 차려 운영한다. 기획사는 연습생을 뽑아 아이돌 그룹이나 밴드로, 버츄얼 아이돌 기획사는 기수로 데뷔시킨다. MCN은 활동 중인 스트리머·버튜버를 영입한다. 영상 제작사는 드라마·영화를, 애니메이션 제작사는 애니메이션을 기획해 만든다. 어느 분야든 중형이 되면 다른 분야를 더할 수 있다. 회사 돈은 내 돈과 따로다.',
   act: { n: '회사 경영', ic: '🏢', g: '직업 활동', eff: [['회사 평판', '↑', 1], ['사업', '↑', 1], ['스트레스', '↑', 0]] },
   panel: 'company', panelN: '🏢 회사 창 열기',
   status(s, t) { if (t.st !== 'active') return t.endNote || ''; return [t.name, coSizesN(t), coTrFields(t).length ? `연습생 ${coTrainees(s).length}명` : '', coGrpCount(t), `회사 돈 ${fmtWon(t.money)}`].filter(Boolean).join(' · '); },

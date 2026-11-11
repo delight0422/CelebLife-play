@@ -33,7 +33,7 @@ function pfDeptSk(s, d) { const p = me(s), D = PF_DEPTS[d] || PF_DEPTS['실용�
 // ───── 하던 직업의 경력과 등급 ─────
 // 그 직업을 한 개월 수 (게임이 매달 센다 s.carM. 예전 세이브는 직업의 months로 어림한다)
 function jobMonths(s, id) { const t = s.tracks[id] || {}; return Math.max((s.carM || {})[id] || 0, t.months || 0); }
-// 그 직업의 등급 (0~6). 등급이 없는 직업은 어림한다: 유튜버·버츄얼 아이돌은 가장 많을 때 구독자, 나머지는 그 직업의 인기와 인지도
+// 그 직업의 등급 (0~6). 등급이 없는 직업은 어림한다: 스트리머·버츄얼 아이돌은 가장 많을 때 구독자, 나머지는 그 직업의 인기와 인지도
 const PF_TIERED = ['actor', 'variety', 'model', 'director', 'writer', 'dancer', 'animator', 'adir', 'voice', 'webtoon', 'webnovel', 'illust'];
 function jobTier(s, id) {
   const t = s.tracks[id];

@@ -154,7 +154,7 @@ function anOfferCh(s, d) {
     { t: '거절한다', f: () => '입사 제안을 거절했다.' },
   ];
 }
-// 그림 유튜브 채널이 크게 되면 애니 제작사 작화팀에서 먼저 연락이 온다 (js/video.js ytCareerOffer)
+// 그림 플리오 채널이 크게 되면 애니 제작사 작화팀에서 먼저 연락이 온다 (js/video.js ytCareerOffer)
 E({
   id: 'an_scout', cat: '제안', title: '작화팀 스카우트', tag: 'career',
   init(s, d) { d.co = aniCoOf(d.tier).n; d.p = 0.75; d.lead = empStartLead(s, 'animator'); d.sal = empStartSal(s, 'animator', ANIM_SAL[d.tier] * 1e4, d.lead); },
@@ -192,7 +192,9 @@ function anDoJob(s, j) {
   addWork(s, { type: '작화', pay: j.fee, title: `${j.who} ${j.n}`, by: ANIM_TIERS[t.tier], sc: big > 0 ? 85 : good ? 70 : big < 0 ? 30 : 45, note: `${j.g} · ${big > 0 ? '작화가 화제가 됐다' : good ? '반응이 좋았다' : big < 0 ? '작화 붕괴 소리를 들었다' : '무난'}` });
   const how = big > 0 ? '내가 그린 장면이 "작화가 미쳤다"며 퍼졌다.' : good ? '컷이 깔끔하다는 말을 들었다.' : big < 0 ? '작화가 무너졌다는 말이 돌았다. 수정 요청이 쏟아졌다.' : '무난하게 넘겼다.';
   const x = `${j.who}의 ${josa(j.n, '을를')} 끝냈다. ${how}` + fxt;
-  return showResult(s, `${j.who} ${j.n}`, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''));
+  // 방영 뒤 반응은 플리오에서 (작화 이야기라 내 이름은 나오지 않는다)
+  const plio = typeof plioSpec === 'function' ? plioSpec({ k: 'animk', t: `${j.who} ${j.n}`, ch: j.who, me: '', sc: big > 0 ? 88 : good ? 70 : big < 0 ? 30 : 50 }) : null;
+  return showResult(s, `${j.who} ${j.n}`, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), null, null, plio);
 }
 
 // ════════ 애니메이션 감독 ════════
@@ -346,7 +348,8 @@ function adirDone(s, t) {
   // 단편이 상을 받으면 제작사에서 데뷔 제안이 온다
   if (pj.kind === 'short' && res >= 2 && t.mode === 'indie' && !hasQ(s, 'adir_debut')) queueEv(s, 'adir_debut', 1, {});
   const x = `${K.n} 「${pj.title}」이 공개됐다. ${word}.` + fxt;
-  return showResult(s, `「${pj.title}」`, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''));
+  const plio = typeof plioSpec === 'function' ? plioSpec({ k: 'animk', t: `「${pj.title}」 ${pj.kind === 'short' ? '단편 애니' : '본편 클립'}`, ch: pj.co || `${me(s).name} 감독`, me: `${me(s).name} 감독`, sc: U.clamp(sc + 12, 5, 99), rv: [-1, 0, 1, 2][res], mul: pj.kind === 'short' ? 0.3 : 1 }) : null;
+  return showResult(s, `「${pj.title}」`, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), null, null, plio);
 }
 
 // ════════ 성우 ════════

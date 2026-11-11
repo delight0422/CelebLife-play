@@ -368,6 +368,8 @@ function dirCast(p, c) { const e = lv(p, 'edu'); return e >= c ? c + (e - c) / 2
 // 작품 공개: 성적과 연출 평, 연출료, 등급
 E({
   id: 'dir_res', cat: '작품 성적', title: '연출작 공개', tag: 'career',
+  // 공개 뒤 반응은 플리오에서 (단편영화는 영화제에서만 틀어서 없다)
+  plio: (s, d) => d.pl !== undefined ? d.pl : (d.pl = typeof plioSpec === 'function' && d.pj.tk !== 'short' && d.plsc != null ? plioSpec({ k: 'film', t: `「${d.pj.title}」 하이라이트`, ch: `${DIR_PJ[d.pj.tk].n} 「${d.pj.title}」`, me: `${me(s).name} 감독`, sc: d.plsc, rv: plioRv(d.review) }) : null),
   cond: s => true,
   init(s, d) {
     const pj = d.pj, t = s.tracks.director, p = me(s), T = DIR_PJ[pj.tk];
@@ -377,7 +379,7 @@ E({
     dmGain(s, pj.genre, pj.tk, 5);
     if (pj.tk === 'short') { d.fest = U.pick(SHORT_FEST); d.prizeN = sc >= 72 ? '대상' : sc >= 65 ? '우수상' : ''; d.res = d.prizeN ? `${d.fest} ${d.prizeN}` : sc >= 58 ? `${d.fest} 본선 진출` : `${d.fest} 예선 탈락`; }
     else d.res = filmRes(pj.tk, sc);
-    d.fee = pj.fee || 0;
+    d.fee = pj.fee || 0; d.plsc = Math.round(sc);
     // 흥행 인센티브: 잘될수록 연출료의 일부를 더 받는다 (작가와 같은 셈법)
     if (d.fee) { const hit = U.clamp((sc - 62) / 25, 0, 1.2); if (hit) d.bonus = Math.round(d.fee * hit * 0.6 / 1e5) * 1e5; }
     // 단편영화는 연출료가 없다: 영화제 상금(대상 500만·우수상 200만)과, 눈에 띄면 배급사·OTT에 상영권을 판 돈이 수입이다
@@ -723,6 +725,7 @@ E({
 function scriptBonus(sc, v, fix) { const hit = U.clamp((v - 62) / 25, 0, 1.2); return hit ? Math.round(sc.price * (fix ? 1.5 : 1) * hit * 0.6 / 1e5) * 1e5 : 0; }
 E({
   id: 'script_res', cat: '작품 성적', tag: 'career',
+  plio: (s, d) => d.pl !== undefined ? d.pl : (d.pl = typeof plioSpec === 'function' && d.t ? plioSpec({ k: 'film', t: `「${d.t}」 하이라이트`, ch: `${DIR_PJ[d.tk].n} 「${d.t}」`, me: d.fix ? '' : `${me(s).name} 작가`, sc: d.sc, rv: d.sc >= 80 ? 2 : d.sc >= 65 ? 1 : d.sc >= 52 ? 0 : d.sc >= 40 ? -1 : -2 }) : null),
   cond: s => true,
   init(s, d) {
     const sc = myScripts(s).find(x => x.id === d.id);

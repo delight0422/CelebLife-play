@@ -1168,6 +1168,7 @@ E({
 });
 E({
   id: 'idol_cbres', cat: '앨범 성적', title: '앨범 성적표', tag: 'career',
+  plio: (s, d) => typeof plioSong === 'function' ? plioSong(s, d, 'idol') : null,
   live: (s, d) => d.card && d.card.live,
   init(s, d) { const t = s.tracks.idol; if (t.st !== 'active') { d.skip = true; return; } d.r = idolRelease(s, t, d.c, d.debut); d.card = d.r.card; teamRel(s, 'idol', t, d.r.peak, !d.r.peak || d.r.peak > 60); },
   html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + songCardHTML(d.card) : '',
@@ -1820,6 +1821,7 @@ E({
 });
 E({
   id: 'band_relres', cat: '음원 성적', title: '밴드 새 곡 성적', tag: 'career',
+  plio: (s, d) => typeof plioSong === 'function' ? plioSong(s, d, 'band') : null,
   live: (s, d) => d.card && d.card.live,
   init(s, d) {
     const t = s.tracks.band;
@@ -2142,6 +2144,7 @@ SONG_CB.solo = (s, d, c) => {
 };
 E({
   id: 'solo_relres', cat: '음원 성적', title: '신곡 성적', tag: 'career',
+  plio: (s, d) => typeof plioSong === 'function' ? plioSong(s, d, 'solo') : null,
   live: (s, d) => d.card && d.card.live,
   init(s, d) {
     const t = s.tracks.solo;
@@ -2378,6 +2381,7 @@ INBOX.recital = {
 E({
   // 중요한 연주회(첫 앨범 · 반응이 좋았을 때)는 요약에만 남기지 않고 창으로 (무대 창이 먼저 뜬다)
   id: 'player_relres', cat: '음원 성적', title: '연주 앨범 성적', tag: 'career', keepPop: (s, d) => !!(d.live && d.live.key),
+  plio: (s, d) => typeof plioSong === 'function' ? plioSong(s, d, 'player') : null,
   live: (s, d) => d.live,
   init(s, d) {
     const t = s.tracks.player;

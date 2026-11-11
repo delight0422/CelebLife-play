@@ -611,6 +611,7 @@ function coARev(s, t, pj, sc) {
 }
 E({
   id: 'co_ares', cat: '애니 성적', title: '우리 회사 애니 공개', tag: 'career',
+  plio: (s, d) => d.pl !== undefined ? d.pl : (d.pl = typeof plioSpec === 'function' ? plioSpec({ k: 'animk', t: `「${d.pj.title}」 본편 클립`, ch: coT(s).name, me: d.pj.dir === 'me' ? `${me(s).name} 감독` : '', sc: d.sc, rv: plioRv(d.review) }) : null),
   cond: s => coOn(s),
   init(s, d) {
     const t = coT(s), pj = d.pj, A = A_KIND[pj.kind], p = me(s);

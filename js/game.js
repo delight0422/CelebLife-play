@@ -24,7 +24,7 @@ const CAREER_PLAN = [
   { id: 'dancer', n: '댄서', g: 'artist', sub: 'music' },
   { id: 'actor', n: '배우', g: 'artist', sub: 'video' },
   { id: 'variety', n: '예능인', g: 'artist', sub: 'video' },
-  { id: 'youtube', n: '유튜버 (개인세 버튜버 포함)', g: 'artist', sub: 'video' },
+  { id: 'youtube', n: '스트리머 (개인세 버튜버 포함)', g: 'artist', sub: 'video' },
   { id: 'vidol', n: '버츄얼 아이돌 (회사 소속 버튜버)', g: 'artist', sub: 'video' },
   // 모델: 특기가 아니라 직업 (5단계). 지원·활동 결과는 외모·운동신경 재능과 연기 특기를 본다
   { id: 'model', n: '모델', g: 'artist', sub: 'video' },
@@ -284,7 +284,7 @@ const EARN_LABEL = {
   '단편 상영권 판매': 'director', '부가 판권': 'director', '뮤직비디오 연출': 'director', '광고 연출': 'director',
   '전속 계약금': 'director',
   '원고료': 'writer', '공모전 상금': 'writer', '각본 수정료': 'writer', '2차 판권·굿즈': 'writer',
-  '유료 광고 영상': 'youtube', '굿즈 판매': 'youtube', '개인 행사': 'youtube', '유튜브 광고비': 'youtube', '유튜브 광고 수익': 'youtube',
+  '유료 광고 영상': 'youtube', '굿즈 판매': 'youtube', '개인 행사': 'youtube', '플리오 광고비': 'youtube', '플리오 광고 수익': 'youtube',
   '페스티벌 출연료': 'band', '공연 정산': 'band', '공연 수입': 'band',
   '음반·음원 정산': 'solo', '일본 공연': 'solo', '오디션 우승 상금': 'solo', '공연·행사': 'solo',
   '세션 연주비': 'player', '독주회 출연료': 'player', '공연·레슨': 'player',
@@ -308,7 +308,7 @@ function earn(s, v, label, job) {
 }
 // ───── 내 회사 소속 활동 (v105, 9-2) ─────
 // 회사 대표가 회사 분야와 같은 아티스트 일을 하면 내 회사 소속으로 친다
-//  기획사 → 솔로 가수 · 밴드 · 연주가 / 버츄얼 아이돌 기획사 → 개인세 버튜버 / MCN → 유튜버 · 버튜버
+//  기획사 → 솔로 가수 · 밴드 · 연주가 / 버츄얼 아이돌 기획사 → 개인세 버튜버 / MCN → 스트리머 · 버튜버
 // 그 일의 비용과 수익은 모두 회사 돈에서 나가고 회사 돈으로 들어온다. 회사 그룹 · 기수 · 크리에이터 명단에 나를 넣지는 않는다
 const OWN_CO_N = { solo: '대표 솔로 활동', band: '대표 밴드 활동', player: '대표 연주 활동', youtube: '대표 채널 활동' };
 function ownCoFit(t, job, vt) { const f = t.f || {}; return job === 'youtube' ? !!(f.mcn || (vt && f.vidol)) : !!OWN_CO_N[job] && !!f.music; }
@@ -353,9 +353,9 @@ function songTitleEn() { return freshName(() => songPair(SONG_EA, SONG_EB)); }
 function songTitle() { return freshName(() => U.chance(0.15) ? U.pick(SONG_K) : U.chance(0.47) ? songPair(SONG_A, SONG_B) : songPair(SONG_EA, SONG_EB)); }
 // 채널 · 버튜버 이름 (10-5)
 function hasBatchim(w) { const c = w.charCodeAt(w.length - 1); return c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 > 0; }
-// 유튜버 별명: '이'는 받침 있는 말 뒤에만(별이 · 달이), 앞말 끝 글자와 같은 글자는 안 붙인다(토끼토)
+// 스트리머 별명: '이'는 받침 있는 말 뒤에만(별이 · 달이), 앞말 끝 글자와 같은 글자는 안 붙인다(토끼토)
 function ytNick() { for (let i = 0; i < 30; i++) { const a = U.pick(CH_A), b = U.pick(CH_B), n = a + b; if ((b === '이' && !hasBatchim(a)) || a.endsWith(b) || CH_BAN.includes(n)) continue; return n; } return U.pick(CH_A) + '맨'; }
-// 유튜버 채널: 분야를 알면 40%는 분야에 맞는 이름, 나머지는 별명 + TV · 로그 · 채널 · 하우스 · 랩
+// 스트리머 채널: 분야를 알면 40%는 분야에 맞는 이름, 나머지는 별명 + TV · 로그 · 채널 · 하우스 · 랩
 function ytChName(cat) { return freshName(() => CH_CAT[cat] && U.chance(0.4) ? U.pick(CH_CAT[cat]) : ytNick() + U.pick(CH_SUF)); }
 // 버튜버 RP 이름: 일본식 성 + 이름 90%, 한 단어 이름 10%. g('여' · '남')에 맞는 이름을 고른다 (모르면 아무거나)
 // 성 + 이름이 통째로 이름난 이름과 같거나, 앞 두 글자가 같으면(하루노 하루 · 히나타 히나) 다시 뽑는다
@@ -930,14 +930,14 @@ function onSchoolMonth(s) {
 function onBirthday(s) {
   for (const p of parentsAlive(s)) if (pAge(s, p) >= 70 && U.chance((pAge(s, p) - 68) * 0.02)) queueEv(s, 'parent_loss', 0, { id: p.id }, true);
 }
-// 유튜브 유행 (피드백 24): 버튜버냐 캠튜버냐. 3~5년에 한 번 바뀐다. 예전 세이브(채널 컨셉 유행)는 둘 중 하나로 바꾼다
+// 플리오 유행 (피드백 24): 버튜버냐 캠튜버냐. 3~5년에 한 번 바뀐다. 예전 세이브(채널 컨셉 유행)는 둘 중 하나로 바꾼다
 function ytTrendCheck(s, flip) {
   const tv = s.trendTV;
   if (!YT_KINDS.includes(tv.yt)) { tv.yt = U.pick(YT_KINDS); tv.ytT = s.t + U.int(36, 60); return; }
   if (tv.ytT == null) tv.ytT = s.t + U.int(36, 60);
   if (flip && s.t >= tv.ytT) {
     tv.yt = YT_KINDS.find(x => x !== tv.yt); tv.ytT = s.t + U.int(36, 60);
-    if (trackOn(s, 'youtube') || trackOn(s, 'vidol')) addLog(s, `유튜브 판도가 바뀌었다. 요즘은 ${josa(tv.yt, '이가')} 대세다.`, 'career');
+    if (trackOn(s, 'youtube') || trackOn(s, 'vidol')) addLog(s, `플리오 판도가 바뀌었다. 요즘은 ${josa(tv.yt, '이가')} 대세다.`, 'career');
   }
 }
 function onNewYear(s) {
@@ -979,7 +979,7 @@ function peopleYear(s) {
   for (const n of people(s)) {
     const na = pAge(s, n);
     if (!['자녀', '형제자매', '엄마', '아빠', '업계'].includes(n.rel) && !n.ind && n.job === '학생' && na >= 20 && U.chance(0.45)) {
-      n.job = U.pick(['회사원', '대학원생', '공무원 준비생', '간호사', '카페 사장', '프리랜서 디자이너', '은행원', '유튜버', '교사', '개발자']);
+      n.job = U.pick(['회사원', '대학원생', '공무원 준비생', '간호사', '카페 사장', '프리랜서 디자이너', '은행원', '스트리머', '교사', '개발자']);
       const near = n.rel === '연인' || n.rel === '배우자';
       if (near || n.aff >= 40) addLog(s, `${near ? n.rel + ' ' : ''}${josa(n.name, '이가')} ${n.job}${n.job.endsWith('생') ? '이' : ''} 되었${near ? '다.' : '다는 소식을 들었다.'}`, 'news');
     }
@@ -1167,7 +1167,23 @@ function save(s) { try { if (s) localStorage.setItem(SAVE_KEY, JSON.stringify(s)
 function loadSave() {
   try { const j = localStorage.getItem(SAVE_KEY); if (!j) return null; const s = JSON.parse(j); return s && s.v === 4 ? migrate(s) : null; } catch (e) { return null; }
 }
+// v144: 영상 플랫폼 이름을 지어낸 '플리오'로, 직업 이름을 '스트리머'로 바꿨다. 예전 세이브에 남은 글 · 직업 이름 · 돈 항목 이름도 한 번에 바꾼다 (값과 열쇠 모두)
+function pfRename(o) {
+  const A = '유튜브', B = '유튜버', H = '유튜';
+  const fix = x => x.split(A).join('플리오').split(B).join('스트리머');
+  const walk = v => {
+    if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) { const x = v[i]; if (typeof x === 'string') { if (x.includes(H)) v[i] = fix(x); } else if (x && typeof x === 'object') walk(x); } return; }
+    for (const k of Object.keys(v)) {
+      const x = v[k];
+      if (typeof x === 'string') { if (x.includes(H)) v[k] = fix(x); } else if (x && typeof x === 'object') walk(x);
+      if (k.includes(H)) { v[fix(k)] = v[k]; delete v[k]; }
+    }
+  };
+  if (o && typeof o === 'object') walk(o);
+  return o;
+}
 function migrate(s) {
+  if (!s.pfRen) { pfRename(s); s.pfRen = 1; }
   // 피드백 22: 예전 '영화감독(내 영화 만들기)'을 없앴다. 하던 사람은 영화감독(예전 연출감독) 일로 옮기고, 하던 기획은 접는다
   { const fm = s.tracks.filmmaker;
     if (fm && fm.st !== 'none' && fm.st !== 'ended') {
@@ -1219,7 +1235,7 @@ function migrate(s) {
   for (const id in s.people) s.people[id].orient = 's';
   for (const id in s.people) homemakerFix(s, s.people[id]);
   for (const id of CAREER_IDS) if (!s.tracks[id]) s.tracks[id] = { st: 'none' };
-  // 예전 세이브: 유튜버 직업의 회사 소속 버튜버 → 버츄얼 아이돌 (6-2단계)
+  // 예전 세이브: 스트리머 직업의 회사 소속 버튜버 → 버츄얼 아이돌 (6-2단계)
   if (typeof viMigrate === 'function') viMigrate(s);
   s.subs = s.subs || {}; s.equip = s.equip || {}; s.yinc = s.yinc || {}; s.inbox = s.inbox || []; s.projects = s.projects || [];
   s.cmast = s.cmast || {};
@@ -1376,7 +1392,7 @@ function careerLogMonth(s) {
   }
 }
 function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } }
-function getHall() { try { return JSON.parse(localStorage.getItem(HALL_KEY) || '[]'); } catch (e) { return []; } }
+function getHall() { try { return pfRename(JSON.parse(localStorage.getItem(HALL_KEY) || '[]')); } catch (e) { return []; } }
 function addHall(s, ep) {
   try {
     const h = getHall(), p = me(s);

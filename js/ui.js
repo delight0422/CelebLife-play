@@ -361,7 +361,7 @@ function jobIc(id) { return id === 'idol' && idolIsBand(S) ? '🎸' : CAREERS[id
 // 직업마다 관련 분야의 유행: 직업 창 맨 위에 그 분야 유행만 보인다 (모델은 없음)
 const JOB_FIELD = { idol: 'music', band: 'music', solo: 'music', player: 'music', composer: 'music', lyricist: 'music', producer: 'music', anr: 'music', trainer: 'music', dancer: 'music', animator: 'anime', adir: 'anime', voice: 'anime', webtoon: 'web', webnovel: 'web', actor: 'drama', director: 'drama', writer: 'drama', acttrainer: 'drama', variety: 'show', youtube: 'yt', vidol: 'yt', editor: 'yt', agency: 'music' };
 function trendRowHTML(s, only) {
-  const tv = s.trendTV || {}, T = { music: ['🎵 음악', s.trend], drama: ['📺 드라마', tv.drama], show: ['😆 예능', tv.show], yt: ['▶️ 유튜브', tv.yt], anime: ['🎨 애니', tv.anime], web: ['📖 웹툰·웹소설', tv.web] };
+  const tv = s.trendTV || {}, T = { music: ['🎵 음악', s.trend], drama: ['📺 드라마', tv.drama], show: ['😆 예능', tv.show], yt: ['▶️ 플리오', tv.yt], anime: ['🎨 애니', tv.anime], web: ['📖 웹툰·웹소설', tv.web] };
   return `<div class="trend-row"><span class="tr-h">📈 요즘 유행</span>${(only ? [only] : ['music', 'drama', 'show', 'yt']).map(k => `<span class="tr-i">${T[k][0]} '${U.esc(T[k][1] || '-')}'</span>`).join('')}</div>`;
 }
 // 오른쪽·왼쪽 박스들. 박스 하나를 그리다 오류가 나도 나머지는 그린다 (오류는 콘솔과 UI.drawErr에 남긴다)
@@ -544,7 +544,7 @@ function isSkillEv(ev) {
   if (ev._sk == null) ev._sk = !!ev.sk || /learnMe|gainH|learnable/.test(String(ev.ch || '') + String(ev.init || '') + String(ev.submit || ''));
   return ev._sk;
 }
-// 선택지 중 지금 유행하는 것: 이름 옆 꼬리표 (컨셉·장르·예능 형식·유튜브 분야 어디서든)
+// 선택지 중 지금 유행하는 것: 이름 옆 꼬리표 (컨셉·장르·예능 형식·플리오 분야 어디서든)
 const TR_BADGE = '<span class="trb">🔥 유행</span>';
 // 초록 표시 (v132): 직원이 권한 것은 '추천', 그룹 · 밴드의 대표 컨셉과 같은 것은 '대표 컨셉'
 const REC_BADGE = '<span class="trb rec">추천</span>', SIG_BADGE = '<span class="trb rec">대표 컨셉</span>';
@@ -1072,6 +1072,8 @@ function infoTable(rows) {
     if (Array.isArray(r)) { tb.push(r); continue; }
     flush();
     if (r.bars) { h += `<div class="sec-h">${U.esc(r.h)}</div>` + mastBars(r.bars); continue; }
+    // html: 미리 만든 조각을 그대로 (플리오 배너 등)
+    if (r.html != null) { h += (r.h ? `<div class="sec-h">${U.esc(r.h)}</div>` : '') + r.html; continue; }
     h += `<div class="sec-h">${U.esc(r.h)}</div>` + (r.items.length ? r.items.map(x => `<div class="ms">· ${U.esc(x)}</div>`).join('') : '<div class="muted">없음</div>');
   }
   flush();
