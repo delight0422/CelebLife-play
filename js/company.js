@@ -709,12 +709,7 @@ function coMeetHTML(s, d, id) { const g = coGroup(s, d.gid); return `<div class=
 function coAlbX(s, g) { const t = coT(s), prod = coProdCost(t, g); return { tier: coTier(t, 'music'), rep: t.f.music.rep, sig: g.sig, mem: coP(s, g.members), prod, budget: Math.max(1000e4, (t.money - prod) * 0.5) }; }
 function coAnrLead(s) { return coStaff(s, 'anr').sort((a, b) => scoutLv(b, 'compose') - scoutLv(a, 'compose'))[0] || null; }
 // 그 컨셉이 그룹에 어울리는 정도 (대표 컨셉을 정하는 창과 같은 말)
-function coFitWord(s, g, c) {
-  const P = coP(s, g.members);
-  if (!cAgeOK(s, P, c, 1)) return '나이에 안 맞는다';
-  const F = CONCEPT_FIT[c], R = cFit(s, c, P, 0);
-  return F === 'rap' ? (R.rap >= 30 ? '잘 어울린다' : R.rap >= 15 ? '무난하다' : '안 어울린다') : R.b >= 1 ? '잘 어울린다' : R.b <= -1 ? '안 어울린다' : '무난하다';
-}
+function coFitWord(s, g, c) { return albFit(s, coP(s, g.members), c); }
 // ① 기획 · 데모곡 확보 (v153)
 E({
   id: 'co_plan', cat: '컴백 회의', tag: 'career',

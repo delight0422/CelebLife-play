@@ -217,16 +217,27 @@ E({
   text: (s, d) => { const t = viT(s); return `구독자 ${fmtFans(t.subs)}. ${t.corpN}에서 3D 모델을 만들어 주기로 했다. 3D 데뷔 방송에 시청자가 몰렸다.\n\n후원 ${fmtWon(d.inc)} · 이제부터 3D로도 방송한다`; },
   ch: (s, d) => [{ t: '확인', f: s => { const t = viT(s); t.d3 = true; t.av = Math.max(t.av, 4); t.subs = Math.round(t.subs * 1.12); earn(s, d.inc, '3D 데뷔 방송 후원'); milestone(s, `${age(s)}세에 「${t.ch}」 3D 데뷔를 했다.`); return `「${t.ch}」 3D 데뷔! 후원 ${fmtWon(d.inc)}.`; } }],
 });
+// 오리지널 곡 시작 (v154): 회사가 컨셉을 정하고 데모곡을 모아 고른다. 석 달 뒤에 나온다
+function viAlbStart(s, t) {
+  const ag = viAgOf(t), P = [me(s)], L = TRENDS.filter(x => cAgeOK(s, P, x, 1)), c = U.chance(0.5) && L.includes(s.trend) ? s.trend : U.pick(L.length ? L : TRENDS);
+  const r = albNpc(s, { tier: ag.tier || 1, rep: ag.plan != null ? ag.plan : 50, sig: null, mem: [], cs: [c], ok: x => cAgeOK(s, P, x, 1), boss: { sd: 8 }, bossN: t.corpN || '회사', anr: { sd: 8 }, anrN: 'A&R팀', out: 0.3 });
+  t.alb = albKeep(s, r, true);
+  queueEv(s, 'vi_song', 3, { a: t.alb });
+  addLog(s, `${t.corpN}에서 「${t.ch}」의 오리지널 곡 제작에 들어갔다. ('${c}' 컨셉)`, 'career');
+}
 // 오리지널 곡: 회사가 곡을 받아 와 낸다. 내 보컬이 좋을수록 잘된다 (가창 저작인접권 몫이 조금 들어온다)
 E({
   id: 'vi_song', cat: '회사 결정', title: '오리지널 곡 발매', tag: 'career',
   cond: s => viOn(s) && viT(s).st === 'active',
   init(s, d) {
-    const t = viT(s), p = me(s), ag = viAgOf(t);
-    d.title = songTitle();
-    d.sc = U.clamp(lv(p, 'vocal') * 0.5 + (24 + ag.tier * 7) * 0.35 + Math.log10(1 + t.subs) * 3.2 + (t.d3 ? 3 : 0) + U.normal(0, 7) + 4, 0, 100);
+    const t = viT(s), p = me(s), ag = viAgOf(t), a = d.a;
+    d.title = a ? a.title : songTitle();
+    // v154: 회사가 앨범 제작 틀로 만든 곡 (a). 예전 세이브는 회사 크기만큼의 곡
+    d.sc = U.clamp(lv(p, 'vocal') * 0.5 + (a ? a.q : 24 + ag.tier * 7) * 0.35 + Math.log10(1 + t.subs) * 3.2 + (t.d3 ? 3 : 0) + U.normal(0, 7) + 4, 0, 100);
     d.gain = Math.round(Math.max(0, fanGainRaw(d.sc, t.subs, 0.5)) * 0.6);
+    if (a) { t.alb = null; t.songT = s.t + U.int(15, 21); }
   },
+  html: (s, d) => d.a && d.a.mk ? `<div class="m-text">${rich(EVENTS.vi_song.text(s, d))}</div>` + albBannerHTML(d.a.mk) : '',
   text: (s, d) => { const t = viT(s); return `${t.corpN}에서 「${t.ch}」의 오리지널 곡 「${d.title}」을 냈다.\n\n${chartText(chartFromScore(d.sc))} · 구독자 ${sgnFans(d.gain)}\n반응: ${comments(d.sc, t.sn && t.sn.nick)}`; },
   ch: (s, d) => [{ t: '확인', f: s => { const t = viT(s); t.songs = (t.songs || 0) + 1; t.subs += d.gain; jpopWork(s, 'vidol', d.sc); addCatalog(s, d.title, '가창', d.sc, 0.3, 'vidol'); addWork(s, { type: '오리지널 곡', title: d.title, by: t.ch, sc: d.sc, note: chartText(chartFromScore(d.sc)) }); useSkill(s, me(s), 'vocal', 1); return `오리지널 곡 「${d.title}」 발매. ${chartText(chartFromScore(d.sc))}.`; } }],
 });
@@ -382,7 +393,7 @@ CAREERS.vidol = {
     if (t.st === 'prep') return [['소속', `${t.corpN} ${t.gen}기 · 회사 몫 ${pctN(t.cut)}`], ['준비', `${t.left > 0 ? `아바타 제작 중 (${t.left}개월 남음)` : '아바타 완성'} · 방송 연습 ${t.prepM || 0}개월째`], ['동기', `${t.mates.length + 1}/${VI_GEN_N}명 (다 모이면 데뷔)`], ['선배', `활동 중 ${t.seniorN || 0}명`],
       t.mates.length ? { h: `${t.gen}기 동기`, items: viMates(s, t).map(x => `${x.name} (${gNn(x)} · ${pAge(s, x)}세)`) } : null];
     const p = me(s), ks = [...new Set((YT_SK[t.cat] || ['variety']).concat('vocal'))].filter(k => has(p, k)), r = viRank(s, t);
-    return [['채널', `「${t.ch}」 · ${t.cat}`], ['소속', `${t.corpN} ${t.gen}기 · 회사 몫 ${pctN(t.cut)}`], ['구독자', `${fmtFans(t.subs)} (가장 많을 때 ${fmtFans(t.peak || t.subs)})`], ['기수 안 순위', `${r.n}명 중 ${r.r}위`], ['수입', t.subs < 1000 ? '구독자 1,000명부터 들어온다' : `지난달 ${fmtWon(t.lastInc || 0)} (최근 1년 평균 ${fmtWon(incAvg(t))})`], ['내 실력', ks.map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ') || '-'], ['아바타', t.d3 ? '3D 모델' : VT_AV[t.av].n], ['오리지널 곡 · 3D 라이브', `${t.songs || 0}곡 · ${t.lives || 0}번`],
+    return [['채널', `「${t.ch}」 · ${t.cat}`], ['소속', `${t.corpN} ${t.gen}기 · 회사 몫 ${pctN(t.cut)}`], ['구독자', `${fmtFans(t.subs)} (가장 많을 때 ${fmtFans(t.peak || t.subs)})`], ['기수 안 순위', `${r.n}명 중 ${r.r}위`], ['수입', t.subs < 1000 ? '구독자 1,000명부터 들어온다' : `지난달 ${fmtWon(t.lastInc || 0)} (최근 1년 평균 ${fmtWon(incAvg(t))})`], ['내 실력', ks.map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ') || '-'], ['아바타', t.d3 ? '3D 모델' : VT_AV[t.av].n], ['오리지널 곡 · 3D 라이브', `${t.songs || 0}곡 · ${t.lives || 0}번${t.alb ? ` · 새 곡 ${albStageW(s, t.alb)}` : ''}`],
       { h: `${t.gen}기 동기`, items: viMates(s, t).map(x => `${viName(x)} · 구독자 ${fmtFans(x.vi.subs)}${x.vi.d3 ? ' · 3D' : ''}${x.viCo ? ` · 합방 ${x.viCo}번` : ''}`) },
       { h: `선배 ${t.seniorN != null ? t.seniorN : viSeniors(s, t).length}명 · 아는 선배 ${viSeniors(s, t).length}명`, items: viSeniors(s, t).map(x => `${viName(x)} (${x.vi.gen}기) · 구독자 ${fmtFans(x.vi.subs)}${x.viCo ? ` · 합방 ${x.viCo}번` : ''}`) }];
   },
@@ -429,7 +440,9 @@ CAREERS.vidol = {
     // 회사가 정하는 일
     const ag = viAgOf(t);
     if (!t.d3 && t.subs >= VI_3D[ag.tier]) viNotice(s, 'vi_3d');
-    if (t.months >= 6 && !(t.songT > s.t) && has(p, 'vocal') && U.chance(0.07 + lv(p, 'vocal') / 600)) { t.songT = s.t + 10; viNotice(s, 'vi_song'); }
+    // 오리지널 곡 (v154): 회사가 1년 반~2년에 한 번, 앨범 제작 틀로 만든다 (기획 → 심사 · 선정 → 편곡 · 녹음, 석 달). 첫 곡은 데뷔 반년 뒤부터
+    if (t.months >= 6 && t.songT == null) t.songT = s.t + U.int(3, 9);
+    if (t.months >= 6 && !t.alb && !hasQ(s, 'vi_song') && has(p, 'vocal') && t.songT <= s.t) viAlbStart(s, t);
     if (t.months % 12 === 0) viNotice(s, 'vi_anniv');
     if (t.d3 && t.subs >= VI_LIVE && !(t.liveT > s.t) && U.chance(0.1)) { t.liveT = s.t + 18; viNotice(s, 'vi_live'); }
     // 연말 회사 평가: 기수 안 순위

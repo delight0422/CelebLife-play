@@ -1793,7 +1793,7 @@ document.addEventListener('click', e => {
   if (t && t.dataset.plio) { plioToggle(+t.dataset.plio); return; }
   if (t && t.dataset.commnow != null) { const sp = commNow(S); if (!UI.cmNow.key || !(UI.plioMap || {})[UI.cmNow.key]) UI.cmNow.key = plioKey(sp); plioToggle(UI.cmNow.key); return; }
   if (t && t.dataset.bill) { const b = (UI.billMap || {})[t.dataset.bill]; if (b) popOpen(billHTML(b)); return; }
-  if (t && t.dataset.song != null && S) { const c = songCardAt(S, t.dataset.song); if (c) popOpen(songCardHTML(c)); return; }
+  if (t && t.dataset.song != null && S) { const c = songCardAt(S, t.dataset.song); if (c) popOpen(songCardHTML(c) + (c.mk && typeof albStepsHTML === 'function' ? albStepsHTML(c.mk) : '')); return; }
   if (!t) return;
   if (t.dataset.wonadd) { wonAdd(t.dataset.wk, +t.dataset.wonadd); return; }
   // 이어할 인생이 있으면 먼저 묻는다 (v116 버그 2: 확인 없이 덮어써서 진행 중인 인생이 사라졌다)

@@ -602,7 +602,7 @@ CAREERS.idol = {
   get act() { return idolIsBand(typeof S !== 'undefined' ? S : null) ? BAND_TR_ACT : IDOL_ACT; },
   status(s, t) {
     if (t.st === 'trainee') return `${t.agN} ${t.kind === 'band' ? `밴드 연습생(${partN(t.part)})` : '연습생'} · ${t.months}개월 차 · 최근 평가 ${t.rank || '-'}위/${t.pool}명` + (t.team ? ` · 데뷔조 (데뷔까지 약 ${Math.max(1, 6 - t.prep)}개월)` : '');
-    if (t.st === 'active') return `${t.g.name} · ${t.pos} · 데뷔 ${Math.floor(t.months / 12) + 1}년 차 · 그룹 팬 ${fmtFans(groupFans(t.g))}` + (t.promo > 0 ? ' · 활동 중' : '') + (t.debt > 0 ? ` · 갚을 비용 ${fmtWon(t.debt)}` : '');
+    if (t.st === 'active') return `${t.g.name} · ${t.pos} · 데뷔 ${Math.floor(t.months / 12) + 1}년 차 · 그룹 팬 ${fmtFans(groupFans(t.g))}` + (t.promo > 0 ? ' · 활동 중' : t.alb ? ' · 앨범 준비 중' : '') + (t.debt > 0 ? ` · 갚을 비용 ${fmtWon(t.debt)}` : '');
     return t.endNote || '';
   },
   short(s, t) { return t.st === 'trainee' ? `${t.agN} 연습생` : t.st === 'active' ? `${t.g.name} 멤버` : ''; },
@@ -637,6 +637,8 @@ CAREERS.idol = {
       R.push(['그룹 팬', MK.map(m => `${MK_N[m]} ${fmtFans(g.f[m])}`).join(' · ')]);
       R.push(['팀워크', twWord(g)]);
       R.push(['팬덤 · 대표 컨셉', `${g.fandom} · ${g.sig}`]);
+      // 이번 앨범 (v154): 어느 단계인지, 누가 맡았는지
+      if (t.alb) R.push(['이번 앨범', `${albStageW(s, t.alb)} · ${t.alb.mk ? t.alb.mk.boss : ''}`]);
       R.push({ h: '멤버', items: [`나 — ${t.pos}`].concat(g.members.map(id => s.people[id]).filter(Boolean).map(x => `${x.name} (${pAge(s, x)}세) ${g.pos[x.id] || ''} — ${relWord(x)}${soulTag(x)}`)) });
     }
     return R;
@@ -656,7 +658,7 @@ CAREERS.idol = {
     if (t.st === 'trainee') return [{ t: '연습생 그만두기', h: '기획사를 나온다. 다른 회사 오디션은 다시 볼 수 있다', ok: true, danger: true, confirm: '정말 연습생을 그만둘까요?', run: s => { const n = t.agN; quitTrainee(s, '스스로 그만둠'); return `${n} 연습생을 그만뒀다.`; } }];
     if (t.st === 'active') {
       const left = Math.max(0, t.contract - t.months), pen = Math.round(left * 200e4 * t.tier);
-      return [{ t: '그룹 탈퇴', h: `계약이 ${left}개월 남았다 · 위약금 약 ${fmtWon(pen)} · 팬들 반응이 나쁘다`, ok: true, danger: true, confirm: '정말 그룹을 탈퇴할까요?', run: s => { s.debt += pen; const r = '그룹을 탈퇴했다.' + fx(s, { pop: -10, rep: -5, fkr: -Math.round(s.fans.kr * 0.3) }); endGroup(s, '탈퇴'); return r; } }];
+      return songSubActs(s, t).concat([{ t: '그룹 탈퇴', h: `계약이 ${left}개월 남았다 · 위약금 약 ${fmtWon(pen)} · 팬들 반응이 나쁘다`, ok: true, danger: true, confirm: '정말 그룹을 탈퇴할까요?', run: s => { s.debt += pen; const r = '그룹을 탈퇴했다.' + fx(s, { pop: -10, rep: -5, fkr: -Math.round(s.fans.kr * 0.3) }); endGroup(s, '탈퇴'); return r; } }]);
     }
     return [];
   },
@@ -715,11 +717,13 @@ function idolActiveMonth(s, t) {
   twAdd(g, twOf(g) < 60 ? 0.5 : -0.3); // 그냥 같이 지내는 것만으로는 60까지. 그 위는 팀 활동 · 사건으로 올리고, 손을 놓으면 천천히 내려온다
   if (t.promo > 0) { t.promo--; addStress(s, 4 * pm(s, 'crowdStress')); }
   else {
-    addStress(s, 1.5); t.nextCb--;
-    if (t.nextCb <= 0 && !hasQ(s, 'idol_cbres') && !hasQ(s, 'idol_cb')) idolNextComeback(s, t);
-    // 앨범과 앨범 사이: 회사가 잡아 주는 광고·예능·화보·팬미팅·라디오 스케줄
-    else if (t.nextCb > 1 && t.nextCb < 90 && !hasQ(s, 'idol_side') && U.chance(0.3)) queueEv(s, 'idol_side', 0);
+    addStress(s, 1.5);
+    // 앨범과 앨범 사이: 회사가 잡아 주는 광고·예능·화보·팬미팅·라디오 스케줄 (v154: 다음 앨범을 만드는 동안에도 온다. 오는 횟수는 예전과 같게)
+    if (!hasQ(s, 'idol_side') && U.chance(IDOL_SIDE_P)) queueEv(s, 'idol_side', 0);
   }
+  // 다음 앨범 (v154 앨범 제작 틀): 활동 둘째 · 셋째 달에 회사가 기획을 시작하고, 심사 · 선정 → 편곡 · 작사 → 녹음을 거쳐 석 달 뒤에 나온다 (컴백 간격은 그대로 5~6달)
+  if (t.alb) idolAlbMonth(s, t);
+  else if (--t.nextCb <= 0 && !hasQ(s, 'idol_cbres') && !hasQ(s, 'idol_cb')) idolNextComeback(s, t);
   MK.forEach(m => { g.f[m] = Math.round(g.f[m] * (t.promo > 0 ? 1 : t.months > 84 ? 0.993 : 0.996)); });
   // 멤버 평균 나이가 28세를 넘으면 인기가 꾸준히 떨어진다 (한 살 많을수록 더)
   const ga = groupAges(s, g);
@@ -742,6 +746,55 @@ function idolActiveMonth(s, t) {
   if (t.months >= t.contract) queueEv(s, 'idol_contract', 0);
   if (!trackOn(s, 'solo') && t.months >= 30 && (lv(p, 'vocal') >= 40 || lv(p, 'rap') >= 40) && U.chance(0.015) && !s.inbox.some(m => m.kind === 'idol_solo')) sendMsg(s, 'idol_solo', { from: t.agN, title: '솔로 데뷔 제안', months: 8, d: {} });
   if (calM(s) === 11) musicAwards(s, t, g.name, musicRookie(s, true), 'idol');
+}
+// 스케줄 알림이 오는 가능성 (활동기가 아닌 달마다). 예전(앨범 사이 한 달에 30%)과 한 해 횟수가 같게
+const IDOL_SIDE_P = 0.045;
+// ───── 남의 회사 앨범 (v154: 앨범 제작 틀 album.js) ─────
+// 소형 회사는 대표가, 중 · 대형 회사는 그룹(가수)마다 붙은 전담 프로듀서가 기획 · 데모곡 확보 · 선정을 하고, 회사 A&R 팀장이 심사한다
+// 소형 회사 대표 (회사마다 한 명. 처음 볼 때 만든다)
+function agBoss(s, agId) {
+  const B = s.agBoss = s.agBoss || {};
+  let p = B[agId] && s.people[B[agId]];
+  if (!p || !p.alive || pAge(s, p) >= 68) {
+    p = makeIndustry(s, '프로듀서', { age: U.int(38, 56) }); p.job = '대표';
+    const l = U.int(25, 60); learnSkill(s, p, 'scout', l); p.sk.scout.best = l; p.sk.scout.pot = l;
+    B[agId] = p.id;
+  }
+  return p;
+}
+function agAnr(s, agId) { const L = AG[agId] && typeof coTeamPeople === 'function' ? coTeamPeople(s, agId + '#anr') : []; return L[0] || null; }
+// 그 가수를 맡는 사람: 소형 회사는 대표, 중 · 대형은 프로듀싱팀의 한 사람을 전담으로 붙인다 (o.prod에 남겨 다음 앨범도 같은 사람이 맡는다)
+function agProd(s, agId, o) {
+  const ag = AG[agId];
+  if (!ag || ag.tier <= 1) { const p = ag ? agBoss(s, agId) : null; return { p, n: p ? `대표 ${p.name}` : '대표' }; }
+  const tk = agId + '#pd';
+  let p = o.prod && s.people[o.prod];
+  if (!p || !p.alive || p.coT !== tk) { const L = coTeamPeople(s, tk); p = U.pick(L.length > 1 ? L.slice(1) : L) || null; o.prod = p ? p.id : null; }
+  return { p, n: p ? `전담 프로듀서 ${p.name}` : '전담 프로듀서' };
+}
+// 아이돌 그룹 앨범을 시작한다: 회사가 ①~④를 정하고, 편곡 · 작사 한 달 + 녹음 한 달 뒤(데뷔 앨범은 한 달 뒤)에 성적표가 온다
+function idolAlbStart(s, t, c, debut) {
+  const g = t.g, ag = AG[t.ag] || { tier: t.tier || 1 }, P = idolPpl(s, g), who = agProd(s, t.ag, g);
+  const r = albNpc(s, { tier: ag.tier, rep: agPlan(t), sig: g.sig, mem: P.slice(1), cs: [c], ok: debut ? x => x === c : x => cAgeOK(s, P, x, 1), boss: who.p, bossN: who.n, anr: agAnr(s, t.ag), my: !!t.subSong && has(me(s), 'compose'), lyr: !!t.subLyr && has(me(s), 'lyric') });
+  const a = albKeep(s, r, true);
+  if (debut) a.deb = 1;
+  t.alb = a; t.nextCb = 99;
+  if (who.p && who.p.ind) meetAt(s, who.p, `「${g.name}」 ${debut ? '데뷔 앨범' : '앨범'}`, 'idol');
+  queueEv(s, 'idol_cbres', debut ? 1 : 3, { c: a.c, debut: !!debut, a });
+  return a;
+}
+// 앨범을 만드는 동안: 곡이 정해진 달에 소식 (내 곡 · 가사가 어떻게 됐는지). 성적표가 사라졌으면 다음 앨범으로
+function idolAlbMonth(s, t) {
+  const a = t.alb, k = s.t - a.at;
+  if (k === 1 && !a.deb && !a.told) { a.told = true; addLog(s, albNewsLine(s, a, `「${t.g.name}」 다음 앨범에 실을`), 'career'); }
+  if (k > 6 && !hasQ(s, 'idol_cbres')) { t.alb = null; t.nextCb = 1; }
+}
+// '내 곡 내기 · 가사 내기' (v154): 켜 두면 다음 앨범부터 내 곡이 데모곡 모집에 들어가 남의 곡과 똑같이 심사를 받고, 실린 곡의 가사를 맡을 수도 있다
+function songSubActs(s, t) {
+  const p = me(s), A = [];
+  if (has(p, 'compose')) A.push({ t: '🎼 내 곡 내기', sw: true, on: !!t.subSong, tag: t.subSong ? '켜 둠' : '', h: `다음 앨범 데모곡 모집에 내 곡을 낸다 · 남의 곡과 똑같이 A&R 심사를 받는다 · 작곡 ${lvi(p, 'compose')}레벨`, btn: t.subSong ? '끄기' : '켜기', ok: true, run: s => { t.subSong = !t.subSong; return t.subSong ? '다음 앨범부터 데모곡 모집에 내 곡을 내기로 했다.' : '데모곡 모집에 내 곡을 내지 않기로 했다.'; } });
+  if (has(p, 'lyric')) A.push({ t: '✍️ 가사 내기', sw: true, on: !!t.subLyr, tag: t.subLyr ? '켜 둠' : '', h: `실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡, 조금 모자라면 수록곡 · 작사 ${lvi(p, 'lyric')}레벨`, btn: t.subLyr ? '끄기' : '켜기', ok: true, run: s => { t.subLyr = !t.subLyr; return t.subLyr ? '다음 앨범부터 가사를 써 보겠다고 했다.' : '가사는 내지 않기로 했다.'; } });
+  return A;
 }
 // 그룹 나이: 나를 포함한 멤버 평균 나이와 막내 나이
 function groupAges(s, g) { const a = [age(s)].concat(g.members.map(id => s.people[id]).filter(Boolean).map(x => pAge(s, x))); return { avg: a.reduce((x, y) => x + y, 0) / a.length, min: Math.min(...a) }; }
@@ -973,9 +1026,10 @@ const IDOL_TIER_B = [0, 7, 9, 13];
 // 앨범 점수 흐름 조절: 신인 관심(데뷔 첫해), 대중 피로도(3년 뒤 해마다, 최대)
 const IDOL_CURVE = { rookie: 3.2, rate: 0.5, max: 3.2 };
 const IDOL_ALBUM_MULT = 1.9;
-function idolRelease(s, t, c, debut) {
+// a: 회사가 만든 앨범 (v154 album.js albKeep). 없으면(예전 세이브) 예전처럼 회사 크기만큼의 곡
+function idolRelease(s, t, c, debut, a) {
   const g = t.g, gf = groupFans(g), p = me(s);
-  const q = boughtQ(t.tier) + (t.anrQ || 0) + (agPlan(t) - 50) * 0.08;
+  const q = (a ? a.q : boughtQ(t.tier)) + (t.anrQ || 0) + (agPlan(t) - 50) * 0.08;
   const buzz = t.buzz > 0 ? (t.buzzB || 0) * t.buzz / 24 : 0;
   // 그룹 흐름(숨은 값): 앨범마다 조금씩 바뀐다. 좋은 흐름이 몇 앨범 이어지기도, 나쁜 흐름이 이어지기도 한다 (데뷔 때부터 그룹마다 다르다)
   if (g.mo == null) g.mo = U.normal(0, 4);
@@ -1005,20 +1059,21 @@ function idolRelease(s, t, c, debut) {
   const share = U.clamp(0.3 + ((p.tal.looks * 0.4 + p.tal.star * 0.3 + Math.max(lv(p, 'vocal'), lv(p, 'rap')) * 0.15 + lv(p, 'dance') * 0.15) - 45) / 80, 0.12, 0.85) * 3 / (g.members.length + 1);
   const my = {};
   MK.forEach(m => { my[m] = Math.round(Math.max(0, gain[m]) * share * myRoom(s, m)); s.fans[m] += my[m]; });
-  const title = songTitle();
+  const title = a ? a.title : songTitle();
   cNote(s, cf, title);
-  // 앨범 판매량: 앨범 간격이 길어서(6~9달) 한 번 낼 때 팬들이 여러 장씩 산다 (IDOL_ALBUM_MULT)
-  const albums = Math.round((g.f.kr * U.fl(0.25, 0.45) + g.f.jp * 0.25 + g.f.us * 0.1) * IDOL_ALBUM_MULT);
+  // 앨범 판매량: 앨범 간격이 길어서(6~9달) 한 번 낼 때 팬들이 여러 장씩 산다 (IDOL_ALBUM_MULT). v154: 수록곡이 좋으면 조금 더 팔린다 (평균이면 그대로)
+  const sideM = a && a.side != null ? U.clamp(1 + (a.side + (ALB_NPC_ADJ[t.tier] || 0) - (16 + t.tier * 7)) / 250, 0.9, 1.15) : 1;
+  const albums = Math.round((g.f.kr * U.fl(0.25, 0.45) + g.f.jp * 0.25 + g.f.us * 0.1) * IDOL_ALBUM_MULT * sideM);
   // 앨범 제작비: 아직 작은 그룹에는 회사도 돈을 덜 쓴다 (그룹 팬 30만 명이 되면 다 쓴다)
   t.debt += [0, 1.2e8, 2.5e8, 4e8][t.tier] * (0.45 + 0.55 * Math.min(1, gf / 3e5)) / (g.members.length + 1);
   const pay = memberIncome(s, t, albums * 14000 + (peak ? (101 - peak) * 400e4 : 0), '앨범·음원 정산');
-  let wrote = '';
-  if (lv(p, 'lyric') >= 30 && U.chance(0.6)) { addCatalog(s, title, '작사', sc, 0.35, 'idol'); useSkill(s, p, 'lyric', 1); wrote = '이번 앨범 수록곡 작사에 참여했다.'; }
-  if (lv(p, 'compose') >= 40 && U.chance(0.4)) { addCatalog(s, title, '작곡', sc, 0.7, 'idol'); useSkill(s, p, 'compose', 1); cmGain(s, c, 4); wrote += (wrote ? ' ' : '') + '작곡에도 이름을 올렸다.'; }
+  // 내 곡 · 가사 (v154): 예전에는 주사위로 이름이 올랐다. 이제 '내 곡 내기 · 가사 내기'를 켜 두고 심사 · 선정을 거쳐 실려야 한다
+  const wrote = a ? albRoyalty(s, a, sc, 'idol').txt : '';
   // 그 컨셉으로 활동하는 것만으로도 컨셉 숙련도가 조금 오른다 (직접 작곡의 30%)
   cmGain(s, c, 3);
-  // 활동기 2달 뒤 2~3달 쉬고 다음 앨범 준비 한 달: 5~6달에 한 번 컴백 (쉬는 동안 광고·예능 같은 다른 스케줄이 들어온다)
-  t.cbCount++; t.promo = 2; t.nextCb = U.int(2, 3);
+  // 활동기 2달 · 쉬는 2~3달: 5~6달에 한 번 컴백 (쉬는 동안 광고·예능 같은 다른 스케줄이 들어온다)
+  // v154: 발매 뒤 2~3달째(활동 둘째 달이나 그다음 달)에 다음 앨범 기획이 시작되고, 석 달 뒤에 나온다
+  t.cbCount++; t.promo = 2; t.nextCb = U.int(2, 3); t.alb = null;
   t.flops = sc < 50 ? (t.flops || 0) + 1 : Math.max(0, (t.flops || 0) - 1);
   t.yearBest = Math.max(t.yearBest || 0, sc);
   // 발매 결과 카드 (v118 UI C1): 무대 실력 · 곡 · 팬 · 유행 · 팀워크 · 컨셉 궁합 · 스타성 · 피로도 · 대표 컨셉
@@ -1027,6 +1082,7 @@ function idolRelease(s, t, c, debut) {
   if (tired > 1) F.push({ z: -tired / 4, g: ['오래 봐도 질리지 않는다'], b: ['비슷한 컨셉이 이어져 조금 익숙하다'] });
   if (c === g.sig) F.push({ z: 0.5, g: ['역시 이 그룹다운 컨셉이다'], b: ['늘 하던 컨셉이라 뻔하다'] });
   const card = songCardMake({ t: title, by: g.name, peak, wins, fans: [['그룹 팬', gain.kr + gain.jp + gain.us], ['내 팬', my.kr + my.jp + my.us]], pay, bill: pay > 0 || t.debt > 0 ? t.lastBill : null }, F, sc, g);
+  if (a && a.mk) card.mk = a.mk; // 제작 과정 (v154): 성적표 · 작품 탭에서 본다
   // 실시간 창 (12-1): 데뷔 무대 · 컴백 첫 음악방송. 카드와 같은 요인으로 장면을 만든다 (내 몫: 내 실력 · 스타성)
   card.live = liveStage({ k: 'idol', place: debut ? '데뷔 무대' : '음악방송', t: title, g: g.name, fd: g.fandom, mem: idolPpl(s, g).map(x => [x.id === s.me ? actCall(s, 'idol') : callName(x.name), (g.pos[x.id] || '').split(' · ')[0]]), mi: 0,
     z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, tw: F[4].z, cf: F[5].z, star: F[6].z, me: (Math.max(lv(p, 'vocal'), lv(p, 'rap'), lv(p, 'dance')) * 0.6 + p.tal.star * 0.4 - 45) / 18 }, sc, wins, cand: sc >= 66, debut, key: !!debut || wins > 0 || sc >= 66, rv: sc >= 66 && !wins ? npcStageRival(s, g.name) : '' });
@@ -1138,7 +1194,7 @@ E({
       t.g.f[main] = d.g.base + Math.round(s.fans[main] * 0.5);
       for (const n of people(s, n => n.rel === '동기' && n.trainee === t.ag)) { n.rel = '친구'; n.trainee = null; }
       milestone(s, `${age(s)}세에 「${d.g.name}」의 ${josa(d.g.pos[s.me].split(' · ')[0], '으로')} 데뷔했다.`);
-      queueEv(s, 'idol_cbres', 1, { c: d.c, debut: true });
+      idolAlbStart(s, t, d.c, true); // v154: 데뷔 앨범도 회사가 앨범 제작 틀로 만든다 (데뷔 준비 동안 해 둔 것)
       askStageName(s, 'idol', t.agN);
       return `「${d.g.name}」 ${josa(d.g.pos[s.me].split(' · ')[0], '으로')} 데뷔 무대에 섰다! 데뷔곡은 '${d.c}' 컨셉.`;
     },
@@ -1151,18 +1207,20 @@ function idolNextComeback(s, t) {
   t.nextCb = 99;
   // 회의는 그달 다른 일보다 먼저 뜬다 (한 달 밀리면 컴백이 6달을 넘는다)
   if (idolSay(s, t)) { if (queueEv(s, 'idol_cb', 0, { c })) s.queue.unshift(s.queue.pop()); return; }
-  queueEv(s, 'idol_cbres', 1, { c });
-  addLog(s, `회사가 다음 앨범 컨셉을 '${c}'${josa(c, '으로').slice(c.length)} 정했다. 컴백 준비가 시작됐다.`, 'career');
+  const a = idolAlbStart(s, t, c);
+  addLog(s, `${josa(a.mk.boss, '이가')} 「${t.g.name}」 다음 앨범을 '${c}' 컨셉으로 기획했다. 데모곡을 모아 A&R 심사를 시작한다.`, 'career');
 }
 E({
   id: 'idol_cb', cat: '컴백', title: '컴백 회의', tag: 'career',
   cond: s => s.tracks.idol.st === 'active',
   init(s, d) { const g = s.tracks.idol.g; d.alt = U.shuffle(TRENDS.filter(x => x !== d.c && fitConcept(s, g, x) === x)).slice(0, 2); d.p = U.clamp(0.3 + Math.log10(1 + groupFans(g)) / 20 + (s.rep - 50) / 200, 0.2, 0.85); },
-  text(s, d) { const g = s.tracks.idol.g; return `「${g.name}」의 다음 앨범 회의가 열렸다. 회사는 '${d.c}' 컨셉을 생각하고 있다. 요즘 차트에선 '${s.trend}' 컨셉이 강세고, 우리 그룹 대표 컨셉은 '${g.sig}'${josa(g.sig, '이').slice(g.sig.length)}다.\n\n그룹이 커진 만큼 멤버들도 의견을 낼 수 있다.`; },
+  text(s, d) { const g = s.tracks.idol.g; return `「${g.name}」의 다음 앨범 회의가 열렸다. ${josa(agProd(s, s.tracks.idol.ag, g).n, '은는')} '${d.c}' 컨셉을 생각하고 있다. 요즘 차트에선 '${s.trend}' 컨셉이 강세고, 우리 그룹 대표 컨셉은 '${g.sig}'${josa(g.sig, '이').slice(g.sig.length)}다.\n\n그룹이 커진 만큼 멤버들도 의견을 낼 수 있다.`; },
   ch(s, d) {
     const g = s.tracks.idol.g;
-    const C = [{ t: `회사 뜻대로 '${d.c}' 컨셉으로 간다`, tr: d.c === s.trend, f: s => { queueEv(s, 'idol_cbres', 1, { c: d.c }); return `'${d.c}' 컨셉으로 컴백 준비를 시작했다.`; } }];
-    d.alt.forEach(c => C.push({ t: `'${c}' 컨셉을 제안한다`, tr: c === s.trend, sig: c === g.sig, h: `받아들여질 가능성 ${fmtPct(d.p)}${c === g.sig ? ' · 그룹에 잘 어울린다' : ''}`, f: s => { const ok = U.chance(d.p); queueEv(s, 'idol_cbres', 1, { c: ok ? c : d.c }); return ok ? `내 의견대로 '${c}' 컨셉으로 가기로 했다.` : `제안은 받아들여지지 않았다. '${d.c}' 컨셉으로 간다.`; } }));
+    // v154: 컨셉이 정해지면 회사가 데모곡을 모아 심사 · 선정을 하고, 석 달 뒤에 앨범이 나온다
+    const go = c => { const t = s.tracks.idol; if (t.st === 'active' && !t.alb && !hasQ(s, 'idol_cbres')) idolAlbStart(s, t, c); };
+    const C = [{ t: `회사 뜻대로 '${d.c}' 컨셉으로 간다`, tr: d.c === s.trend, f: s => { go(d.c); return `'${d.c}' 컨셉으로 다음 앨범 준비를 시작했다.`; } }];
+    d.alt.forEach(c => C.push({ t: `'${c}' 컨셉을 제안한다`, tr: c === s.trend, sig: c === g.sig, h: `받아들여질 가능성 ${fmtPct(d.p)}${c === g.sig ? ' · 그룹에 잘 어울린다' : ''}`, f: s => { const ok = U.chance(d.p); go(ok ? c : d.c); return ok ? `내 의견대로 '${c}' 컨셉으로 가기로 했다.` : `제안은 받아들여지지 않았다. '${d.c}' 컨셉으로 간다.`; } }));
     return C;
   },
 });
@@ -1170,8 +1228,9 @@ E({
   id: 'idol_cbres', cat: '앨범 성적', title: '앨범 성적표', tag: 'career',
   plio: (s, d) => typeof plioSong === 'function' ? plioSong(s, d, 'idol') : null,
   live: (s, d) => d.card && d.card.live,
-  init(s, d) { const t = s.tracks.idol; if (t.st !== 'active') { d.skip = true; return; } d.r = idolRelease(s, t, d.c, d.debut); d.card = d.r.card; teamRel(s, 'idol', t, d.r.peak, !d.r.peak || d.r.peak > 60); },
-  html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + songCardHTML(d.card) : '',
+  init(s, d) { const t = s.tracks.idol; if (t.st !== 'active') { d.skip = true; return; } d.r = idolRelease(s, t, d.c, d.debut, d.a || null); d.card = d.r.card; teamRel(s, 'idol', t, d.r.peak, !d.r.peak || d.r.peak > 60); },
+  // v154: 성적표 위에 '제작 과정' 배너
+  html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + albBannerHTML(d.card.mk) + songCardHTML(d.card) : '',
   text(s, d) {
     const r = d.r, g = s.tracks.idol.g;
     const my = MK.filter(m => r.my[m]).map(m => `${MK_N[m]} ${sgnFans(r.my[m])}`).join(' · ') || '변화 없음';
@@ -1675,7 +1734,7 @@ CAREERS.band = {
     if (t.st === 'ended' || t.st === 'none') return t.endNote || '';
     const miss = bandMissing(t).map(partN).join('·');
     if (t.st === 'forming') return `밴드 「${t.b.name}」 ${partN(t.b.my)} · 멤버 모으는 중 (필요: ${miss}) · 진로 창에서 모은다`;
-    return `밴드 「${t.b.name}」 ${partN(t.b.my)} · ${t.st === 'signed' ? `${t.agN} 소속` : ownCoTag(s, 'band') || '인디'} · 밴드 팬 ${fmtFans(t.b.f)} · 발표곡 ${t.rel}곡${t.st === 'signed' && t.debt > 0 ? ` · 갚을 비용 ${fmtWon(t.debt)}` : ''}` + (miss ? ` · ${miss} 자리 비어 있음` : t.nextRel > 12 || hasQ(s, 'band_rel') || hasQ(s, 'band_relres') ? ' · 새 곡 준비 중' : t.nextRel > 0 ? ` · 다음 곡까지 ${t.nextRel}개월` : '');
+    return `밴드 「${t.b.name}」 ${partN(t.b.my)} · ${t.st === 'signed' ? `${t.agN} 소속` : ownCoTag(s, 'band') || '인디'} · 밴드 팬 ${fmtFans(t.b.f)} · 발표곡 ${t.rel}곡${t.st === 'signed' && t.debt > 0 ? ` · 갚을 비용 ${fmtWon(t.debt)}` : ''}` + (miss ? ` · ${miss} 자리 비어 있음` : t.alb || t.nextRel > 12 || musRelQ(s, 'band') ? ' · 새 곡 준비 중' : t.nextRel > 0 ? ` · 다음 곡까지 ${t.nextRel}개월` : '');
   },
   short(s, t) { return `밴드 「${t.b.name}」`; },
   seg(s, t) { return `밴드 「${t.b.name}」 ${partN(t.b.my)}${t.st === 'signed' ? ` · ${t.agN} 소속` : ''}`; },
@@ -1692,6 +1751,7 @@ CAREERS.band = {
     R.push(['밴드 팬', fmtFans(t.b.f)]);
     if (t.st !== 'forming') R.push(['팀워크', twWord(t.b)]);
     R.push(['발표곡', `${t.rel}곡${t.bestPeak ? ` · 최고 ${t.bestPeak}위` : ''}`]);
+    if (t.alb) R.push(['이번 새 곡', t.alb.at != null ? `${albStageW(s, t.alb)}${t.alb.mk ? ` · ${t.alb.mk.boss}` : ''}` : '실을 곡을 정할 차례']);
     const miss = bandMissing(t);
     R.push({ h: '멤버', items: [`${partN(t.b.my)}: 나 (${lvi(me(s), t.b.my)}레벨)`].concat(bandMembers(s, t).map(x => `${partN(t.b.part[x.id])}: ${x.name} (${x.g === '여' ? '여' : '남'} · ${pAge(s, x)}세) — ${partN(t.b.part[x.id])} ${lvi(x, t.b.part[x.id])}레벨 · ${relWord(x)}`)).concat(miss.map(k => `${partN(k)}: 비어 있음`)) });
     return R;
@@ -1699,6 +1759,7 @@ CAREERS.band = {
   actions(s, t) {
     if (!['forming', 'indie', 'signed'].includes(t.st)) return [];
     const A = [], miss = bandMissing(t);
+    if (t.st === 'signed') A.push(...songSubActs(s, t));
     if (t.st === 'signed') { const pen = bandBreakPen(t); A.push({ t: '회사와 계약 해지', h: `계약이 ${Math.max(0, t.contract - t.cm)}개월 남았다 · 위약금 ${fmtWon(pen)} · 밴드는 인디로 돌아간다`, ok: true, danger: true, confirm: `${josa(t.agN, '과와')}의 계약을 해지할까요? 위약금 ${fmtWon(pen)}을 물어야 해요.`, run: s => { s.debt += pen; const n = t.agN; t.hist.push(`${n} (계약 해지)`); t.st = 'indie'; t.ag = null; t.agN = ''; t.tier = 0; t.cut = 0; t.nextRel = U.int(3, 6); return `${josa(n, '과와')}의 계약을 해지했다. 밴드는 다시 인디가 됐다.` + fx(s, { rep: -3 }); } }); }
     const want = miss.concat(!bandHasKeys(t) ? ['keyboard'] : []);
     for (const k of want) A.push({ t: `${partN(k)} 구인 글 올리기${miss.includes(k) ? '' : ' (있으면 좋다)'}`, h: '다음 달에 지원자들이 연락해 온다 · 실력과 사람을 보고 고른다', ok: !hasQ(s, 'band_cands'), why: '다른 구인 글의 지원자를 기다리는 중', run: s => { queueEv(s, 'band_cands', 1, { k }); return `밴드 ${partN(k)} 구인 글을 올렸다.`; } });
@@ -1741,7 +1802,7 @@ CAREERS.band = {
     if (t.b.f >= 300) { const live = (45e4 + Math.min(t.b.f, 2e4) * 180 + Math.max(0, t.b.f - 2e4) * 270) * awMul(s, 'band'); if (t.st === 'signed') bandIncome(s, t, live, '공연 정산'); else earn(s, Math.round(live / (mem.length + 1)), '공연 수입'); }
     addStress(s, 2 * pm(s, 'crowdStress'));
     t.nextRel--;
-    if (t.nextRel <= 0 && !bandMissing(t).length && !hasQ(s, 'band_rel') && !hasQ(s, 'band_relres') && !hasQ(s, 'band_arr')) { t.nextRel = 99; queueEv(s, 'band_rel', 0); }
+    musAlbMonth(s, 'band'); // v154: 인디는 새 곡 기획 창, 회사 소속은 새 곡 회의
     if (t.st === 'indie' && t.b.f >= 3000 && U.chance(0.04)) maybeScout(s, 'band');
     // 페스티벌 섭외 (v117 밸런스 C2): 페스티벌마다 열리는 달이 정해져 있고, 섭외는 2~4달 전에 온다. 답장 기한은 페스티벌 한 달 전
     if (t.b.f >= 1500 && t.festY !== calY(s) && U.chance(0.15) && !s.inbox.some(m => m.kind === 'band_fest') && !hasQ(s, 'band_fest_play')) {
@@ -1839,7 +1900,9 @@ E({
     teamRel(s, 'band', t, d.peak, !d.peak && (t.st === 'signed' || d.gain <= 0));
     const my = Math.round(Math.max(0, d.gain) * 0.35 * popSpeed(s) * myRoom(s, 'kr')); s.fans.kr += my; d.my = my;
     const share = 1 / (bandMembers(s, t).length + 1);
-    d.roy = addCatalog(s, d.title, '연주', sc, (t.st === 'signed' ? 0.6 : 1) * share * 1.5, 'band') + (d.self ? addCatalog(s, d.title, '작곡', sc, 0.8, 'band') : 0);
+    d.roy = addCatalog(s, d.title, '연주', sc, (t.st === 'signed' ? 0.6 : 1) * share * 1.5, 'band') + (d.self ? addCatalog(s, d.title, '작곡', sc, 0.8, 'band') : 0) + (d.lyr ? addCatalog(s, d.title, '작사', sc, 0.35, 'band') : 0);
+    // v154: 수록곡에 실린 내 곡 · 가사
+    if (d.a) { const r = albRoyalty(s, d.a, sc, 'band', true); d.roy += r.m; d.side = r.txt; }
     if (t.st === 'signed') {
       d.signed = true; d.fromTr = !!t.fromTr;
       t.debt = (t.debt || 0) + BAND_PROD[t.tier] * (0.45 + 0.55 * Math.min(1, t.b.f / 1e5)) / (bandMembers(s, t).length + 1);
@@ -1848,10 +1911,12 @@ E({
       if (t.lastBill) { t.lastBill.t = `「${d.title}」 앨범 · 음원 정산`; d.bill = t.lastBill; }
     }
     if (d.c) cmGain(s, d.c, 3); // 아이돌처럼 그 컨셉으로 활동만 해도 숙련도 +3 (v116 버그 7)
-    t.rel++; musicRookie(s, true); t.nextRel = U.int(5, 8); t.yearBest = Math.max(t.yearBest || 0, sc);
+    // v154: 다음 곡 기획은 3~6달 뒤 (기획 → 선정 → 편곡 · 녹음이 석 달 걸려서, 곡 간격은 예전처럼 6~9달)
+    t.rel++; musicRookie(s, true); t.nextRel = U.int(3, 6); t.alb = null; t.yearBest = Math.max(t.yearBest || 0, sc);
     if (d.peak && (!t.bestPeak || d.peak < t.bestPeak)) t.bestPeak = d.peak;
     // 발매 결과 카드 (v118 UI C1)
     d.card = songCardMake({ t: d.title, by: `밴드 「${t.b.name}」`, peak: d.peak, fans: [['밴드 팬', d.gain], ['내 팬', my]], pay: d.pay, bill: d.bill }, bandReactF(s, t, d, cf), sc, t);
+    if (d.mk) d.card.mk = d.mk;
     // 무대 창 (12-3): 인디는 클럽 공연, 소속사가 있으면 쇼케이스. 첫 곡이거나 차트에 든 곡이 '중요할 때'
     d.card.live = bandLive(s, t, { vn: t.st === 'signed' ? 'hall' : 'club', place: t.st === 'signed' ? '쇼케이스' : '클럽 공연', t: d.title, sc, key: t.rel === 1 || !!d.peak, z: { q: (d.q - 45) / 15, trend: d.c && d.c === s.trend ? 0.7 : -0.5 } });
     addWork(s, { type: '밴드 싱글', title: d.title, by: `「${t.b.name}」`, sc, note: chartText(d.peak) + (d.self ? ' · 자작곡' : ''), card: d.card });
@@ -1860,9 +1925,9 @@ E({
     for (const m of bandMembers(s, t)) bond(s, m, sc >= 60 ? 4 : 0);
     d.sc = sc; d.cm = comments(sc, actNick(s, 'band'));
   },
-  html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + songCardHTML(d.card) : '',
+  html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + albBannerHTML(d.card.mk) + songCardHTML(d.card) : '',
   // 순위 · 팬 · 반응은 카드에 있다. 본문에는 곡 정보와 앞으로 들어올 돈만 (예전 세이브의 카드 없는 창은 예전처럼)
-  text: (s, d) => `밴드 「${s.tracks.band.b.name}」의 ${josa(`「${d.title}」`, '이가')} 나왔다.${d.w || d.c ? ` (${[d.w ? `작곡 ${d.self ? '나' : d.w}` : '', d.c ? `'${d.c}' 컨셉` : ''].filter(Boolean).join(' · ')})` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n밴드 팬 ${sgnFans(d.gain)} · 내 팬 +${fmtFans(d.my)}`}${d.roy >= 1e4 ? `\n\n매달 들어올 음원 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)` : '\n'}${d.bill ? (d.bill.note ? `\n${d.bill.note}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}.`) : d.signed ? (d.debt > 0 ? `\n이번 앨범 정산금 ${fmtWon(d.gross)}은 ${d.fromTr ? '연습생·' : ''}제작 비용을 갚는 데 들어갔다. 남은 비용 ${fmtWon(d.debt)}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}`) : ''}${d.card ? '' : `\n\n반응: ${d.cm}`}`,
+  text: (s, d) => `밴드 「${s.tracks.band.b.name}」의 ${josa(`「${d.title}」`, '이가')} 나왔다.${d.w || d.c ? ` (${[d.w ? `작곡 ${d.self ? '나' : d.w}` : '', d.c ? `'${d.c}' 컨셉` : ''].filter(Boolean).join(' · ')})` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}${d.side ? ` ${d.side}` : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n밴드 팬 ${sgnFans(d.gain)} · 내 팬 +${fmtFans(d.my)}`}${d.roy >= 1e4 ? `\n\n매달 들어올 음원 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)` : '\n'}${d.bill ? (d.bill.note ? `\n${d.bill.note}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}.`) : d.signed ? (d.debt > 0 ? `\n이번 앨범 정산금 ${fmtWon(d.gross)}은 ${d.fromTr ? '연습생·' : ''}제작 비용을 갚는 데 들어갔다. 남은 비용 ${fmtWon(d.debt)}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}`) : ''}${d.card ? '' : `\n\n반응: ${d.cm}`}`,
   // 댓글 모니터링 (v118 UI C1)
   ch: (s, d) => songCommentCh(s, d, `밴드 새 곡 ${josa(`「${d.title}」`, '을를')} 냈다. ${chartText(d.peak)}.`, 'band'),
 });
@@ -1873,7 +1938,8 @@ E({
   text: (s, d) => `「${d.title}」 편곡 방향을 정할 차례다. 멤버들이 내 얼굴을 쳐다본다.`,
   ch(s, d) {
     const t = s.tracks.band, my = t.b.my;
-    const go = (a, x) => s => { queueEv(s, 'band_relres', 1, Object.assign({}, d, { arr: a }), true); return `「${d.title}」 ${x}`; };
+    // v154: 앨범 제작 틀로 온 곡은 편곡 한 달 + 녹음 한 달 뒤에 나온다
+    const go = (a, x) => s => { queueEv(s, 'band_relres', d.alb ? 2 : 1, Object.assign({}, d, { arr: a }), true); return `「${d.title}」 ${x}`; };
     const C = [];
     if (my !== 'vocal') C.push({ t: `내 ${josa(partN(my), '을를')} 앞에 세운다`, f: go('me', `편곡은 ${josa(partN(my), '을를')} 앞에 세우기로 했다.`) });
     C.push({ t: '보컬 중심으로 간다', f: go('voc', '편곡은 보컬 중심으로 가기로 했다.') }, { t: '요즘 유행 쪽으로 다듬는다', f: go('trend', '편곡을 요즘 유행 쪽으로 다듬기로 했다.') }, { t: '우리 색을 고수한다', f: go('own', '편곡은 우리 색 그대로 가기로 했다.') });
@@ -2068,7 +2134,7 @@ CAREERS.solo = {
   act: { n: '가수 활동 (공연·녹음)', ic: '🎙️', g: '직업 활동', eff: [['노래·랩', '↑↑', 1], ['팬', '↑', 1], ['스트레스', '↑', 0]] },
   status(s, t) {
     if (t.st === 'ended' || t.st === 'none') return t.endNote || '';
-    return `${t.st === 'indie' ? ownCoTag(s, 'solo') || '인디' : `${t.agN} 소속`} 솔로 ${soloTypeN(t.type)} · 발표곡 ${t.rel}곡` + (t.bestPeak ? ` · 최고 ${t.bestPeak}위` : '') + (t.nextRel > 12 || hasQ(s, 'solo_rel') || hasQ(s, 'solo_relres') ? ' · 신곡 준비 중' : t.nextRel > 0 ? ` · 다음 곡까지 ${t.nextRel}개월` : '');
+    return `${t.st === 'indie' ? ownCoTag(s, 'solo') || '인디' : `${t.agN} 소속`} 솔로 ${soloTypeN(t.type)} · 발표곡 ${t.rel}곡` + (t.bestPeak ? ` · 최고 ${t.bestPeak}위` : '') + (t.alb || t.nextRel > 12 || musRelQ(s, 'solo') ? ' · 신곡 준비 중' : t.nextRel > 0 ? ` · 다음 곡까지 ${t.nextRel}개월` : '');
   },
   short(s, t) { return `${t.st === 'indie' && !ownCo(s, 'solo') ? '인디 ' : ''}${soloTypeN(t.type)} ${actName(s, 'solo')}`; },
   seg(s, t) { return `${t.st === 'indie' ? (ownCo(s, 'solo') ? `「${ownCo(s, 'solo').name}」 소속` : '인디') : t.agN + ' 소속'} 솔로 ${soloTypeN(t.type)}`; },
@@ -2082,12 +2148,13 @@ CAREERS.solo = {
     R.push(['내 실력', [soloMain(t)].concat(t.type === 'perf' ? [perfVoice(p)] : []).concat(['compose', 'lyric', 'variety']).filter(k => has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ')]);
     R.push(['팬', MK.filter(m => s.fans[m]).map(m => `${MK_N[m]} ${fmtFans(s.fans[m])}`).join(' · ') || '0명']);
     R.push(['발표곡', `${t.rel}곡${t.bestPeak ? ` · 최고 ${t.bestPeak}위` : ''}`]);
+    if (t.alb) R.push(['이번 신곡', t.alb.at != null ? `${albStageW(s, t.alb)}${t.alb.mk ? ` · ${t.alb.mk.boss}` : ''}` : '실을 곡을 정할 차례']);
     return R;
   },
   actions(s, t) {
     if (t.st === 'indie') return [{ t: '가수 활동 그만두기', ok: true, danger: true, confirm: '정말 가수 활동을 그만둘까요?', run: s => { t.st = 'ended'; t.endNote = `인디 ${soloTypeN(t.type)} 활동 종료`; t.hist.push(t.endNote); return '가수 활동을 그만뒀다.'; } }];
-    if (t.st === 'signed' && !t.withGroup) { const pen = Math.max(1000e4, (t.contract - t.months) * 100e4 * t.tier); return [{ t: '회사와 계약 해지', h: `계약이 ${Math.max(0, t.contract - t.months)}개월 남았다 · 위약금 ${fmtWon(pen)} · 해지하면 인디 가수로 활동한다`, ok: true, danger: true, confirm: `${josa(t.agN, '과와')}의 계약을 해지할까요? 위약금 ${fmtWon(pen)}을 물어야 해요.`, run: s => { s.debt += pen; const n = t.agN; t.hist.push(`${n} (계약 해지)`); t.st = 'indie'; t.ag = null; t.agN = ''; t.cut = 0; t.tier = 0; t.nextRel = 3; s.cd.agOffer = s.t + 12; return `${josa(n, '과와')}의 솔로 계약을 해지했다. 이제 인디로 활동한다.` + fx(s, { rep: -5 }); } }]; }
-    return [];
+    if (t.st === 'signed' && !t.withGroup) { const pen = Math.max(1000e4, (t.contract - t.months) * 100e4 * t.tier); return songSubActs(s, t).concat([{ t: '회사와 계약 해지', h: `계약이 ${Math.max(0, t.contract - t.months)}개월 남았다 · 위약금 ${fmtWon(pen)} · 해지하면 인디 가수로 활동한다`, ok: true, danger: true, confirm: `${josa(t.agN, '과와')}의 계약을 해지할까요? 위약금 ${fmtWon(pen)}을 물어야 해요.`, run: s => { s.debt += pen; const n = t.agN; t.hist.push(`${n} (계약 해지)`); t.st = 'indie'; t.ag = null; t.agN = ''; t.cut = 0; t.tier = 0; t.nextRel = 3; s.cd.agOffer = s.t + 12; return `${josa(n, '과와')}의 솔로 계약을 해지했다. 이제 인디로 활동한다.` + fx(s, { rep: -5 }); } }]); }
+    return t.st === 'signed' ? songSubActs(s, t) : [];
   },
   monthly(s, t) {
     if (t.st !== 'indie' && t.st !== 'signed') return;
@@ -2107,7 +2174,7 @@ CAREERS.solo = {
     if (s.fans[mk] >= 1500) earn(s, Math.round((Math.max(0, s.fans[mk] - 5000) * 22 + Math.min(s.fans[mk], 5000) * 8) * (1 - t.cut) * awMul(s, 'solo')), '공연·행사');
     addStress(s, 2 * pm(s, 'crowdStress'));
     if (!(s.tracks.idol.st === 'active' && s.tracks.idol.promo > 0)) t.nextRel--;
-    if (t.nextRel <= 0 && !hasQ(s, 'solo_relres') && !hasQ(s, 'solo_rel')) { t.nextRel = 99; queueEv(s, 'solo_rel', 0); }
+    musAlbMonth(s, 'solo'); // v154: 인디는 신곡 기획 창, 회사 소속은 신곡 회의
     if (t.st === 'indie' && s.fans.kr >= 8000 && U.chance(0.04)) maybeScout(s, 'solo');
     if (!t.jp && lv(p, 'jp') >= 25 && s.fans.kr >= 3e4 && U.chance(0.02)) queueEv(s, 'solo_jp', 0);
     if (!t.us && lv(p, 'en') >= 32 && totalFans(s) >= 5e5 && U.chance(0.015)) queueEv(s, 'solo_us', 0);
@@ -2160,19 +2227,22 @@ E({
     s.fans[mk] = Math.max(0, s.fans[mk] + d.gain);
     if (mk === 'kr') s.fans.jp += Math.round(Math.max(0, d.gain) * 0.03);
     d.roy = addCatalog(s, d.title, t.type === 'rap' ? '랩' : '가창', sc, signed ? 0.6 : 1.0, 'solo') + (d.self ? addCatalog(s, d.title, '작곡', sc, 0.8, 'solo') : 0) + (d.lyr ? addCatalog(s, d.title, '작사', sc, 0.35, 'solo') : 0);
+    // v154: 수록곡에 실린 내 곡 · 가사
+    if (d.a) { const r = albRoyalty(s, d.a, sc, 'solo', true); d.roy += r.m; d.side = r.txt; }
     // 음반·음원 판매 정산: 팬 일부가 음반을 사고(아이돌 앨범보다 적게), 차트에 오르면 음원 수익이 붙는다. 소속이면 회사 몫을 뗀다
     const buyers = Math.round(totalFans(s) * U.fl(SOLO_SALE.lo, SOLO_SALE.hi));
     // 정산서 (v118 UI C2)
     const gross = buyers * 14000 + (d.peak ? (101 - d.peak) * SOLO_SALE.chart : 0);
     d.sale = 0;
     if (gross > 0) { const r = billPay(s, { rev: gross, cut: signed ? t.cut : 0, n: 1, what: '음반·음원 정산', job: 'solo', title: `「${d.title}」 음반 · 음원 정산` }); d.sale = Math.round(r.share); d.bill = r.bill; }
-    t.rel++; musicRookie(s, true); t.nextRel = U.int(5, 8); t.yearBest = Math.max(t.yearBest || 0, sc);
+    t.rel++; musicRookie(s, true); t.nextRel = U.int(3, 6); t.alb = null; t.yearBest = Math.max(t.yearBest || 0, sc);
     if (d.peak && (!t.bestPeak || d.peak < t.bestPeak)) t.bestPeak = d.peak;
     // 발매 결과 카드 (v118 UI C1): 내 노래 · 랩 · 무대, 곡, 팬, 유행, 컨셉 궁합, 홍보
     const sp = soloScore(s, t.type), ty = t.type === 'rap' ? 'rap' : t.type === 'perf' ? 'perf' : 'vocal';
     const F = [{ z: (sp - 45) / 18, g: { vocal: ['목소리가 곡을 꽉 채운다', '노래 실력이 확실하다'], rap: ['랩이 귀에 꽂힌다', '플로우가 살아 있다'], perf: ['퍼포먼스가 눈을 못 떼게 한다', '무대 장악력이 대단하다'] }[ty], b: { vocal: ['노래가 곡을 다 못 받쳐 준다'], rap: ['랩이 조금 어설프다'], perf: ['무대가 아직 덜 여물었다'] }[ty] },
       RX.q(d.q), RX.fans(totalFans(s), d.gain), RX.trend(!!d.tr), RX.cf(cScoreB(cf)), RX.promo(signed ? t.tier : 0)];
     d.card = songCardMake({ t: d.title, by: actName(s, 'solo'), peak: d.peak, fans: [['내 팬', d.gain]], pay: gross > 0 ? d.sale : null, bill: d.bill }, F, sc, t);
+    if (d.mk) d.card.mk = d.mk;
     // 실시간 창 (12-1): 솔로는 음악방송 1위가 없어서 1위 발표 장면도 없다
     d.card.live = liveStage({ k: 'solo', key: t.rel === 1, place: t.rel === 1 ? '데뷔 무대' : '음악방송', t: d.title, g: actName(s, 'solo'), cn: actCall(s, 'solo'), mem: [[actCall(s, 'solo'), '']], mi: 0,
       z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, cf: F[4].z, star: (p.tal.star - 50) / 25, me: F[0].z }, sc, debut: t.rel === 1 });
@@ -2181,8 +2251,8 @@ E({
     if (d.peak && d.peak <= 10 && !t.hitMs) { t.hitMs = true; milestone(s, `${age(s)}세에 ${josa(`「${d.title}」`, '으로')} 음원 차트 ${d.peak}위에 올랐다.`); }
     d.sc = sc; d.cm = comments(sc, actNick(s, 'solo'));
   },
-  html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + songCardHTML(d.card) : '',
-  text: (s, d) => `「${d.title}」${d.self ? ` (자작곡${d.c ? ` · '${d.c}' 컨셉` : ''})` : ''} 성적이 나왔다.${d.c && d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n팬 ${sgnFans(d.gain)}`}${d.sale ? `\n\n음반·음원 정산 ${fmtWon(d.sale)}` : ''}\n매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.card ? '' : `\n\n반응: ${d.cm}`}`,
+  html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + albBannerHTML(d.card.mk) + songCardHTML(d.card) : '',
+  text: (s, d) => `「${d.title}」${d.self ? ` (자작곡${d.c ? ` · '${d.c}' 컨셉` : ''})` : d.w && d.c ? ` (작곡 ${d.w} · '${d.c}' 컨셉)` : ''} 성적이 나왔다.${d.side ? ` ${d.side}` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n팬 ${sgnFans(d.gain)}`}${d.sale ? `\n\n음반·음원 정산 ${fmtWon(d.sale)}` : ''}\n매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.card ? '' : `\n\n반응: ${d.cm}`}`,
   ch: (s, d) => songCommentCh(s, d, `${josa(`「${d.title}」`, '을를')} 발표했다. ${chartText(d.peak)}.`, 'solo'),
 });
 E({
@@ -2405,3 +2475,162 @@ E({
   text: (s, d) => `연주 앨범 ${josa(`「${d.title}」`, '이가')} 나왔다.\n\n${d.peak ? chartText(d.peak) : d.sc >= 60 ? '차트에는 못 올랐지만 평론가들이 좋게 봤다.' : '크게 알려지지는 않았다.'}\n팬 +${fmtFans(d.gain)} · 매달 들어올 음원 수익 약 ${fmtWon(d.roy)}`,
   ch: (s, d) => [{ t: '확인', f: () => `연주 앨범 ${josa(`「${d.title}」`, '을를')} 냈다.` }],
 });
+
+// ════════ 솔로 · 밴드 앨범 (v154: 앨범 제작 틀 album.js) ════════
+// 회사 소속: 신곡 회의(회사가 컨셉을 정해 오고 나는 제안할 수 있다) → 회사(대표 · 전담 프로듀서 · A&R 팀장)가 나머지를 한다. '내 곡 내기 · 가사 내기'를 켜 두면 내 곡도 심사를 받는다
+// 회사 없음(인디 · 내 회사 소속): 내가 대표 역할로 ① 기획 · 데모곡 확보 → 한 달 뒤 ② 곡 선정을 직접 한다. A&R 팀이 없어 모인 곡을 내가 전부 듣는다 (내 회사면 회사 A&R 팀장이 추린다)
+// 밴드는 곡이 정해지면 편곡 회의(band_arr)를 거친다. 다음 곡 기획은 발매 3~6달 뒤, 기획에서 발매까지 석 달
+function musPpl(s, k) { return k === 'band' ? [me(s)].concat(bandMembers(s, s.tracks.band)) : [me(s)]; }
+function musFans(s, k) { return k === 'band' ? s.tracks.band.b.f : totalFans(s); }
+function musRelQ(s, k) { return (k === 'band' ? ['band_rel', 'band_relres', 'band_arr', 'band_cb', 'band_plan', 'band_sel', 'band_meet'] : ['solo_rel', 'solo_relres', 'solo_plan', 'solo_sel', 'solo_meet']).some(id => hasQ(s, id) || (s.pending && s.pending.id === id)); }
+// 매달: 다음 곡 차례가 되면 기획 창(인디) · 신곡 회의(회사 소속), 미뤄 둔 선정이 있으면 선정 창을 다시 띄운다. 회사가 곡을 정한 달에는 소식을 남긴다
+function musAlbMonth(s, k) {
+  const t = s.tracks[k];
+  if (t.alb && t.alb.five && t.alb.at == null && t.st === 'signed') t.alb = null; // 인디 때 모아 둔 곡은 회사와 계약하면 없던 일로
+  const a = t.alb;
+  if (a && a.at != null) {
+    if (a.npc && s.t - a.at === 1 && !a.told) { a.told = true; addLog(s, albNewsLine(s, a, k === 'band' ? `밴드 「${t.b.name}」 새 앨범에 실을` : '다음 신곡에 실을'), 'career'); }
+    if (s.t - a.at > 6 && !musRelQ(s, k)) t.alb = null;
+    return;
+  }
+  if (t.nextRel > 0 || musRelQ(s, k) || (k === 'band' && bandMissing(t).length)) return;
+  t.nextRel = 99;
+  queueEv(s, a && a.five ? k + '_sel' : t.st === 'signed' ? k + '_meet' : k + '_plan', 0, {});
+}
+// 회사 소속: 컨셉이 정해지면 회사가 데모곡 모집 · 심사 · 선정을 하고 석 달 뒤에 나온다 (밴드는 한 달 뒤 편곡 회의를 거친다)
+function musAlbStart(s, k, c) {
+  const t = s.tracks[k], ag = AG[t.ag] || { tier: t.tier || 1, plan: 50 }, P = musPpl(s, k), who = agProd(s, t.ag, k === 'band' ? t.b : t);
+  const r = albNpc(s, { tier: ag.tier, rep: ag.plan != null ? ag.plan : 50, sig: null, mem: P.slice(1), cs: [c], ok: x => cAgeOK(s, P, x, 1), boss: who.p, bossN: who.n, anr: agAnr(s, t.ag), fav: 6, my: !!t.subSong && has(me(s), 'compose'), lyr: !!t.subLyr && has(me(s), 'lyric') });
+  const a = albKeep(s, r, true);
+  t.alb = a;
+  if (who.p && who.p.ind) meetAt(s, who.p, k === 'band' ? `밴드 「${t.b.name}」 앨범` : '솔로 신곡', k);
+  const o = { q: a.q, self: a.mine, lyr: a.lyrT, title: a.title, c: a.c, w: a.w, mk: a.mk, a, alb: 1 };
+  if (k === 'band') queueEv(s, 'band_arr', 1, o, true); else queueEv(s, 'solo_relres', 3, o, true);
+  return a;
+}
+for (const k of ['solo', 'band']) E({
+  id: k + '_meet', cat: k === 'band' ? '밴드' : '신곡', title: k === 'band' ? '새 곡 회의' : '신곡 회의', tag: 'career',
+  cond: s => s.tracks[k].st === 'signed',
+  init(s, d) {
+    const t = s.tracks[k], P = musPpl(s, k), L = TRENDS.filter(c => cAgeOK(s, P, c, 1));
+    d.c = U.chance(0.5) && L.includes(s.trend) ? s.trend : U.pick(L.length ? L : TRENDS);
+    d.alt = U.shuffle(L.filter(x => x !== d.c)).slice(0, 2);
+    d.p = U.clamp(0.3 + Math.log10(1 + musFans(s, k)) / 20 + (s.rep - 50) / 200, 0.2, 0.85);
+    d.who = agProd(s, t.ag, k === 'band' ? t.b : t).n;
+  },
+  text: (s, d) => `${k === 'band' ? `밴드 「${s.tracks.band.b.name}」의 다음 앨범` : '다음 신곡'} 회의가 열렸다. ${josa(d.who, '은는')} '${d.c}' 컨셉으로 가려고 한다. 요즘 차트에선 '${s.trend}' 컨셉이 강세다.\n\n컨셉이 정해지면 회사가 데모곡을 모아 A&R 심사를 하고, 실을 곡을 정해 편곡 · 녹음을 거친다. 석 달쯤 걸린다.${s.tracks[k].subSong ? ' 내 곡도 데모곡 모집에 낸다.' : ''}`,
+  ch(s, d) {
+    const go = c => { if (s.tracks[k].st === 'signed' && !s.tracks[k].alb) musAlbStart(s, k, c); };
+    const nm = k === 'band' ? '새 곡' : '신곡';
+    const C = [{ t: `회사 뜻대로 '${d.c}' 컨셉으로 간다`, tr: d.c === s.trend, h: `숙련도 ${gauge(cmGet(s, d.c))} ${Math.floor(cmGet(s, d.c))}`, f: s => { go(d.c); return `'${d.c}' 컨셉으로 ${nm} 준비를 시작했다.`; } }];
+    d.alt.forEach(c => C.push({ t: `'${c}' 컨셉을 제안한다`, tr: c === s.trend, h: `받아들여질 가능성 ${fmtPct(d.p)} · 숙련도 ${gauge(cmGet(s, c))} ${Math.floor(cmGet(s, c))}`, f: s => { const ok = U.chance(d.p); go(ok ? c : d.c); return ok ? `내 의견대로 '${c}' 컨셉으로 가기로 했다.` : `제안은 받아들여지지 않았다. 회사 뜻대로 '${d.c}' 컨셉으로 간다.`; } }));
+    return C;
+  },
+});
+// ── 인디 · 내 회사 소속: 내가 대표 역할 ──
+// 제작비 (곡을 정할 때 낸다): 인디 · 내 회사 크기 차례
+const MY_ALB_PROD = { solo: [80e4, 800e4, 1500e4, 2500e4], band: [60e4, 600e4, 1200e4, 2000e4] };
+function myAlbX(s, k) {
+  const co = ownCo(s, k), tier = co ? coTier(co, 'music') : 0, prod = MY_ALB_PROD[k][tier], P = musPpl(s, k);
+  // 처음부터 체크해 둘 컨셉: 내가 잘 아는 컨셉 · 나에게 어울리는 컨셉 · 유행 컨셉 순으로 따진다
+  const fitN = c => ({ '잘 어울린다': 20, '무난하다': 10, '나이에 안 맞는다': -50 })[albFit(s, P, c)] || 0, val = c => cmGet(s, c) + fitN(c) + (c === s.trend ? 5 : 0);
+  const def = TRENDS.slice().sort((a, b) => val(b) - val(a))[0] || s.trend;
+  return { tier, rep: co ? co.f.music.rep : s.rep, sig: null, def, mem: P.slice(1), prod, budget: Math.max(100e4, (jobMoney(s, k) - prod) * 0.5) };
+}
+function myAlbJudge(s, k) { return ownCo(s, k) && typeof coAnrLead === 'function' ? coAnrLead(s) : null; }
+function myMoneyN(s, k) { return ownCo(s, k) ? '회사 돈' : '내 돈'; }
+function myAlbFit(s, k, c) { return albFit(s, musPpl(s, k), c) + (has(me(s), 'compose') ? ` · 내 숙련도 ${gauge(cmGet(s, c))}` : ''); }
+function myPickRead(a, v) { const idx = a.five.map((x, i) => i).filter(i => albOn(v, 'p' + i)), ti = v.ti ? +String(v.ti).slice(1) : -1; return { idx, ti: idx.includes(ti) ? ti : -1, pol: albOn(v, 'pol'), ly: albOn(v, 'ly') }; }
+function myPickCost(x, ti, pol) { return (ti ? ti.price || 0 : 0) + (pol ? albPolCost(x) : 0) + x.prod; }
+function myAlbTbl(s, k) {
+  const a = s.tracks[k].alb, v = ownCo(s, k) && typeof coViewer === 'function' ? coViewer(s, 'anr', 'compose') : me(s);
+  const rows = a.five.map((x, i) => { const c = x.mine ? me(s) : x.cid && s.people[x.cid]; return { k: 'p' + i, tr: x.c === s.trend, cells: {
+    t: [x.title, `「${x.title}」`], by: [albBy(s, x), albBy(s, x)], c: [x.c, x.c], lv: c ? coCellLv(v, c, 'compose', !!x.mine || x.src === 'mem') : [-1, '?'],
+    q: coCellG(grade5(v, x.q, 'q', 'compose'), 'q'), m: x.m == null ? [-1, '-'] : coCellG(grade5(v, x.m, 'pot', 'compose')), p: [x.price, x.price ? fmtWon(x.price) : '-'] } }; });
+  return { cols: [['t', '제목'], ['by', '작곡가'], ['c', '컨셉'], ['lv', '작곡 레벨'], ['q', '완성도'], ['m', '컨셉 숙련도'], ['p', '곡값']], rows, radio: { k: 'ti', n: '타이틀' }, sort: ['q', -1] };
+}
+function myAlbHead(s, k) {
+  const t = s.tracks[k], p = me(s), co = ownCo(s, k);
+  return `${k === 'band' ? `밴드 「${t.b.name}」 새 곡을` : '새 노래를'} 낼 때가 됐다.\n\n작곡 ${has(p, 'compose') ? lvi(p, 'compose') + '레벨' : '못 함'} · 작사 ${has(p, 'lyric') ? lvi(p, 'lyric') + '레벨' : '못 함'} · 요즘 유행 '${s.trend}'\n` + (co ? `내 회사 ${josa(`「${co.name}」`, '이가')} 비용을 대고, 수익도 회사로 들어간다.` : '인디라서 비용은 내 돈으로 낸다.');
+}
+// 곡을 정하면: 돈을 치르고, 작곡가들을 만나고, 편곡 · 작사를 거쳐 두 달 뒤에 나온다 (밴드는 편곡 회의를 먼저)
+function myAlbGo(s, k) {
+  const t = s.tracks[k], a = t.alb, x = myAlbX(s, k), p = me(s), picks = a.sel.p.map(i => a.five[i]), ti = a.five[a.sel.ti];
+  const cost = myPickCost(x, ti, a.sel.pol);
+  jobPay(s, cost, k === 'band' ? '밴드 새 곡 제작비' : '신곡 제작비', k);
+  for (const d of picks) { const c = d.cid && s.people[d.cid]; if (c && c.ind) { meetAt(s, c, `「${d.title}」`, k); bond(s, c, d === ti ? 3 : 1); const cm = coCm(c); cm[d.c] = Math.min(100, cm[d.c] + (100 - cm[d.c]) * (d === ti ? 0.06 : 0.02)); } }
+  x.cs = a.cs; x.src = a.src;
+  const pol = albPolish(s, x, a.sel.pol);
+  // 타이틀곡 가사를 내가 쓰면: 내 작사 실력만큼 곡이 달라지고, 작사 저작권료 몫이 생긴다
+  if (a.sel.ly) { pol.dq += U.clamp((lv(p, 'lyric') - 35) * 0.05, -2, 2.5); useSkill(s, p, 'lyric', 2); if (pol.lyr) pol.lyr = '나'; }
+  const mk = albMk(s, a, picks, ti, pol, '나');
+  if (a.sel.ly) { const z = mk.pk.find(q => q.ti); if (z) z.ly = '나'; }
+  const side = picks.filter(d => d !== ti);
+  const keep = { at: s.t - 1, q: ti.q + pol.dq, side: side.length ? side.reduce((n, d) => n + d.q, 0) / side.length : null, c: ti.c, title: ti.title, cid: ti.cid || null, w: albBy(s, ti), mine: !!ti.mine, sub: side.filter(d => d.mine).map(d => d.title), lyrT: !!a.sel.ly, lyrS: [], mk };
+  t.alb = keep;
+  if (k === 'solo' && !t.sn) askStageName(s, 'solo');
+  const o = { q: keep.q, self: keep.mine, lyr: keep.lyrT, title: ti.title, c: ti.c, w: keep.w, mk, a: keep, alb: 1 };
+  if (k === 'band') queueEv(s, 'band_arr', 0, o, true); else queueEv(s, 'solo_relres', 2, o, true);
+  return `${k === 'band' ? `밴드 「${t.b.name}」 새 곡에` : '신곡에'} 실을 곡을 정했다. 타이틀곡은 ${ti.mine ? '내가 쓴' : `${albBy(s, ti)}의`} 「${ti.title}」 ('${ti.c}' 컨셉). ${k === 'band' ? '편곡 회의를 하고' : '편곡과'} 녹음을 거쳐 두 달 뒤에 나온다. (${fmtWon(cost)})`;
+}
+TITLE_CB.myAlb = (s, d) => { const t = s.tracks[d.k]; if (!trackOn(s, d.k) || !t.alb || !t.alb.sel) return ''; t.alb.five[t.alb.sel.ti].title = d.title; return myAlbGo(s, d.k); };
+for (const k of ['solo', 'band']) {
+  const nm = k === 'band' ? '새 곡' : '신곡', cat = k === 'band' ? '밴드' : '신곡';
+  const live = s => trackOn(s, k) && s.tracks[k].st !== 'signed' && (k !== 'band' || !!s.tracks.band.b);
+  // ① 기획 · 데모곡 확보
+  E({
+    id: k + '_plan', cat, tag: 'career', title: k === 'band' ? '밴드 새 곡 기획' : '신곡 기획',
+    cond: live,
+    init(s, d) { if (!live(s)) d.skip = true; },
+    text: (s, d) => { const j = myAlbJudge(s, k); return myAlbHead(s, k) + `\n\n컨셉과 곡을 모을 곳을 정하자. 여러 개를 같이 고를 수 있고, 고른 만큼 돈이 든다. ${j ? `모인 곡은 A&R 팀장 ${josa(j.name, '이가')} 다섯 곡으로 추려 오고,` : '회사가 없어 A&R 팀도 없다. 모인 곡은 내가 전부 들어 보고,'} 한 달 뒤에 실을 곡을 정한다.`; },
+    form: (s, d) => albPlanForm(s, myAlbX(s, k), c => myAlbFit(s, k, c)),
+    sum: (s, d, v) => { const x = myAlbX(s, k), r = albPlanRead(s, x, v), n = ALB_SRC.filter(z => r.src.includes(z.k)).reduce((a, z) => a + albSrcCnt(x, z, r.cs.length), 0); return `컨셉 ${r.cs.length}개 · 데모곡 ${n}곡쯤 · 드는 돈 ${fmtWon(albPlanCost(x, r.cs, r.src))} · ${myMoneyN(s, k)} ${fmtWon(jobMoney(s, k))}`; },
+    cancel: (s, d) => { s.tracks[k].nextRel = 3; return `${nm}은 석 달 뒤로 미뤘다.`; },
+    cancelT: () => '이번엔 넘긴다',
+    // 자동 플레이: 처음 체크된 컨셉 하나에 외부 공모 (작곡을 하면 내 곡도)
+    sim: (s, d) => { const x = myAlbX(s, k), v = { s_open: true }; v['c_' + x.def] = true; if (lv(me(s), 'compose') >= 20) v.s_me = true; if (albWriters(x).length) v.s_mem = true; return v; },
+    submit(s, d, v) {
+      const t = s.tracks[k], x = myAlbX(s, k), r = albPlanRead(s, x, v);
+      if (!r.cs.length) return { err: '컨셉을 하나 이상 골라 주세요' };
+      if (!r.src.length) return { err: '곡을 모을 곳을 하나 이상 골라 주세요' };
+      const cost = albPlanCost(x, r.cs, r.src);
+      if (cost > 0 && jobMoney(s, k) < cost) return { err: `${myMoneyN(s, k)}이 ${fmtWon(cost - jobMoney(s, k))} 모자라요` };
+      if (cost > 0) jobPay(s, cost, '기획 · 데모곡', k);
+      x.cs = r.cs; x.src = r.src;
+      const demos = albDemos(s, x), j = myAlbJudge(s, k), sc = albScreen(s, x, demos, j), my = demos.find(z => z.mine);
+      if (my) { useSkill(s, me(s), 'compose', 2); cmGain(s, my.c, 10); }
+      t.alb = { cs: r.cs, src: r.src, n: demos.length, five: sc.five, by: j ? j.id : null };
+      queueEv(s, k + '_sel', 1, {}, true);
+      return { log: `${k === 'band' ? `밴드 「${t.b.name}」 ` : ''}${nm} 기획을 마쳤다. ${r.cs.map(c => `'${c}'`).join(' · ')} 컨셉으로 데모곡 ${demos.length}곡이 모였다.${my ? ' 나도 한 곡 썼다.' : ''}${cost ? ` (${fmtWon(cost)})` : ''}` };
+    },
+  });
+  // ② 곡 선정: 실을 세 곡 + 타이틀곡, 편곡 · 작사를 맡길지, 타이틀곡 가사를 내가 쓸지
+  E({
+    id: k + '_sel', cat, tag: 'career', title: k === 'band' ? '밴드 새 곡 · 실을 곡 정하기' : '신곡 · 실을 곡 정하기',
+    cond: live,
+    init(s, d) { const a = s.tracks[k].alb; if (!live(s) || !a || !a.five || !a.five.length || a.at != null) d.skip = true; },
+    text: (s, d) => {
+      const a = s.tracks[k].alb, j = a.by && s.people[a.by], need = Math.min(ALB_PICK, a.five.length), x = myAlbX(s, k);
+      return `${nm}에 실을 곡을 정할 차례다.\n\n${j && a.n > a.five.length ? `모인 데모곡 ${a.n}곡 가운데 A&R 팀장 ${josa(j.name, '이가')} ${a.five.length}곡을 추려 왔다.` : `모인 데모곡 ${a.n}곡을 직접 들어 봤다.`} 실을 ${need}곡을 체크하고, 그중 타이틀곡을 하나 찍자.\n\n타이틀곡 값과 제작비(${fmtWon(x.prod)})가 든다 · ${myMoneyN(s, k)} ${fmtWon(jobMoney(s, k))}`;
+    },
+    form: (s, d) => { const a = s.tracks[k].alb, x = myAlbX(s, k), p = me(s); return a.five.map((z, i) => ({ k: 'p' + i, type: 'check', label: z.title })).concat([{ k: 'pol', type: 'opt', after: true, label: '편곡 · 작사를 이름난 사람에게 맡긴다', sub: `${fmtWon(albPolCost(x))} · 곡이 더 다듬어진다` }]).concat(has(p, 'lyric') ? [{ k: 'ly', type: 'opt', after: true, label: '타이틀곡 가사는 내가 쓴다', sub: `작사 ${lvi(p, 'lyric')}레벨 · 실력만큼 곡이 달라지고, 작사 저작권료 몫이 생긴다` }] : []); },
+    tbl: (s, d) => myAlbTbl(s, k),
+    sum: (s, d, v) => { const a = s.tracks[k].alb, r = myPickRead(a, v), x = myAlbX(s, k); return `체크 ${r.idx.length}곡${r.ti >= 0 ? ` · 타이틀 「${a.five[r.ti].title}」` : ''} · 드는 돈 ${fmtWon(myPickCost(x, r.ti >= 0 ? a.five[r.ti] : null, r.pol))} · ${myMoneyN(s, k)} ${fmtWon(jobMoney(s, k))}`; },
+    // 두 번 미루면 모아 둔 곡들은 다른 가수에게 넘어가고, 다음에는 기획부터 다시 한다
+    cancel: (s, d) => { const t = s.tracks[k], a = t.alb; t.nextRel = 3; if (a) { a.wait = (a.wait || 0) + 1; if (a.wait >= 2) t.alb = null; } return `${nm}은 석 달 뒤로 미뤘다.` + (a && !t.alb ? ' 모아 둔 곡들은 다른 가수에게 넘어갔다.' : ''); },
+    cancelT: () => '이번엔 넘긴다',
+    // 자동 플레이: 내 곡 · 싼 곡부터 세 곡, 맨 앞 곡을 타이틀로
+    sim: (s, d) => { const F = s.tracks[k].alb.five, I = F.map((x, i) => i).sort((p, q) => (F[q].mine ? 1 : 0) - (F[p].mine ? 1 : 0) || F[p].price - F[q].price).slice(0, ALB_PICK), v = {}; I.forEach(i => v['p' + i] = true); v.ti = 'p' + I[0]; if (lv(me(s), 'lyric') >= 30) v.ly = true; return v; },
+    submit(s, d, v) {
+      const t = s.tracks[k], a = t.alb, need = Math.min(ALB_PICK, a.five.length), r = myPickRead(a, v), x = myAlbX(s, k);
+      if (r.idx.length !== need) return { err: `실을 곡을 ${need}곡 체크해 주세요 (지금 ${r.idx.length}곡)` };
+      if (r.ti < 0) return { err: '체크한 곡 가운데 타이틀곡을 하나 찍어 주세요' };
+      const cost = myPickCost(x, a.five[r.ti], r.pol);
+      if (jobMoney(s, k) < cost) return { err: `${myMoneyN(s, k)}이 ${fmtWon(cost - jobMoney(s, k))} 모자라요` };
+      a.sel = { p: r.idx, ti: r.ti, pol: r.pol, ly: r.ly };
+      // 내가 쓴 곡이 타이틀이면 제목을 직접 짓는다
+      if (a.five[r.ti].mine) { askTitle(s, 'myAlb', { title: a.five[r.ti].title, what: `${nm} 타이틀곡의`, k }); return { log: '' }; }
+      return { log: myAlbGo(s, k) };
+    },
+  });
+}
