@@ -405,34 +405,38 @@ function plioComments(sp) {
   const T = ['bad', 'meh', 'good', 'great'], ti = sp.sc >= 80 ? 3 : sp.sc >= 65 ? 2 : sp.sc >= 52 ? 1 : 0;
   const W = PL_WORK[PL_WORK_OF[sp.k] || sp.k] || PL_WORK.video, M = PL_ME[PL_ME_OF[sp.k] || 'video'];
   const used = {}, take = arr => { for (let i = 0; i < 12; i++) { const x = pk(arr); if (!used[x]) { used[x] = 1; return x; } } return null; };
-  const out = [];
-  for (let i = 0; i < 4; i++) { const k = i === 3 ? U.clamp(ti + (R() < 0.5 ? -1 : 1), 0, 3) : ti, x = take(W[T[k]]); if (x) out.push(x); }
-  if (sp.me) for (let i = 0; i < 3; i++) { const rv = i === 2 && sp.rv !== 0 ? sp.rv - Math.sign(sp.rv) : sp.rv, x = take(M[rv] || M[0]); if (x) out.push(x.replace('{n}', sp.me)); }
+  const out = [], con = new Set(); // con: 싫어요가 많이 붙는 댓글 (분위기와 다른 의견 · 나를 낮춘 평)
+  for (let i = 0; i < 4; i++) { const k = i === 3 ? U.clamp(ti + (R() < 0.5 ? -1 : 1), 0, 3) : ti, x = take(W[T[k]]); if (x) { out.push(x); if (k !== ti) con.add(x); } }
+  if (sp.me) for (let i = 0; i < 3; i++) { const rv = i === 2 && sp.rv !== 0 ? sp.rv - Math.sign(sp.rv) : sp.rv, x = take(M[rv] || M[0]); if (x) { out.push(x.replace('{n}', sp.me)); if (rv < 0) con.add(x.replace('{n}', sp.me)); } }
   // 섞고, 닉네임과 좋아요를 붙인다 (위에 있을수록 좋아요가 많다)
   for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(R() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
   // 곡 결과 카드에 나온 반응은 맨 위에 (가장 공감을 많이 받은 댓글)
   for (const x of (sp.ln || []).slice().reverse()) out.unshift(x);
   let up = Math.max(3, sp.vw * (0.002 + 0.004 * R()));
-  return out.map(x => { const c = { who: take(PL_NICK) || '익명', x, up: Math.round(up) }; up *= 0.3 + 0.45 * R(); return c; });
+  // 싫어요 (v154 보탬): 다른 씨앗으로 따로 정한다 (댓글 · 좋아요는 예전과 같게)
+  const R2 = liveRng(sp.seed + 11);
+  return out.map(x => { const c = { who: take(PL_NICK) || '익명', x, up: Math.round(up) }; c.dn = Math.round(up * (con.has(x) ? 0.35 + 0.8 * R2() : 0.005 + 0.05 * R2())); up *= 0.3 + 0.45 * R(); return c; });
 }
+// 영상 싫어요 수: 반응이 나쁠수록 좋아요에 견줘 많다 (80점 넘으면 2%쯤, 50점이면 14%쯤, 30점이면 22%쯤)
+function plioDislike(sp, like) { const R = liveRng(sp.seed + 12); return Math.round(like * (0.02 + Math.max(0, 80 - sp.sc) * 0.004) * (0.7 + 0.6 * R())); }
 // 영상 화면(썸네일): 종류마다 배경을 그리고 캐릭터를 세운다. 그림 파일 없이 CSS와 지금 있는 캐릭터 그림으로 만든다
 // [배경, 사람 수]. 배경: stage 무대 · room 실내(드라마) · studio 예능 · sky 애니 · booth 방송 방 · board 칠판
 const PL_SCENE = { stage: ['stage', 5], stagew: ['stage', 5], mv: ['stage', 1], drama: ['room', 2], film: ['room', 2], show: ['studio', 3], anime: ['sky', 2], animk: ['sky', 2], cover: ['booth', 1], collab: ['booth', 2], vlog: ['booth', 1], clip: ['board', 1] };
-const PL_CAP = { great: ['레전드', '난리 난 장면', '이건 꼭 봐야 해'], good: ['화제의 장면', '다시 보기'], meh: ['하이라이트', '이번 주 영상'], bad: ['하이라이트', '새 영상'] };
+
 function plioThumbHTML(sp, hue) {
   const R = liveRng(sp.seed + 3), K = PL_SCENE[sp.k] || ['booth', 1], n = K[1];
   const chars = Array.from({ length: n }, (_, i) => liveChar(`pl${sp.seed}/${i}`, (hue + (K[0] === 'stage' ? 0 : i * 71)) % 360, `pl${sp.seed}/${K[0] === 'stage' ? 0 : i}`, { sx: (sp.sx || '').length > 1 ? sp.sx[i] : sp.sx, cos: sp.cos })).join('');
-  const cap = PL_CAP[sp.sc >= 80 ? 'great' : sp.sc >= 65 ? 'good' : sp.sc >= 52 ? 'meh' : 'bad'], capT = cap[Math.floor(R() * cap.length)];
+
   // 사진 배경 (v154 보탬): 무대 영상은 직캠, 뮤직비디오는 세트장 (그림이 없으면 아래 그린 배경이 보인다)
   const ph = sp.k === 'stage' || sp.k === 'stagew' ? 'fancam' : sp.k === 'mv' ? 'mv' : '';
-  return `<div class="pl-video sc-${K[0]}" style="--hue:${hue}"><div class="pl-bg"></div>${ph ? `<div class="pl-ph" style="background-image:url('img/pl/${ph}.webp')"></div>` : ''}<div class="pl-chars n${n}">${chars}</div><span class="pl-kind">${U.esc(PL_KIND[sp.k] || '영상')}</span><span class="pl-capt">${capT}</span><span class="pl-play">▶</span><span class="pl-dur">${1 + Math.floor(R() * 14)}:${String(Math.floor(R() * 60)).padStart(2, '0')}</span><i class="pl-prog"><b style="width:${Math.round(15 + R() * 70)}%"></b></i></div>`;
+  return `<div class="pl-video sc-${K[0]}" style="--hue:${hue}"><div class="pl-bg"></div>${ph ? `<div class="pl-ph" style="background-image:url('img/pl/${ph}.webp')"></div>` : ''}<div class="pl-chars n${n}">${chars}</div><span class="pl-kind">${U.esc(PL_KIND[sp.k] || '영상')}</span><span class="pl-dur">${1 + Math.floor(R() * 14)}:${String(Math.floor(R() * 60)).padStart(2, '0')}</span><i class="pl-prog"><b style="width:${Math.round(15 + R() * 70)}%"></b></i></div>`;
 }
 function plioHTML(sp) {
   const C = plioComments(sp), R = liveRng(sp.seed + 7), hue = hashN('pl' + sp.t) % 360, like = Math.round(sp.vw * (0.02 + 0.04 * R())), cn = Math.max(C.length, Math.round(sp.vw * (0.001 + 0.003 * R())));
   return `<div class="pl-top"><span class="pl-logo">▶ ${PF.video.en}</span><span class="pl-sub">${PF.video.n}</span></div>`
     + `<div class="pl-wrap"><div class="pl-main">${plioThumbHTML(sp, hue)}`
-    + `<div class="pl-t">${U.esc(sp.t)}</div><div class="pl-meta"><span class="pl-ch"><i style="background:hsl(${(hue + 40) % 360} 60% 55%)"></i>${U.esc(sp.ch)}</span><span>조회수 ${plN(sp.vw)}회</span><span class="pl-like">👍 ${plN(like)}</span></div></div>`
-    + `<div class="pl-cm"><div class="pl-cm-h">댓글 ${plN(cn)}개</div><div class="pl-cm-b">${C.map(c => `<div class="pl-c"><i class="pl-av" style="background:hsl(${hashN(c.who) % 360} 55% 58%)">${U.esc(c.who.slice(0, 1))}</i><div><b>${U.esc(c.who)}</b><span>${U.esc(c.x)}</span><em>👍 ${plN(c.up)}</em></div></div>`).join('')}</div></div></div>`;
+    + `<div class="pl-t">${U.esc(sp.t)}</div><div class="pl-meta"><span class="pl-ch"><i style="background:hsl(${(hue + 40) % 360} 60% 55%)"></i>${U.esc(sp.ch)}</span><span>조회수 ${plN(sp.vw)}회</span><span class="pl-like">👍 ${plN(like)}</span><span class="pl-like dn">👎 ${plN(plioDislike(sp, like))}</span></div></div>`
+    + `<div class="pl-cm"><div class="pl-cm-h">댓글 ${plN(cn)}개</div><div class="pl-cm-b">${C.map(c => `<div class="pl-c"><i class="pl-av" style="background:hsl(${hashN(c.who) % 360} 55% 58%)">${U.esc(c.who.slice(0, 1))}</i><div><b>${U.esc(c.who)}</b><span>${U.esc(c.x)}</span><em>👍 ${plN(c.up)}<i class="pl-dn">👎 ${plN(c.dn || 0)}</i></em></div></div>`).join('')}</div></div></div>`;
 }
 // 배너: 누르면 팝업이 열리고, 다시 누르면 닫힌다
 function plioKey(sp) { UI.plioMap = UI.plioMap || {}; const k = UI.plioN = (UI.plioN || 0) + 1; UI.plioMap[k] = sp; delete UI.plioMap[k - 400]; return k; }
@@ -497,18 +501,22 @@ function commParts(sp) {
   const pool = P.C[tn].filter(x => sp.me || !x.includes('{me}')), C = [];
   for (let i = 0; i < Math.min(5, pool.length); i++) { const x = take(pool); if (x) C.push({ who: take(PL_NICK) || '익명', x: fill(x), up: Math.round(2 + R() * views * 0.03) }); }
   C.sort((a, b) => b.up - a.up);
+  // 비추천 · 싫어요 (v154 보탬): 다른 씨앗으로 따로 정한다. 논란 · 나쁜 분위기 글일수록 많다
+  const R2 = liveRng(sp.seed + 13), dk = sp.k === 'scandal' ? [0.3, 0.6] : tn === 'bad' || tn === 'miss' ? [0.15, 0.4] : tn === 'meh' ? [0.06, 0.2] : [0.01, 0.06];
+  for (const c of C) c.dn = Math.round(c.up * (dk[0] * 0.5 + dk[1] * 1.2 * R2()));
   // 인기글: 인물 이야기와 잡담
   const r0 = Math.floor(R() * 2), hot = (sp.np || []).map(([n, ph], i) => { const A = CM_NPC[ph] || CM_NPC.rise; return A[(r0 + i) % A.length].split('{n}').join(n); }); // 두 사람이 같은 말로 올라오지 않게
   while (hot.length < 4) { const x = take(CM_CHAT); if (!x) break; hot.push(x); }
-  return { title, body: fill(P.B[tn]), who: take(PL_NICK) || '익명', views, up: Math.round(views * (0.03 + R() * 0.08)), C, hot: hot.map(x => [x, 3 + Math.floor(R() * 90)]) };
+  const pu = Math.round(views * (0.03 + R() * 0.08));
+  return { title, body: fill(P.B[tn]), who: take(PL_NICK) || '익명', views, up: pu, dn: Math.round(pu * (dk[0] + dk[1] * R2())), C, hot: hot.map(x => [x, 3 + Math.floor(R() * 90)]) };
 }
 function commHTML(sp) {
   const top = `<div class="pl-top"><span class="pl-logo cm">💬 ${PF.comm.en}</span><span class="pl-sub">${PF.comm.n} · ${U.esc(sp.bd)}</span></div>`;
   if (sp.tn === 'none') return top + `<div class="cm-none"><b>'${U.esc(sp.me)}'</b> 검색 결과 0건<span>아직 아무도 내 이야기를 하지 않는다</span></div>`;
   const X = commParts(sp);
-  return top + `<div class="pl-wrap cm-wrap"><div class="pl-main"><div class="cm-post"><div class="cm-bd">${U.esc(sp.bd)}</div><div class="cm-t">${U.esc(X.title)}</div><div class="cm-by"><i class="pl-av" style="background:hsl(${hashN(X.who) % 360} 55% 58%)">${U.esc(X.who.slice(0, 1))}</i>${U.esc(X.who)} · 조회 ${plN(X.views)} · 추천 ${plN(X.up)}</div><div class="cm-b">${U.esc(X.body)}</div></div>`
+  return top + `<div class="pl-wrap cm-wrap"><div class="pl-main"><div class="cm-post"><div class="cm-bd">${U.esc(sp.bd)}</div><div class="cm-t">${U.esc(X.title)}</div><div class="cm-by"><i class="pl-av" style="background:hsl(${hashN(X.who) % 360} 55% 58%)">${U.esc(X.who.slice(0, 1))}</i>${U.esc(X.who)} · 조회 ${plN(X.views)} · 추천 ${plN(X.up)} · 비추천 ${plN(X.dn || 0)}</div><div class="cm-b">${U.esc(X.body)}</div></div>`
     + `<div class="cm-hot"><div class="cm-hot-h">🔥 실시간 인기글</div>${X.hot.map(([x, n]) => `<div class="cm-hot-i"><span>${U.esc(x)}</span><em>[${n}]</em></div>`).join('')}</div></div>`
-    + `<div class="pl-cm cm"><div class="pl-cm-h">댓글 ${X.C.length}개</div><div class="pl-cm-b">${X.C.map(c => `<div class="pl-c"><i class="pl-av" style="background:hsl(${hashN(c.who) % 360} 55% 58%)">${U.esc(c.who.slice(0, 1))}</i><div><b>${U.esc(c.who)}</b><span>${U.esc(c.x)}</span><em>👍 ${plN(c.up)}</em></div></div>`).join('')}</div></div></div>`;
+    + `<div class="pl-cm cm"><div class="pl-cm-h">댓글 ${X.C.length}개</div><div class="pl-cm-b">${X.C.map(c => `<div class="pl-c"><i class="pl-av" style="background:hsl(${hashN(c.who) % 360} 55% 58%)">${U.esc(c.who.slice(0, 1))}</i><div><b>${U.esc(c.who)}</b><span>${U.esc(c.x)}</span><em>👍 ${plN(c.up)}<i class="pl-dn">👎 ${plN(c.dn || 0)}</i></em></div></div>`).join('')}</div></div></div>`;
 }
 function commBtnHTML(sp, label) { return sp && sp.v === 'comm' ? `<button class="pf-bn comm" data-plio="${plioKey(sp)}"><b>💬 ${PF.comm.en}</b><span>${U.esc(label || `${PF.comm.n}에서 반응 보기`)}</span></button>` : ''; }
 // 에고서치: 지금 내 이름으로 올라오는 글. 논란이 있으면 그 이야기, 아니면 인지도와 이미지에 따라. 같은 달에는 같은 글이 나온다
