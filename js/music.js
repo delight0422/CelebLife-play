@@ -639,6 +639,7 @@ CAREERS.idol = {
       R.push(['팬덤 · 대표 컨셉', `${g.fandom} · ${g.sig}`]);
       // 이번 앨범 (v154): 어느 단계인지, 누가 맡았는지
       if (t.alb) R.push(['이번 앨범', `${albStageW(s, t.alb)} · ${t.alb.mk ? t.alb.mk.boss : ''}`]);
+      { const pr = typeof projInfoRow === 'function' && projInfoRow(s, t); if (pr) R.push(pr); }
       R.push({ h: '멤버', items: [`나 — ${t.pos}`].concat(g.members.map(id => s.people[id]).filter(Boolean).map(x => `${x.name} (${pAge(s, x)}세) ${g.pos[x.id] || ''} — ${relWord(x)}${soulTag(x)}`)) });
     }
     return R;
@@ -724,6 +725,8 @@ function idolActiveMonth(s, t) {
   // 다음 앨범 (v154 앨범 제작 틀): 활동 둘째 · 셋째 달에 회사가 기획을 시작하고, 심사 · 선정 → 편곡 · 작사 → 녹음을 거쳐 석 달 뒤에 나온다 (컴백 간격은 그대로 5~6달)
   if (t.alb) idolAlbMonth(s, t);
   else if (--t.nextCb <= 0 && !hasQ(s, 'idol_cbres') && !hasQ(s, 'idol_cb')) idolNextComeback(s, t);
+  // 프로젝트 그룹 (v156): 회사가 여러 그룹 멤버를 모아 한 번 활동시킨다 (project.js)
+  if (typeof projMonth === 'function') projMonth(s, 'idol', t);
   MK.forEach(m => { g.f[m] = Math.round(g.f[m] * (t.promo > 0 ? 1 : t.months > 84 ? 0.993 : 0.996)); });
   // 멤버 평균 나이가 28세를 넘으면 인기가 꾸준히 떨어진다 (한 살 많을수록 더)
   const ga = groupAges(s, g);
@@ -2149,6 +2152,7 @@ CAREERS.solo = {
     R.push(['팬', MK.filter(m => s.fans[m]).map(m => `${MK_N[m]} ${fmtFans(s.fans[m])}`).join(' · ') || '0명']);
     R.push(['발표곡', `${t.rel}곡${t.bestPeak ? ` · 최고 ${t.bestPeak}위` : ''}`]);
     if (t.alb) R.push(['이번 신곡', t.alb.at != null ? `${albStageW(s, t.alb)}${t.alb.mk ? ` · ${t.alb.mk.boss}` : ''}` : '실을 곡을 정할 차례']);
+    { const pr = typeof projInfoRow === 'function' && projInfoRow(s, t); if (pr) R.push(pr); }
     return R;
   },
   actions(s, t) {
@@ -2175,6 +2179,7 @@ CAREERS.solo = {
     addStress(s, 2 * pm(s, 'crowdStress'));
     if (!(s.tracks.idol.st === 'active' && s.tracks.idol.promo > 0)) t.nextRel--;
     musAlbMonth(s, 'solo'); // v154: 인디는 신곡 기획 창, 회사 소속은 신곡 회의
+    if (t.st === 'signed' && !t.withGroup && typeof projMonth === 'function') projMonth(s, 'solo', t);
     if (t.st === 'indie' && s.fans.kr >= 8000 && U.chance(0.04)) maybeScout(s, 'solo');
     if (!t.jp && lv(p, 'jp') >= 25 && s.fans.kr >= 3e4 && U.chance(0.02)) queueEv(s, 'solo_jp', 0);
     if (!t.us && lv(p, 'en') >= 32 && totalFans(s) >= 5e5 && U.chance(0.015)) queueEv(s, 'solo_us', 0);

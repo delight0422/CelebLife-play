@@ -443,6 +443,8 @@ CAREERS.vidol = {
     // 오리지널 곡 (v154): 회사가 1년 반~2년에 한 번, 앨범 제작 틀로 만든다 (기획 → 심사 · 선정 → 편곡 · 녹음, 석 달). 첫 곡은 데뷔 반년 뒤부터
     if (t.months >= 6 && t.songT == null) t.songT = s.t + U.int(3, 9);
     if (t.months >= 6 && !t.alb && !hasQ(s, 'vi_song') && has(p, 'vocal') && t.songT <= s.t) viAlbStart(s, t);
+    // 회사 단체곡 (v156, project.js): 동기 전원 · 가끔 회사 전체. 한두 해에 한 번쯤
+    else if (has(p, 'vocal') && typeof viUnitMonth === 'function') viUnitMonth(s, t);
     if (t.months % 12 === 0) viNotice(s, 'vi_anniv');
     if (t.d3 && t.subs >= VI_LIVE && !(t.liveT > s.t) && U.chance(0.1)) { t.liveT = s.t + 18; viNotice(s, 'vi_live'); }
     // 연말 회사 평가: 기수 안 순위

@@ -49,7 +49,7 @@ function wCompete(s, x, my, anr, boss) {
 }
 function wSubmit(s, t, o) {
   o = o || {};
-  const a = o.a || makeArtist(s, t.rep), ag = (o.ag && AG[o.ag]) || U.pick(musicAgencies().filter(x => x.tier === a.tier && x.mkt === 'kr')) || U.pick(musicAgencies());
+  const a = o.a || projArtist(s, makeArtist(s, t.rep)), ag = (o.ag && AG[o.ag]) || U.pick(musicAgencies().filter(x => x.tier === a.tier && x.mkt === 'kr')) || U.pick(musicAgencies());
   const c = o.c || (U.chance(0.6) && t.cc ? t.cc : U.chance(0.5) ? s.trend : U.pick(TRENDS));
   const x = { tier: a.tier, rep: 20 + a.tier * 15, cs: [c], src: ['open'].concat(o.name || (a.tier >= 2 && U.chance(a.tier >= 3 ? 0.8 : 0.5)) ? ['name'] : [], a.tier >= 3 && U.chance(0.4) ? ['camp'] : []), budget: null };
   const anr = agAnr(s, ag.id), boss = agProd(s, ag.id, {}).p, q = o.q != null ? o.q : t.best + W_ADJ;
@@ -265,7 +265,7 @@ CAREERS.producer = {
     if (!busyWith(s, 'produce') && !s.inbox.some(m => m.kind === 'p_offer') && U.chance((0.025 + t.rep / 800) * pm(s, 'network') * (n ? 1.4 : 0.5))) {
       // 단골 가수가 있으면 셋 중 한 번은 그쪽에서 다시 맡긴다 (비용을 더 쳐 준다)
       const re = (t.clients || []).length && U.chance(0.35);
-      const a = re ? U.pick(t.clients) : Object.assign(makeArtist(s, t.rep), { sig: U.pick(TRENDS) });
+      const a = re ? U.pick(t.clients) : projArtist(s, Object.assign(makeArtist(s, t.rep), { sig: U.pick(TRENDS) }));
       sendMsg(s, 'p_offer', { from: `${a.name} 소속사`, title: re ? '다음 앨범도 맡아 달라는 의뢰' : '앨범 프로듀싱 의뢰', months: 6, d: { a, re, fee: Math.round((a.tier * 1500 + t.rep * 40) * (re ? 1.2 : 1) * 1e4), title: songTitle() } });
     }
   },
@@ -686,7 +686,9 @@ function anrSetup(s, d) {
   const t = s.tracks.anr;
   d.gi = d.gi != null && t.groups[d.gi] ? d.gi : U.int(0, t.groups.length - 1);
   for (const g of t.groups) if (!g.sig) g.sig = U.pick(TRENDS);
-  const g = t.groups[d.gi], c = U.chance(0.6) ? g.sig : U.chance(0.6) ? s.trend : U.pick(TRENDS);
+  // 가끔은 여러 그룹에서 멤버를 모은 프로젝트 그룹의 앨범이다 (v156)
+  if (!d.pg && U.chance(0.1)) d.pg = { name: newGroupName(s), kind: '프로젝트 그룹', sig: U.pick(TRENDS), f: Math.round(t.groups.reduce((a, y) => a + y.f, 0) * 0.3) };
+  const g = anrG(s, d), c = U.chance(0.6) ? g.sig : U.chance(0.6) ? s.trend : U.pick(TRENDS);
   const src = ['open'].concat(t.tier >= 2 && U.chance(t.tier >= 3 ? 0.8 : 0.5) ? ['name'] : [], t.tier >= 3 && U.chance(0.4) ? ['camp'] : []);
   const x = { tier: t.tier, rep: 20 + t.tier * 15, sig: g.sig, mem: [], cs: [c], src, budget: null };
   const demos = U.shuffle(albDemos(s, x)), mates = anrMates(s, t), m = mates.length + 1;
@@ -706,6 +708,7 @@ function anrSetup(s, d) {
   return d;
 }
 // 그 사람의 귀로 들은 순서 (좋게 들린 곡부터)
+function anrG(s, d) { return d.pg || s.tracks.anr.groups[d.gi]; }
 function anrHear(B, p, x) { const sd = albEarOf(p); return B.map(y => ({ y, v: y.q + U.normal(0, sd) + (x.cs.includes(y.c) ? 3 : 0) })).sort((a, b) => b.v - a.v).map(z => z.y); }
 function anrNeed(s, d) { return s.tracks.anr.lead ? Math.min(ALB_KEEP, d.list.length) : Math.min(ANR_UP, d.list.length); }
 function anrRead(d, v) { return d.list.map((y, i) => i).filter(i => albOn(v, 'p' + i)); }
@@ -716,8 +719,8 @@ E({
   init(s, d) { if (!trackOn(s, 'anr') || !(s.tracks.anr.groups || []).length) { d.skip = true; return; } anrSetup(s, d); },
   text: (s, d) => {
     if (!d.list) anrSetup(s, d);
-    const t = s.tracks.anr, g = t.groups[d.gi], L = anrLeadP(s, t), boss = agProd(s, t.ag, g).n, need = anrNeed(s, d);
-    const head = `${t.agN} 소속 ${g.name}(${g.kind}, 팬 ${fmtFans(g.f)})의 다음 앨범에 '${d.cs[0]}' 컨셉으로 데모곡 ${d.n}곡이 모였다.`;
+    const t = s.tracks.anr, g = anrG(s, d), L = anrLeadP(s, t), boss = agProd(s, t.ag, g).n, need = anrNeed(s, d);
+    const head = d.pg ? `${t.agN}에서 소속 그룹들의 멤버를 모아 프로젝트 그룹 「${g.name}」을 꾸렸다 (원래 팬 ${fmtFans(g.f)}). 앨범 한 장에 '${d.cs[0]}' 컨셉으로 데모곡 ${d.n}곡이 모였다.` : `${t.agN} 소속 ${g.name}(${g.kind}, 팬 ${fmtFans(g.f)})의 다음 앨범에 '${d.cs[0]}' 컨셉으로 데모곡 ${d.n}곡이 모였다.`;
     const tail = `\n\n${g.name}의 대표 컨셉 '${g.sig}' · 요즘 유행 '${s.trend}'`;
     if (t.lead) return `${head} 팀원들이 나눠 듣고 ${d.list.length}곡을 올려 왔다. 팀장인 내가 다섯 곡을 확정하자.\n\n${josa(boss, '이가')} 그중 세 곡과 타이틀곡을 고른다. 팀장은 기대치가 높다: 다섯 곡 모두 내 책임이다.` + tail;
     return `${head} 팀원들이 나눠 듣는다. 내 몫으로 온 ${d.list.length}곡 가운데 팀장 ${L ? L.name : ''}에게 올릴 ${need}곡을 체크하자.\n\n팀장이 팀원들이 올린 곡에서 다섯 곡을 확정하고, ${josa(boss, '이가')} 그중 세 곡과 타이틀곡을 고른다. 내가 올린 곡이 타이틀이 되어 잘되면 성과급을 받는다.` + tail;
@@ -725,7 +728,7 @@ E({
   form: (s, d) => { if (!d.list) anrSetup(s, d); return d.list.map((y, i) => ({ k: 'p' + i, type: 'check', label: y.title })); },
   tbl: (s, d) => {
     if (!d.list) anrSetup(s, d);
-    const v = me(s), g = s.tracks.anr.groups[d.gi];
+    const v = me(s), g = anrG(s, d);
     const rows = d.list.map((y, i) => { const c = y.cid && s.people[y.cid], up = y.up && s.people[y.up], tag = cTag(s, y.c, g.sig); return { k: 'p' + i, tr: y.c === s.trend, sig: y.c === g.sig, cells: Object.assign({
       t: [y.title, `「${y.title}」`], by: [albBy(s, y), albBy(s, y)], c: [y.c, `${y.c}${tag ? ` (${tag})` : ''}`], lv: c ? coCellLv(v, c, 'compose', false) : [-1, '?'],
       q: coCellG(grade5(v, y.q, 'q', 'compose'), 'q'), m: y.m == null ? [-1, '-'] : coCellG(grade5(v, y.m, 'pot', 'compose')), p: [y.price, y.price ? fmtWon(y.price) : '-'] }, s.tracks.anr.lead ? { up: [up ? up.name : '', up ? up.name : '-'] } : {}) }; });
@@ -733,11 +736,11 @@ E({
   },
   sum: (s, d, v) => `체크 ${anrRead(d, v).length}곡 / ${anrNeed(s, d)}곡`,
   // 자동 플레이: 내 귀로 들은 완성도가 좋은 곡부터
-  sim: (s, d) => { const g = s.tracks.anr.groups[d.gi], f = i => GRADE_W.q.indexOf(grade5(me(s), d.list[i].q, 'q', 'compose')) + (d.list[i].c === g.sig ? 0.4 : 0) + U.fl(0, 0.9), v = {}; d.list.map((y, i) => i).sort((a, b) => f(b) - f(a)).slice(0, anrNeed(s, d)).forEach(i => v['p' + i] = true); return v; },
+  sim: (s, d) => { const g = anrG(s, d), f = i => GRADE_W.q.indexOf(grade5(me(s), d.list[i].q, 'q', 'compose')) + (d.list[i].c === g.sig ? 0.4 : 0) + U.fl(0, 0.9), v = {}; d.list.map((y, i) => i).sort((a, b) => f(b) - f(a)).slice(0, anrNeed(s, d)).forEach(i => v['p' + i] = true); return v; },
   submit(s, d, v) {
     const t = s.tracks.anr, p = me(s), need = anrNeed(s, d), I = anrRead(d, v);
     if (I.length !== need) return { err: `${need}곡을 체크해 주세요 (지금 ${I.length}곡)` };
-    const g = t.groups[d.gi], x = { tier: t.tier, rep: 20 + t.tier * 15, sig: g.sig, mem: [], cs: d.cs, src: d.src, budget: null };
+    const g = anrG(s, d), x = { tier: t.tier, rep: 20 + t.tier * 15, sig: g.sig, mem: [], cs: d.cs, src: d.src, budget: null };
     const mine = I.map(i => d.list[i]), L = anrLeadP(s, t);
     useSkill(s, p, 'scout', 2);
     let five, all, lost = null;
@@ -760,7 +763,7 @@ E({
     mk.my = { t: (mine.find(y => y === ti) || mine.find(y => picks.includes(y)) || mine.find(y => five.includes(y)) || mine[0]).title, r: my.ti ? '타이틀곡' : my.in ? '수록곡으로 실림' : my.five ? '다섯 곡에 들었지만 빠짐' : '팀장 심사에서 떨어짐' };
     for (const y of mine) { const c = y.cid && s.people[y.cid]; if (c && c.ind) { meetAt(s, c, `「${y.title}」 데모`, 'anr'); bond(s, c, picks.includes(y) ? 4 : 1); } }
     if (lost && U.chance(0.6)) queueEv(s, 'anr_lost', U.int(3, 7), Object.assign({ g: g.name }, lost), true);
-    queueEv(s, 'anr_out', 2, { gi: d.gi, q: ti.q + pol.dq + ANR_ADJ, c: ti.cid || null, title: ti.title, cn: ti.c, mk, my, boss: B.n }, true);
+    queueEv(s, 'anr_out', 2, { gi: d.gi, pg: d.pg || null, q: ti.q + pol.dq + ANR_ADJ, c: ti.cid || null, title: ti.title, cn: ti.c, mk, my, boss: B.n }, true);
     const R = t.lead ? `${g.name} 다음 앨범의 다섯 곡을 확정했다.` : `내 몫에서 ${josa(mine.map(y => `「${y.title}」`).join(' · '), '을를')} 팀장에게 올렸다. 팀장 ${L ? josa(L.name, '이가') : '이'} 다섯 곡을 확정했다${my.five ? ` (내가 올린 곡 ${my.five}곡이 들었다)` : ' (내가 올린 곡은 빠졌다)'}.`;
     return { log: `${R} ${josa(B.n, '이가')} 고른 타이틀곡은 「${ti.title}」 (작곡 ${albBy(s, ti)}).${!t.lead && my.ti ? ' 내가 올린 곡이다!' : ''}` };
   },
@@ -779,7 +782,7 @@ E({
   live: (s, d) => d.live, keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), plio: (s, d) => d.pl || null,
   cond: s => trackOn(s, 'anr'),
   init(s, d) {
-    const t = s.tracks.anr, g = t.groups[d.gi];
+    const t = s.tracks.anr, g = anrG(s, d);
     // v94: 내 듣는 귀(스카우트 강함 + 음감 가산점)가 곡을 다듬는 데 조금 들어간다
     const sc = songScore(s, { perf: 20 + t.tier * 8 + anrEar(me(s)) * 0.15 + U.normal(0, 4), q: d.q, fans: g.f, tier: t.tier, trend: !!d.cn && d.cn === s.trend, bonus: d.cn && d.cn === g.sig ? 3 : 0 });
     d.peak = chartFromScore(sc);

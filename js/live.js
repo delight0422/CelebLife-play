@@ -27,7 +27,7 @@ function liveStage(o) {
   for (const k in o.z || {}) if (isFinite(o.z[k])) z[k] = Math.round(o.z[k] * 100) / 100;
   const name = o.g || o.t || '';
   const ms = typeof S !== 'undefined' && S && S.people && S.people[S.me] ? (S.people[S.me].g === '남' ? 'm' : 'f') : '';
-  return { v: 'stage', k: o.k, vn: o.vn || '', nw: o.nw ? 1 : 0, big: o.big || 0, old: o.old ? 1 : 0, fx2: o.fixed ? 1 : 0, x: o.x || null, key: o.key !== false, seed: U.int(1, 2e9), place: o.place || '무대', t: o.t || '', g: o.g || '', cn: o.cn || '', fd: o.fd || '', mem: (o.mem || []).slice(0, 10), mi: o.mi || 0, hue: hashN('hue' + name) % 360, z, sc: Math.round(o.sc || 0), wins: o.wins || 0, rv: o.rv || '', cand: o.cand ? 1 : 0, debut: o.debut ? 1 : 0, cos: CH_COS[o.c] || o.cos || '', sx: o.sx || '', ms, mic: o.mic ? 1 : 0 };
+  return { v: 'stage', k: o.k, vn: o.vn || '', nw: o.nw ? 1 : 0, big: o.big || 0, old: o.old ? 1 : 0, fx2: o.fixed ? 1 : 0, x: o.x || null, key: o.key !== false, seed: U.int(1, 2e9), place: o.place || '무대', t: o.t || '', g: o.g || '', cn: o.cn || '', fd: o.fd || '', mem: (o.mem || []).slice(0, 10), mi: o.mi || 0, hue: hashN('hue' + name) % 360, z, sc: Math.round(o.sc || 0), wins: o.wins || 0, rv: o.rv || '', cand: o.cand ? 1 : 0, debut: o.debut ? 1 : 0, cos: o.cos || CH_COS[o.c] || '', sx: o.sx || '', ms, mic: o.mic ? 1 : 0 };
 }
 // 곡 컨셉 → 의상 그림 이름 (img/src/cos_<이름>_f · _m)
 const CH_COS = { 청량: 'fresh', 강렬: 'strong', 큐티: 'cute', 몽환: 'dreamy', 힙합: 'hiphop', 레트로: 'retro', 하이틴: 'teen', 성숙: 'mature' };
@@ -195,7 +195,7 @@ function liveWatch(s, o) {
   const band = o.kind === '밴드', grp = !band && o.kind !== '솔로 가수';
   const mem = band ? [['', '보컬'], ['', '기타'], ['', '베이스'], ['', '드럼']] : grp ? [['', ''], ['', ''], ['', ''], ['', ''], ['', '']] : [[o.name, '']];
   const tier = o.tier || 1;
-  return liveStage({ k: band ? 'band' : grp ? 'idol' : 'solo', vn: band ? 'hall' : '', place: band ? '쇼케이스' : '음악방송', t: o.title, g: o.name, cn: o.name, mem, mi: -1, c: band ? '' : o.c, mic: !band && !grp, key: !!o.key, sc: o.sc,
+  return liveStage({ k: band ? 'band' : grp ? 'idol' : 'solo', vn: band ? 'hall' : '', place: band ? '쇼케이스' : '음악방송', t: o.title, g: o.name, cn: o.name, mem, mi: -1, c: band ? '' : o.c, cos: o.kind === '프로젝트 그룹' ? 'project' : '', mic: !band && !grp, key: !!o.key, sc: o.sc,
     wins: !band && o.peak && o.peak <= 3 ? 1 : 0, cand: !band && o.peak && o.peak <= 10 ? 1 : 0, z: { perf: (tier - 1.6) * 0.8, q: (o.sc - 58) / 14, fans: (tier - 1.8) * 1.1, tw: o.tw != null ? o.tw : 0.2, me: 0, trend: o.trend ? 1 : 0 } });
 }
 // 평가 날: 트레이너는 회사 평가단 앞에서 연습생들이 하는 무대를, 연기 트레이너는 신인들의 연기를 지켜본다
