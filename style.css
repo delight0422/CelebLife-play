@@ -1119,27 +1119,16 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 }
 
 
-/* ───── 인생 결산 창 (12-5): 뮤지컬 무대의 막. 밝은 바탕에 가운데 정렬. 색 조합만 다른 시안 세 가지 (cv-A 붉은 막 · cv-B 푸른 막 · cv-C 보랏빛 막) ───── */
+/* ───── 인생 결산 창 (12-5): 사진 무대 하나로 정함 (v150). 가운데 정렬. 색은 아래 .en.cv-P가 정한다 ───── */
 /* 주 직업 분야(th-*)는 머리 가운데의 그림 글자만 바꾼다. 색은 시안이 정한다 */
 #mcard.ending { max-width: 860px; }
-.en-pick { display: flex; gap: 6px; align-items: center; justify-content: flex-end; margin-bottom: 8px; font-size: 12px; color: var(--muted); }
-.en-pick button { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 3px 11px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; color: var(--ink2); }
-.en-pick button.on { background: var(--violet); border-color: var(--violet); color: #fff; }
 .en { --mark: "🎤"; }
 .en.th-screen { --mark: "🎬"; } .en.th-stream { --mark: "📺"; } .en.th-ink { --mark: "✒️"; } .en.th-teach { --mark: "🎓"; } .en.th-staff { --mark: "🎛️"; } .en.th-biz { --mark: "🏢"; } .en.th-none { --mark: "🌙"; } .en.k-handoff { --mark: "👶"; }
 /* 색 조합: bg 바탕 · ink 글씨 · sub 옅은 글씨 · pap 카드 · ln 선 · acc 강조(금빛 계열) · c1 · c2 막의 어두운 주름과 밝은 주름 */
-.en.cv-A { --bg: #fff7ec; --ink: #3b2219; --sub: #9a7f6b; --pap: #fffdf8; --ln: #efdcc3; --acc: #b9861c; --c1: #8f1a2b; --c2: #c73650; --glow: #ffe6b8; }
-.en.cv-B { --bg: #f2f8ff; --ink: #1b2b47; --sub: #7b8ba8; --pap: #ffffff; --ln: #d5e3f5; --acc: #c0902a; --c1: #1d3d8c; --c2: #3f78d8; --glow: #dcecff; }
-.en.cv-C { --bg: #faf4ff; --ink: #2f2147; --sub: #9383ad; --pap: #ffffff; --ln: #e7daf7; --acc: #c06a9a; --c1: #5f37a8; --c2: #9a6fe2; --glow: #f3dcff; }
 .en-cur { background: var(--bg); color: var(--ink); border-radius: 18px; padding: 0 0 24px; overflow: hidden; }
 .en-hero { position: relative; overflow: hidden; text-align: center; padding: 78px 21% 34px; background: radial-gradient(56% 78% at 50% 34%, var(--glow) 0%, transparent 72%), linear-gradient(180deg, color-mix(in srgb, var(--bg) 82%, var(--c2)) 0%, var(--bg) 100%); }
 .en-hero::after { content: var(--mark); position: absolute; left: 50%; top: 58px; transform: translateX(-50%); font-size: 150px; line-height: 1; opacity: .09; pointer-events: none; }
 .en-hero > * { position: relative; z-index: 1; }
-/* 막: 양옆으로 묶어 둔 주름 막과 위의 물결 장식 */
-.en-hero > .en-drape { position: absolute; top: 0; bottom: 0; width: 19%; z-index: 2; background: repeating-linear-gradient(90deg, var(--c1) 0 8px, var(--c2) 8px 19px, color-mix(in srgb, var(--c1) 70%, #000) 19px 25px); box-shadow: inset 0 -30px 40px rgba(0, 0, 0, .18); }
-.en-hero > .en-drape.l { left: 0; clip-path: polygon(0 0, 100% 0, 96% 22%, 74% 50%, 42% 74%, 30% 100%, 0 100%); }
-.en-hero > .en-drape.r { right: 0; clip-path: polygon(0 0, 100% 0, 100% 100%, 70% 100%, 58% 74%, 26% 50%, 4% 22%); }
-.en-hero > .en-val { position: absolute; left: 0; right: 0; top: 0; height: 52px; z-index: 3; filter: drop-shadow(0 3px 0 var(--acc)) drop-shadow(0 6px 6px rgba(0, 0, 0, .18)); background: radial-gradient(ellipse 36px 30px at 50% 0, var(--c2) 0 98%, transparent 100%) 0 18px / 72px 34px repeat-x, linear-gradient(var(--c1), var(--c2)) 0 0 / 100% 20px no-repeat; }
 .en-kicker { font-size: 12px; font-weight: 800; letter-spacing: .28em; color: var(--acc); }
 .en-name { font-size: 46px; font-weight: 800; line-height: 1.15; margin-top: 6px; letter-spacing: .06em; }
 .en-title { display: inline-block; margin-top: 12px; padding: 5px 18px; border: 1.5px solid var(--acc); border-radius: 999px; color: var(--c1); background: color-mix(in srgb, var(--pap) 80%, transparent); font-size: 17px; font-weight: 800; letter-spacing: .06em; }
@@ -1193,7 +1182,7 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .en-b.rival { border-color: #e0304a; } .en-b.pal { border-color: #19b58c; }
 .en-cur > .en-sec { padding: 0 20px; } .en-cur .heir-card { text-align: left; color: var(--ink); }
 @media (max-width: 760px) {
-  .en-hero { padding: 64px 15% 26px; } .en-hero > .en-drape { width: 13%; } .en-hero > .en-val { height: 42px; background-size: 52px 26px, 100% 16px; background-position: 0 14px, 0 0; }
+  .en-hero { padding: 64px 15% 26px; }
   .en-name { font-size: 32px; } .en-hero::after { font-size: 110px; }
   .en-n b { font-size: 14px; } .en-body { padding: 0 12px; }
 }
@@ -1202,7 +1191,6 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .en.cv-P { --bg: #120b08; --ink: #f4e7d3; --sub: #b59d85; --pap: #1e130e; --ln: #3b271d; --acc: #e2b45c; --c1: #e9c57a; --c2: #ff9a7a; --glow: transparent; }
 .cv-P .en-hero { background: linear-gradient(180deg, transparent 62%, #120b08 100%), url("img/ending/stage.webp") center top / cover no-repeat, #120b08; padding: 15% 23% 9%; min-height: 0; color: #fff; text-shadow: 0 2px 14px rgba(0, 0, 0, .85); }
 .cv-P .en-hero::after { display: none; }
-.cv-P .en-hero > .en-drape, .cv-P .en-hero > .en-val { display: none; }
 .cv-P .en-kicker { color: #f0cf8c; }
 .cv-P .en-title { background: rgba(0, 0, 0, .45); border-color: #e2b45c; color: #f6dca0; text-shadow: none; }
 .cv-P .en-years { color: #d8c5ad; }
@@ -1214,3 +1202,15 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .cv-P .en-tr { box-shadow: 0 6px 14px rgba(226, 180, 92, .14); }
 .cv-P .en-b i { color: #1b110c; }
 @media (max-width: 760px) { .cv-P .en-hero { padding: 20% 16% 10%; background-size: auto 100%, cover, auto; } }
+
+/* 지난 인생들 (v150): 결산 창과 같은 모양의 작은 카드 */
+.hall-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.hall-c { border-radius: 14px; overflow: hidden; background: #120b08; color: #f4e7d3; box-shadow: var(--shadow); }
+.hall-top { text-align: center; padding: 30px 16% 16px; background: linear-gradient(180deg, transparent 55%, #120b08 100%), url("img/ending/stage.webp") center top / cover no-repeat, #120b08; text-shadow: 0 2px 10px rgba(0, 0, 0, .85); }
+.hall-n { font-size: 21px; font-weight: 800; letter-spacing: .05em; color: #fff; }
+.hall-t { display: inline-block; margin-top: 6px; padding: 2px 12px; border: 1px solid #e2b45c; border-radius: 999px; background: rgba(0, 0, 0, .45); color: #f6dca0; font-size: 12.5px; font-weight: 800; text-shadow: none; }
+.hall-y { margin-top: 6px; font-size: 11.5px; color: #d8c5ad; }
+.hall-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: #3b271d; border-top: 1px solid #3b271d; }
+.hall-nums > div { background: #1e130e; padding: 8px 4px; text-align: center; }
+.hall-nums b { display: block; font-size: 13.5px; color: #e9c57a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hall-nums span { font-size: 10.5px; color: #b59d85; }

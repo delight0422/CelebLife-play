@@ -730,11 +730,7 @@ function dreamLine(s) {
   return d === '없음' ? '장래희망은 없었다' : `장래희망은 ${josa(d, '이가')} 되는 것이었다`;
 }
 // ───── 인생 결산 창 (12-5) ─────
-// 가운데 정렬 배치(예전 시안 C)에 밝은 색과 무대의 막을 입혔다. 색 조합만 다른 시안 세 가지 (A 붉은 막 · B 푸른 막 · C 보랏빛 막). 사용자가 고르면 나머지는 지운다
-// 머리(이름 · 칭호 · 주 직업 테마) → 숫자 → 해마다 그래프 → 대표작 → 트로피 선반 → 걸어온 길(세로 줄) → 인연 → 자녀
-// P 사진 무대(v149): 사용자가 준 무대 사진(img/ending/stage.webp)을 머리에 그대로 쓰고, 아래는 무대 바닥에서 이어지는 어두운 바탕
-const END_STYLES = [['P', '사진 무대'], ['A', '붉은 막'], ['B', '푸른 막'], ['C', '보랏빛 막']];
-function endStyle() { if (!UI.endStyle) { try { UI.endStyle = localStorage.getItem('celebLife.endStyle2') || 'P'; } catch (e) { UI.endStyle = 'P'; } } return UI.endStyle; }
+// 모양은 '사진 무대' 하나로 정했다 (v150, 사용자 결정): 사용자가 만든 무대 그림(img/ending/stage.webp)을 머리에 깔고, 아래는 무대 바닥에서 이어지는 어두운 바탕에 금빛 글씨
 // 그래프 자료: 해마다 기록이 있으면 그것, 없으면(예전 세이브) 작품 수입으로 번 돈만 어림한다
 function endYears(s) {
   // 팬도 번 돈도 없던 어린 시절은 그래프에서 뺀다 (처음 무언가 생기기 바로 전 해부터)
@@ -777,7 +773,7 @@ function showEnding(preview) {
   else if (preview !== 'keep') UI.endPrev = null;
   const ep = s.ended || UI.endPrev;
   if (!ep) return;
-  const p = me(s), st = endStyle(), M = endMain(s), handoff = ep.kind === 'handoff', pv = !!ep.preview;
+  const p = me(s), M = endMain(s), handoff = ep.kind === 'handoff', pv = !!ep.preview;
   // 아이가 태어나자마자 넘어간 경우에는 그 아이로만 이어 할 수 있다
   const heirs = ep.heir ? kids(s).filter(k => k.id === ep.heir) : kids(s);
   const jobs = new Set((s.careerLog || []).map(c => c.id).concat(Object.keys(s.carOn || {}))).size;
@@ -785,9 +781,8 @@ function showEnding(preview) {
   const sub = [M && ep.kind !== 'fail' ? `${M.ic} ${M.n}${CAREERS[M.id].title && CAREERS[M.id].title(s, s.tracks[M.id]) ? ' · ' + CAREERS[M.id].title(s, s.tracks[M.id]) : ''}` : '', dreamLine(s)].filter(Boolean).join(' / ');
   const years = pv ? `${s.birthYear}년생 · 지금 ${age(s)}세 (지금 은퇴한다면)` : `${s.birthYear}년생 · ${handoff ? `${ep.retireAge}세에 아이에게 넘김` : `${ep.retireAge}세 ${ep.kind === 'fail' ? '꿈을 접음' : '은퇴'} · ${ep.deathAge}세에 세상을 떠남`}`;
   const badges = endBadges(s);
-  let h = `<div class="en-pick"><span>시안</span>${END_STYLES.map(([k, n]) => `<button class="${k === st ? 'on' : ''}" data-endstyle="${k}">${k} ${n}</button>`).join('')}</div>`;
-  h += `<div class="en en-cur cv-${st} th-${ep.kind === 'fail' ? 'none' : M ? M.cat : 'none'} k-${ep.kind}">`;
-  h += `<header class="en-hero"><i class="en-val"></i><i class="en-drape l"></i><i class="en-drape r"></i><div class="en-kicker">${handoff ? '이야기를 넘기며' : '인생 결산'}</div><div class="en-name">${U.esc(p.name)}</div><div class="en-title">${U.esc(title)}</div>${sub ? `<div class="en-sub">${U.esc(sub)}</div>` : ''}<div class="en-years">${years}</div>`
+  let h = `<div class="en en-cur cv-P th-${ep.kind === 'fail' ? 'none' : M ? M.cat : 'none'} k-${ep.kind}">`;
+  h += `<header class="en-hero"><div class="en-kicker">${handoff ? '이야기를 넘기며' : '인생 결산'}</div><div class="en-name">${U.esc(p.name)}</div><div class="en-title">${U.esc(title)}</div>${sub ? `<div class="en-sub">${U.esc(sub)}</div>` : ''}<div class="en-years">${years}</div>`
     + (badges.length ? `<div class="en-badges">${badges.map(([ic, n]) => `<span>${ic} ${n}</span>`).join('')}</div>` : '') + (last ? `<div class="en-last">${U.esc(last)}</div>` : '') + `</header>`;
   h += `<div class="en-body"><div class="en-col1">`;
   const tiles = [['👥', '가장 많을 때 팬', fmtFans(s.peak.fans)], ['💰', '업계에서 번 돈', endWon(s.earned)], ['🏆', '받은 상', `${s.awards.length}개`], ['🎬', '작품', `${s.works.length}개`], ['💼', '해 본 일', `${jobs}가지`], ['👶', '자녀', `${kids(s).length}명`]];
@@ -1675,7 +1670,7 @@ function panelMenu() {
     <button class="btn" data-panel="pastecode">세이브 코드 붙여넣기</button>
     <button class="btn" id="m-export">세이브 파일로 내보내기 (PC에서만)</button>
     <button class="btn" id="m-import">세이브 파일 불러오기</button>
-    <button class="btn" data-endprev>인생 결산 창 미리 보기 (시안 고르기)</button>
+    <button class="btn" data-endprev>인생 결산 창 미리 보기</button>
     <button class="btn" data-logsize="1">인생 기록 글자 크게</button>
     <button class="btn" data-logsize="-1">인생 기록 글자 작게</button>
     <div class="lv-set"><span>실시간 창</span>${LIVE_MODES.map(([k, n]) => `<button class="btn sm${liveMode() === k ? ' primary' : ''}" data-livemode="${k}">${n}</button>`).join('')}</div>
@@ -1688,7 +1683,9 @@ function panelHall() {
   const h = getHall();
   let x = `<h2>지난 인생들</h2>`;
   if (!h.length) return x + `<div class="muted">아직 끝난 인생이 없다.</div>`;
-  for (const e of h) x += `<div class="npc"><div class="npc-h"><b>${U.esc(e.name)} <span class="muted" style="font-weight:500">${e.by}년생 · ${e.kind === 'handoff' ? `${e.retireAge}세에 아이에게 넘김` : `${e.retireAge}세 은퇴 · ${e.deathAge}세 사망`}</span></b><span class="rel">${U.esc(e.title)}</span></div><div class="npc-d">${(e.lines || []).slice(0, 3).map(U.esc).join(' ')}</div></div>`;
+  // 결산 창과 같은 모양의 작은 카드 (v150): 무대 그림 위에 이름 · 칭호, 아래에 숫자 셋
+  x += `<div class="hall-list">` + h.map(e => `<div class="hall-c"><div class="hall-top"><div class="hall-n">${U.esc(e.name)}</div>${e.title ? `<div class="hall-t">${U.esc(e.title)}</div>` : ''}<div class="hall-y">${e.by}년생 · ${e.kind === 'handoff' ? `${e.retireAge}세에 아이에게 넘김` : `${e.retireAge}세 ${e.kind === 'fail' ? '꿈을 접음' : '은퇴'} · ${e.deathAge}세에 떠남`}${e.gen > 1 ? ` · ${e.gen}대째` : ''}</div></div>`
+    + `<div class="hall-nums"><div><b>${fmtFans(e.peakFans || 0)}</b><span>가장 많을 때 팬</span></div><div><b>${endWon(e.earned || 0)}</b><span>번 돈</span></div><div><b>${e.awards || 0}개</b><span>받은 상</span></div></div></div>`).join('') + `</div>`;
   return x;
 }
 function panelHelp() {
@@ -1788,8 +1785,7 @@ document.addEventListener('click', e => {
   if (t.id === 'btn-newlife2' || t.id === 'end-new') { clearSave(); closeAll(); showBirth(); return; }
   if (t.id === 'end-title') { closeAll(); showTitle(); return; }
   if (t.dataset.endclose != null) { $('#modal').classList.add('hidden'); UI.endPrev = null; return; }
-  // 결산 창 시안 바꾸기 (고르시면 이 줄은 없앤다) · 메뉴의 미리 보기
-  if (t.dataset.endstyle) { UI.endStyle = t.dataset.endstyle; try { localStorage.setItem('celebLife.endStyle2', UI.endStyle); } catch (e) { } showEnding('keep'); return; }
+  // 메뉴의 결산 창 미리 보기
   if (t.dataset.endprev != null) { closePanel(); showEnding(true); return; }
   if (t.dataset.confirm != null) { $('#confirm').classList.add('hidden'); const f = UI.onConfirm; UI.onConfirm = null; if (t.dataset.confirm === '1' && f) f(); return; }
   // 특기 그만두기 (v101 · v102 이름 바뀜): 지금 하는 직업의 대표 특기는 못 그만둔다. 다시 배우면 1레벨부터
