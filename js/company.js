@@ -683,13 +683,15 @@ E({
   ch: (s, d) => { const g = coGroup(s, d.gid), P = coP(s, g.members); const see = c => { const F = CONCEPT_FIT[c], R = cFit(s, c, P, 0); const what = F === 'young' ? '어린 나이' : F === 'rap' ? '랩 실력' : F.map(k => TALENT_BY[k].n).join(' · '); const fit = F === 'rap' ? (R.rap >= 30 ? '잘 어울린다' : R.rap >= 15 ? '무난하다' : '안 어울린다') : R.b >= 1 ? '잘 어울린다' : R.b <= -1 ? '안 어울린다' : '무난하다'; return fit; }; return TRENDS.filter(c => cAgeOK(s, P, c, 1)).map(c => ({ t: c, tr: c === s.trend, h: see(c), f: s => { g.sig = c; coMeeting(s, g, false); return `「${g.name}」의 대표 컨셉을 '${c}'${josa(c, '으로').slice(c.length)} 정했다.`; } })); },
 });
 
-// ───── 컴백 회의 ─────
-// 곡은 '내가 쓴 곡'(작곡 특기가 있을 때) 또는 '외부에서 구한 곡'(업계 작곡가들이 보낸 8~12곡 중 직접 고른다)
-// 곡마다 작곡가 작곡 레벨(범위)·완성도(5단계)·컨셉·그 컨셉 숙련도(5단계)·곡값이 보인다. A&R 팀장은 눈만 빌려준다
+// ───── 컴백 회의 (v153: 앨범 제작 틀 album.js) ─────
+// 대표가 하는 일은 창 두 번이다
+// ① 기획 · 데모곡 확보 (co_plan): 컨셉과 곡을 모을 곳을 여러 개 체크한다. 고른 만큼 돈이 든다
+// ② 한 달 뒤 선정 (co_pick): A&R 팀장이 추린 다섯 곡에서 실을 세 곡과 타이틀곡을 정한다
+// 그 뒤 편곡 · 작사 한 달, 녹음 한 달을 거쳐 앨범이 나온다. A&R 팀장이 없으면 모인 곡을 내가 전부 듣고 고른다
 // fromTick: 매달 계산 중(tick)이면 사건을 줄에 세운다 (선택 중에는 바로 띄운다)
 function coMeeting(s, g, fromTick) {
   g.cbQ = true; g.nextCb = 99;
-  const id = has(me(s), 'compose') ? 'co_cb' : 'co_song', d = { gid: g.id, debut: !g.debuted };
+  const id = g.alb && g.alb.five && g.alb.five.length ? 'co_pick' : 'co_plan', d = { gid: g.id, debut: !g.debuted };
   if (fromTick || s.pending) { queueEv(s, id, 0, d, true); qFront(s, [id]); } else fireEvent(s, id, d);
 }
 function coProdCost(t, g) { return Math.round(CO_PROD[coTier(t, 'music')] * (0.4 + 0.6 * Math.min(1, coGFans(g) / 3e5)) * (g.kind === 'band' ? 0.5 : 1) / 1e5) * 1e5; }
@@ -701,21 +703,47 @@ function coMeetText(s, g, debut) {
 function coLastHTML(s, g) {
   const L = g.disc.slice(-5).reverse();
   if (!L.length || typeof popBtnHTML !== 'function') return '';
-  return `<div class="co-last"><span class="hint">최근 ${L.length}곡</span>${L.map(a => popBtnHTML(`🎧 「${a.title}」 · ${a.c}`, a.card ? songCardHTML(Object.assign({}, a.card, { c: a.c, y: a.y })) : `<div class="scard"><div class="sc-top"><span class="sc-t">「${U.esc(a.title)}」</span><span class="sc-by">'${U.esc(a.c)}' 컨셉 · ${a.y}년</span></div><div class="sc-peak${a.peak ? '' : ' out'}">${U.esc(chartText(a.peak))}</div></div>`)).join('')}</div>`;
+  return `<div class="co-last"><span class="hint">최근 ${L.length}곡</span>${L.map(a => popBtnHTML(`🎧 「${a.title}」 · ${a.c}`, a.card ? songCardHTML(Object.assign({}, a.card, { c: a.c, y: a.y })) + (a.mk ? albStepsHTML(a.mk) : '') : `<div class="scard"><div class="sc-top"><span class="sc-t">「${U.esc(a.title)}」</span><span class="sc-by">'${U.esc(a.c)}' 컨셉 · ${a.y}년</span></div><div class="sc-peak${a.peak ? '' : ' out'}">${U.esc(chartText(a.peak))}</div></div>`)).join('')}</div>`;
 }
 function coMeetHTML(s, d, id) { const g = coGroup(s, d.gid); return `<div class="m-text">${rich(EVENTS[id].text(s, d))}</div>` + (g ? coLastHTML(s, g) : ''); }
+function coAlbX(s, g) { const t = coT(s), prod = coProdCost(t, g); return { tier: coTier(t, 'music'), rep: t.f.music.rep, sig: g.sig, mem: coP(s, g.members), prod, budget: Math.max(1000e4, (t.money - prod) * 0.5) }; }
+function coAnrLead(s) { return coStaff(s, 'anr').sort((a, b) => scoutLv(b, 'compose') - scoutLv(a, 'compose'))[0] || null; }
+// 그 컨셉이 그룹에 어울리는 정도 (대표 컨셉을 정하는 창과 같은 말)
+function coFitWord(s, g, c) {
+  const P = coP(s, g.members);
+  if (!cAgeOK(s, P, c, 1)) return '나이에 안 맞는다';
+  const F = CONCEPT_FIT[c], R = cFit(s, c, P, 0);
+  return F === 'rap' ? (R.rap >= 30 ? '잘 어울린다' : R.rap >= 15 ? '무난하다' : '안 어울린다') : R.b >= 1 ? '잘 어울린다' : R.b <= -1 ? '안 어울린다' : '무난하다';
+}
+// ① 기획 · 데모곡 확보 (v153)
 E({
-  id: 'co_cb', cat: '컴백 회의', tag: 'career',
-  title: (s, d) => { const g = coGroup(s, d.gid); return `「${g ? g.name : ''}」 ${d.debut ? '데뷔 회의' : '컴백 회의'}`; },
+  id: 'co_plan', cat: '컴백 회의', tag: 'career',
+  title: (s, d) => { const g = coGroup(s, d.gid); return `「${g ? g.name : ''}」 ${d.debut ? '데뷔 앨범' : '다음 앨범'} 기획`; },
   cond: s => coOn(s),
   init(s, d) { if (!coGroup(s, d.gid)) d.skip = true; },
-  html: (s, d) => coMeetHTML(s, d, 'co_cb'),
-  text: (s, d) => coMeetText(s, coGroup(s, d.gid), d.debut) + '\n\n타이틀곡은 어떻게 할까?',
-  ch: (s, d) => { const g = coGroup(s, d.gid), t = coT(s), prod = coProdCost(t, g); return [
-    { t: '내가 쓴 곡으로 간다', h: `작곡 ${lvi(me(s), 'compose')}레벨 · 컨셉과 제목을 정한다${t.money >= prod ? '' : ` · 회사 돈 ${fmtWon(prod - t.money)} 모자람`}`, f: s => pickConcept(s, { cb: 'coT', what: `「${g.name}」 ${d.debut ? '데뷔곡' : '타이틀곡'}의`, sig: g.sig, sigN: `「${g.name}」`, gid: g.id }) },
-    { t: '외부에서 곡을 구한다', h: '업계 작곡가들이 보낸 곡 중에서 고른다', f: s => { fireEvent(s, 'co_song', { gid: g.id, debut: d.debut }); return ''; } },
-    { t: d.debut ? '데뷔를 미룬다' : '컴백을 미룬다', f: s => coLater(s, g) },
-  ]; },
+  html: (s, d) => coMeetHTML(s, d, 'co_plan'),
+  text: (s, d) => { const g = coGroup(s, d.gid), j = coAnrLead(s); return coMeetText(s, g, d.debut) + `\n\n컨셉과 곡을 모을 곳을 정하자. 여러 개를 같이 고를 수 있고, 고른 만큼 돈이 든다. 모인 곡은 ${j ? `A&R 팀장 ${josa(j.name, '이가')} 다섯 곡으로 추려 오고,` : '내가 전부 들어 보고,'} 한 달 뒤에 실을 곡을 정한다.`; },
+  form: (s, d) => { const g = coGroup(s, d.gid); return albPlanForm(s, coAlbX(s, g), c => coFitWord(s, g, c)); },
+  sum: (s, d, v) => { const g = coGroup(s, d.gid), x = coAlbX(s, g), r = albPlanRead(s, x, v), n = ALB_SRC.filter(z => r.src.includes(z.k)).reduce((a, z) => a + albSrcCnt(x, z, r.cs.length), 0); return `컨셉 ${r.cs.length}개 · 데모곡 ${n}곡쯤 · 드는 돈 ${fmtWon(albPlanCost(x, r.cs, r.src))} · 회사 돈 ${fmtWon(coT(s).money)}`; },
+  cancel: (s, d) => { const g = coGroup(s, d.gid); return g ? coLater(s, g) : ''; },
+  cancelT: (s, d) => d.debut ? '데뷔를 미룬다' : '컴백을 미룬다',
+  // 자동 플레이: 대표 컨셉 하나에 외부 공모만 (작곡을 잘하면 내 곡도)
+  sim: (s, d) => { const g = coGroup(s, d.gid), v = { s_open: true }; v['c_' + g.sig] = true; if (lv(me(s), 'compose') >= 50) v.s_me = true; return v; },
+  submit(s, d, v) {
+    const g = coGroup(s, d.gid), t = coT(s), x = coAlbX(s, g), r = albPlanRead(s, x, v);
+    if (!r.cs.length) return { err: '컨셉을 하나 이상 골라 주세요' };
+    if (!r.src.length) return { err: '곡을 모을 곳을 하나 이상 골라 주세요' };
+    const cost = albPlanCost(x, r.cs, r.src);
+    if (cost > 0 && t.money < cost) return { err: `회사 돈이 ${fmtWon(cost - t.money)} 모자라요` };
+    coOut(t, cost, '기획 · 데모곡'); g.debt += cost;
+    x.cs = r.cs; x.src = r.src;
+    const demos = albDemos(s, x), j = coAnrLead(s), sc = albScreen(s, x, demos, j);
+    g.alb = { cs: r.cs, src: r.src, n: demos.length, five: sc.five, by: j ? j.id : null };
+    if (sc.lost) g.alb.lost = { title: sc.lost.title, cid: sc.lost.cid || null, q: sc.lost.q };
+    g.cbQ = true; g.nextCb = 99;
+    queueEv(s, 'co_pick', 1, { gid: g.id, debut: d.debut }, true);
+    return { log: `「${g.name}」 ${d.debut ? '데뷔 앨범' : '다음 앨범'} 기획을 마쳤다. ${r.cs.map(c => `'${c}'`).join(' · ')} 컨셉으로 데모곡 ${demos.length}곡이 모였다. ${j ? `A&R 팀장 ${josa(j.name, '이가')} 심사한다.` : '내가 직접 들어 본다.'}${cost ? ` (${fmtWon(cost)})` : ''}` };
+  },
 });
 SONG_CB.coT = (s, d, c) => askTitle(s, 'coSelf', { title: songTitle(), what: `'${c}' 컨셉 「${(coGroup(s, d.gid) || {}).name}」 타이틀곡의`, c, gid: d.gid });
 TITLE_CB.coSelf = (s, d) => {
@@ -729,51 +757,72 @@ function coCm(x) {
   if (!x.cm) { x.cm = {}; const top = U.shuffle(TRENDS).slice(0, U.int(1, 2)); for (const c of TRENDS) x.cm[c] = top.includes(c) ? U.int(45, 90) : U.int(0, 40); }
   return x.cm;
 }
-// 곡 목록: 회사가 클수록 이름난 작곡가가 많이 보낸다. 몇 곡은 신인 작곡가의 싼 곡
-function coSongs(s, g) {
-  const t = coT(s), tier = coTier(t, 'music'), used = [], out = [];
-  const n = U.int(8, 12);
-  for (let i = 0; i < n; i++) {
-    let c;
-    if (U.chance(0.25 + tier * 0.17)) c = pickIndustry(s, '작곡가', x => !used.includes(x.id), 0.6);
-    else { c = industry(s, '작곡가', x => !used.includes(x.id) && lv(x, 'compose') < 45)[0]; if (!c || U.chance(0.5)) { c = makeIndustry(s, '작곡가'); const l = U.int(18, 44); c.sk.compose.lv = c.sk.compose.best = l; c.sk.compose.pot = Math.max(c.sk.compose.pot, l + U.int(5, 25)); c.fame = Math.round(c.fame * 0.2); } }
-    used.push(c.id);
-    const cm = coCm(c), best = TRENDS.slice().sort((a, b) => cm[b] - cm[a])[0];
-    const cn = U.chance(0.4) ? best : U.chance(0.45) ? s.trend : U.pick(TRENDS);
-    const m = cm[cn], L = lv(c, 'compose');
-    // 완성도: 회사가 받아 오는 곡(아이돌 직업의 boughtQ 24~45)과 비슷한 눈높이. 이름난 작곡가가 잘하는 컨셉으로 쓴 곡이 60~70쯤
-    // v131: 이름난 작곡가도 작은 회사 · 평판 낮은 회사에는 아껴 둔 곡을 주지 않는다 (소형 54쯤, 중형 68쯤, 대형 82쯤부터는 잘 안 오른다)
-    // 예전에는 갓 차린 회사도 완성도 60~70짜리 곡을 쉽게 구해서, 실력이 모자란 신인 그룹의 데뷔곡이 차트 1위를 하곤 했다
-    const q0 = U.clamp(L * 0.6 + (m - 30) / 6 + U.normal(0, 7) + 4, 5, 90), qc = 40 + tier * 10 + t.f.music.rep / 8;
-    const q = Math.round(q0 > qc ? qc + (q0 - qc) * 0.3 : q0);
-    const price = Math.round((100 + L * L * 1.2 + m * 2) * (1 + Math.log10(1 + (c.fame || 0)) / 12) / 10) * 10 * 1e4;
-    out.push({ cid: c.id, q, c: cn, m, price, title: songTitle() });
-  }
-  return out;
-}
+// ② 선정 (v153): A&R 팀장이 추린 다섯 곡(팀장이 없으면 모인 곡 전부)에서 실을 세 곡을 체크하고 타이틀곡을 하나 찍는다
+// 곡마다 작곡가 작곡 레벨(범위) · 완성도(5단계) · 컨셉 · 그 컨셉 숙련도(5단계) · 곡값이 보인다. 보는 눈은 나와 A&R 팀장 중 좋은 쪽
+// 곡을 정할 때 드는 돈: 타이틀곡 값 (+ 편곡 · 작사를 밖에 맡기면 그 값). 앨범 제작비는 발매 때 나간다
+function coPickCost(s, g, picks, ti, pol) { const x = coAlbX(s, g); return albSongCost(picks, ti) + (pol ? albPolCost(x) : 0); }
+function coPickRead(g, v) { const a = g.alb, idx = a.five.map((x, i) => i).filter(i => albOn(v, 'p' + i)), ti = v.ti ? +String(v.ti).slice(1) : -1; return { idx, ti: idx.includes(ti) ? ti : -1, pol: albOn(v, 'pol') }; }
 E({
-  id: 'co_song', cat: '컴백 회의', tag: 'career',
-  title: (s, d) => { const g = coGroup(s, d.gid); return `「${g ? g.name : ''}」 타이틀곡 고르기`; },
+  id: 'co_pick', cat: '컴백 회의', tag: 'career',
+  title: (s, d) => { const g = coGroup(s, d.gid); return `「${g ? g.name : ''}」 실을 곡 · 타이틀곡`; },
   cond: s => coOn(s),
-  init(s, d) { const g = coGroup(s, d.gid); if (!g) { d.skip = true; return; } d.songs = coSongs(s, g); },
-  html: (s, d) => coMeetHTML(s, d, 'co_song'),
-  tbl: (s, d) => {
-    const g = coGroup(s, d.gid), t = coT(s), v = coViewer(s, 'anr', 'compose'), prod = coProdCost(t, g);
-    const rows = d.songs.map((x, i) => { const c = s.people[x.cid], tag = cTag(s, x.c, g.sig), ok = t.money >= prod + x.price; return { ci: i, tr: x.c === s.trend, sig: x.c === g.sig, ok, cells: {
-      t: [x.title, `「${x.title}」`], by: [c ? c.name : '', c ? c.name : '작곡가'], c: [x.c, `${x.c}${tag ? ` (${tag})` : ''}`], lv: c ? coCellLv(v, c, 'compose') : [-1, '?'],
-      q: coCellG(grade5(v, x.q, 'q', 'compose'), 'q'), m: coCellG(grade5(v, x.m, 'pot', 'compose')), p: [x.price, fmtWon(x.price) + (ok ? '' : ' (돈 모자람)')] } }; });
-    return { cols: [['t', '제목'], ['by', '작곡가'], ['c', '컨셉'], ['lv', '작곡 레벨'], ['q', '완성도'], ['m', '컨셉 숙련도'], ['p', '곡값']], rows, rest: [d.songs.length], go: '이 곡으로 간다', sort: ['q', -1] };
+  init(s, d) { const g = coGroup(s, d.gid); if (!g || !g.alb || !g.alb.five || !g.alb.five.length) d.skip = true; },
+  html: (s, d) => coMeetHTML(s, d, 'co_pick'),
+  text: (s, d) => {
+    const g = coGroup(s, d.gid), a = g.alb, j = a.by && s.people[a.by], need = Math.min(ALB_PICK, a.five.length);
+    return `「${g.name}」 ${d.debut ? '데뷔 앨범' : '다음 앨범'}에 실을 곡을 정할 차례다.\n\n${j && a.n > a.five.length ? `모인 데모곡 ${a.n}곡 가운데 A&R 팀장 ${josa(j.name, '이가')} ${a.five.length}곡을 추려 왔다.` : `모인 데모곡 ${a.n}곡을 직접 들어 봤다.`} 실을 ${need}곡을 체크하고, 그중 타이틀곡을 하나 찍자.\n\n지금은 타이틀곡 값만 낸다 · 앨범 제작비 ${fmtWon(coProdCost(coT(s), g))}은 발매 때 나간다 · 회사 돈 ${fmtWon(coT(s).money)}`;
   },
-  text: (s, d) => { const g = coGroup(s, d.gid), v = coViewer(s, 'anr', 'compose'); return (has(me(s), 'compose') ? '' : coMeetText(s, g, d.debut) + '\n\n') + `작곡가들이 보낸 곡이 ${d.songs.length}곡 들어왔다.${v.id !== s.me ? ` A&R 팀장 ${v.name}의 눈으로 본다.` : ''}`; },
-  ch: (s, d) => {
-    const g = coGroup(s, d.gid), t = coT(s), v = coViewer(s, 'anr', 'compose'), prod = coProdCost(t, g);
-    return d.songs.map(x => { const c = s.people[x.cid]; const tag = cTag(s, x.c, g.sig); const ok = t.money >= prod + x.price; return {
-      t: `「${x.title}」 — ${c ? c.name : '작곡가'}`, tr: x.c === s.trend,
-      h: `'${x.c}' 컨셉${tag ? ` (${tag})` : ''} · 작곡 ${c ? coLvSee(v, c, 'compose') : '?'}레벨 · 완성도 ${grade5(v, x.q, 'q', 'compose')} · 숙련도 ${grade5(v, x.m, 'pot', 'compose')} · ${fmtWon(x.price)}${ok ? '' : ` · 회사 돈 ${fmtWon(prod + x.price - t.money)} 모자람`}`,
-      f: s => coStartAlbum(s, g, { mine: false, c: x.c, title: x.title, q: x.q, price: x.price, cid: x.cid }),
-    }; }).concat([{ t: d.debut ? '데뷔를 미룬다' : '컴백을 미룬다', f: s => coLater(s, g) }]);
+  form: (s, d) => { const g = coGroup(s, d.gid); return g.alb.five.map((x, i) => ({ k: 'p' + i, type: 'check', label: x.title })).concat([{ k: 'pol', type: 'opt', after: true, label: '편곡 · 작사를 이름난 사람에게 맡긴다', sub: `${fmtWon(albPolCost(coAlbX(s, g)))} · 곡이 더 다듬어진다` }]); },
+  tbl: (s, d) => {
+    const g = coGroup(s, d.gid), v = coViewer(s, 'anr', 'compose');
+    const rows = g.alb.five.map((x, i) => { const c = x.mine ? me(s) : x.cid && s.people[x.cid], tag = cTag(s, x.c, g.sig); return { k: 'p' + i, tr: x.c === s.trend, sig: x.c === g.sig, cells: {
+      t: [x.title, `「${x.title}」`], by: [albBy(s, x), albBy(s, x)], c: [x.c, `${x.c}${tag ? ` (${tag})` : ''}`], lv: c ? coCellLv(v, c, 'compose', !!x.mine || x.src === 'mem') : [-1, '?'],
+      q: coCellG(grade5(v, x.q, 'q', 'compose'), 'q'), m: x.m == null ? [-1, '-'] : coCellG(grade5(v, x.m, 'pot', 'compose')), p: [x.price, x.price ? fmtWon(x.price) : '-'] } }; });
+    return { cols: [['t', '제목'], ['by', '작곡가'], ['c', '컨셉'], ['lv', '작곡 레벨'], ['q', '완성도'], ['m', '컨셉 숙련도'], ['p', '곡값']], rows, radio: { k: 'ti', n: '타이틀' }, sort: ['q', -1] };
+  },
+  sum: (s, d, v) => { const g = coGroup(s, d.gid), r = coPickRead(g, v), P = r.idx.map(i => g.alb.five[i]); return `체크 ${r.idx.length}곡${r.ti >= 0 ? ` · 타이틀 「${g.alb.five[r.ti].title}」` : ''} · 지금 드는 돈 ${fmtWon(coPickCost(s, g, P, r.ti >= 0 ? g.alb.five[r.ti] : null, r.pol))} · 회사 돈 ${fmtWon(coT(s).money)}`; },
+  // 두 번 미루면 추려 둔 곡들은 다른 회사로 넘어가고, 다음에는 기획부터 다시 한다
+  cancel: (s, d) => { const g = coGroup(s, d.gid); if (!g) return ''; const a = g.alb; if (a) { a.wait = (a.wait || 0) + 1; if (a.wait >= 2) g.alb = null; } return coLater(s, g) + (a && !g.alb ? ' 추려 둔 곡들은 다른 회사로 넘어갔다.' : ''); },
+  cancelT: (s, d) => d.debut ? '데뷔를 미룬다' : '컴백을 미룬다',
+  // 자동 플레이: 싼 곡 세 곡, 그중 하나를 타이틀로
+  sim: (s, d) => { const g = coGroup(s, d.gid), F = g.alb.five, v = {}, I = U.shuffle(F.map((x, i) => i).sort((a, b) => F[a].price - F[b].price).slice(0, ALB_PICK)); I.forEach(i => v['p' + i] = true); v.ti = 'p' + I[0]; return v; },
+  submit(s, d, v) {
+    const g = coGroup(s, d.gid), t = coT(s), a = g.alb, need = Math.min(ALB_PICK, a.five.length), r = coPickRead(g, v);
+    if (r.idx.length !== need) return { err: `실을 곡을 ${need}곡 체크해 주세요 (지금 ${r.idx.length}곡)` };
+    if (r.ti < 0) return { err: '체크한 곡 가운데 타이틀곡을 하나 찍어 주세요' };
+    const cost = coPickCost(s, g, r.idx.map(i => a.five[i]), a.five[r.ti], r.pol);
+    if (t.money < cost) return { err: `회사 돈이 ${fmtWon(cost - t.money)} 모자라요` };
+    a.sel = { p: r.idx, ti: r.ti, pol: r.pol };
+    // 내가 쓴 곡이 타이틀이면 제목을 직접 짓는다
+    if (a.five[r.ti].mine) { askTitle(s, 'coAlb', { title: a.five[r.ti].title, what: `「${g.name}」 타이틀곡의`, gid: g.id }); return { log: '' }; }
+    return { log: coAlbGo(s, g) };
   },
 });
+TITLE_CB.coAlb = (s, d) => { const g = coGroup(s, d.gid); if (!g || !coOn(s) || !g.alb || !g.alb.sel) return ''; g.alb.five[g.alb.sel.ti].title = d.title; return coAlbGo(s, g); };
+// 선정이 끝나면: 돈을 치르고, 편곡 · 작사 한 달 + 녹음 한 달 뒤에 성적이 나온다
+function coAlbGo(s, g) {
+  const t = coT(s), a = g.alb, x = coAlbX(s, g), picks = a.sel.p.map(i => a.five[i]), ti = a.five[a.sel.ti];
+  const songs = albSongCost(picks, ti), polC = a.sel.pol ? albPolCost(x) : 0;
+  coOut(t, songs, '곡값'); coOut(t, polC, '편곡 · 작사');
+  g.debt += songs + polC;
+  for (const d of picks) { const c = d.cid && s.people[d.cid]; if (c && c.ind) { meetAt(s, c, `「${g.name}」 「${d.title}」`, 'agency'); bond(s, c, d === ti ? 3 : 1); const cm = coCm(c); cm[d.c] = Math.min(100, cm[d.c] + (100 - cm[d.c]) * (d === ti ? 0.06 : 0.02)); } }
+  const pol = albPolish(s, x, a.sel.pol), side = picks.filter(d => d !== ti);
+  for (const id of [pol.aid, pol.lid]) { const c = id && s.people[id]; if (c) { meetAt(s, c, `「${g.name}」 「${ti.title}」`, 'agency'); bond(s, c, 2); } }
+  const o = { gid: g.id, mine: !!ti.mine, c: ti.c, title: ti.title, q: ti.q + pol.dq, price: songs, cid: ti.cid || null, side: side.length ? side.reduce((n, d) => n + d.q, 0) / side.length : null, due: x.prod, sub: side.filter(d => d.mine).map(d => d.title), mk: albMk(s, a, picks, ti, pol, '대표') };
+  if (a.lost && U.chance(0.6)) { const j = a.by && s.people[a.by]; queueEv(s, 'co_lost', U.int(4, 8), { title: a.lost.title, by: albBy(s, a.lost), q: a.lost.q, who: j ? j.name : '' }, true); }
+  g.alb = null; g.cbQ = false; g.nextCb = 99; g.rel = s.t + 2;
+  queueEv(s, 'co_res', 2, o, true);
+  return `「${g.name}」 ${g.debuted ? '컴백' : '데뷔'} 앨범에 실을 곡을 정했다. 타이틀곡은 ${ti.mine ? '내가 쓴' : `${albBy(s, ti)}의`} 「${ti.title}」 ('${ti.c}' 컨셉). 편곡과 녹음을 거쳐 두 달 뒤에 나온다.${songs + polC ? ` (${fmtWon(songs + polC)})` : ''}`;
+}
+// 놓친 곡 (v153): A&R 팀장이 심사에서 떨어뜨린 곡이 올린 곡들보다 눈에 띄게 좋았을 때, 몇 달 뒤 다른 회사에서 나와 잘된다
+E({
+  id: 'co_lost', cat: '업계 소식', title: '놓친 곡', tag: 'career',
+  cond: s => coOn(s),
+  init(s, d) { d.peak = U.clamp(Math.round(34 - (d.q - 55) * 1.6 + U.normal(0, 5)), 1, 50); },
+  text: (s, d) => `지난번 심사에서 ${d.who ? `A&R 팀장 ${josa(d.who, '이가')}` : '우리가'} 떨어뜨린 ${josa(`「${d.title}」`, '이가')} 다른 회사 가수의 곡으로 나와 차트 ${d.peak}위에 올랐다. (작곡 ${d.by})`,
+  ch: (s, d) => [{ t: '확인', f: () => `심사에서 떨어뜨린 ${josa(`「${d.title}」`, '이가')} 다른 회사에서 나와 차트 ${d.peak}위에 올랐다.` }],
+});
+// 예전 세이브에서 제목을 짓던 중이면 예전 방식으로 바로 낸다 (v152까지: 고르자마자 한 달 뒤 발매)
 function coStartAlbum(s, g, o) {
   const t = coT(s), prod = coProdCost(t, g);
   coOut(t, prod, '앨범 제작비'); if (o.price) coOut(t, o.price, '곡값');
@@ -809,6 +858,8 @@ function coSettle(s, t, g, rev) {
 }
 function coAlbum(s, g, o) {
   const t = coT(s), F = t.f.music, tier = F.tier, band = g.kind === 'band', p = me(s), debut = !g.debuted;
+  // 앨범 제작비는 발매 때 나간다 (v153). 멤버 몫에서 회수할 비용에 더한다
+  if (o.due) { coOut(t, o.due, '앨범 제작비'); g.debt += o.due; }
   if (debut) { g.debuted = true; g.debutT = s.t; g.debutY = calY(s); g.f.kr += band ? tier * 1000 + U.int(100, 800) : tier * 3000 + U.int(300, 2000); }
   const yrs = (s.t - g.debutT) / 12;
   const tired = Math.min(IDOL_CURVE.max, Math.max(0, yrs - 3) * IDOL_CURVE.rate), rookie = yrs < 1 ? IDOL_CURVE.rookie : 0;
@@ -824,13 +875,15 @@ function coAlbum(s, g, o) {
   MK.forEach(m => { g.f[m] = U.clamp(g.f[m] + gain[m], 0, FANCAP[m]); });
   // 음악방송 1위는 팬 투표가 받쳐 줘야 한다 (v131): 팬이 적은 그룹은 곡이 떠도 1위 횟수가 적다 (music.js showWins)
   const wins = band ? 0 : showWins(sc, coGFans(g));
-  const albums = Math.round((g.f.kr * U.fl(0.25, 0.45) + g.f.jp * 0.25 + g.f.us * 0.1) * (band ? 0.5 : IDOL_ALBUM_MULT));
+  // 수록곡 (v153): 실린 나머지 곡들이 좋으면 앨범이 조금 더 팔린다
+  const albums = Math.round((g.f.kr * U.fl(0.25, 0.45) + g.f.jp * 0.25 + g.f.us * 0.1) * (band ? 0.5 : IDOL_ALBUM_MULT) * (o.side != null ? U.clamp(1 + (o.side - 40) / 250, 0.9, 1.15) : 1));
   // 매출: 앨범 + 음원(차트 밖이어도 점수만큼 조금은 들어온다) + 차트 순위
   const rev = albums * 14000 + Math.pow(Math.max(0, sc - 45), 2) * 10e4 + (peak ? (101 - peak) * 300e4 : 0);
   coIn(t, rev, '앨범·음원');
   const debt0 = g.debt, pay = coSettle(s, t, g, rev), rec = debt0 - g.debt;
   const card = coAlbumCard(s, t, g, o, { sc, peak, wins, gs: gain.kr + gain.jp + gain.us, rev, pay, rec, cfB: cScoreB(cf), tired });
   if (o.mine) { addCatalog(s, o.title, '작곡', sc, 0.7, 'agency'); cmGain(s, o.c, 4); useSkill(s, p, 'compose', 2); addWork(s, { type: '작곡', title: o.title, by: g.name, sc, note: chartText(peak) }); }
+  for (const tt of o.sub || []) addCatalog(s, tt, '작곡', sc, 0.25, 'agency');
   // 무대 창 (12-1 틀): 우리 회사 아이돌 그룹의 데뷔 무대 · 1위 후보에 든 음악방송. 나는 무대에 없다 (mi: -1)
   if (!band && typeof liveStage === 'function') card.live = liveStage({ k: 'idol', place: debut ? '데뷔 무대' : '음악방송', t: o.title, g: g.name, fd: g.fandom, mem: P.map(x => [callName(x.name), (g.pos[x.id] || '').split(' · ')[0]]), mi: -1,
     z: { perf: (coPower(s, g) - 45) / 18, q: (o.q - 45) / 15, fans: (Math.log10(1 + coGFans(g)) - 4) / 1.2, trend: o.c === s.trend ? 0.7 : -0.5, tw: ((g.tw0 || 0) - 15) / 15, cf: cScoreB(cf) / 4, star: (g.star - 50) / 25, me: -1 }, sc, wins, cand: sc >= 66, debut, key: debut || wins > 0 || sc >= 66, rv: sc >= 66 && !wins && typeof npcStageRival === 'function' ? npcStageRival(s, g.name) : '' });
@@ -838,11 +891,12 @@ function coAlbum(s, g, o) {
   // 그룹이 많을수록 앨범 하나가 회사 평판에 주는 영향은 작다
   F.rep = U.clamp(F.rep + repD / Math.sqrt(Math.max(1, t.groups.filter(x => x.debuted).length)), 0, 100);
   // 활동 2달 → 쉬는 2~3달 → 컴백 회의 · 준비 한 달: 5~6달마다 컴백 (턴제 실험 6차)
-  g.cbCount++; g.promo = 2; g.nextCb = U.int(2, 3); g.cbQ = false;
+  // v153: 기획(활동 둘째 달) → 선정 한 달 → 편곡 한 달 → 녹음 한 달. 컴백 간격은 그대로 5~6달
+  g.cbCount++; g.promo = 2; g.nextCb = U.int(1, 2); g.cbQ = false; g.rel = 0;
   g.flops = sc < 50 ? g.flops + 1 : Math.max(0, g.flops - 1);
   g.yearBest = Math.max(g.yearBest, sc); g.best = Math.max(g.best, sc);
   g.peakF = Math.max(g.peakF, coGFans(g)); t.peakF = Math.max(t.peakF, g.peakF);
-  g.disc.push({ y: calY(s), title: o.title, c: o.c, sc: Math.round(sc), peak, mine: !!o.mine, card });
+  g.disc.push({ y: calY(s), title: o.title, c: o.c, sc: Math.round(sc), peak, mine: !!o.mine, card, mk: o.mk || null });
   if (g.disc.length > 30) g.disc.shift();
   if (peak === 1 && !t.no1) { t.no1 = true; milestone(s, `${age(s)}세에 우리 회사 「${g.name}」의 「${o.title}」가 음원 차트 1위를 했다.`); }
   return { sc, peak, wins, albums, gain, rev, pay, repD, debut, cm: comments(sc, ''), card };
@@ -870,10 +924,10 @@ E({
   title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 앨범 성적표`,
   init(s, d) { const g = coGroup(s, d.gid); if (!g || !coOn(s)) { d.skip = true; return; } d.r = coAlbum(s, g, d); d.card = d.r.card; d.up = coTierCheck(s, coT(s)); d.rank = coRankCheck(s, coT(s)); },
   // v119: 순위 · 팬 변화 · 반응 · 정산은 카드에 (예전 세이브의 카드 없는 창은 예전처럼)
-  html: (s, d) => d.card && typeof songCardHTML === 'function' ? `<div class="m-text">${rich(EVENTS.co_res.text(s, d))}</div>` + songCardHTML(d.card) + (d.up || d.rank ? `<div class="m-text">${rich([d.up, d.rank].filter(Boolean).join('\n\n'))}</div>` : '') : '',
+  html: (s, d) => d.card && typeof songCardHTML === 'function' ? `<div class="m-text">${rich(EVENTS.co_res.text(s, d))}</div>` + (d.mk ? `<div class="co-last">${popBtnHTML('🎼 제작 과정', albStepsHTML(d.mk))}</div>` : '') + songCardHTML(d.card) + (d.up || d.rank ? `<div class="m-text">${rich([d.up, d.rank].filter(Boolean).join('\n\n'))}</div>` : '') : '',
   text: (s, d) => {
     const g = coGroup(s, d.gid) || { name: '', f: { kr: 0, jp: 0, us: 0 }, debt: 0 }, r = d.r, gs = r.gain.kr + r.gain.jp + r.gain.us;
-    if (d.card) return `${r.debut ? '데뷔' : '컴백'} 앨범 「${d.title}」 ('${d.c}' 컨셉 · ${d.mine ? '내가 쓴 곡' : '외부 곡'})\n\n앨범 ${r.albums.toLocaleString()}장 · 그룹 팬 ${fmtFans(coGFans(g))}\n회사 평판 ${r.repD >= 0 ? '+' : ''}${Math.round(r.repD * 10) / 10} → ${Math.round(coT(s).f.music.rep)}`;
+    if (d.card) return `${r.debut ? '데뷔' : '컴백'} 앨범 「${d.title}」 ('${d.c}' 컨셉 · ${d.mine ? '내가 쓴 곡' : d.mk ? `작곡 ${d.mk.pk[0].by}` : '외부 곡'})\n\n앨범 ${r.albums.toLocaleString()}장 · 그룹 팬 ${fmtFans(coGFans(g))}\n회사 평판 ${r.repD >= 0 ? '+' : ''}${Math.round(r.repD * 10) / 10} → ${Math.round(coT(s).f.music.rep)}`;
     let x = `${r.debut ? '데뷔' : '컴백'} 앨범 「${d.title}」 ('${d.c}' 컨셉 · ${d.mine ? '내가 쓴 곡' : '외부 곡'})\n\n${chartText(r.peak)}${g.kind === 'band' ? '' : ` · 음악방송 1위 ${r.wins}회`} · 앨범 ${r.albums.toLocaleString()}장\n그룹 팬 ${sgnFans(gs)} → ${fmtFans(coGFans(g))}\n\n팬 반응: ${r.cm}`;
     x += `\n\n매출 ${fmtWon(r.rev)} · ${r.pay ? `멤버 정산 ${fmtWon(r.pay)}` : `연습생·제작 비용 회수 중 (남은 ${fmtWon(g.debt)})`}\n회사 평판 ${r.repD >= 0 ? '+' : ''}${Math.round(r.repD * 10) / 10} → ${Math.round(coT(s).f.music.rep)}`;
     if (d.up) x += `\n\n${d.up}`;
@@ -885,9 +939,11 @@ E({
 
 // ───── 그룹 한 달 ─────
 // 앨범 사이에는 행사·광고·콘서트(밴드는 공연) 수입이 들어온다. 영업(대표의 할 일)을 하면 더 들어온다
+// 회사 창에 보이는 제작 단계 (v153)
+function coAlbStage(s, g) { return g.rel > s.t ? (g.rel - s.t >= 2 ? '편곡 · 작사 중' : '녹음 중') : g.alb && g.alb.five ? '데모곡 심사 중' : '컴백 준비 중'; }
 function coUnstick(s, g) {
   if (!(g.cbQ || g.nextCb >= 90)) return;
-  if (['co_cb', 'co_song', 'co_res', 'co_sig', 'song_concept', 'title_pick'].some(id => hasQ(s, id))) return;
+  if (['co_plan', 'co_pick', 'co_res', 'co_sig', 'song_concept', 'title_pick'].some(id => hasQ(s, id))) return;
   g.cbQ = false; g.nextCb = 2;
 }
 function coGroupMonth(s, t, g, sales) {
@@ -897,8 +953,9 @@ function coGroupMonth(s, t, g, sales) {
   for (const x of coP(s, g.members)) for (const k of coSkillsOf(x)) { const tr = coTrainer(s, k); practice(s, x, k, (k === 'variety' ? 0.4 : 0.9) * (tr ? 1 + teachLv(tr, k) / 80 : 1), eqm); }
   coUnstick(s, g);
   if (!g.debuted) { if (!g.cbQ && --g.nextCb <= 0) coMeeting(s, g, true); return; }
+  // 다음 앨범 기획은 활동 중에 시작한다 (v153: 발매 한두 달 뒤부터)
   if (g.promo > 0) g.promo--;
-  else if (!g.cbQ && --g.nextCb <= 0) coMeeting(s, g, true);
+  if (!g.cbQ && --g.nextCb <= 0) coMeeting(s, g, true);
   MK.forEach(m => { g.f[m] = Math.round(g.f[m] * (g.promo > 0 ? 1 : (s.t - g.debutT) > 84 ? 0.993 : 0.996)); });
   const ages = coP(s, g.members).map(x => pAge(s, x)), avg = ages.reduce((a, b) => a + b, 0) / Math.max(1, ages.length);
   if (avg > 28) { const f = 1 - Math.min(0.02, (avg - 28) * 0.004); MK.forEach(m => { g.f[m] = Math.round(g.f[m] * f); }); }
@@ -1443,7 +1500,7 @@ function coTabGrp(s, t) {
       h += actRow({ t: '졸업시키기', h: '멤버들은 회사를 떠난다', ok: true, danger: true, btn: '졸업', confirm: `정말 「${g.name}」 멤버들을 졸업시킬까요?`, run: s => coDisband(s, coT(s), g, '회사 결정', true) });
       continue;
     }
-    const st = !g.debuted ? (g.cbQ ? '데뷔 준비 중' : `데뷔까지 ${Math.max(1, g.nextCb)}개월`) : g.promo > 0 ? '앨범 활동 중' : g.cbQ || g.nextCb >= 90 ? '컴백 준비 중' : `다음 컴백까지 ${Math.max(1, g.nextCb)}개월`;
+    const st = !g.debuted ? (g.cbQ ? '데뷔 준비 중' : `데뷔까지 ${Math.max(1, g.nextCb)}개월`) : g.promo > 0 && !(g.cbQ || g.nextCb >= 90) ? '앨범 활동 중' : g.cbQ || g.nextCb >= 90 ? coAlbStage(s, g) : `다음 컴백까지 ${Math.max(1, g.nextCb)}개월`;
     h += `<div class="sec-h">${U.esc(g.name)} <span class="n">${coKindN(g.kind)} · ${g.debuted ? `${g.debutY}년 데뷔` : '데뷔 전'}</span></div>`;
     h += infoTable([['팬', `${fmtFans(coGFans(g))}${g.fandom && g.kind !== 'band' ? ` · 팬덤 '${g.fandom}'` : ''}`], ['지금', st], ['대표 컨셉', g.sig || '-'], ['계약', `${Math.max(0, left)}개월 남음 · 회사 몫 ${pctN(g.cut)}`], ['정산', g.debt > 0 ? `연습생·제작 비용 회수 중 · 남은 ${fmtWon(g.debt)}` : `멤버 정산 누적 ${fmtWon(g.paid)}`],
       { h: '멤버', items: coP(s, g.members).map(x => `${x.name} (${gNn(x)} · ${pAge(s, x)}세) ${g.pos[x.id] || ''} — ${coMemberSub(s, x)}`) },

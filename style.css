@@ -1218,3 +1218,26 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 /* 집에 따라 바뀌는 배경 (v151): 그림이 있을 때만. 글씨가 잘 보이도록 밝은 막을 한 겹 덮는다 */
 #game-screen.has-bg { background: linear-gradient(rgba(246, 243, 252, .34), rgba(246, 243, 252, .52)), var(--home-bg) center / cover fixed no-repeat; }
 .pf-bn.st-ego { padding-right: 8px; gap: 6px; } .pf-bn.st-ego span { white-space: nowrap; font-size: 12px; } .pf-bn.st-ego b { padding: 3px 7px; font-size: 10.5px; }
+
+/* 앨범 제작 (v153): 여러 개 체크하는 창의 묶음 제목 · 합계 줄, 표의 타이틀 동그라미, 성적표의 제작 과정 */
+.ck-head { font-size: 12.5px; font-weight: 800; color: var(--muted); letter-spacing: .04em; margin: 12px 0 6px; }
+.ck-grp.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.ck-grp.grid .ck-row { margin-bottom: 0; padding: 8px 10px; }
+.ck-grp.grid + .ck-head { margin-top: 14px; }
+.form-sum { margin: 10px 0 2px; padding: 9px 12px; border-radius: 12px; background: var(--violet-soft); font-size: 13.5px; font-weight: 700; }
+.form-sum:empty { display: none; }
+.ev-tbl input[type=radio] { width: 18px; height: 18px; accent-color: var(--violet); cursor: pointer; }
+.alb-mk { margin-top: 10px; text-align: left; }
+.scard + .alb-mk { border-top: 1px solid var(--line); padding-top: 4px; }
+.alb-h { font-size: 12px; font-weight: 800; color: var(--muted); letter-spacing: .04em; margin: 10px 0 6px; }
+.alb-steps { display: grid; gap: 4px; }
+.alb-st { display: grid; grid-template-columns: 22px 84px minmax(0, 1fr); align-items: baseline; gap: 6px; font-size: 13.5px; }
+.alb-st > b { width: 20px; height: 20px; border-radius: 50%; background: var(--violet-soft); color: var(--violet); font-size: 11.5px; display: grid; place-items: center; align-self: center; }
+.alb-k { font-weight: 700; }
+.alb-v { color: var(--muted); }
+.alb-songs { display: grid; gap: 5px; }
+.alb-sg { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 12px; background: var(--card2); font-size: 13.5px; }
+.alb-sg > span:last-child { color: var(--muted); font-size: 12.5px; }
+.alb-sg.ti { border-color: var(--violet); background: var(--violet-soft); }
+.alb-tag { font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: var(--line); }
+.alb-sg.ti .alb-tag { background: var(--violet); color: #fff; }

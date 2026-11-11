@@ -583,9 +583,11 @@ function showEventRaw() {
   let T = null; if (ev.tbl) { try { T = ev.tbl(s, d); } catch (e) { console.error('표 오류', s.pending.id, e); T = null; } }
   if (ev.form) {
     // type 'check': 체크 칸 한 줄 (오디션 지원자·그룹 멤버 고르기). 나머지는 글자 적는 칸. 표(tbl)가 있으면 체크 줄은 표로 간다
-    h += ev.form(s, d).filter(f => !(T && f.type === 'check')).map(f => f.type === 'won' ? wonFieldHTML(f) : f.type === 'check' ? `<label class="ck-row"><input type="checkbox" data-k="${f.k}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}${f.tr ? TR_BADGE : ''}</span>${f.sub ? `<span class="ck-h">${U.esc(f.sub)}</span>` : ''}</span></label>` : `<div class="field"><label>${U.esc(f.label)}</label><input data-k="${f.k}" value="${U.esc(f.value || '')}" maxlength="${f.max || 20}" placeholder="${U.esc(f.ph || '')}"></div>`).join('');
+    h += formFieldsHTML(ev.form(s, d).filter(f => !(T && f.type === 'check') && !f.after));
     if (T) h += evTblHTML(T, true);
-    h += `<div class="choices"><button class="btn primary" data-submit>확인</button>${ev.cancel ? '<button class="btn" data-cancel>그만두기</button>' : ''}</div><div class="why" id="form-err"></div>`;
+    h += formFieldsHTML(ev.form(s, d).filter(f => f.after));
+    if (ev.sum) h += `<div class="form-sum" id="form-sum"></div>`;
+    h += `<div class="choices"><button class="btn primary" data-submit>확인</button>${ev.cancel ? `<button class="btn" data-cancel>${U.esc(ev.cancelT ? ev.cancelT(s, d) : '그만두기')}</button>` : ''}</div><div class="why" id="form-err"></div>`;
   } else if (T) {
     // 표에서 줄을 고르고 아래 보라색 버튼으로 정한다. 표에 없는 선택지(미루기 등)는 옆에 작은 버튼으로
     const C1 = evChoices(s);
@@ -606,23 +608,37 @@ function showEventRaw() {
   $('#modal').classList.remove('hidden');
   
   // 글자를 적는 창은 바로 적을 수 있게 첫 칸에 커서를 둔다 (Enter로 확인)
-  if (ev.form) { const i = $('#mcard input[data-k]:not([type=checkbox])'); if (i && FINE_POINTER) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }
+  if (ev.form) { const i = $('#mcard input[data-k]:not([type=checkbox]):not([type=radio])'); if (i && FINE_POINTER) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } formSum(); }
   if (ev.onShow) ev.onShow(s, d, $('#mcard'));
 }
 // ───── 표로 고르는 창 (v131, FM식) ─────
 // 사건이 tbl(s, d)를 주면 체크 줄 · 선택지 대신 넓은 표로 보여 준다. 줄 = 고를 것 하나, 칸 = [정렬에 쓰는 값, 보이는 글]
 // T = { cols: [[키, 이름]], rows: [{ k: 체크 칸 키(폼) 또는 ci: 선택지 번호, on, tr, ok, cells }], rest: 표 밖에 버튼으로 둘 선택지 번호들, go: 고르는 버튼 글 }
 // 칸 이름을 누르면 그 칸으로 줄을 세우고(다시 누르면 거꾸로), 찾기 칸에 적으면 그 글자가 든 줄만 남는다. 줄을 옮기기만 해서 체크는 그대로 남는다
+// 사건 창의 적는 칸 · 체크 줄 (v153): head = 묶음 제목(grid면 두세 칸으로), opt = 표가 있어도 그대로 보이는 체크 줄
+function formFieldHTML(f) { return f.type === 'won' ? wonFieldHTML(f) : f.type === 'check' || f.type === 'opt' ? `<label class="ck-row"><input type="checkbox" data-k="${f.k}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}${f.tr ? TR_BADGE : ''}</span>${f.sub ? `<span class="ck-h">${U.esc(f.sub)}</span>` : ''}</span></label>` : `<div class="field"><label>${U.esc(f.label)}</label><input data-k="${f.k}" value="${U.esc(f.value || '')}" maxlength="${f.max || 20}" placeholder="${U.esc(f.ph || '')}"></div>`; }
+function formFieldsHTML(F) {
+  let h = '', open = false;
+  for (const f of F) {
+    if (f.type === 'head') { h += (open ? '</div>' : '') + `<div class="ck-head">${U.esc(f.label)}</div><div class="ck-grp${f.grid ? ' grid' : ''}">`; open = true; continue; }
+    h += formFieldHTML(f);
+  }
+  return h + (open ? '</div>' : '');
+}
+// 지금 창에 적힌 값 (체크 칸은 참 · 거짓, 동그라미 칸은 찍힌 것만)
+function formVals() { const vals = {}; document.querySelectorAll('#mcard input[data-k]').forEach(i => { if (i.type === 'radio') { if (i.checked) vals[i.dataset.k] = i.value; } else vals[i.dataset.k] = i.type === 'checkbox' ? i.checked : i.value; }); return vals; }
+// 체크할 때마다 바뀌는 합계 줄 (사건의 sum)
+function formSum() { const el = $('#form-sum'), p = S && S.pending, ev = p && EVENTS[p.id]; if (!el || !ev || !ev.sum) return; let x = ''; try { x = ev.sum(S, p.d, formVals()) || ''; } catch (e) { } el.textContent = x; }
 function evTblHTML(T, form) {
   UI.tblT = T; UI.tblS = null;
   // 처음 정렬 (v134): 오디션은 나이, 타이틀곡은 완성도. 줄 번호(data-ti)는 그대로 두고 그리는 순서만 바꾼다
   const ord = T.rows.map((r, i) => i);
   if (T.sort) { const [sk, sd] = T.sort, val = i => { const c = T.rows[i].cells[sk]; return c ? c[0] : 0; }; ord.sort((a, b) => { const x = val(a), y = val(b); return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'ko')) * sd; }); UI.tblS = { k: sk, dir: sd }; }
   const th = T.cols.map(([k, n]) => `<th data-tsort="${k}"${T.sort && T.sort[0] === k ? ' class="on"' : ''}>${U.esc(n)}<i>${T.sort && T.sort[0] === k ? (T.sort[1] > 0 ? ' ▲' : ' ▼') : ''}</i></th>`).join('');
-  const tr = ord.map(i => [T.rows[i], i]).map(([r, i]) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}${r.rec ? ' rec' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${U.esc(String(c[1]))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}${j === 0 && r.rec ? `<span class="trb rec">${U.esc(r.rec)}</span>` : ''}</td>`; }).join('') + `</tr>`).join('');
+  const tr = ord.map(i => [T.rows[i], i]).map(([r, i]) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}${r.rec ? ' rec' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>${form && T.radio ? `<td class="tc"><input type="radio" name="tbl-r" data-k="${T.radio.k}" value="${r.k}"></td>` : ''}` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${U.esc(String(c[1]))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}${j === 0 && r.rec ? `<span class="trb rec">${U.esc(r.rec)}</span>` : ''}</td>`; }).join('') + `</tr>`).join('');
   // 추천 묶음 (v132): 버튼을 누르면 그 줄들만 체크된다 (트레이너가 권하는 데뷔 멤버 등)
   const pre = form && T.presets && T.presets.length ? `<div class="tbl-pre">${T.presets.map((p, i) => `<button type="button" class="btn sm rec" data-tpre="${i}">${U.esc(p.n)}</button>`).join('')}</div>` : '';
-  return pre + `<div class="tbl-tools"><input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc"></th>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
+  return pre + `<div class="tbl-tools"><input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc">${form && T.radio ? '실을 곡' : ''}</th>${form && T.radio ? `<th class="tc">${U.esc(T.radio.n)}</th>` : ''}${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
 }
 function evTblSort(k) {
   const T = UI.tblT, tb = $('#ev-tbl tbody');
@@ -1761,7 +1777,8 @@ document.addEventListener('click', e => {
   if (row0) {
     if (row0.classList.contains('off')) return;
     const cb = row0.querySelector('input[type=checkbox]');
-    if (cb) { if (e.target !== cb) cb.checked = !cb.checked; row0.classList.toggle('sel', cb.checked); return; }
+    // 타이틀 동그라미를 찍으면 그 줄도 체크된다. 체크를 풀면 동그라미도 풀린다
+    if (cb) { const rd = row0.querySelector('input[type=radio]'); if (rd && e.target === rd) cb.checked = true; else if (e.target !== cb) cb.checked = !cb.checked; if (rd && !cb.checked) rd.checked = false; row0.classList.toggle('sel', cb.checked); formSum(); return; }
     document.querySelectorAll('#ev-tbl tr.sel').forEach(x => x.classList.remove('sel')); row0.classList.add('sel');
     const go = $('#mcard [data-tgo]'); if (go) { go.disabled = false; go.dataset.choice = row0.dataset.trow; }
     return;
@@ -1825,7 +1842,7 @@ document.addEventListener('click', e => {
     if (cc && cc.confirm && UI.cfOk !== S.pending) { const pd = S.pending; askConfirm(cc.confirm, () => { UI.cfOk = pd; t.click(); UI.cfOk = null; }); return; }
     const pre = resPre(S), ci = +t.dataset.choice; try { choose(S, ci); } catch (e) { console.error('선택 오류', S.pending && S.pending.id, e); S.pending = null; toast('선택을 처리하지 못해 건너뛰었어요'); } if (!resAfter(pre, ci)) afterChoice(); return; }
   if (t.dataset.resok != null) { resOk(); return; }
-  if (t.dataset.submit != null) { const vals = {}; document.querySelectorAll('#mcard input[data-k]').forEach(i => vals[i.dataset.k] = i.type === 'checkbox' ? i.checked : i.value); const pre = resPre(S), err = submitForm(S, vals); if (err) { $('#form-err').textContent = err; return; } if (!resAfter(pre, -1)) afterChoice(); return; }
+  if (t.dataset.submit != null) { const vals = formVals(); const pre = resPre(S), err = submitForm(S, vals); if (err) { $('#form-err').textContent = err; return; } if (!resAfter(pre, -1)) afterChoice(); return; }
   if (t.dataset.cancel != null) { cancelForm(S); afterChoice(); return; }
   // 창을 내려 둔 채 패널 버튼으로 새 창(회사 돈 꺼내기 등)을 열면 그 창은 바로 보여 준다. 내려 둔 창은 대기열에 돌아가 있다가 새 창을 마치면 다시 뜬다 (v116 버그 1)
   if (t.dataset.act != null) { const a = UI.acts[+t.dataset.act]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, jf0 = totalFans(S), jfJ = UI.overlay === 'job' ? UI.jobId : null, r = a.run(S); jfAdd(S, jfJ, totalFans(S) - jf0); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t, () => { if (UI.overlay === 'company') S.uiOpen = 'company'; }); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
@@ -1867,7 +1884,7 @@ document.addEventListener('click', e => {
 document.addEventListener('input', e => { if (e.target.id === 'tbl-q') evTblFilter(e.target.value); if (e.target.id === 'pick-q') { UI.pickQ = e.target.value; renderPanel(); } if (e.target.dataset && e.target.dataset.won != null) wonEq(e.target); });
 document.addEventListener('compositionend', e => { if (UI.enterComp && e.target.matches && e.target.matches('#mcard input[data-k]')) { UI.enterComp = false; setTimeout(formEnter, 0); } });
 // 자녀 교육비: 고른 아이의 단계 버튼을 보여 준다
-document.addEventListener('change', e => { if (e.target.dataset && e.target.dataset.kidedu != null) { UI.kidEdu = e.target.value; UI.lifeHTML = null; renderLifeCard(); if (UI.overlay) renderPanel(); } });
+document.addEventListener('change', e => { if (e.target.closest && e.target.closest('#mcard') && $('#form-sum')) formSum(); if (e.target.dataset && e.target.dataset.kidedu != null) { UI.kidEdu = e.target.value; UI.lifeHTML = null; renderLifeCard(); if (UI.overlay) renderPanel(); } });
 $('#file-input').addEventListener('change', e => { const f = e.target.files[0]; if (f) importSave(f); e.target.value = ''; });
 // ESC: 맨 위에 떠 있는 창부터 하나씩 닫는다 (확인 창 → 패널 → 사건 창은 잠시 내리기 → 인생 결산은 기록 보기로)
 function escClose() {

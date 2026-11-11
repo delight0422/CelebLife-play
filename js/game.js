@@ -1216,6 +1216,8 @@ function pfRename(o) {
   return o;
 }
 function migrate(s) {
+  // v153: 컴백 회의 · 타이틀곡 고르기 창이 기획 창으로 바뀌었다 (줄 서 있던 것 · 떠 있던 것을 옮긴다)
+  for (const q of (s.queue || []).concat(s.pending ? [s.pending] : [])) if (q.id === 'co_cb' || q.id === 'co_song') { q.id = 'co_plan'; q.d = { gid: q.d && q.d.gid, debut: !!(q.d && q.d.debut) }; }
   if (!s.pfRen) { pfRename(s); s.pfRen = 1; }
   // v151: 지명을 실제 이름으로 (수원 → 수원시 장안구)
   if (typeof PLACE_OLD !== 'undefined') { if (PLACE_OLD[s.place]) s.place = PLACE_OLD[s.place]; if (PLACE_OLD[s.birthPlace]) s.birthPlace = PLACE_OLD[s.birthPlace]; if (!s.birthPlace && s.birthRegion === s.region) s.birthPlace = s.place; }
