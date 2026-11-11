@@ -388,7 +388,7 @@ function coTrRecs(s, kind) {
 }
 E({
   id: 'co_aud', cat: '오디션', tag: 'career',
-  tbl: (s, d) => coPplTbl(s, d.ids.map(id => s.people[id]).filter(Boolean), d.kind, false, []),
+  tbl: (s, d) => Object.assign(coPplTbl(s, d.ids.map(id => s.people[id]).filter(Boolean), d.kind, false, []), { sort: ['a', 1] }),
   title: (s, d) => `${coKindN(d.kind)} 오디션 지원자`,
   cond: s => coOn(s),
   init(s, d) { const t = coT(s); d.ids = Array.from({ length: U.int(4, 6) }, () => coCand(s, t, d.kind, d.g === 'any' ? (U.chance(0.5) ? '여' : '남') : d.g).id); },
@@ -456,7 +456,7 @@ function coTrainMonth(s, t, teach) {
     if (q.ids.length < 2) { t.squads = t.squads.filter(x => x !== q); addLog(s, `데뷔조 「${q.name}」에 남은 사람이 없어 데뷔조를 풀었다.`, 'career'); continue; }
     q.tw = Math.min(CO_SQ_MAX, (q.tw || 0) + 2.2);
     if (q.tw >= 30 && !q.told) { q.told = 1; queueEv(s, 'co_sq_ready', 0, { kind: q.kind }, true); }
-    for (const id of q.ids) { const x = s.people[id], k = q.kind === 'band' ? x.co.part : 'dance'; if (has(x, k)) practice(s, x, k, 1, eqm); }
+    for (const id of q.ids) { const x = s.people[id], k = q.kind === 'band' ? x.co.part : q.kind === 'vt' ? 'variety' : 'dance'; if (has(x, k)) practice(s, x, k, 1, eqm); }
   }
   for (const x of coStaff(s, 'trainer')) if (U.chance(0.3)) practice(s, x, 'edu', 0.5);
   for (const x of coStaff(s, 'edit')) if (U.chance(0.3)) practice(s, x, 'edit', 0.5);
@@ -498,10 +498,8 @@ E({
     else if (d.kind === 'vt') { if (ids.length < 1 || ids.length > 6) return { err: '한 기수는 1~6명이에요' }; }
     else if (ids.length < 2 || ids.length > 9) return { err: '아이돌 그룹은 2~9명이에요' };
     // v118 UI D3: 밴드 · 아이돌은 바로 만들지 않고 확인 창(직원 한마디 · 사내 데뷔평가)을 거친다
-    if (d.kind !== 'vt') { fireEvent(s, 'co_make_ok', { kind: d.kind, name, fandom, ids }); return { log: '' }; }
-    const g = coMakeGroup(s, t, d.kind, name, ids, fandom);
-    fireEvent(s, 'co_vav', { gid: g.id });
-    return { log: `버츄얼 아이돌 「${name}」 멤버를 정했다.` };
+    // v134: 버츄얼 아이돌 기수도 확인 창을 거친다 (바로 데뷔 · 데뷔조로 묶기 · 다시 고르기). 사내 데뷔평가와 직원 한마디는 아이돌 · 밴드만
+    fireEvent(s, 'co_make_ok', { kind: d.kind, name, fandom, ids }); return { log: '' };
   },
 });
 // ───── 데뷔 전 확인 · 사내 데뷔평가 (v118 UI D3) ─────
@@ -605,20 +603,20 @@ function coEvalCard(s, kind, ids) {
 // 사내 데뷔평가를 거쳐 온 창(evalDone)이면 고른 결과 앞에 평가 반응을 붙여 기록한다 (중간에 결과 창이 한 번 더 뜨지 않게)
 function coMakeOkCh(s, d, evalDone) {
   const t = coT(s), cost = coEvalCost(t), pre = evalDone && d.card ? `사내 데뷔평가(${fmtWon(d.cost || 0)})에서 ${d.card.top} ` : '';
-  const L = [{ t: '이대로 데뷔시킨다', f: s => { const ok = d.ids.every(id => s.people[id] && s.people[id].co && s.people[id].co.role === 'tr'); if (!ok) return pre + '그사이 멤버가 바뀌어 데뷔를 미뤘다.'; const g = coMakeGroup(s, coT(s), d.kind, d.name, d.ids, d.fandom); fireEvent(s, 'co_sig', { gid: g.id }); return pre + `${coKindN(d.kind)} 「${d.name}」의 멤버를 정했다.`; } }];
-  if (!evalDone) L.push({ t: '사내 데뷔평가부터 해 본다', h: `비용 ${fmtWon(cost)} (회사 돈) · 테스트 무대로 반응을 본다`, ok: s => coT(s).money >= cost, f: s => { coOut(coT(s), cost, '사내 데뷔평가'); fireEvent(s, 'co_eval_res', Object.assign({}, d, { back: 1, cost })); return ''; } });
+  const L = [{ t: '이대로 데뷔시킨다', f: s => { const ok = d.ids.every(id => s.people[id] && s.people[id].co && s.people[id].co.role === 'tr'); if (!ok) return pre + '그사이 멤버가 바뀌어 데뷔를 미뤘다.'; const g = coMakeGroup(s, coT(s), d.kind, d.name, d.ids, d.fandom); fireEvent(s, d.kind === 'vt' ? 'co_vav' : 'co_sig', { gid: g.id }); return pre + `${coKindN(d.kind)} 「${d.name}」의 멤버를 정했다.`; } }];
+  if (!evalDone && d.kind !== 'vt') L.push({ t: '사내 데뷔평가부터 해 본다', h: `비용 ${fmtWon(cost)} (회사 돈) · 테스트 무대로 반응을 본다`, ok: s => coT(s).money >= cost, f: s => { coOut(coT(s), cost, '사내 데뷔평가'); fireEvent(s, 'co_eval_res', Object.assign({}, d, { back: 1, cost })); return ''; } });
   // 데뷔조 (v131): 바로 데뷔시키지 않고 이 멤버끼리 같이 연습시킨다
   if (!coSquadSame(t, d)) L.push({ t: '데뷔조로 묶어 두고 합을 맞추게 한다', h: `이 멤버끼리 같이 연습한다 · 준비되면 연습생 탭에서 데뷔시킨다${coSquad(t, d.kind) ? ' · 지금 데뷔조는 이 멤버로 바뀐다' : ''}`, f: s => { coSquadSet(s, d); return pre + `${d.ids.length}명을 ${coKindN(d.kind)} 데뷔조 「${d.name}」${josa(d.name, '으로').slice(d.name.length)} 묶었다. 이제 같이 연습하며 합을 맞춘다.`; } });
   L.push({ t: '멤버를 다시 고른다', f: s => { fireEvent(s, 'co_make', { kind: d.kind, name: d.name, fandom: d.fandom, ids: d.ids }); return ''; } });
   L.push({ t: '아직 이르다', f: () => pre + `${coKindN(d.kind)} 데뷔를 미뤘다.` });
   return L;
 }
-function coMakeOkText(s, d) { const t = coT(s), q = coSquad(t, d.kind), tw = coSquadTw(t, d.kind, d.ids); return `「${d.name}」 데뷔 멤버\n${d.ids.map(id => s.people[id]).filter(Boolean).map(x => `· ${x.name} (${pAge(s, x)}세)${x.co.part ? ` ${partN(x.co.part)}` : ''}${d.kind === 'band' ? '' : ` · 외모 ${talentWord(x.tal.looks)}`}`).join('\n')}${q && d.ids.some(id => q.ids.includes(id)) ? `\n\n데뷔조로 같이 연습한 지 ${s.t - q.t0}개월 · ${coTwWord(tw)}` : ''}`; }
+function coMakeOkText(s, d) { const t = coT(s), q = coSquad(t, d.kind), tw = coSquadTw(t, d.kind, d.ids); return `「${d.name}」 데뷔 멤버\n${d.ids.map(id => s.people[id]).filter(Boolean).map(x => `· ${x.name} (${pAge(s, x)}세)${x.co.part ? ` ${partN(x.co.part)}` : ''}${d.kind === 'band' ? '' : d.kind === 'vt' ? ` · 목소리 ${talentWord(x.tal.voice)}` : ` · 외모 ${talentWord(x.tal.looks)}`}`).join('\n')}${q && d.ids.some(id => q.ids.includes(id)) ? `\n\n데뷔조로 같이 연습한 지 ${s.t - q.t0}개월 · ${coTwWord(tw)}` : ''}`; }
 E({
   id: 'co_make_ok', cat: '그룹 만들기', tag: 'career',
   title: (s, d) => `${coKindN(d.kind)} 데뷔 확인`,
   cond: s => coOn(s),
-  text: (s, d) => `${coMakeOkText(s, d)}\n\n${coJudge(s, d.kind, d.ids)}`,
+  text: (s, d) => coMakeOkText(s, d) + (d.kind === 'vt' ? '' : `\n\n${coJudge(s, d.kind, d.ids)}`),
   ch: (s, d) => coMakeOkCh(s, d, false),
 });
 // 연습생 탭의 '사내 데뷔평가': 무대에 세울 연습생을 고른다 (처음엔 밴드는 파트마다 가장 잘하는 사람, 아이돌은 9명까지 모두 체크)
@@ -659,8 +657,8 @@ function coMakeGroup(s, t, kind, name, ids, fandom) {
   const star = P.reduce((a, x) => a + x.tal.star, 0) / P.length;
   const g = { id: 'g' + U.uid(), kind, name, fandom: fandom || U.pick(FANDOM_NAMES), members: ids.slice(), pos: kind === 'band' ? Object.fromEntries(P.map(x => [x.id, partN(x.co.part)])) : kind === 'vt' ? {} : assignIdolPos(s, ids), sig: null, star: Math.round(U.clamp(star + U.normal(0, 6), 10, 98)), f: { kr: 0, jp: 0, us: 0 }, t0: s.t, months: 0, debuted: false, cut: CO_CUT, cEnd: CO_TERM, debt: P.reduce((a, x) => a + (x.co.cost || 0), 0), paid: 0, cbCount: 0, promo: 0, nextCb: 99, cbQ: false, mo: U.normal(0, 4), flops: 0, yearBest: 0, best: 0, peakF: 0, disc: [], aw: [] };
   if (kind === 'vt') { (t.gen = t.gen || {}).vidol = coNextGen(t); g.gen = t.gen.vidol; }
-  // 데뷔조로 맞춘 합을 안고 시작한다. 데뷔조 멤버가 데뷔했으니 데뷔조는 푼다 (v131)
-  else { g.tw0 = Math.round(coSquadTw(t, kind, ids)); const q = coSquad(t, kind); if (q && ids.some(id => q.ids.includes(id))) t.squads = t.squads.filter(x => x !== q); }
+  // 데뷔조로 맞춘 합을 안고 시작한다. 데뷔조 멤버가 데뷔했으니 데뷔조는 푼다 (v131, v134부터 버츄얼 아이돌 기수도)
+  { g.tw0 = Math.round(coSquadTw(t, kind, ids)); const q = coSquad(t, kind); if (q && ids.some(id => q.ids.includes(id))) t.squads = t.squads.filter(x => x !== q); }
   for (const x of P) { x.co.role = 'art'; x.co.gid = g.id; x.job = kind === 'band' ? '밴드 멤버' : kind === 'vt' ? '버츄얼 아이돌' : '아이돌'; }
   t.tr = t.tr.filter(id => !ids.includes(id));
   t.groups.push(g);
@@ -681,7 +679,7 @@ E({
     return `<div class="m-text">${rich(`「${g.name}」의 대표 컨셉을 정하자. 요즘 유행은 ${qIda(s.trend)}. 멤버 평균 나이 ${Math.round(pplAge(s, P) * 10) / 10}세.`)}</div><div class="tbl-wrap"><table class="ev-tbl"><thead><tr>${th.map(x => `<th>${U.esc(x)}</th>`).join('')}</tr></thead><tbody>${P.map(x => `<tr>${row(x).map(c => `<td>${U.esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
   },
   text: (s, d) => { const g = coGroup(s, d.gid); return `「${g.name}」 멤버\n${coP(s, g.members).map(x => `· ${x.name} (${pAge(s, x)}세) ${g.pos[x.id]}`).join('\n')}\n\n그룹의 대표 컨셉을 정하자. 요즘 유행은 ${qIda(s.trend)}.`; },
-  ch: (s, d) => { const g = coGroup(s, d.gid), P = coP(s, g.members); const see = c => { const F = CONCEPT_FIT[c], R = cFit(s, c, P, 0); const what = F === 'young' ? '어린 나이' : F === 'rap' ? '랩 실력' : F.map(k => TALENT_BY[k].n).join(' · '); const fit = F === 'rap' ? (R.rap >= 30 ? '잘 어울린다' : R.rap >= 15 ? '무난하다' : '안 어울린다') : R.b >= 1 ? '잘 어울린다' : R.b <= -1 ? '안 어울린다' : '무난하다'; return `보는 것: ${what} · ${fit}`; }; return TRENDS.filter(c => cAgeOK(s, P, c, 1)).map(c => ({ t: c, tr: c === s.trend, h: see(c), f: s => { g.sig = c; coMeeting(s, g, false); return `「${g.name}」의 대표 컨셉을 '${c}'${josa(c, '으로').slice(c.length)} 정했다.`; } })); },
+  ch: (s, d) => { const g = coGroup(s, d.gid), P = coP(s, g.members); const see = c => { const F = CONCEPT_FIT[c], R = cFit(s, c, P, 0); const what = F === 'young' ? '어린 나이' : F === 'rap' ? '랩 실력' : F.map(k => TALENT_BY[k].n).join(' · '); const fit = F === 'rap' ? (R.rap >= 30 ? '잘 어울린다' : R.rap >= 15 ? '무난하다' : '안 어울린다') : R.b >= 1 ? '잘 어울린다' : R.b <= -1 ? '안 어울린다' : '무난하다'; return fit; }; return TRENDS.filter(c => cAgeOK(s, P, c, 1)).map(c => ({ t: c, tr: c === s.trend, h: see(c), f: s => { g.sig = c; coMeeting(s, g, false); return `「${g.name}」의 대표 컨셉을 '${c}'${josa(c, '으로').slice(c.length)} 정했다.`; } })); },
 });
 
 // ───── 컴백 회의 ─────
@@ -763,7 +761,7 @@ E({
     const rows = d.songs.map((x, i) => { const c = s.people[x.cid], tag = cTag(s, x.c, g.sig), ok = t.money >= prod + x.price; return { ci: i, tr: x.c === s.trend, sig: x.c === g.sig, ok, cells: {
       t: [x.title, `「${x.title}」`], by: [c ? c.name : '', c ? c.name : '작곡가'], c: [x.c, `${x.c}${tag ? ` (${tag})` : ''}`], lv: c ? coCellLv(v, c, 'compose') : [-1, '?'],
       q: coCellG(grade5(v, x.q, 'q', 'compose'), 'q'), m: coCellG(grade5(v, x.m, 'pot', 'compose')), p: [x.price, fmtWon(x.price) + (ok ? '' : ' (돈 모자람)')] } }; });
-    return { cols: [['t', '제목'], ['by', '작곡가'], ['c', '컨셉'], ['lv', '작곡 레벨'], ['q', '완성도'], ['m', '컨셉 숙련도'], ['p', '곡값']], rows, rest: [d.songs.length], go: '이 곡으로 간다' };
+    return { cols: [['t', '제목'], ['by', '작곡가'], ['c', '컨셉'], ['lv', '작곡 레벨'], ['q', '완성도'], ['m', '컨셉 숙련도'], ['p', '곡값']], rows, rest: [d.songs.length], go: '이 곡으로 간다', sort: ['q', -1] };
   },
   text: (s, d) => { const g = coGroup(s, d.gid), v = coViewer(s, 'anr', 'compose'); return (has(me(s), 'compose') ? '' : coMeetText(s, g, d.debut) + '\n\n') + `작곡가들이 보낸 곡이 ${d.songs.length}곡 들어왔다.${v.id !== s.me ? ` A&R 팀장 ${v.name}의 눈으로 본다.` : ''}`; },
   ch: (s, d) => {
@@ -954,7 +952,7 @@ function coVAppeal(s, t, x) {
   const C = VI_CORP, sk = lv(x, 'variety') * 0.6 + Math.max(lv(x, 'vocal'), lv(x, 'game'), lv(x, 'acting')) * 0.4;
   // 운: 기수마다(g.mo, 같이 뜨거나 같이 묻힌다) · 멤버마다(x.co.luck) 다르다
   const g = coGroup(s, x.co.gid);
-  return sk * 0.8 + C.edit + Math.min(3, x.co.av || 2) * C.av + coTier(t, 'vidol') * C.tier + (x.co.d3 ? C.d3 : 0) + (x.tal.star - 50) * 0.3 + (g ? g.mo * 0.75 : 0) + (x.co.luck || 0);
+  return sk * 0.8 + C.edit + Math.min(3, x.co.av || 2) * C.av + coTier(t, 'vidol') * C.tier + (x.co.d3 ? C.d3 : 0) + (x.tal.star - 50) * 0.3 + (g ? g.mo * 0.75 + U.clamp(g.tw0 || 0, 0, CO_SQ_MAX) / 8 : 0) + (x.co.luck || 0);
 }
 function coVSubs(s, g) { return coP(s, g.members).reduce((a, x) => a + (x.co.subs || 0), 0); }
 function coVName(x) { return x.co.given || x.name; }
@@ -1396,7 +1394,7 @@ function coTabTr(s, t) {
       A.push({ t: '아이돌 그룹 만들기', h: `아이돌 연습생 ${coTrainees(s, 'idol').length}명 · 그룹 ${gs}/${CO_GRP_CAP[k]}팀`, ok: !iw, why: iw, btn: '만들기', run: s => { fireEvent(s, 'co_make', { kind: 'idol' }); return ''; } });
       A.push({ t: '밴드 만들기', h: `밴드 연습생 ${coTrainees(s, 'band').length}명`, ok: !bw, why: bw, btn: '만들기', run: s => { fireEvent(s, 'co_make', { kind: 'band' }); return ''; } });
       // 데뷔조 (v131): 같이 연습하며 합을 맞추는 중인 멤버들. 준비되면 여기서 데뷔 확인 창으로 간다
-      for (const q of t.squads || []) A.push({ t: `${coKindN(q.kind)} 데뷔조 「${q.name}」 · ${q.ids.length}명`, h: `${coP(s, q.ids).map(x => x.name).join(', ')} · 같이 연습한 지 ${s.t - q.t0}개월 · ${coTwWord(q.tw || 0)}`, opts: [
+      for (const q of (t.squads || []).filter(q => q.kind !== 'vt')) A.push({ t: `${coKindN(q.kind)} 데뷔조 「${q.name}」 · ${q.ids.length}명`, h: `${coP(s, q.ids).map(x => x.name).join(', ')} · 같이 연습한 지 ${s.t - q.t0}개월 · ${coTwWord(q.tw || 0)}`, opts: [
         { btn: '데뷔시키기', on: true, ok: !coMakeWhy(s, q.kind), run: s => { fireEvent(s, 'co_make_ok', { kind: q.kind, name: q.name, fandom: q.fandom, ids: q.ids.slice() }); return ''; } },
         { btn: '무산', ok: true, confirm: `데뷔조 「${q.name}」의 데뷔를 무산시킬까요?\n맞춰 온 합은 사라져요.`, run: s => { t.squads = t.squads.filter(x => x !== q); return `데뷔조 「${q.name}」의 데뷔가 무산됐다.`; } }] });
       // v118 UI D3: 사내 데뷔평가 (테스트 무대 → 객석 반응 3줄)
@@ -1404,6 +1402,9 @@ function coTabTr(s, t) {
       if (EK.length) A.push({ t: '사내 데뷔평가', h: `${fmtWon(coEvalCost(t))} (회사 돈) · 테스트 무대로 데뷔할 실력인지 본다`, why: EK.every(k => coEvalWhy(s, k)) ? coEvalWhy(s, EK[0]) : '', opts: EK.map(k => ({ btn: coKindN(k), on: !coEvalWhy(s, k), ok: !coEvalWhy(s, k), run: s => { fireEvent(s, 'co_eval', { kind: k }); return ''; } })) });
     } else if (f === 'vidol') {
       const vw = coMakeWhy(s, 'vt');
+      for (const q of (t.squads || []).filter(q => q.kind === 'vt')) A.push({ t: `버츄얼 아이돌 데뷔조 「${q.name}」 · ${q.ids.length}명`, h: `${coP(s, q.ids).map(x => x.name).join(', ')} · 같이 연습한 지 ${s.t - q.t0}개월 · ${coTwWord(q.tw || 0)}`, opts: [
+        { btn: '데뷔시키기', on: true, ok: !coMakeWhy(s, 'vt'), run: s => { fireEvent(s, 'co_make_ok', { kind: 'vt', name: q.name, fandom: q.fandom, ids: q.ids.slice() }); return ''; } },
+        { btn: '무산', ok: true, confirm: `데뷔조 「${q.name}」의 데뷔를 무산시킬까요?\n맞춰 온 합은 사라져요.`, run: s => { t.squads = t.squads.filter(x => x !== q); return `데뷔조 「${q.name}」의 데뷔가 무산됐다.`; } }] });
       A.push({ t: `${coNextGen(t)}기 데뷔시키기`, h: `버츄얼 아이돌 연습생 ${coTrainees(s, 'vt').length}명 · 활동 기수 ${gs}/${CO_GRP_CAP[k]}개 · 아바타 제작비가 든다`, ok: !vw, why: vw, btn: '정하기', run: s => { fireEvent(s, 'co_make', { kind: 'vt' }); return ''; } });
     }
   }

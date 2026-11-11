@@ -600,8 +600,11 @@ function showEventRaw() {
 // 칸 이름을 누르면 그 칸으로 줄을 세우고(다시 누르면 거꾸로), 찾기 칸에 적으면 그 글자가 든 줄만 남는다. 줄을 옮기기만 해서 체크는 그대로 남는다
 function evTblHTML(T, form) {
   UI.tblT = T; UI.tblS = null;
-  const th = T.cols.map(([k, n]) => `<th data-tsort="${k}">${U.esc(n)}<i></i></th>`).join('');
-  const tr = T.rows.map((r, i) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}${r.rec ? ' rec' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${U.esc(String(c[1]))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}${j === 0 && r.rec ? `<span class="trb rec">${U.esc(r.rec)}</span>` : ''}</td>`; }).join('') + `</tr>`).join('');
+  // 처음 정렬 (v134): 오디션은 나이, 타이틀곡은 완성도. 줄 번호(data-ti)는 그대로 두고 그리는 순서만 바꾼다
+  const ord = T.rows.map((r, i) => i);
+  if (T.sort) { const [sk, sd] = T.sort, val = i => { const c = T.rows[i].cells[sk]; return c ? c[0] : 0; }; ord.sort((a, b) => { const x = val(a), y = val(b); return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'ko')) * sd; }); UI.tblS = { k: sk, dir: sd }; }
+  const th = T.cols.map(([k, n]) => `<th data-tsort="${k}"${T.sort && T.sort[0] === k ? ' class="on"' : ''}>${U.esc(n)}<i>${T.sort && T.sort[0] === k ? (T.sort[1] > 0 ? ' ▲' : ' ▼') : ''}</i></th>`).join('');
+  const tr = ord.map(i => [T.rows[i], i]).map(([r, i]) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}${r.rec ? ' rec' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${U.esc(String(c[1]))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}${j === 0 && r.rec ? `<span class="trb rec">${U.esc(r.rec)}</span>` : ''}</td>`; }).join('') + `</tr>`).join('');
   // 추천 묶음 (v132): 버튼을 누르면 그 줄들만 체크된다 (트레이너가 권하는 데뷔 멤버 등)
   const pre = form && T.presets && T.presets.length ? `<div class="tbl-pre">${T.presets.map((p, i) => `<button type="button" class="btn sm rec" data-tpre="${i}">${U.esc(p.n)}</button>`).join('')}</div>` : '';
   return pre + `<div class="tbl-tools"><input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc"></th>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
@@ -1168,7 +1171,7 @@ function panelPeople() {
   if (age(s) >= 19 && !partner(s)) h += meetHTML(s);
   // 묶음 안에서는 친밀도가 높은 사람부터 (가족·연인만 배우자 → 연인 → 자녀 → 형제자매 순서를 먼저 따른다)
   const grp = n => PPL_TOP.findIndex(x => x[0] === pplTop(n)), famR = n => pplTop(n) === 'fam' ? REL_ORDER.indexOf(n.rel) : 0;
-  const list = people(s, n => !['엄마', '아빠', '업계'].includes(n.rel) && !n.hidden).sort((a, b) => grp(a) - grp(b) || famR(a) - famR(b) || b.aff - a.aff);
+  const list = people(s, n => (!['엄마', '아빠', '업계'].includes(n.rel) || coMine(s, n)) && !n.hidden).sort((a, b) => grp(a) - grp(b) || famR(a) - famR(b) || b.aff - a.aff);
   if (!list.length) h += `<div class="muted">아직 가까운 사람이 없다.</div>`;
   // 트리 뷰 (피드백 26): 가족·연인 · 친구 · 동료(어느 직업으로 만났나) · 지인(그 사람의 직업)
   UI.pplOpen = UI.pplOpen || {};
@@ -1182,7 +1185,9 @@ function panelPeople() {
     if (open && (k === 'work' || k === 'know')) {
       const G = {};
       for (const n of L) { const g = k === 'work' ? orgOf(s, n) : (n.job || '기타'); (G[g] = G[g] || []).push(n); }
-      const keys = Object.keys(G).sort((a, b) => G[b].length - G[a].length || a.localeCompare(b));
+      // '기타'는 늘 맨 아래 (v134)
+      const etc = x => /기타$/.test(x) ? 1 : 0;
+      const keys = Object.keys(G).sort((a, b) => etc(a) - etc(b) || G[b].length - G[a].length || a.localeCompare(b));
       for (const g of keys) {
         const key = k + ':' + g, o2 = UI.pplOpen[key] != null ? UI.pplOpen[key] : keys.length === 1;
         h += `<div class="ap-sub">` + tog(key, o2, U.esc(g), G[g].length) + (o2 ? G[g].map(n => npcCard(s, n)).join('') : '') + `</div>`;
@@ -1195,7 +1200,10 @@ function panelPeople() {
   return h;
 }
 const PPL_TOP = [['fam', '👪 가족·연인'], ['friend', '🤝 친구'], ['work', '💼 동료'], ['know', '🙂 지인']];
+// 내 회사 사람인가 (v134): 직원 · 연습생 · 소속 아티스트 · 크리에이터. 지원자는 뺀다
+function coMine(s, n) { return !!n.co && !!n.co.role && n.co.role !== 'cand' && typeof coOn === 'function' && coOn(s); }
 function pplTop(n) {
+  if (n.rel === '업계' && n.co && n.co.role && n.co.role !== 'cand') return 'work';
   if (['배우자', '연인', '자녀', '형제자매', '전 연인', '전 배우자'].includes(n.rel)) return 'fam';
   if (n.rel === '친구') return 'friend';
   if (['동료', '멤버', '전 멤버', '동기', '선배', '제자'].includes(n.rel)) return 'work';
@@ -1210,8 +1218,11 @@ function orgOf(s, n) {
   // 될 수 있으면 가장 작은 묶음으로 (v129): 회사보다 그룹. 내 아이돌 그룹 멤버, 내 회사에 속한 그룹 · 밴드의 멤버
   const ig = (s.tracks.idol || {}).g;
   if (ig && ig.name && ((ig.members || []).includes(n.id) || (['멤버', '전 멤버'].includes(n.rel) && job === 'idol'))) return `💫 그룹 「${ig.name}」`;
+  if (coMine(s, n) && n.co.role === 'staff') return `🏢 ${coT(s).name} 직원`;
+  if (coMine(s, n) && n.co.role === 'tr') return `🌱 ${coT(s).name} 연습생`;
   const cg = coCardGroups(s).find(g => (g.members || []).includes(n.id));
-  if (cg) return `${cg.kind === 'band' ? '🎸 밴드' : '💫 그룹'} 「${cg.name}」`;
+  if (cg) return `${cg.kind === 'band' ? '🎸 밴드' : cg.kind === 'vt' ? '🎙️ 기수' : '💫 그룹'} 「${cg.name}」`;
+  if (coMine(s, n)) return `🏢 ${coT(s).name} 소속`;
   // 내 회사 일로 만났지만 회사 소속이 아닌 업계 사람(곡을 준 작곡가 등)은 회사 묶음이 아니라 '기타'로 (v133)
   if (job === 'agency' && !n.co && !/^(전|은퇴한) /.test(n.job || '')) return '📁 기타';
   const o = n.metOrg || orgGuess(s, n, job);

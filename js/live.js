@@ -39,7 +39,7 @@ function liveBeats(sp) {
   const lvl = v => v >= 0.6 ? 2 : v >= -0.25 ? 1 : 0;
   const g = sp.g, fd = sp.fd, grp = sp.k === 'idol' || sp.k === 'meet';
   const mine = sp.mem[sp.mi] ? sp.mem[sp.mi][0] : (sp.cn || g), cn = sp.cn || g;
-  const who = fd || cn;
+  const who = cn; // 팬덤 이름은 무대에서 부르지 않는다 (v134: 어느 장면에서 나와도 어색했다)
   const B = [];
   if (sp.k === 'meet') return liveMeet(sp, R, pk, z, lvl, who, mine);
   // 1. 등장: 팬이 많을수록 객석이 크다
