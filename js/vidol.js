@@ -153,9 +153,22 @@ E({
   submit(s, d, v) {
     const given = (v.given || '').trim();
     if (!given) return { err: 'RP 이름은 비울 수 없어요' };
-    return { log: viDebut(s, given, (v.nick || '').trim()) };
+    // 데뷔 방송을 실시간 창으로 (볼 차례가 아니면 예전처럼 결과만)
+    const log = viDebut(s, given, (v.nick || '').trim());
+    showResult(s, '데뷔 방송', log, log, viLive(s, viT(s), 'debut'));
+    return { log: '' };
   },
 });
+// 실시간 창 (12-3): 라이브 방송 플랫폼. sub: 방송 종류 (debut 데뷔 방송 · d3 3D 공개 · anniv 기념 방송 · concert 3D 라이브 · endure 내구 방송)
+// 방송 실력(viAppeal)이 채팅 분위기를 정한다. 동기 · 선배가 방송에 들어오기도 한다
+function viLive(s, t, sub, o) {
+  o = o || {};
+  if (typeof liveStage !== 'function') return null;
+  const ap = viAppeal(s, t), nick = (t.sn && t.sn.nick) || t.ch;
+  const T = { debut: `【데뷔】 처음 뵙겠습니다, ${t.ch}입니다!`, d3: `【3D 공개】 ${t.ch}, 움직입니다`, anniv: `【${o.y || 1}주년】 기념 방송`, concert: `【3D LIVE】 ${t.ch} 콘서트`, endure: '【내구】 24시간 방송' };
+  return liveStage({ k: 'stream', place: 'LOOP 라이브', t: T[sub], g: t.ch, cn: nick, mem: [[t.ch, '']], mi: 0, key: o.key !== false, sc: o.sc != null ? o.sc : U.clamp(50 + (ap - 55) * 1.5, 0, 100), z: { sk: (ap - 55) / 12 },
+    x: { sub, subs: t.subs, nick, mates: viMates(s, t).concat(viSeniors(s, t)).slice(0, 4).map(viName), d3: sub === 'd3' || sub === 'concert' || !!t.d3 } });
+}
 function viDebut(s, given, nick) {
   const t = viT(s), ag = viAgOf(t);
   t.sn = { sur: '', given, nick, self: false };
@@ -196,8 +209,9 @@ function viCollab(s, t, n) {
 function viNotice(s, id, d = {}) { if (!hasQ(s, id)) queueEv(s, id, 0, d); }
 E({
   id: 'vi_3d', cat: '회사 결정', title: '3D 데뷔', tag: 'career',
+  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live,
   cond: s => viOn(s) && viT(s).st === 'active' && !viT(s).d3,
-  init(s, d) { const t = viT(s); d.inc = Math.round(t.subs * U.fl(200, 400) * (1 - t.cut)); },
+  init(s, d) { const t = viT(s); d.inc = Math.round(t.subs * U.fl(200, 400) * (1 - t.cut)); d.live = viLive(s, t, 'd3', { sc: 75 }); },
   text: (s, d) => { const t = viT(s); return `구독자 ${fmtFans(t.subs)}. ${t.corpN}에서 3D 모델을 만들어 주기로 했다. 3D 데뷔 방송에 시청자가 몰렸다.\n\n후원 ${fmtWon(d.inc)} · 이제부터 3D로도 방송한다`; },
   ch: (s, d) => [{ t: '확인', f: s => { const t = viT(s); t.d3 = true; t.av = Math.max(t.av, 4); t.subs = Math.round(t.subs * 1.12); earn(s, d.inc, '3D 데뷔 방송 후원'); milestone(s, `${age(s)}세에 「${t.ch}」 3D 데뷔를 했다.`); return `「${t.ch}」 3D 데뷔! 후원 ${fmtWon(d.inc)}.`; } }],
 });
@@ -217,20 +231,23 @@ E({
 // 데뷔 기념일: 기수 합동 기념 방송과 기념 굿즈
 E({
   id: 'vi_anniv', cat: '회사 결정', title: '데뷔 기념 방송', tag: 'career',
+  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live,
   cond: s => viOn(s) && viT(s).st === 'active',
-  init(s, d) { const t = viT(s); d.y = Math.round(t.months / 12); d.inc = Math.round(t.subs * U.fl(150, 350) * (1 - t.cut)); d.gain = Math.round(t.subs * U.fl(0.02, 0.06)); },
+  init(s, d) { const t = viT(s); d.y = Math.round(t.months / 12); d.live = viLive(s, t, 'anniv', { y: d.y, key: d.y === 1 || d.y % 5 === 0 }); d.inc = Math.round(t.subs * U.fl(150, 350) * (1 - t.cut)); d.gain = Math.round(t.subs * U.fl(0.02, 0.06)); },
   text: (s, d) => { const t = viT(s), m = viMates(s, t); return `「${t.ch}」 데뷔 ${d.y}주년. ${m.length ? `${t.gen}기 동기 ${m.map(viName).join(', ')}와 함께 ` : ''}기념 방송을 하고 기념 굿즈를 냈다.\n\n굿즈 수입 ${fmtWon(d.inc)} · 구독자 ${sgnFans(d.gain)}`; },
   ch: (s, d) => [{ t: '확인', f: s => { const t = viT(s); t.subs += d.gain; earn(s, d.inc, '굿즈'); for (const x of viMates(s, t)) { bond(s, x, 2); x.vi.subs = Math.round(x.vi.subs * 1.03); } return `데뷔 ${d.y}주년 기념 방송. 굿즈 수입 ${fmtWon(d.inc)}.`; } }],
 });
 // 3D 라이브 콘서트: 3D 데뷔를 하고 구독자가 많으면 회사가 연다
 E({
   id: 'vi_live', cat: '회사 결정', title: '3D 라이브 콘서트', tag: 'career',
+  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live,
   cond: s => viOn(s) && viT(s).st === 'active' && viT(s).d3,
   init(s, d) {
     const t = viT(s), p = me(s);
     d.sc = U.clamp(lv(p, 'vocal') * 0.4 + lv(p, 'dance') * 0.2 + lv(p, 'variety') * 0.2 + Math.log10(1 + t.subs) * 4 + U.normal(0, 7), 0, 100);
     d.inc = Math.round(t.subs * U.fl(400, 700) * (0.6 + d.sc / 100) * (1 - t.cut));
     d.gain = Math.round(t.subs * (d.sc >= 60 ? U.fl(0.04, 0.1) : U.fl(0, 0.03)));
+    d.live = viLive(s, t, 'concert', { sc: d.sc });
   },
   text: (s, d) => { const t = viT(s); return `${t.corpN}에서 「${t.ch}」 3D 라이브 콘서트를 열었다. ${d.sc >= 70 ? '무대가 끝나자 채팅창이 박수로 가득 찼다.' : d.sc >= 50 ? '무난하게 공연을 마쳤다.' : '긴장해서 실수가 잦았다.'}\n\n수입 ${fmtWon(d.inc)} · 구독자 ${sgnFans(d.gain)}`; },
   ch: (s, d) => [{ t: '확인', f: s => { const t = viT(s); t.lives = (t.lives || 0) + 1; t.subs += d.gain; earn(s, d.inc, '3D 라이브'); useSkill(s, me(s), 'vocal', 1); if (t.lives === 1) milestone(s, `${age(s)}세에 「${t.ch}」 첫 3D 라이브 콘서트를 열었다.`); const up = viTierUp(s, t); return `「${t.ch}」 3D 라이브 콘서트. 수입 ${fmtWon(d.inc)}.` + (up ? ' ' + up : ''); } }],
@@ -261,7 +278,8 @@ ACT_APPLY.push({
     const t = viT(s); s.cd.viEndure = s.t + 6;
     const gain = Math.round(t.subs * U.fl(0.02, 0.05) + 200), inc = Math.round(t.subs * U.fl(50, 120) * (1 - t.cut));
     t.subs += gain; earn(s, inc, '방송 후원·멤버십', 'vidol'); addStress(s, 12);
-    return showResult(s, '내구 방송', `「${t.ch}」 24시간 내구 방송을 했다. 끝날 때쯤엔 목소리가 다 쉬었다.\n\n구독자 ${sgnFans(gain)} · 후원 ${fmtWon(inc)} · 스트레스 +12`, `24시간 내구 방송. 구독자 ${sgnFans(gain)}, 후원 ${fmtWon(inc)}.`);
+    const first = !t.endN; t.endN = (t.endN || 0) + 1; // 첫 내구 방송만 '중요할 때'
+    return showResult(s, '내구 방송', `「${t.ch}」 24시간 내구 방송을 했다. 끝날 때쯤엔 목소리가 다 쉬었다.\n\n구독자 ${sgnFans(gain)} · 후원 ${fmtWon(inc)} · 스트레스 +12`, `24시간 내구 방송. 구독자 ${sgnFans(gain)}, 후원 ${fmtWon(inc)}.`, viLive(s, t, 'endure', { sc: 62, key: first }));
   },
 });
 

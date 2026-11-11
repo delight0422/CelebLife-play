@@ -950,3 +950,29 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 @media (max-width: 700px) { .p-cam { font-size: 34px; } .p-clap { font-size: 30px; } .p-light { font-size: 26px; } .p-tree { font-size: 50px; } .p-sun { font-size: 34px; } }
 .lv-stage.vn-outdoor .lb.soft { color: #2f2a45; text-shadow: 0 1px 6px rgba(255, 255, 255, .7); }
 .lv-stage.vn-outdoor .lb.bad { color: #b01f3c; text-shadow: 0 1px 6px rgba(255, 255, 255, .7); }
+/* 12-3: 라이브 방송 플랫폼 (LOOP 라이브). 왼쪽 방송 화면, 오른쪽 채팅 */
+.st-logo { background: #00d18f !important; color: #06281d !important; letter-spacing: .5px; }
+.st-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 10px; height: min(560px, calc(100vh - 190px)); min-height: 280px; }
+.st-video { position: relative; border-radius: 14px; overflow: hidden; background: radial-gradient(90% 80% at 50% 30%, hsl(var(--hue) 45% 30%) 0%, #120e22 75%); display: flex; align-items: flex-end; justify-content: center; filter: brightness(calc(.8 + .3 * var(--glow))); transition: filter .6s; }
+.st-live { position: absolute; top: 12px; left: 12px; background: #e0304a; color: #fff; font-weight: 800; font-size: 12px; letter-spacing: 1px; padding: 3px 9px; border-radius: 5px; }
+.st-view { position: absolute; top: 12px; left: 68px; background: rgba(0, 0, 0, .55); color: #fff; font-size: 12.5px; padding: 3px 9px; border-radius: 5px; }
+.st-3d { position: absolute; top: 12px; right: 12px; background: #7b5cff; color: #fff; font-weight: 800; font-size: 12px; padding: 3px 9px; border-radius: 5px; }
+.st-av { margin-bottom: -6%; }
+.st-av .lv-sp { width: 150px; height: 200px; }
+.st-av .lv-ch .lv-chc { height: min(430px, 62vh); }
+.st-don { position: absolute; left: 50%; top: 14%; transform: translateX(-50%); background: linear-gradient(90deg, #ffb347, #ff7b54); color: #2a1404; font-weight: 800; font-size: 15px; padding: 7px 16px; border-radius: 999px; opacity: 0; white-space: nowrap; }
+.st-don.in { animation: stDon 2.4s ease-out forwards; }
+@keyframes stDon { 0% { opacity: 0; transform: translateX(-50%) scale(.7); } 10% { opacity: 1; transform: translateX(-50%) scale(1.08); } 20% { transform: translateX(-50%) scale(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
+.st-chat { display: flex; flex-direction: column; background: #1b1530; border: 1px solid #2c2347; border-radius: 14px; overflow: hidden; min-height: 0; }
+.st-chat-h { padding: 8px 12px; font-size: 13px; font-weight: 800; color: #cdbdff; border-bottom: 1px solid #2c2347; }
+.st-chat-b { flex: 1; overflow: hidden; padding: 8px 10px; display: flex; flex-direction: column; gap: 5px; }
+.st-l { font-size: 13.5px; line-height: 1.35; color: #ece6ff; animation: trF .2s ease-out; word-break: break-all; }
+.st-l b { margin-right: 6px; font-weight: 700; }
+.st-l.del { color: #7d7399; font-size: 12.5px; }
+.st-l.join { background: rgba(123, 92, 255, .25); border-radius: 8px; padding: 4px 8px; color: #e4dcff; }
+.st-l.don { background: linear-gradient(90deg, rgba(255, 179, 71, .25), rgba(255, 123, 84, .18)); border-left: 3px solid #ffb347; border-radius: 6px; padding: 5px 8px; display: flex; flex-direction: column; }
+.st-l.don b { color: #ffcf8a; }
+@media (max-width: 700px) {
+  .st-wrap { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1.1fr) minmax(0, 1fr); height: min(560px, calc(100vh - 170px)); }
+  .st-av .lv-ch .lv-chc { height: 200px; }
+}

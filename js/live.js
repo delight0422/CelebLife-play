@@ -24,7 +24,7 @@ function liveStage(o) {
   const z = {};
   for (const k in o.z || {}) if (isFinite(o.z[k])) z[k] = Math.round(o.z[k] * 100) / 100;
   const name = o.g || o.t || '';
-  return { v: 'stage', k: o.k, vn: o.vn || '', nw: o.nw ? 1 : 0, big: o.big || 0, old: o.old ? 1 : 0, fx2: o.fixed ? 1 : 0, key: o.key !== false, seed: U.int(1, 2e9), place: o.place || '무대', t: o.t || '', g: o.g || '', cn: o.cn || '', fd: o.fd || '', mem: (o.mem || []).slice(0, 10), mi: o.mi || 0, hue: hashN('hue' + name) % 360, z, sc: Math.round(o.sc || 0), wins: o.wins || 0, rv: o.rv || '', cand: o.cand ? 1 : 0, debut: o.debut ? 1 : 0 };
+  return { v: 'stage', k: o.k, vn: o.vn || '', nw: o.nw ? 1 : 0, big: o.big || 0, old: o.old ? 1 : 0, fx2: o.fixed ? 1 : 0, x: o.x || null, key: o.key !== false, seed: U.int(1, 2e9), place: o.place || '무대', t: o.t || '', g: o.g || '', cn: o.cn || '', fd: o.fd || '', mem: (o.mem || []).slice(0, 10), mi: o.mi || 0, hue: hashN('hue' + name) % 360, z, sc: Math.round(o.sc || 0), wins: o.wins || 0, rv: o.rv || '', cand: o.cand ? 1 : 0, debut: o.debut ? 1 : 0 };
 }
 
 // 같은 곡 무대를 다른 자리에서 한 번 더 (시상식 무대 등): 요인은 그대로, 씨앗만 새로. 1위 발표 · 데뷔 인사는 뺀다
@@ -45,6 +45,7 @@ function liveBeats(sp) {
   const B = [];
   if (sp.k === 'meet') return liveMeet(sp, R, pk, z, lvl, who, mine);
   if (sp.k === 'band' || sp.k === 'player') return liveBand(sp, R, pk, z, lvl, cn, mine);
+  if (sp.k === 'stream') return liveStream(sp, R, pk, z, lvl);
   if (sp.k === 'set') return liveSet(sp, R, pk, z, lvl, mine);
   if (sp.k === 'show') return liveTv(sp, R, pk, z, lvl, mine);
   // 1. 등장: 팬이 많을수록 객석이 크다
@@ -151,6 +152,65 @@ function liveProps(sp) {
   const cam = '<i class="p-cam l">🎥</i><i class="p-cam r">🎥</i>';
   return `<div class="lv-props">` + (sp.vn === 'outdoor' ? '<i class="p-sun">☀️</i><i class="p-tree l">🌳</i><i class="p-tree r">🌲</i>' + cam + '<i class="p-clap">🎬</i>' : sp.vn === 'studio' ? '<i class="p-air">ON AIR</i>' + cam + '<i class="p-clap">🎬</i>' : '<i class="p-light l">💡</i><i class="p-light r">💡</i>' + cam + '<i class="p-clap">🎬</i>') + `</div>`;
 }
+// ───── 라이브 방송 플랫폼 (12-3): 버튜버 ─────
+// 지어낸 플랫폼 'LOOP 라이브'. 왼쪽은 방송 화면(아바타 · LIVE · 시청자 수 · 후원 알림), 오른쪽은 채팅
+// 여기서는 채팅이 곧 현장 반응이다. 줄 종류: chat(채팅) · don(후원) · del(매니저가 지운 채팅) · join(다른 방송인이 들어옴)
+// sp.x = { sub: 방송 종류(debut · d3 · anniv · concert · endure), subs: 구독자, nick: 팬들이 부르는 이름, mates: 들어올 방송인 이름들, d3 }. 요인: sk(방송 실력)
+const LV_NICK = ['말랑콩', '새벽두시', '감자튀김', '구름빵', '민트초코', '별사탕', '야근러', '고양이집사', '무지개떡', '초코우유', '졸린곰', '라면물', '콩나물국', '월요병', '귤껍질', '도토리묵', '밤샘러', '솜사탕', '버스기사', '옥수수'];
+const LV_CHAT = {
+  hi: ['ㅎㅇ', '왔다!!', '하이~', '기다렸어ㅠㅠ', '오늘도 출석', '방송 켰다!!'],
+  good: ['ㅋㅋㅋㅋㅋㅋㅋ', '개웃기네ㅋㅋㅋ', '이 사람 찐이다', '클립 따야 됨', '구독 박았다', '아 배 아파ㅋㅋㅋ', '오늘 폼 미쳤다'],
+  mid: ['ㅋㅋ', '오', '귀엽다', 'ㅇㅇ', '그렇구나'],
+  bad: ['…', '갑분싸', '음…', '오늘은 좀 조용하네', '채팅 느려졌다'],
+  debut: ['데뷔 축하해!!', '목소리 뭐야 귀여워', '아바타 예쁘다', '첫 방송부터 본 사람 손', '떨지 마ㅋㅋ', '구독 눌렀어!'],
+  d3: ['움직인다!!', '3D 미쳤다', '춤 춰 줘!!', '한 바퀴 돌아 봐', '와 진짜 사람 같아'],
+  anniv: ['벌써 이만큼 왔네ㅠㅠ', '처음부터 봤다', '축하해!!', '굿즈 샀어', '앞으로도 오래 보자'],
+  concert: ['♪♪♪', '8888888', '라이브 뭐야ㅠㅠ', '앵콜!!', '울고 있다', '야광봉 흔드는 중'],
+  endure: ['아직도 해?ㅋㅋ', '자라 좀ㅋㅋ', '목 쉬었어ㅠ', '끝까지 본다', '출근했다 퇴근했는데 아직 방송 중', '화이팅!!'],
+  don: ['축하해요!', '밥 사 먹어요', '오늘도 고마워요', '응원합니다!!', '목 관리 잘해요'],
+};
+function liveStream(sp, R, pk, z, lvl) {
+  const X = sp.x || {}, sub = X.sub || 'stream', sv = lvl(z('sk')), nick = X.nick || sp.cn || sp.g, B = [];
+  // 한 장면 안에서는 같은 채팅 · 같은 닉네임이 겹치지 않게 뽑는다
+  const used = {}, uniq = (arr, tag) => { const u = used[tag] = used[tag] || {}; let x = pk(arr); for (let i = 0; i < 8 && u[x]; i++) x = pk(arr); u[x] = 1; return x; };
+  const nk = () => uniq(LV_NICK, 'nk'), ch = (pool, n) => Array.from({ length: n }, () => [uniq(LV_CHAT[pool], pool), 'chat', nk()]);
+  const base = Math.max(12, Math.round((X.subs || 500) * (0.02 + 0.03 * R()) * (sub === 'debut' || sub === 'd3' || sub === 'concert' ? 2.2 : 1)));
+  const don = (won) => [pk(LV_CHAT.don), 'don', `${nk()}님이 ${won}만 원 후원`];
+  const tone = sv === 2 ? 'good' : sv === 1 ? 'mid' : 'bad', own = LV_CHAT[sub] ? sub : tone;
+  // 1. 방송 시작
+  B.push({ cap: '방송 시작', glow: 0.5, view: Math.round(base * 0.4), L: ch('hi', 3).concat([[`${nick} 하이~`, 'chat', nk()]]) });
+  // 2. 본 방송: 그 방송만의 채팅 + 후원
+  B.push({ cap: '본 방송', glow: 0.65, view: Math.round(base * (sv === 0 ? 0.6 : 0.9)), L: ch(own, 3).concat(sv >= 1 ? [don(pk([1, 1, 3, 5]))] : [], ch(tone, 1)) });
+  // 3. 다른 방송인이 들어온다 (동기 · 선배)
+  if ((X.mates || []).length && sub !== 'endure') { const m = pk(X.mates); B.push({ cap: '손님', glow: 0.7, view: Math.round(base * 1.05), L: [[`${m}님이 들어왔습니다`, 'join', ''], [pk(['응원하러 왔어!', '오 잘하는데~?','나도 끼워 줘ㅋㅋ']), 'chat', m], ['헐 레이드!!', 'chat', nk()], ['ㅋㅋㅋㅋ 합방각', 'chat', nk()]] }); }
+  // 4. 분위기: 잘 풀리면 채팅이 터지고, 아니면 매니저가 채팅을 지운다
+  B.push({ cap: '중반', glow: sv === 2 ? 0.85 : 0.55, view: Math.round(base * (sv === 2 ? 1.35 : sv === 1 ? 1 : 0.5)), L: sv === 2 ? ch('good', 4).concat([don(pk([5, 10, 10, 30]))]) : sv === 1 ? ch('mid', 2).concat(ch('good', 1), ch(own, 1)) : ch('bad', 2).concat([['매니저가 지운 채팅입니다', 'del', ''], ['매니저가 지운 채팅입니다', 'del', '']], ch('mid', 1)) });
+  // 5. 마무리
+  const sc = sp.sc;
+  B.push({ cap: '방송 끝', glow: sc >= 70 ? 1 : 0.6, view: Math.round(base * (sc >= 70 ? 1.5 : sc >= 50 ? 1 : 0.45)), L: (sc >= 70 ? [don(pk([10, 30, 50])), ['오늘 레전드였다', 'chat', nk()], ['내일도 와!!', 'chat', nk()], [`${nick} 수고했어!!`, 'chat', nk()]] : sc >= 50 ? [['수고했어~', 'chat', nk()], ['잘 봤어!', 'chat', nk()], ['ㅂㅂ', 'chat', nk()]] : [['ㅂㅂ', 'chat', nk()], ['다음엔 더 재밌게 해 줘', 'chat', nk()]]) });
+  return B;
+}
+function liveStreamHTML(sp) {
+  const X = sp.x || {};
+  return `<div class="lv-top"><span class="lv-place st-logo">LOOP 라이브</span>${sp.t ? `<span class="lv-t">${U.esc(sp.t)}</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
+    + `<div class="st-wrap"><div class="st-video" id="lv-stage" style="--hue:${sp.hue};--glow:0.4"><span class="st-live">LIVE</span><span class="st-view">👁 <b id="st-view">0</b></span>${X.d3 ? '<span class="st-3d">3D</span>' : ''}`
+    + `<div class="st-av lm">${liveChar('vt/' + sp.g, sp.hue, 'vt/' + sp.g)}</div><div class="st-don" id="st-don"></div></div>`
+    + `<div class="st-chat"><div class="st-chat-h">채팅</div><div class="st-chat-b" id="st-chat"></div></div></div>`
+    + `<div class="lv-bar"><i id="lv-bar"></i></div>`
+    + `<div class="lv-btns"><button class="btn primary" data-liveskip>결과 바로 보기</button></div>`;
+}
+// 채팅 한 줄 (후원은 방송 화면에도 잠깐 뜬다)
+function liveChat(x, k, who) {
+  const box = $('#st-chat');
+  if (!box) return;
+  const el = document.createElement('div');
+  el.className = 'st-l ' + k;
+  el.innerHTML = k === 'del' ? `<i>${U.esc(x)}</i>` : k === 'join' ? `<b>📢 ${U.esc(x)}</b>` : k === 'don' ? `<b>💰 ${U.esc(who)}</b><span>${U.esc(x)}</span>` : `<b style="color:hsl(${hashN(who) % 360} 70% 72%)">${U.esc(who)}</b><span>${U.esc(x)}</span>`;
+  box.appendChild(el);
+  while (box.children.length > 40) box.firstChild.remove();
+  box.scrollTop = box.scrollHeight;
+  if (k === 'don') { const d = $('#st-don'); if (d) { d.textContent = `💰 ${who}`; d.classList.remove('in'); void d.offsetWidth; d.classList.add('in'); } }
+}
 // 팬미팅: 토크(예능) · 노래 · 게임 · 편지 · 끝인사
 function liveMeet(sp, R, pk, z, lvl, who, mine) {
   const g = sp.g, B = [];
@@ -241,6 +301,7 @@ function liveOpen(sp, end) {
   liveNext();
 }
 function liveHTML(sp) {
+  if (sp.k === 'stream') return liveStreamHTML(sp);
   const fan = U.clamp(((sp.z.fans || 0) + 1.5) / 3, 0, 1), n = 16 + Math.round(fan * 44);
   const sticks = Array.from({ length: n }, (_, i) => `<i style="--d:${(i * 0.137) % 1.2}s;--x:${(i * 37) % 100}%;--y:${(i * 53) % 100}%"></i>`).join('');
   const mem = sp.mem.length ? sp.mem : [[sp.g, '']];
@@ -265,7 +326,8 @@ function liveNext() {
   if (L.i >= L.B.length) { liveDone(); return; }
   const b = L.B[L.i];
   if (st) { st.style.setProperty('--glow', b.glow); st.classList.remove('fx-drum', 'fx-win'); if (b.fx) st.classList.add('fx-' + b.fx); st.classList.toggle('gather', !!b.gather); st.classList.toggle('lose', !!b.lose); if (b.clap) { st.classList.remove('clap'); void st.offsetWidth; st.classList.add('clap'); } }
-  b.L.forEach(([x, k], j) => L.tm.push(setTimeout(() => liveBubble(x, k), 120 + j * 260)));
+  if (b.view != null) { const v = $('#st-view'); if (v) v.textContent = b.view.toLocaleString(); }
+  b.L.forEach((e, j) => L.tm.push(setTimeout(() => (L.sp.k === 'stream' ? liveChat(e[0], e[1], e[2]) : liveBubble(e[0], e[1])), 120 + j * 260)));
   L.tm.push(setTimeout(liveNext, liveBeatMs(b)));
 }
 function liveBubble(x, k) {
