@@ -2,7 +2,7 @@
 // ════════ 댄서 (피드백 29) ════════
 // 가수 무대 · 뮤직비디오 · 콘서트에서 백댄서로 춤추고, 곡에 맞는 안무를 만든다. 이름이 알려지면 가끔 예능에도 나간다
 // 프리랜서로 시작하거나 안무 팀(AGENCIES kind 'dance')의 입단 오디션을 본다. 일을 잘하면 안무 팀에서 먼저 연락이 온다
-// 백댄서는 댄스 특기, 안무 창작은 댄스 특기와 창의력 · 예술 감각, 그 콘셉트의 안무 숙련도를 본다 (v94)
+// 백댄서는 댄스 특기, 안무 창작은 댄스 특기와 창의력 · 예술 감각, 그 컨셉의 안무 숙련도를 본다 (v94)
 const DANCER_TIERS = ['신인 댄서', '현역 댄서', '실력파 댄서', '메인 댄서', '이름난 댄서', '스타 댄서', '레전드 댄서'];
 // 등급마다 일의 크기 (보수 · 일감 확률 · 잘 나올 가능성에 곱한다)
 const DANCER_POW = [0, 0.5, 1, 2, 3, 3.5, 4];
@@ -23,14 +23,14 @@ function dancerCrews() { return AGENCIES.filter(a => a.kind === 'dance'); }
 function dancerAgeAdj(a) { return a < 18 ? 0 : a < 30 ? 3 : a < 35 ? 0 : a < 40 ? -4 : -9; }
 function dancerScore(s, kind, c) {
   const p = me(s), t = p.tal;
-  // v94: 안무 창작은 댄스 · 창의력 · 예술 감각(모두 강함)과 콘셉트 숙련도, 백댄서는 댄스만 (처음 댄서의 점수 크기가 예전과 비슷하게 0.8배 + 10)
+  // v94: 안무 창작은 댄스 · 창의력 · 예술 감각(모두 강함)과 컨셉 숙련도, 백댄서는 댄스만 (처음 댄서의 점수 크기가 예전과 비슷하게 0.8배 + 10)
   return kind === 'cho' ? jobMix([[lv(p, 'dance'), JS_], [t.creative, JS_], [t.aesth, JS_]]) + (c ? chBonus(s, c) * 0.6 : 0)
     : lv(p, 'dance') * 0.8 + 10;
 }
 function dancerBlock(s) { return s.army ? '군 복무 중' : s.tracks.idol.st === 'trainee' ? '연습생은 회사 허락 없이 따로 활동할 수 없다' : ''; }
 
-// ───── 안무 콘셉트 숙련도 ─────
-// 곡 콘셉트(TRENDS)마다 따로다. 그 콘셉트 안무를 만들수록 오르고, 창의력이 높으면 빨리 오른다 (곡 콘셉트 숙련도와 같은 방식)
+// ───── 안무 컨셉 숙련도 ─────
+// 곡 컨셉(TRENDS)마다 따로다. 그 컨셉 안무를 만들수록 오르고, 창의력이 높으면 빨리 오른다 (곡 컨셉 숙련도와 같은 방식)
 function chGet(s, c) { return (s.chm && s.chm[c]) || 0; }
 function chGain(s, c, amt) { if (!c) return; s.chm = s.chm || {}; const m = chGet(s, c); s.chm[c] = Math.min(100, m + amt * (1 - m / 100) * (0.6 + me(s).tal.creative / 100)); }
 function chBonus(s, c) { return (chGet(s, c) - 20) / 8; }
@@ -57,7 +57,7 @@ CAREERS.dancer = {
   mainSk() { return 'dance'; },
   info(s, t) {
     return [['소속', t.crew ? `${t.crewN} (${TIER_N[AG[t.crew].tier]} 안무 팀) · 팀 몫 ${pctN(t.cut)}` : '프리랜서'], ['등급', DANCER_TIERS[t.tier]], ['한 일', `백댄서 ${t.back}번 · 안무 ${t.cho}곡`],
-      { h: '안무 콘셉트 숙련도', bars: chBars(s) }];
+      { h: '안무 컨셉 숙련도', bars: chBars(s) }];
   },
   actions(s, t) {
     if (t.st !== 'active') return [];
@@ -165,7 +165,7 @@ E({
     });
   },
   text: s => `일이 들어왔다. 하나를 맡을 수 있다.\n\n'${DANCER_TIERS[s.tracks.dancer.tier]}' · 댄스 ${lvi(me(s), 'dance')}레벨`,
-  ch: (s, d) => d.js.map(j => ({ t: `${j.who} · ${j.n}`, tr: !!j.c && j.c === s.trend, h: `${fmtWon(Math.round(j.fee * (1 - s.tracks.dancer.cut)))} · ${j.c ? `콘셉트 '${j.c}' · 안무 숙련도 ${gauge(chGet(s, j.c))} · ` : ''}잘 나올 가능성 ${fmtPct(j.p)}`, f: s => dcDoJob(s, j) }))
+  ch: (s, d) => d.js.map(j => ({ t: `${j.who} · ${j.n}`, tr: !!j.c && j.c === s.trend, h: `${fmtWon(Math.round(j.fee * (1 - s.tracks.dancer.cut)))} · ${j.c ? `컨셉 '${j.c}' · 안무 숙련도 ${gauge(chGet(s, j.c))} · ` : ''}잘 나올 가능성 ${fmtPct(j.p)}`, f: s => dcDoJob(s, j) }))
     .concat([{ t: '이번엔 넘긴다', f: () => '들어온 일을 모두 거절했다.' }]),
 });
 function dcTierUp(s, t) {

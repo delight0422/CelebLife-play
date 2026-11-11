@@ -53,7 +53,7 @@ const TRAIT_BY = Object.fromEntries(TRAITS.map(t => [t.id, t]));
 function traitLine(id) { return `${TRAIT_BY[id].adj} 사람이다.`; }
 
 const TRENDS = ['청량', '강렬', '큐티', '몽환', '힙합', '레트로', '하이틴', '성숙'];
-// 곡 콘셉트마다 무대에 서는 사람에게서 더 보는 것 (v97, 8-4 사용자 표). young 어린 나이, rap 랩 (보컬 포지션도)
+// 곡 컨셉마다 무대에 서는 사람에게서 더 보는 것 (v97, 8-4 사용자 표). young 어린 나이, rap 랩 (보컬 포지션도)
 // 레트로 (v98): 예술 감각 + 데뷔 연차 (오래 활동한 가수일수록 '추억' 반응. 신인은 손해 없음, music.js cFit)
 const CONCEPT_FIT = { 청량: ['express', 'star'], 강렬: ['athletic'], 큐티: 'young', 몽환: ['voice'], 힙합: 'rap', 레트로: ['aesth'], 하이틴: 'young', 성숙: ['verbal'] };
 // 방송·영상·유튜브 업계 유행 (해마다 바뀐다). 5단계 방송·영상 직업이 열리면 작품 성적에 쓰인다
@@ -76,7 +76,7 @@ function ytCats(vt) { return vt ? YT_TRENDS.filter(c => c !== '단편 애니메�
 const ANIME_TRENDS = ['판타지', '이세계', '액션', '로맨스', '일상', 'SF', '스포츠', '학원물', '미스터리', '아이돌'];
 // 애니 장르마다 사전 조사에 들어가는 재능 (v97, 8-4 사용자 표). 애니 감독 작품 · 웹툰 · 웹소설 연재를 시작할 때 조사한다
 const RESEARCH_FIT = { 판타지: ['creative'], 이세계: ['verbal'], 액션: ['athletic'], 로맨스: ['aesth'], 일상: ['insight'], SF: ['verbal'], 스포츠: ['athletic'], 학원물: ['intel', 'insight'], 미스터리: ['intel'], 아이돌: ['music'] };
-// 유튜브 유행은 채널 콘셉트가 아니라 버튜버냐 캠튜버냐다 (피드백 24). 다른 유행보다 훨씬 천천히, 3~5년에 한 번 바뀐다 (ytT: 바뀌는 때)
+// 유튜브 유행은 채널 컨셉이 아니라 버튜버냐 캠튜버냐다 (피드백 24). 다른 유행보다 훨씬 천천히, 3~5년에 한 번 바뀐다 (ytT: 바뀌는 때)
 const YT_KINDS = ['버튜버', '캠튜버'];
 function rollTV(s) { s.trendTV = { drama: U.pick(DRAMA_TRENDS), show: U.pick(SHOW_TRENDS), yt: U.pick(YT_KINDS), ytT: (s.t || 0) + U.int(36, 60), anime: U.pick(ANIME_TRENDS), web: U.pick(ANIME_TRENDS) }; }
 
@@ -499,7 +499,7 @@ const VT_BAN = ['시라유키 히나', '유즈하 리코', '아이리 칸나', '
 const AGENCIES = [
   { id: 'lum', n: '루미에르 엔터테인먼트', tier: 3, eq: 3, thr: 40, mkt: 'kr', kind: 'music', cut: 0.65, plan: 95, con: '글로벌 기획' },
   { id: 'apex', n: '에이펙스 뮤직', tier: 3, eq: 3, thr: 39, mkt: 'kr', kind: 'music', cut: 0.65, plan: 85, con: '퍼포먼스 명가' },
-  { id: 'bw', n: '블루웨이브 엔터', tier: 3, eq: 3, thr: 37, mkt: 'kr', kind: 'music', cut: 0.6, plan: 75, con: '청량 콘셉트' },
+  { id: 'bw', n: '블루웨이브 엔터', tier: 3, eq: 3, thr: 37, mkt: 'kr', kind: 'music', cut: 0.6, plan: 75, con: '청량 컨셉' },
   { id: 'hn', n: '하이노트 엔터', tier: 2, eq: 2, thr: 30, mkt: 'kr', kind: 'music', cut: 0.55, plan: 70, con: '보컬 그룹' },
   { id: 'mo', n: '모먼트 엔터', tier: 2, eq: 2, thr: 29, mkt: 'kr', kind: 'music', cut: 0.55, plan: 55, con: '감성 발라드' },
   { id: 'sb', n: '새벽별 엔터', tier: 2, eq: 2, thr: 27, mkt: 'kr', kind: 'music', cut: 0.5, plan: 65, con: '걸크러시' },

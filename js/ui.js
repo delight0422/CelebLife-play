@@ -93,7 +93,7 @@ function tsCat(x) {
   return 'etc';
 }
 // 성장: 특기 레벨 · 재능 · 숙련도 · 평판 · 인지도. 넘어가기 전과 뒤를 견줘 오른 것만 '보컬 3→5레벨이 되었다.'처럼 한 줄씩
-const TS_MAST = [['cmast', '곡 콘셉트'], ['chm', '안무 콘셉트'], ['emast', '편집', k => (typeof EM_N !== 'undefined' && EM_N[k]) || k], ['anm', '작화 장르'], ['adm', '애니 연출 장르'], ['tum', '과목'], ['ilm', '일러스트 분야', k => ((typeof IL_JOBS !== 'undefined' && IL_JOBS.find(j => j.id === k)) || { n: k }).n], ['dmast', '연출'], ['smast', '각본']];
+const TS_MAST = [['cmast', '곡 컨셉'], ['chm', '안무 컨셉'], ['emast', '편집', k => (typeof EM_N !== 'undefined' && EM_N[k]) || k], ['anm', '작화 장르'], ['adm', '애니 연출 장르'], ['tum', '과목'], ['ilm', '일러스트 분야', k => ((typeof IL_JOBS !== 'undefined' && IL_JOBS.find(j => j.id === k)) || { n: k }).n], ['dmast', '연출'], ['smast', '각본']];
 function growSnap(s) {
   const p = me(s), o = { sk: {}, tal: {}, m: {}, 평판: Math.round(s.rep), 인지도: Math.round(s.fame || 0) };
   for (const k of learnedSkills(p)) o.sk[k] = lvi(p, k);
@@ -544,10 +544,10 @@ function isSkillEv(ev) {
   if (ev._sk == null) ev._sk = !!ev.sk || /learnMe|gainH|learnable/.test(String(ev.ch || '') + String(ev.init || '') + String(ev.submit || ''));
   return ev._sk;
 }
-// 선택지 중 지금 유행하는 것: 이름 옆 꼬리표 (콘셉트·장르·예능 형식·유튜브 분야 어디서든)
+// 선택지 중 지금 유행하는 것: 이름 옆 꼬리표 (컨셉·장르·예능 형식·유튜브 분야 어디서든)
 const TR_BADGE = '<span class="trb">🔥 유행</span>';
-// 초록 표시 (v132): 직원이 권한 것은 '추천', 그룹 · 밴드의 대표 콘셉트와 같은 것은 '대표 콘셉트'
-const REC_BADGE = '<span class="trb rec">추천</span>', SIG_BADGE = '<span class="trb rec">대표 콘셉트</span>';
+// 초록 표시 (v132): 직원이 권한 것은 '추천', 그룹 · 밴드의 대표 컨셉과 같은 것은 '대표 컨셉'
+const REC_BADGE = '<span class="trb rec">추천</span>', SIG_BADGE = '<span class="trb rec">대표 컨셉</span>';
 function showEventRaw() {
   const s = S;
   if (!s.pending) { $('#modal').classList.add('hidden'); return; }
@@ -586,7 +586,7 @@ function showEventRaw() {
   // 특기를 고르거나 처음 배우는 사건: 내 프로필(재능·타고난 것)을 바로 볼 수 있는 버튼 (고를 게 하나뿐인 사건에는 없다)
   const myProf = !kid && !ev.form && isSkillEv(ev) && evChoices(s).length >= 2;
   h += `<div class="m-foot"><div class="m-stats">${statLine(s)}</div>${kid ? `<button class="btn sm" data-kid="${kid.id}">👶 ${U.esc(kid.name)} 재능</button>` : myProf ? `<button class="btn sm" data-myprof>👤 내 프로필</button>` : ''}</div>`;
-  $('#mcard').className = 'mcard' + (T ? ' wide' : '');
+  $('#mcard').className = 'mcard' + (T || ev.wide ? ' wide' : '');
   $('#mcard').innerHTML = h;
   $('#modal').classList.remove('hidden');
   
@@ -601,7 +601,7 @@ function showEventRaw() {
 function evTblHTML(T, form) {
   UI.tblT = T; UI.tblS = null;
   const th = T.cols.map(([k, n]) => `<th data-tsort="${k}">${U.esc(n)}<i></i></th>`).join('');
-  const tr = T.rows.map((r, i) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${U.esc(String(c[1]))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}</td>`; }).join('') + `</tr>`).join('');
+  const tr = T.rows.map((r, i) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}${r.rec ? ' rec' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${U.esc(String(c[1]))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}${j === 0 && r.rec ? `<span class="trb rec">${U.esc(r.rec)}</span>` : ''}</td>`; }).join('') + `</tr>`).join('');
   // 추천 묶음 (v132): 버튼을 누르면 그 줄들만 체크된다 (트레이너가 권하는 데뷔 멤버 등)
   const pre = form && T.presets && T.presets.length ? `<div class="tbl-pre">${T.presets.map((p, i) => `<button type="button" class="btn sm rec" data-tpre="${i}">${U.esc(p.n)}</button>`).join('')}</div>` : '';
   return pre + `<div class="tbl-tools"><input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc"></th>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
@@ -1077,7 +1077,7 @@ function mastBars(L, cls = '', wrap = '') {
   if (!L.length) return '<div class="muted">아직 없음</div>';
   return `<div class="mb ${wrap}">${L.map(x => `<div class="mb-r"><span class="mb-n">${U.esc(x.n)}${x.tag ? `<i class="mb-tag${x.down ? ' down' : ''}">${U.esc(x.tag)}</i>` : ''}</span><div class="mb-bar ${cls}"><i style="width:${U.clamp(x.v, 0, 100)}%"></i></div><b>${x.txt != null ? U.esc(x.txt) : Math.floor(x.v)}</b></div>`).join('')}</div>`;
 }
-// 곡을 직접 만드는 직업은 직업 창에 곡 콘셉트 숙련도를, 원고를 쓰는 영화감독은 각본 숙련도를 함께 보여 준다
+// 곡을 직접 만드는 직업은 직업 창에 곡 컨셉 숙련도를, 원고를 쓰는 영화감독은 각본 숙련도를 함께 보여 준다
 const SONG_JOBS = ['idol', 'band', 'solo'];
 function panelTrk() {
   const s = S, key = UI.trk || '', [k, id] = key.split(':');
@@ -1212,6 +1212,8 @@ function orgOf(s, n) {
   if (ig && ig.name && ((ig.members || []).includes(n.id) || (['멤버', '전 멤버'].includes(n.rel) && job === 'idol'))) return `💫 그룹 「${ig.name}」`;
   const cg = coCardGroups(s).find(g => (g.members || []).includes(n.id));
   if (cg) return `${cg.kind === 'band' ? '🎸 밴드' : '💫 그룹'} 「${cg.name}」`;
+  // 내 회사 일로 만났지만 회사 소속이 아닌 업계 사람(곡을 준 작곡가 등)은 회사 묶음이 아니라 '기타'로 (v133)
+  if (job === 'agency' && !n.co && !/^(전|은퇴한) /.test(n.job || '')) return '📁 기타';
   const o = n.metOrg || orgGuess(s, n, job);
   return o ? `${ic} ${o}` : `${relJobName(job)} 시절`;
 }
@@ -1354,7 +1356,7 @@ function panelJob() {
   const info = [['번 돈', fmtWon((s.jobEarn || {})[id] || 0)]].concat(POP_JOBS.includes(id) ? [['인기', popTxt(jpop(s, id))]] : [], rows, ci);
   // 그 일에서 함께 일하는 팀들 (피드백 28 · 29): 내가 그 팀 사람이면 '나'도 들어간다
   for (const x of jobTeams(s, id)) info.push({ h: coTeamName(x.tk), items: coTeamItems(s, x.tk, x.me, x.lead) });
-  if (SONG_JOBS.includes(id)) info.push({ h: '곡 콘셉트 숙련도', bars: cmBars(s) });
+  if (SONG_JOBS.includes(id)) info.push({ h: '곡 컨셉 숙련도', bars: cmBars(s) });
   // 등급(자리) 칸에는 몇 번째 등급인지 별로 보인다. 교수는 대학원 길에만 등급이 있다
   const tk = id === 'prof' ? (t.route === 'grad' ? t.tier || 0 : null) : typeof t.tier === 'number' ? t.tier : null;
   if (tk != null) { const i = info.findIndex(r => Array.isArray(r) && (r[0] === '등급' || r[0] === '자리')); if (i >= 0) info[i] = [info[i][0], info[i][1], tk]; }
@@ -1414,7 +1416,7 @@ function pfAwardsHTML(s) { return s.awards.length ? `<div class="sec-h">🏆 받
 // 카드와 정산서는 작은 창(#pop)으로 띄운다. 결과 창 · 작품 탭 · 요약 창 · 재정 창에서 같은 모양
 function songCardHTML(c) {
   const fans = (c.fans || []).filter(([, v]) => v).map(([n, v]) => `<span class="${v >= 0 ? 'pos' : 'neg'}">${U.esc(n)} ${sgnFans(v)}</span>`).join(' · ');
-  return `<div class="scard"><div class="sc-top"><span class="sc-t">${c.top != null ? U.esc(c.t) : `「${U.esc(c.t)}」`}</span><span class="sc-by">${U.esc(c.by || '')}</span></div>`
+  return `<div class="scard"><div class="sc-top"><span class="sc-t">${c.top != null ? U.esc(c.t) : `「${U.esc(c.t)}」`}</span><span class="sc-by">${U.esc(c.by || '')}</span></div>${c.c ? `<div class="sc-c">'${U.esc(c.c)}' 컨셉${c.y ? ` · ${c.y}년` : ''}</div>` : ''}`
     + (c.top != null ? `<div class="sc-peak${c.tp > 0 ? ' ev-g' : c.tp < 0 ? ' ev-b' : ''}">${U.esc(c.top)}</div>` : `<div class="sc-peak${c.peak ? '' : ' out'}">${c.peak ? `최고 ${c.peak}위` : '차트 100위 밖'}${c.wins ? ` · 음악방송 1위 ${c.wins}회` : ''}</div>`)
     + (fans || c.pay != null ? `<div class="sc-fans">${[fans, c.pay != null ? `<span class="sc-pay">정산 ${fmtWon(c.pay)}</span>` : ''].filter(Boolean).join(' · ')}</div>` : '')
     + (c.lines && c.lines.length ? `<div class="sc-h">${U.esc(c.lh || '듣는 사람 반응')}</div>${c.lines.map(x => `<div class="sc-l">${evCol(U.esc(x))}</div>`).join('')}` : '')

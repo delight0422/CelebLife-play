@@ -49,7 +49,7 @@ function liveBeats(sp) {
   // 2. 전주 · 응원법: 팬이 모인 팀은 멤버 이름을 차례로 부른다
   if (f >= 1) {
     const names = grp ? sp.mem.map(m => m[0]).slice(0, 7) : [cn, cn];
-    B.push({ cap: '전주 · 응원법', glow: 0.55, L: [[names.join('! ') + '!' + (fd ? ` ${fd}!` : ''), 'call']].concat(f === 2 ? [[pk(LV_BIG), 'big']] : []) });
+    B.push({ cap: '전주 · 응원법', glow: 0.55, L: [[names.join('! ') + '!', 'call']].concat(f === 2 ? [[pk(LV_BIG), 'big']] : []) });
   } else B.push({ cap: '전주', glow: 0.4, L: [['……', 'soft'], [`${cn}…!`, 'soft']] });
   // 3. 1절: 무대 실력
   const pv = lvl(z('perf')), lead = grp ? (sp.mem.find(m => /^메인보컬/.test(m[1] || '')) || sp.mem[sp.mi] || [g])[0] : g;
@@ -66,7 +66,7 @@ function liveBeats(sp) {
   else if (pv === 2) hl.push([pk(['무대 장악 미쳤다!!', '눈을 못 떼겠어!!']), 'big']);
   const mv = lvl(z('me'));
   if (mv === 2) hl.push([`${mine}!!!`, 'call'], [`${mine} 사랑해!!`, 'big']); else if (mv === 1) hl.push([`${mine}!`, 'call']);
-  if (z('cf') >= 0.5) hl.push(['콘셉트 찰떡!!', 'big']); else if (z('cf') <= -0.5) hl.push(['수군수군…', 'bad']);
+  if (z('cf') >= 0.5) hl.push(['컨셉 찰떡!!', 'big']); else if (z('cf') <= -0.5) hl.push(['수군수군…', 'bad']);
   if (z('star') >= 0.6) hl.push(['비주얼 뭐야!!', 'big']);
   if (!hl.length) hl.push(['짝짝짝', 'soft']);
   B.push({ cap: grp ? '댄스 브레이크' : '하이라이트', glow: 0.75, L: hl });

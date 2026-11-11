@@ -28,7 +28,7 @@ function viSeniors(s, t) { return viPeople(s, t.seniors); }
 function viName(x) { return x.vi ? x.vi.given : x.name; }
 // 내 방송의 매력 (유튜버 ytAppeal과 같은 눈금): 내 특기 · 재능 + 회사 편집팀 + 아바타 + 회사 크기 + 3D + 스타성 + 유행
 // v95: 예능 · 노래 · 랩 중 잘하는 쪽 · 목소리(강함, 가산점), 끈기(보통, 가산점). 외모는 보지 않는다. 편집은 회사 편집팀이 맡는다
-// v100: 고른 방송 콘셉트를 유튜버처럼 유튜브 분야 표(YT_FIT, 8-4)대로 더 본다 (게임 방송은 게임, ASMR은 목소리 · 음감 …)
+// v100: 고른 방송 컨셉을 유튜버처럼 유튜브 분야 표(YT_FIT, 8-4)대로 더 본다 (게임 방송은 게임, ASMR은 목소리 · 음감 …)
 //   분야 특기는 섞고(하나면 강함, 둘이면 보통씩), 분야 재능은 가산점(하나면 강함, 둘이면 보통씩). 영상 편집은 회사 편집팀이 맡아서 뺀다
 //   v99의 '노래 · 랩 · 게임 중 가장 잘하는 것'은 되돌렸다 (게임은 게임 방송일 때 분야로 들어간다)
 function viSk(s, c) {
@@ -36,7 +36,7 @@ function viSk(s, c) {
   return jobMix([[lv(p, 'variety'), JS_], [Math.max(lv(p, 'vocal'), lv(p, 'rap')), JS_]].concat(F.filter(k => !TALENT_BY[k] && k !== 'edit').map(k => [lv(p, k), w])))
     + F.filter(k => TALENT_BY[k]).reduce((a, k) => a + talB(p.tal[k], F.length === 1), 0) + talB(p.tal.voice, true) + talB(p.tal.grit, false);
 }
-// 방송 콘셉트 고르는 창: 나한테 잘 맞는 콘셉트부터
+// 방송 컨셉 고르는 창: 나한테 잘 맞는 컨셉부터
 function viCatSort(s) { return ytCats(true).map((c, i) => [c, viSk(s, c), i]).sort((a, b) => b[1] - a[1] || a[2] - b[2]).map(x => x[0]); }
 function viAppeal(s, t) {
   const p = me(s), C = VI_CORP;
@@ -137,9 +137,9 @@ function viAddSenior(s, t) {
   t.seniors.push(x.id); meetAt(s, x, `${t.corpN} 선배`, 'vidol', t.corpN);
   return x;
 }
-// 데뷔 준비가 끝나면: 방송 콘셉트 → 채널·RP 이름 → 동기들과 함께 데뷔
+// 데뷔 준비가 끝나면: 방송 컨셉 → 채널·RP 이름 → 동기들과 함께 데뷔
 E({
-  id: 'vi_cat', cat: '데뷔 준비', title: '방송 콘셉트', tag: 'career',
+  id: 'vi_cat', cat: '데뷔 준비', title: '방송 컨셉', tag: 'career',
   cond: s => viT(s).st === 'prep',
   text: s => `${viT(s).corpN}에서 만든 아바타가 완성됐다. 어떤 방송을 하는 버츄얼 아이돌로 데뷔할까?`,
   ch: s => viCatSort(s).map(c => ({ t: c, h: ytCatH(s, c), f: s => { viT(s).cat = c; fireEvent(s, 'vi_debut', {}); return ''; } })),
@@ -174,7 +174,7 @@ function viDebut(s, given, nick) {
 
 // ───── 할 일 ─────
 JOB_TASKS.vidol = [
-  { id: 'stream', n: '개인 방송', ic: '🎙️', eff: [['구독자', '↑', 1], ['콘셉트 특기', '↑', 1], ['스트레스', '↑', 0]] },
+  { id: 'stream', n: '개인 방송', ic: '🎙️', eff: [['구독자', '↑', 1], ['컨셉 특기', '↑', 1], ['스트레스', '↑', 0]] },
   { id: 'collab', n: '합방 (동기·선배)', ic: '🤝', eff: [['구독자', '↑', 1], ['예능', '↑', 1], ['동기와 친해짐', '↑', 1]] },
   { id: 'sing', n: '노래 연습 (커버·오리지널 곡)', ic: '🎤', eff: [['보컬', '↑', 1], ['구독자', '↑', 0]] },
 ];

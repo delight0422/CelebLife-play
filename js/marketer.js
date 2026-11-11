@@ -15,7 +15,7 @@ const MK_AGM = [0, 0.85, 1, 1.2];
 // 승진: 쌓인 성과(pts)와 그 자리에서 보낸 햇수(yrs). 맨 위는 통찰력 52 이상
 const MK_UP = { pts: [0, 5, 15, 35, 85, 140, 190], yrs: [0, 1, 2, 2, 3, 3, 3], tal: 'insight', min: 52 };
 const MK_TGTS = ['10대', '20대', '글로벌', '코어 팬덤', '대중'];
-// 홍보 플랫폼이 잘 먹히는 타겟, 홍보 방식이 잘 맞는 콘셉트, 타겟이 좋아하는 콘셉트, 광고 매체가 잘 닿는 타겟 (숨긴 규칙. 시장조사를 하면 일부가 보인다)
+// 홍보 플랫폼이 잘 먹히는 타겟, 홍보 방식이 잘 맞는 컨셉, 타겟이 좋아하는 컨셉, 광고 매체가 잘 닿는 타겟 (숨긴 규칙. 시장조사를 하면 일부가 보인다)
 const MK_PF = { 유튜브: { 글로벌: 4, 대중: 3, '20대': 1 }, '숏폼 (틱톡·릴스)': { '10대': 5, '20대': 2, 대중: 2 }, 인스타그램: { '20대': 5, 글로벌: 2 }, '음악 방송': { 대중: 4, '10대': 2, '코어 팬덤': 1 }, '팬 플랫폼': { '코어 팬덤': 6, 글로벌: 2 } };
 const MK_HOW = { 챌린지: ['청량', '큐티', '하이틴', '힙합'], '티저 콘텐츠': ['몽환', '성숙', '강렬'], '라이브 방송': ['큐티', '하이틴', '청량', '레트로'], '오프라인 팝업': ['레트로', '성숙', '몽환', '강렬'] };
 const MK_TC = { '10대': ['큐티', '하이틴', '청량'], '20대': ['성숙', '몽환', '레트로'], 글로벌: ['강렬', '힙합', '청량'], '코어 팬덤': ['몽환', '강렬', '성숙'], 대중: ['청량', '레트로', '큐티'] };
@@ -113,7 +113,7 @@ CAREERS.marketer = {
   info(s, t) {
     const p = me(s);
     return [['회사', `${t.agN} (${TIER_N[t.agT]} 기획사) 마케팅팀`], ['자리', MK_TIERS[t.tier]], ['월급', fmtWon(t.sal)], ['내 실력', ['biz', 'script', 'study', 'scout'].filter(k => has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ') || '-'], ['업무 평가', `${Math.round(t.rep)}`], ['성과', `${t.pts}`], ['시장 이해도', `${Math.round(t.mi)}`],
-      { h: '맡은 그룹', items: t.groups.map(g => `${g.name} (${g.kind}) · 팬 ${fmtFans(g.f)} · 타겟 ${g.tgt} · 대표 콘셉트 '${g.sig}' · 팬덤 ${mkMood(g.mood)}`) }];
+      { h: '맡은 그룹', items: t.groups.map(g => `${g.name} (${g.kind}) · 팬 ${fmtFans(g.f)} · 타겟 ${g.tgt} · 대표 컨셉 '${g.sig}' · 팬덤 ${mkMood(g.mood)}`) }];
   },
   actions(s, t) { return t.st === 'active' ? [{ t: '회사 그만두기', h: '직원 계약이라 위약금은 없다', ok: true, danger: true, confirm: '정말 회사를 그만둘까요?', run: s => { t.st = 'ended'; t.endNote = `${t.agN} ${MK_TIERS[t.tier]} (퇴사)`; t.hist.push(t.endNote); return `${josa(t.agN, '을를')} 그만뒀다.`; } }] : []; },
   monthly(s, t) { mkMonth(s, t); },
@@ -168,14 +168,14 @@ E({
   init(s, d) { const t = s.tracks.marketer; if (!mkOn(s) || !t.cb || t.cb.plan) d.skip = true; },
   text: s => {
     const t = s.tracks.marketer, g = t.groups[t.cb.gi], best = Object.keys(MK_PF).sort((a, b) => (MK_PF[b][g.tgt] || 0) - (MK_PF[a][g.tgt] || 0))[0];
-    return `${g.name}(${g.kind}, 팬 ${fmtFans(g.f)})의 컴백 홍보를 어디에서 할까?\n\n타겟 ${g.tgt} · 대표 콘셉트 '${g.sig}'${mkHint(s, t, 50) ? `\n시장조사: ${josa(g.tgt, '은는')} 요즘 ${best}에서 반응이 가장 크다.` : ''}`;
+    return `${g.name}(${g.kind}, 팬 ${fmtFans(g.f)})의 컴백 홍보를 어디에서 할까?\n\n타겟 ${g.tgt} · 대표 컨셉 '${g.sig}'${mkHint(s, t, 50) ? `\n시장조사: ${josa(g.tgt, '은는')} 요즘 ${best}에서 반응이 가장 크다.` : ''}`;
   },
   ch: s => Object.keys(MK_PF).map(pf => ({ t: pf, f: s => { fireEvent(s, 'mk_promo2', { pf }); return ''; } })),
 });
 E({
   id: 'mk_promo2', cat: '마케팅', title: '홍보 방식', tag: 'career',
   init(s, d) { const t = s.tracks.marketer; if (!mkOn(s) || !t.cb || t.cb.plan) d.skip = true; },
-  text: (s, d) => { const t = s.tracks.marketer, g = t.groups[t.cb.gi], fit = Object.keys(MK_HOW).filter(h => MK_HOW[h].includes(g.sig)); return `${d.pf}에서 어떤 방식으로 알릴까?\n\n${g.name} 대표 콘셉트 '${g.sig}'${mkHint(s, t, 70) && fit.length ? `\n시장조사: '${g.sig}' 콘셉트는 ${josa(fit.join(' · '), '과와')} 잘 어울린다.` : ''}`; },
+  text: (s, d) => { const t = s.tracks.marketer, g = t.groups[t.cb.gi], fit = Object.keys(MK_HOW).filter(h => MK_HOW[h].includes(g.sig)); return `${d.pf}에서 어떤 방식으로 알릴까?\n\n${g.name} 대표 컨셉 '${g.sig}'${mkHint(s, t, 70) && fit.length ? `\n시장조사: '${g.sig}' 컨셉은 ${josa(fit.join(' · '), '과와')} 잘 어울린다.` : ''}`; },
   ch: (s, d) => Object.keys(MK_HOW).map(how => ({ t: how, f: s => {
     const t = s.tracks.marketer, g = t.groups[t.cb.gi];
     const q = mkScore(s) + (MK_PF[d.pf][g.tgt] || 0) + (MK_HOW[how].includes(g.sig) ? 4 : 0) + t.mi * 0.08 + U.normal(0, 6);
@@ -205,7 +205,7 @@ E({
   ch: (s, d) => [{ t: '확인', f: () => `${d.g} 컴백 ${chartText(d.peak)}.${d.up ? ' ' + d.up : ''}` }],
 });
 
-// ───── 골라서 하는 일: 신그룹 런칭 기획 (타겟 → 콘셉트) ─────
+// ───── 골라서 하는 일: 신그룹 런칭 기획 (타겟 → 컨셉) ─────
 E({
   id: 'mk_launch', cat: '마케팅', title: '신그룹 런칭 기획', tag: 'career',
   init(s, d) { const t = s.tracks.marketer; if (!mkOn(s) || !t.launch || t.launch.plan) d.skip = true; },
@@ -213,14 +213,14 @@ E({
   ch: s => MK_TGTS.map(tgt => ({ t: tgt, f: s => { fireEvent(s, 'mk_launch2', { tgt }); return ''; } })),
 });
 E({
-  id: 'mk_launch2', cat: '마케팅', title: '신그룹 콘셉트', tag: 'career',
+  id: 'mk_launch2', cat: '마케팅', title: '신그룹 컨셉', tag: 'career',
   init(s, d) { const t = s.tracks.marketer; if (!mkOn(s) || !t.launch || t.launch.plan) d.skip = true; },
-  text: (s, d) => { const t = s.tracks.marketer; return `타겟은 ${d.tgt}. 데뷔 콘셉트는 무엇으로 할까?\n\n요즘 유행 ${qIda(s.trend)}.${mkHint(s, t, 60) ? `\n시장조사: ${josa(d.tgt, '은는')} ${MK_TC[d.tgt].map(c => `'${c}'`).join(' · ')} 콘셉트를 좋아한다.` : ''}`; },
+  text: (s, d) => { const t = s.tracks.marketer; return `타겟은 ${d.tgt}. 데뷔 컨셉은 무엇으로 할까?\n\n요즘 유행 ${qIda(s.trend)}.${mkHint(s, t, 60) ? `\n시장조사: ${josa(d.tgt, '은는')} ${MK_TC[d.tgt].map(c => `'${c}'`).join(' · ')} 컨셉을 좋아한다.` : ''}`; },
   ch: (s, d) => TRENDS.map(c => ({ t: c, tr: c === s.trend, f: s => {
     const t = s.tracks.marketer;
     const q = mkScore(s) + (c === s.trend ? 5 : 0) + (MK_TC[d.tgt].includes(c) ? 4 : 0) + t.mi * 0.08 + U.normal(0, 6);
     t.launch.plan = { tgt: d.tgt, c, q };
-    return `신인 그룹을 ${d.tgt} 타겟, '${c}' 콘셉트로 내보내기로 했다.`;
+    return `신인 그룹을 ${d.tgt} 타겟, '${c}' 컨셉으로 내보내기로 했다.`;
   } })),
 });
 E({
@@ -240,7 +240,7 @@ E({
     addWork(s, { type: '신그룹 런칭', title: g.name, by: `${tgt} · '${c}'`, sc: Math.round(sc), note: chartText(d.peak) });
     d.up = mkTierUp(s, t);
   },
-  text: (s, d) => `신인 그룹 ${josa(d.g, '이가')} 데뷔했다. ${d.plan ? `(${d.plan.tgt} 타겟 · '${d.plan.c}' 콘셉트)` : '(내가 기획하지 않아 회사가 정한 대로 나갔다)'}\n\n데뷔곡 ${chartText(d.peak)} · 팬 ${fmtFans(d.f)}\n${d.k === 2 ? '올해 최고의 신인 런칭이라는 말을 들었다.' : d.k ? '런칭이 무난하게 자리 잡았다.' : '데뷔 반응이 조용하다.'}${d.up ? `\n\n🎉 ${d.up}` : ''}`,
+  text: (s, d) => `신인 그룹 ${josa(d.g, '이가')} 데뷔했다. ${d.plan ? `(${d.plan.tgt} 타겟 · '${d.plan.c}' 컨셉)` : '(내가 기획하지 않아 회사가 정한 대로 나갔다)'}\n\n데뷔곡 ${chartText(d.peak)} · 팬 ${fmtFans(d.f)}\n${d.k === 2 ? '올해 최고의 신인 런칭이라는 말을 들었다.' : d.k ? '런칭이 무난하게 자리 잡았다.' : '데뷔 반응이 조용하다.'}${d.up ? `\n\n🎉 ${d.up}` : ''}`,
   ch: (s, d) => [{ t: '확인', f: () => `신인 그룹 ${d.g} 데뷔 · ${chartText(d.peak)}.${d.up ? ' ' + d.up : ''}` }],
 });
 

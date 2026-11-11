@@ -18,7 +18,7 @@ const VO_BCS = [
 ];
 function coTagOf(x) { return `${TIER_N[x.tier]} · ${x.con}`; }
 function aniGenre(s) { return U.chance(0.4) && (s.trendTV || {}).anime ? s.trendTV.anime : U.pick(ANIME_TRENDS); }
-// 숙련도 (애니 장르마다 따로, 0~100): 그 장르로 일할수록 오르고 창의력이 높으면 빨리 오른다 (곡 콘셉트 숙련도와 같은 셈)
+// 숙련도 (애니 장르마다 따로, 0~100): 그 장르로 일할수록 오르고 창의력이 높으면 빨리 오른다 (곡 컨셉 숙련도와 같은 셈)
 function aniMGet(s, key, g) { return ((s[key] || {})[g]) || 0; }
 function aniMGain(s, key, g, amt) { if (!g) return; const M = s[key] = s[key] || {}, m = M[g] || 0; M[g] = Math.min(100, m + amt * (1 - m / 100) * (0.6 + me(s).tal.creative / 100)); }
 // 사전 조사 (v97): 작품을 쓰기 전에 그 장르를 조사한다. 장르마다 보는 재능(RESEARCH_FIT, 둘이면 평균)에 운을 더해 조사 점수(5~95)가 나온다

@@ -54,18 +54,18 @@ function showWins(sc, fans) { const w = sc >= 75 ? U.int(1, Math.max(1, Math.rou
 // 회사나 남이 써 준 곡의 완성도
 function boughtQ(tier) { return 24 + tier * 7 + U.normal(0, 7); }
 
-// ───── 곡 콘셉트와 콘셉트 숙련도 ─────
-// 콘셉트는 TRENDS(청량·강렬·큐티…)와 같은 목록이다. 해마다 유행 콘셉트(s.trend)가 바뀌고, 그룹마다 대표 콘셉트(sig)가 있다
-// 내가 곡을 쓸 때 콘셉트를 고른다. 같은 콘셉트로 많이 쓸수록 숙련도(0~100)가 올라 곡 완성도가 좋아진다
+// ───── 곡 컨셉과 컨셉 숙련도 ─────
+// 컨셉은 TRENDS(청량·강렬·큐티…)와 같은 목록이다. 해마다 유행 컨셉(s.trend)가 바뀌고, 그룹마다 대표 컨셉(sig)가 있다
+// 내가 곡을 쓸 때 컨셉을 고른다. 같은 컨셉으로 많이 쓸수록 숙련도(0~100)가 올라 곡 완성도가 좋아진다
 function cmGet(s, c) { return (s.cmast && s.cmast[c]) || 0; }
 function cmGain(s, c, amt) { if (!c) return; s.cmast = s.cmast || {}; const m = cmGet(s, c); s.cmast[c] = Math.min(100, m + amt * (1 - m / 100) * (0.6 + me(s).tal.creative / 100)); }
 function cmBonus(s, c) { return (cmGet(s, c) - 20) / 8; }
 function cmLine(s) { const L = TRENDS.filter(c => cmGet(s, c) >= 1).sort((a, b) => cmGet(s, b) - cmGet(s, a)); return L.length ? L.map(c => `${c} ${Math.floor(cmGet(s, c))}`).join(' · ') : '아직 없음'; }
-// 직업 창의 숙련도 막대: 1 이상인 콘셉트와 지금 유행하는 콘셉트 (높은 것부터)
+// 직업 창의 숙련도 막대: 1 이상인 컨셉과 지금 유행하는 컨셉 (높은 것부터)
 function cmBars(s) { return TRENDS.filter(c => cmGet(s, c) >= 1 || c === s.trend).sort((a, b) => cmGet(s, b) - cmGet(s, a)).map(c => ({ n: c, v: cmGet(s, c), tag: c === s.trend ? '유행' : '' })); }
 // 선택지 글자 안의 작은 막대 (5칸): 숙련도 52 → ▰▰▰▱▱
 function gauge(v) { const n = Math.round(U.clamp(v, 0, 100) / 20); return '▰'.repeat(n) + '▱'.repeat(5 - n); }
-// ───── 콘셉트 궁합 (v97, 8-4 사용자 표) ─────
+// ───── 컨셉 궁합 (v97, 8-4 사용자 표) ─────
 // 무대에 서는 사람들(ppl)의 재능 · 나이 · 랩을 본다. b: 곡 점수에 더하는 것, half: 나이와 안 맞아 반응이 반토막, rap: 판정에 넣을 평균 랩 레벨
 // 재능: 평균이 50에서 벗어난 만큼 (하나면 1점에 0.2, 둘이면 0.1씩)
 // 큐티 · 하이틴: 평균 나이 25세 이상이면 반토막. 그 아래에서도 어릴수록 조금 낫다 (21세 0, 17세 +4, 24세 −3)
@@ -91,25 +91,25 @@ const C_HALF = 6;
 function cScoreB(R) { return R.b - (R.half ? C_HALF : 0); }
 // 힙합: 무대에 서는 사람의 랩을 실력에 보통으로 섞는다
 function cPerf(perf, R) { return R.rap == null ? perf : jobMix([[perf, JS_], [R.rap, JM_]]); }
-// 나이와 맞는 콘셉트인가 (반토막이 아닌가). pad: 회사가 고를 때는 1살 여유를 둔다 (준비하는 사이 25세를 넘기지 않게)
+// 나이와 맞는 컨셉인가 (반토막이 아닌가). pad: 회사가 고를 때는 1살 여유를 둔다 (준비하는 사이 25세를 넘기지 않게)
 function cAgeOK(s, ppl, c, pad = 0) { if (CONCEPT_FIT[c] !== 'young' || !ppl.length) return true; return pplAge(s, ppl) + pad < 25; }
 function cNote(s, R, title) {
-  if (R.half) addLog(s, `「${title}」 콘셉트가 나이와 어울리지 않는다는 말이 많았다. 반응이 반토막 났다.`, 'bad');
+  if (R.half) addLog(s, `「${title}」 컨셉이 나이와 어울리지 않는다는 말이 많았다. 반응이 반토막 났다.`, 'bad');
   if (R.nost >= 2) addLog(s, `「${title}」 오래 활동한 가수의 레트로라 추억이 떠오른다는 반응이 많았다.`, 'good');
 }
 // '청량'이다 / '큐티'다 처럼 따옴표 낱말 뒤 '이다'
 function qIda(w) { return `'${w}'` + josa(w, '이').slice(w.length) + '다'; }
-function cTag(s, c, sig) { return sig && c === sig ? '그룹 대표 콘셉트' : ''; }
-// 콘셉트 고르기 창. d.cb: 고른 뒤에 할 일(SONG_CB), d.what: 무엇을 쓰는지, d.sig: 어울리는 대표 콘셉트
+function cTag(s, c, sig) { return sig && c === sig ? '그룹 대표 컨셉' : ''; }
+// 컨셉 고르기 창. d.cb: 고른 뒤에 할 일(SONG_CB), d.what: 무엇을 쓰는지, d.sig: 어울리는 대표 컨셉
 const SONG_CB = {};
 function pickConcept(s, d) { if (s.pending) queueEv(s, 'song_concept', 0, d, true); else fireEvent(s, 'song_concept', d); return ''; }
 // 그 곡으로 무대에 서는 사람들 (솔로 · 밴드 · 내 회사 그룹). 작곡가처럼 남에게 주는 곡은 모른다(null)
 function cPplOf(s, d) { return d.cb === 'solo' || d.cb === 'soloT' ? [me(s)] : d.cb === 'band' || d.cb === 'bandT' || d.cb === 'bandQ' ? [me(s)].concat(bandMembers(s, s.tracks.band)) : d.cb === 'coT' && typeof coGroup === 'function' && coGroup(s, d.gid) ? coP(s, coGroup(s, d.gid).members) : null; }
 E({
-  id: 'song_concept', cat: '곡 작업', title: '어떤 콘셉트로 쓸까?', tag: 'career',
+  id: 'song_concept', cat: '곡 작업', title: '어떤 컨셉으로 쓸까?', tag: 'career',
   cond: s => true,
-  text: (s, d) => `${d.what} 콘셉트를 정하자. 요즘 유행은 ${qIda(s.trend)}.${d.sig ? ` ${d.sigN || '우리'}의 대표 콘셉트는 ${qIda(d.sig)}.` : ''}`,
-  ch: (s, d) => { const P = cPplOf(s, d); return TRENDS.map(c => ({ t: c, tr: c === s.trend, sig: !!d.sig && c === d.sig, h: `숙련도 ${gauge(cmGet(s, c))} ${Math.floor(cmGet(s, c))}${cTag(s, c, d.sig) ? ' · ' + cTag(s, c, d.sig) : ''}${d.cur === c ? ' · 지금 콘셉트' : ''}${P && !cAgeOK(s, P, c) ? ' · 나이와 안 맞아 반응이 반토막' : ''}`, f: s => SONG_CB[d.cb](s, d, c) })); },
+  text: (s, d) => `${d.what} 컨셉을 정하자. 요즘 유행은 ${qIda(s.trend)}.${d.sig ? ` ${d.sigN || '우리'}의 대표 컨셉은 ${qIda(d.sig)}.` : ''}`,
+  ch: (s, d) => { const P = cPplOf(s, d); return TRENDS.map(c => ({ t: c, tr: c === s.trend, sig: !!d.sig && c === d.sig, h: `숙련도 ${gauge(cmGet(s, c))} ${Math.floor(cmGet(s, c))}${cTag(s, c, d.sig) ? ' · ' + cTag(s, c, d.sig) : ''}${d.cur === c ? ' · 지금 컨셉' : ''}${P && !cAgeOK(s, P, c) ? ' · 나이와 안 맞아 반응이 반토막' : ''}`, f: s => SONG_CB[d.cb](s, d, c) })); },
 });
 // 제목 짓기: 내가 저작권을 가진 창작물(내가 쓴 곡·가사·원고)은 제목을 직접 정한다. 처음에는 무작위로 추천한 제목이 들어 있다
 // d: { cb: TITLE_CB 이름, title: 추천 제목, what: '○○의' (창 문장에 쓴다) } — 정한 제목은 d.title에 들어간 채로 TITLE_CB에 넘어간다
@@ -130,9 +130,9 @@ E({
 
 const COMMENTS = {
   great: ['이번 노래 진짜 미쳤다', '1위 축하해!!', '무한 반복 중', '드디어 대중픽', '연말 무대 다 휩쓸자', '길거리에서 이 노래만 나온다'],
-  good: ['수록곡까지 다 좋다', '콘셉트 찰떡', '역주행 가자', '무대 보고 입덕함', '음색 미쳤다'],
+  good: ['수록곡까지 다 좋다', '컨셉 찰떡', '역주행 가자', '무대 보고 입덕함', '음색 미쳤다'],
   meh: ['타이틀 좀 아쉽다', '회사 일 좀 해라', '홍보가 너무 없어', '그래도 무대는 좋았어', '다음엔 더 잘될 거야'],
-  bad: ['이번엔 좀...', '콘셉트 누가 정했냐', '팬들만 듣는 노래', '다음엔 잘하자', '노래는 좋은데 왜 안 뜨지'],
+  bad: ['이번엔 좀...', '컨셉 누가 정했냐', '팬들만 듣는 노래', '다음엔 잘하자', '노래는 좋은데 왜 안 뜨지'],
 };
 const NICK_COMMENTS = {
   great: ['{n} 오늘도 미쳤다', '우리 {n} 1위 축하해', '{n} 없으면 못 살아'],
@@ -186,7 +186,7 @@ const RX = {
   fans: (f, gain) => gain < 0 ? { z: -0.6, g: ['그래도 남은 팬들은 끝까지 들어 준다'], b: ['팬들 반응도 예전 같지 않다', '기존 팬들도 고개를 갸웃한다'] } : { z: (Math.log10(1 + f) - 4) / 1.2, g: ['기다리던 팬들이 바로 반응했다', '나오자마자 팬들이 여기저기 퍼 날랐다'], b: ['아직 아는 사람이 적다', '들어 볼 사람한테까지 닿지를 않는다'] },
   trend: on => ({ z: on ? 0.7 : -0.5, g: ['요즘 듣는 노래랑 결이 맞는다'], b: ['요즘 듣는 노래랑은 결이 다르다'] }),
   tw: tw => ({ z: (tw - 50) / 40, g: ['합이 착착 맞는다', '서로 숨소리까지 맞춘 느낌이다'], b: ['합이 조금 어긋난다', '각자 따로 노는 느낌이다'] }),
-  cf: b => ({ z: b / 4, g: ['콘셉트가 잘 어울린다'], b: ['콘셉트가 안 맞는 옷 같다'] }),
+  cf: b => ({ z: b / 4, g: ['컨셉이 잘 어울린다'], b: ['컨셉이 안 맞는 옷 같다'] }),
   promo: tier => ({ z: (tier - 1.2) / 1.2, g: ['홍보가 제대로 됐다'], b: ['어디서 나왔는지 모르는 사람이 많다'] }),
 };
 // 평가 색 표시 (v132): 좋은 평은 초록, 나쁜 평은 빨강, 애매한 평은 표시 없이 검정. 화면(ui.js evCol · rich)이 색으로 바꾼다. 기록에 넣을 때는 evPlain으로 뗀다
@@ -636,7 +636,7 @@ CAREERS.idol = {
       const g = t.g;
       R.push(['그룹 팬', MK.map(m => `${MK_N[m]} ${fmtFans(g.f[m])}`).join(' · ')]);
       R.push(['팀워크', twWord(g)]);
-      R.push(['팬덤 · 대표 콘셉트', `${g.fandom} · ${g.sig}`]);
+      R.push(['팬덤 · 대표 컨셉', `${g.fandom} · ${g.sig}`]);
       R.push({ h: '멤버', items: [`나 — ${t.pos}`].concat(g.members.map(id => s.people[id]).filter(Boolean).map(x => `${x.name} (${pAge(s, x)}세) ${g.pos[x.id] || ''} — ${relWord(x)}${soulTag(x)}`)) });
     }
     return R;
@@ -729,7 +729,7 @@ function idolActiveMonth(s, t) {
     jpopAdd(s, 'idol', -0.1);
     if (!t.oldTold) { t.oldTold = true; addLog(s, `「${g.name}」 멤버 평균 나이가 28세를 넘었다. 요즘 반응이 예전 같지 않다.`, 'career'); }
   }
-  // 대표 콘셉트가 나이와 안 맞으면 회사가 바꾼다 (v97: 큐티 · 하이틴은 평균 25세 이상이면 반토막. v98부터 레트로는 나이를 안 본다)
+  // 대표 컨셉이 나이와 안 맞으면 회사가 바꾼다 (v97: 큐티 · 하이틴은 평균 25세 이상이면 반토막. v98부터 레트로는 나이를 안 본다)
   if (!cAgeOK(s, idolPpl(s, g), g.sig, 1) && !hasQ(s, 'idol_sig')) queueEv(s, 'idol_sig', 0);
   if (t.buzz > 0) t.buzz--;
   idolBoomCheck(s, t);
@@ -746,11 +746,11 @@ function idolActiveMonth(s, t) {
 // 그룹 나이: 나를 포함한 멤버 평균 나이와 막내 나이
 function groupAges(s, g) { const a = [age(s)].concat(g.members.map(id => s.people[id]).filter(Boolean).map(x => pAge(s, x))); return { avg: a.reduce((x, y) => x + y, 0) / a.length, min: Math.min(...a) }; }
 E({
-  id: 'idol_sig', cat: '그룹', title: '대표 콘셉트 변경', tag: 'career',
+  id: 'idol_sig', cat: '그룹', title: '대표 컨셉 변경', tag: 'career',
   cond: s => s.tracks.idol.st === 'active' && !cAgeOK(s, idolPpl(s, s.tracks.idol.g), s.tracks.idol.g.sig, 1),
   init(s, d) { const g = s.tracks.idol.g, P = idolPpl(s, g); d.old = g.sig; d.young = CONCEPT_FIT[g.sig] === 'young'; d.nw = U.pick(TRENDS.filter(x => cAgeOK(s, P, x, 1))); g.sig = d.nw; },
-  text: (s, d) => `${d.young ? '멤버 평균 나이가 스물다섯에 가까워지자' : '아직 멤버들이 어려서'}, 회사가 「${s.tracks.idol.g.name}」의 대표 콘셉트를 '${d.old}'에서 ${qro(d.nw)} 바꾸기로 했다. 다음 앨범부터 새 콘셉트에 맞춰 간다.`,
-  ch: (s, d) => [{ t: '확인', f: () => `그룹 대표 콘셉트가 '${d.old}'에서 ${qro(d.nw)} 바뀌었다.` }],
+  text: (s, d) => `${d.young ? '멤버 평균 나이가 스물다섯에 가까워지자' : '아직 멤버들이 어려서'}, 회사가 「${s.tracks.idol.g.name}」의 대표 컨셉을 '${d.old}'에서 ${qro(d.nw)} 바꾸기로 했다. 다음 앨범부터 새 컨셉에 맞춰 간다.`,
+  ch: (s, d) => [{ t: '확인', f: () => `그룹 대표 컨셉이 '${d.old}'에서 ${qro(d.nw)} 바뀌었다.` }],
 });
 // ───── 앨범과 앨범 사이 스케줄 (회사가 잡아 주는 일, 알림) ─────
 // 광고는 어느 정도 알려진 그룹부터, 팬미팅은 팬이 모인 그룹부터 들어온다. 정산은 나간 사람끼리 나누고, 연습생·제작 비용을 먼저 갚는다
@@ -953,7 +953,7 @@ function newGroupName(s, size) {
 }
 // 내가 속한 아이돌 그룹의 멤버들 (나 포함)
 function idolPpl(s, g) { return [me(s)].concat(g.members.map(id => s.people[id]).filter(Boolean)); }
-// 그룹 나이에 맞지 않는 콘셉트(반토막 나는 것)는 대표 콘셉트로, 대표 콘셉트도 안 맞으면 맞는 것 중에서 고른다 (v97)
+// 그룹 나이에 맞지 않는 컨셉(반토막 나는 것)는 대표 컨셉으로, 대표 컨셉도 안 맞으면 맞는 것 중에서 고른다 (v97)
 function fitConcept(s, g, c) { const P = idolPpl(s, g); return cAgeOK(s, P, c, 1) ? c : cAgeOK(s, P, g.sig, 1) ? g.sig : U.pick(TRENDS.filter(x => cAgeOK(s, P, x, 1))); }
 function makeGroup(s, t, surv) {
   const ag = AG[t.ag], p = me(s);
@@ -984,7 +984,7 @@ function idolRelease(s, t, c, debut) {
   // 신인 관심: 데뷔 첫해에는 새 그룹이라는 것만으로 조금 더 봐 준다
   const rookie = t.months < 12 ? IDOL_CURVE.rookie : 0;
   // 회사 크기 보너스는 아이돌만 따로
-  // 콘셉트 궁합 (v97): 멤버들의 재능 · 나이 · 랩
+  // 컨셉 궁합 (v97): 멤버들의 재능 · 나이 · 랩
   const cf = cFit(s, c, [p].concat(g.members.map(id => s.people[id]).filter(Boolean)), stageYrs(s));
   const sc = songScore(s, { perf: cPerf(groupPower(s, g), cf), q, fans: gf, tier: 0, trend: c === s.trend, bonus: IDOL_TIER_B[t.tier] + (g.star - 50) * 0.12 + (c === g.sig ? 3 : 0) + Math.min(t.cbCount, 6) * 0.6 + buzz + g.mo - tired + rookie + cScoreB(cf) });
   g.mo = g.mo * 0.6 + U.normal(0, 4.5);
@@ -1015,17 +1015,17 @@ function idolRelease(s, t, c, debut) {
   let wrote = '';
   if (lv(p, 'lyric') >= 30 && U.chance(0.6)) { addCatalog(s, title, '작사', sc, 0.35, 'idol'); useSkill(s, p, 'lyric', 1); wrote = '이번 앨범 수록곡 작사에 참여했다.'; }
   if (lv(p, 'compose') >= 40 && U.chance(0.4)) { addCatalog(s, title, '작곡', sc, 0.7, 'idol'); useSkill(s, p, 'compose', 1); cmGain(s, c, 4); wrote += (wrote ? ' ' : '') + '작곡에도 이름을 올렸다.'; }
-  // 그 콘셉트로 활동하는 것만으로도 콘셉트 숙련도가 조금 오른다 (직접 작곡의 30%)
+  // 그 컨셉으로 활동하는 것만으로도 컨셉 숙련도가 조금 오른다 (직접 작곡의 30%)
   cmGain(s, c, 3);
   // 활동기 2달 뒤 2~3달 쉬고 다음 앨범 준비 한 달: 5~6달에 한 번 컴백 (쉬는 동안 광고·예능 같은 다른 스케줄이 들어온다)
   t.cbCount++; t.promo = 2; t.nextCb = U.int(2, 3);
   t.flops = sc < 50 ? (t.flops || 0) + 1 : Math.max(0, (t.flops || 0) - 1);
   t.yearBest = Math.max(t.yearBest || 0, sc);
-  // 발매 결과 카드 (v118 UI C1): 무대 실력 · 곡 · 팬 · 유행 · 팀워크 · 콘셉트 궁합 · 스타성 · 피로도 · 대표 콘셉트
+  // 발매 결과 카드 (v118 UI C1): 무대 실력 · 곡 · 팬 · 유행 · 팀워크 · 컨셉 궁합 · 스타성 · 피로도 · 대표 컨셉
   if (t.lastBill) t.lastBill.t = `「${title}」 앨범 · 음원 정산`;
   const F = [{ z: (groupPower(s, g) - 45) / 18, g: ['퍼포먼스가 눈을 못 떼게 한다', '라이브가 안정적이다'], b: ['라이브가 조금 불안하다', '무대가 아직 덜 여물었다'] }, RX.q(q), RX.fans(gf, gain.kr + gain.jp + gain.us), RX.trend(c === s.trend), RX.tw(twOf(g)), RX.cf(cScoreB(cf)), { z: (g.star - 50) / 25, g: ['멤버들 얼굴이 화면을 꽉 채운다'], b: ['눈에 확 띄는 멤버가 없다'] }];
-  if (tired > 1) F.push({ z: -tired / 4, g: ['오래 봐도 질리지 않는다'], b: ['비슷한 콘셉트가 이어져 조금 익숙하다'] });
-  if (c === g.sig) F.push({ z: 0.5, g: ['역시 이 그룹다운 콘셉트다'], b: ['늘 하던 콘셉트라 뻔하다'] });
+  if (tired > 1) F.push({ z: -tired / 4, g: ['오래 봐도 질리지 않는다'], b: ['비슷한 컨셉이 이어져 조금 익숙하다'] });
+  if (c === g.sig) F.push({ z: 0.5, g: ['역시 이 그룹다운 컨셉이다'], b: ['늘 하던 컨셉이라 뻔하다'] });
   const card = songCardMake({ t: title, by: g.name, peak, wins, fans: [['그룹 팬', gain.kr + gain.jp + gain.us], ['내 팬', my.kr + my.jp + my.us]], pay, bill: pay > 0 || t.debt > 0 ? t.lastBill : null }, F, sc, g);
   // 실시간 창 (12-1): 데뷔 무대 · 컴백 첫 음악방송. 카드와 같은 요인으로 장면을 만든다 (내 몫: 내 실력 · 스타성)
   card.live = liveStage({ k: 'idol', place: debut ? '데뷔 무대' : '음악방송', t: title, g: g.name, fd: g.fandom, mem: idolPpl(s, g).map(x => [x.id === s.me ? actCall(s, 'idol') : callName(x.name), (g.pos[x.id] || '').split(' · ')[0]]), mi: 0,
@@ -1126,7 +1126,7 @@ E({
   text(s, d) {
     const t = s.tracks.idol, g = d.g;
     const lines = g.members.map(id => { const n = s.people[id]; return `· ${n.name} (${pAge(s, n)}세) ${g.pos[id]}${soulTag(n)}`; }).join('\n');
-    return `${t.agN}의 새 ${me(s).g === '여' ? '걸그룹' : '보이그룹'} ${josa(`「${g.name}」`, '으로')} 데뷔한다!\n\n멤버 ${g.members.length + 1}명\n· 나 (${age(s)}세) ${g.pos[s.me]}\n${lines}\n\n포지션은 회사가 정했다.\n팬덤 이름은 '${g.fandom}', 그룹 대표 콘셉트는 '${g.sig}'. 데뷔곡 콘셉트는 '${d.c}'${josa(d.c, '이').slice(d.c.length)}다.${d.c === s.trend ? ' 요즘 유행하는 콘셉트다.' : ''}`;
+    return `${t.agN}의 새 ${me(s).g === '여' ? '걸그룹' : '보이그룹'} ${josa(`「${g.name}」`, '으로')} 데뷔한다!\n\n멤버 ${g.members.length + 1}명\n· 나 (${age(s)}세) ${g.pos[s.me]}\n${lines}\n\n포지션은 회사가 정했다.\n팬덤 이름은 '${g.fandom}', 그룹 대표 컨셉은 '${g.sig}'. 데뷔곡 컨셉은 '${d.c}'${josa(d.c, '이').slice(d.c.length)}다.${d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}`;
   },
   ch: (s, d) => [{
     t: '데뷔 무대에 선다',
@@ -1140,11 +1140,11 @@ E({
       milestone(s, `${age(s)}세에 「${d.g.name}」의 ${josa(d.g.pos[s.me].split(' · ')[0], '으로')} 데뷔했다.`);
       queueEv(s, 'idol_cbres', 1, { c: d.c, debut: true });
       askStageName(s, 'idol', t.agN);
-      return `「${d.g.name}」 ${josa(d.g.pos[s.me].split(' · ')[0], '으로')} 데뷔 무대에 섰다! 데뷔곡은 '${d.c}' 콘셉트.`;
+      return `「${d.g.name}」 ${josa(d.g.pos[s.me].split(' · ')[0], '으로')} 데뷔 무대에 섰다! 데뷔곡은 '${d.c}' 컨셉.`;
     },
   }],
 });
-// 다음 컴백: 콘셉트는 회사가 정하고, 그룹이 충분히 커지면 의견을 낼 수 있다
+// 다음 컴백: 컨셉은 회사가 정하고, 그룹이 충분히 커지면 의견을 낼 수 있다
 function idolSay(s, t) { return groupFans(t.g) >= 3e5 || t.months >= 48; }
 function idolNextComeback(s, t) {
   const c = fitConcept(s, t.g, U.chance(0.55) ? s.trend : t.g.sig);
@@ -1152,17 +1152,17 @@ function idolNextComeback(s, t) {
   // 회의는 그달 다른 일보다 먼저 뜬다 (한 달 밀리면 컴백이 6달을 넘는다)
   if (idolSay(s, t)) { if (queueEv(s, 'idol_cb', 0, { c })) s.queue.unshift(s.queue.pop()); return; }
   queueEv(s, 'idol_cbres', 1, { c });
-  addLog(s, `회사가 다음 앨범 콘셉트를 '${c}'${josa(c, '으로').slice(c.length)} 정했다. 컴백 준비가 시작됐다.`, 'career');
+  addLog(s, `회사가 다음 앨범 컨셉을 '${c}'${josa(c, '으로').slice(c.length)} 정했다. 컴백 준비가 시작됐다.`, 'career');
 }
 E({
   id: 'idol_cb', cat: '컴백', title: '컴백 회의', tag: 'career',
   cond: s => s.tracks.idol.st === 'active',
   init(s, d) { const g = s.tracks.idol.g; d.alt = U.shuffle(TRENDS.filter(x => x !== d.c && fitConcept(s, g, x) === x)).slice(0, 2); d.p = U.clamp(0.3 + Math.log10(1 + groupFans(g)) / 20 + (s.rep - 50) / 200, 0.2, 0.85); },
-  text(s, d) { const g = s.tracks.idol.g; return `「${g.name}」의 다음 앨범 회의가 열렸다. 회사는 '${d.c}' 콘셉트를 생각하고 있다. 요즘 차트에선 '${s.trend}' 콘셉트가 강세고, 우리 그룹 대표 콘셉트는 '${g.sig}'${josa(g.sig, '이').slice(g.sig.length)}다.\n\n그룹이 커진 만큼 멤버들도 의견을 낼 수 있다.`; },
+  text(s, d) { const g = s.tracks.idol.g; return `「${g.name}」의 다음 앨범 회의가 열렸다. 회사는 '${d.c}' 컨셉을 생각하고 있다. 요즘 차트에선 '${s.trend}' 컨셉이 강세고, 우리 그룹 대표 컨셉은 '${g.sig}'${josa(g.sig, '이').slice(g.sig.length)}다.\n\n그룹이 커진 만큼 멤버들도 의견을 낼 수 있다.`; },
   ch(s, d) {
     const g = s.tracks.idol.g;
-    const C = [{ t: `회사 뜻대로 '${d.c}' 콘셉트로 간다`, tr: d.c === s.trend, f: s => { queueEv(s, 'idol_cbres', 1, { c: d.c }); return `'${d.c}' 콘셉트로 컴백 준비를 시작했다.`; } }];
-    d.alt.forEach(c => C.push({ t: `'${c}' 콘셉트를 제안한다`, tr: c === s.trend, sig: c === g.sig, h: `받아들여질 가능성 ${fmtPct(d.p)}${c === g.sig ? ' · 그룹에 잘 어울린다' : ''}`, f: s => { const ok = U.chance(d.p); queueEv(s, 'idol_cbres', 1, { c: ok ? c : d.c }); return ok ? `내 의견대로 '${c}' 콘셉트로 가기로 했다.` : `제안은 받아들여지지 않았다. '${d.c}' 콘셉트로 간다.`; } }));
+    const C = [{ t: `회사 뜻대로 '${d.c}' 컨셉으로 간다`, tr: d.c === s.trend, f: s => { queueEv(s, 'idol_cbres', 1, { c: d.c }); return `'${d.c}' 컨셉으로 컴백 준비를 시작했다.`; } }];
+    d.alt.forEach(c => C.push({ t: `'${c}' 컨셉을 제안한다`, tr: c === s.trend, sig: c === g.sig, h: `받아들여질 가능성 ${fmtPct(d.p)}${c === g.sig ? ' · 그룹에 잘 어울린다' : ''}`, f: s => { const ok = U.chance(d.p); queueEv(s, 'idol_cbres', 1, { c: ok ? c : d.c }); return ok ? `내 의견대로 '${c}' 컨셉으로 가기로 했다.` : `제안은 받아들여지지 않았다. '${d.c}' 컨셉으로 간다.`; } }));
     return C;
   },
 });
@@ -1179,8 +1179,8 @@ E({
     if (t.jpDebut && t.mkt !== 'jp') abroad.push(`일본 ${sgnFans(r.gain.jp)} (내 일본어 ${has(p, 'jp') ? lvi(p, 'jp') + '레벨' : '못 함'})`);
     if (t.usDebut) abroad.push(`미국 ${sgnFans(r.gain.us)} (내 영어 ${has(p, 'en') ? lvi(p, 'en') + '레벨' : '못 함'})`);
     // 순위 · 팬 변화 · 반응은 카드에 있다 (v118 UI C1). 예전 세이브의 카드 없는 창은 예전처럼
-    let x = d.card ? `${d.debut ? '데뷔' : '컴백'} 앨범 「${r.title}」 ('${d.c}' 콘셉트)\n\n앨범 ${r.albums.toLocaleString()}장 · 그룹 팬 ${fmtFans(groupFans(g))}${abroad.length ? `\n해외 그룹 팬: ${abroad.join(' · ')}` : ''}`
-      : `${d.debut ? '데뷔' : '컴백'} 앨범 「${r.title}」 ('${d.c}' 콘셉트)\n\n${chartText(r.peak)} · 음악방송 1위 ${r.wins}회 · 앨범 ${r.albums.toLocaleString()}장\n그룹 팬 ${sgnFans(r.gain.kr + r.gain.jp + r.gain.us)} → ${fmtFans(groupFans(g))}${abroad.length ? `\n해외 그룹 팬: ${abroad.join(' · ')}` : ''}\n내 개인 팬 ${my}\n\n팬 반응: ${r.cm}`;
+    let x = d.card ? `${d.debut ? '데뷔' : '컴백'} 앨범 「${r.title}」 ('${d.c}' 컨셉)\n\n앨범 ${r.albums.toLocaleString()}장 · 그룹 팬 ${fmtFans(groupFans(g))}${abroad.length ? `\n해외 그룹 팬: ${abroad.join(' · ')}` : ''}`
+      : `${d.debut ? '데뷔' : '컴백'} 앨범 「${r.title}」 ('${d.c}' 컨셉)\n\n${chartText(r.peak)} · 음악방송 1위 ${r.wins}회 · 앨범 ${r.albums.toLocaleString()}장\n그룹 팬 ${sgnFans(r.gain.kr + r.gain.jp + r.gain.us)} → ${fmtFans(groupFans(g))}${abroad.length ? `\n해외 그룹 팬: ${abroad.join(' · ')}` : ''}\n내 개인 팬 ${my}\n\n팬 반응: ${r.cm}`;
     if (r.wrote) x += `\n\n${r.wrote}`;
     if (d.card && d.card.bill && d.card.bill.note) return x + `\n\n${d.card.bill.note}`;
     x += r.debt > 0 ?`\n\n아직 갚아야 할 연습생·제작 비용이 ${fmtWon(r.debt)} 남아 이번 활동 정산금은 없다.` : `\n\n이번 앨범 정산금 ${fmtWon(r.pay)}.`;
@@ -1774,9 +1774,9 @@ E({
   ch(s, d) {
     const t = s.tracks.band, signed = t.st === 'signed', cost = signed ? 0 : 40e4;
     const o = [];
-    // 콘셉트 (v116 버그 7): 멤버 자작곡 · 산 곡은 콘셉트 고르기 창(bandQ), 기획사가 구해 온 곡은 콘셉트 회의(band_cb). 예전엔 내가 쓴 곡만 콘셉트가 있었다
+    // 컨셉 (v116 버그 7): 멤버 자작곡 · 산 곡은 컨셉 고르기 창(bandQ), 기획사가 구해 온 곡은 컨셉 회의(band_cb). 예전엔 내가 쓴 곡만 컨셉이 있었다
     if (d.w) o.push({ t: '자작곡으로 낸다', h: `${d.w.id === s.me ? '내가' : josa(d.w.name, '이가')} 곡을 쓴다${cost ? ' · 녹음비 ' + fmtWon(cost) : ''}`, ok: s => jobMoney(s, 'band') >= cost, f: s => { if (cost) jobPay(s, cost, '녹음비', 'band'); if (d.w.id === s.me) { useSkill(s, me(s), 'compose', 2); return pickConcept(s, { cb: 'bandT', what: `밴드 「${t.b.name}」 자작곡의`, title: d.title }); } const q = lv(d.w, 'compose') * 0.9 + U.normal(0, 6); return pickConcept(s, { cb: 'bandQ', what: `${josa(d.w.name, '이가')} 쓴 밴드 새 곡 「${d.title}」의`, title: d.title, q, w: d.w.name }); } });
-    o.push({ t: signed ? '회사가 구해 온 곡으로 낸다' : '아는 작곡가에게 곡을 받는다', h: signed ? '콘셉트는 회사와 회의해서 정한다' : '곡값 150만 원', ok: s => signed || jobMoney(s, 'band') >= 150e4, f: s => {
+    o.push({ t: signed ? '회사가 구해 온 곡으로 낸다' : '아는 작곡가에게 곡을 받는다', h: signed ? '컨셉은 회사와 회의해서 정한다' : '곡값 150만 원', ok: s => signed || jobMoney(s, 'band') >= 150e4, f: s => {
       const x = { q: boughtQ(t.tier), title: d.title };
       if (signed) { if (s.pending) queueEv(s, 'band_cb', 0, x, true); else fireEvent(s, 'band_cb', x); return ''; }
       jobPay(s, 150e4, '곡 구입비', 'band');
@@ -1786,23 +1786,23 @@ E({
     return o;
   },
 });
-// 콘셉트를 먼저 고르고 제목을 짓는다
-SONG_CB.bandT = (s, d, c) => askTitle(s, 'bandSelf', { title: d.title, what: `'${c}' 콘셉트 ${d.what}`, c });
+// 컨셉을 먼저 고르고 제목을 짓는다
+SONG_CB.bandT = (s, d, c) => askTitle(s, 'bandSelf', { title: d.title, what: `'${c}' 컨셉 ${d.what}`, c });
 TITLE_CB.bandSelf = (s, d) => d.c ? SONG_CB.band(s, d, d.c) : (pickConcept(s, { cb: 'band', what: `밴드 자작곡 「${d.title}」의`, title: d.title }), `밴드 자작곡 「${d.title}」 작업을 시작했다.`);
 SONG_CB.band = (s, d, c) => {
   const q = lv(me(s), 'compose') * 0.9 + U.normal(0, 6) + cmBonus(s, c);
   cmGain(s, c, 10);
   queueEv(s, 'band_arr', 0, { q, self: true, title: d.title, w: me(s).name, c }); // 편곡 회의를 거쳐 다음 달에 나온다 (v118)
-  return `'${c}' 콘셉트로 밴드 자작곡 ${josa(`「${d.title}」`, '을를')} 썼다.`;
+  return `'${c}' 컨셉으로 밴드 자작곡 ${josa(`「${d.title}」`, '을를')} 썼다.`;
 };
-// 멤버 자작곡 · 산 곡: 고른 콘셉트로 녹음한다 (숙련도만큼 곡이 나아지는 건 내가 쓴 곡과 같다)
+// 멤버 자작곡 · 산 곡: 고른 컨셉으로 녹음한다 (숙련도만큼 곡이 나아지는 건 내가 쓴 곡과 같다)
 SONG_CB.bandQ = (s, d, c) => {
   queueEv(s, 'band_arr', 0, { q: d.q + cmBonus(s, c), self: false, title: d.title, w: d.w, c });
-  return `'${c}' 콘셉트로 밴드 새 곡 ${josa(`「${d.title}」`, '을를')} 녹음하기 시작했다.`;
+  return `'${c}' 컨셉으로 밴드 새 곡 ${josa(`「${d.title}」`, '을를')} 녹음하기 시작했다.`;
 };
-// 기획사 밴드가 회사가 구해 온 곡을 낼 때: 아이돌 컴백 회의처럼 회사 콘셉트로 가거나 다른 콘셉트를 제안한다
+// 기획사 밴드가 회사가 구해 온 곡을 낼 때: 아이돌 컴백 회의처럼 회사 컨셉으로 가거나 다른 컨셉을 제안한다
 E({
-  id: 'band_cb', cat: '밴드', title: '새 곡 콘셉트 회의', tag: 'career',
+  id: 'band_cb', cat: '밴드', title: '새 곡 컨셉 회의', tag: 'career',
   cond: s => s.tracks.band.st === 'signed',
   init(s, d) {
     const t = s.tracks.band;
@@ -1810,11 +1810,11 @@ E({
     d.alt = U.shuffle(TRENDS.filter(x => x !== d.c)).slice(0, 2);
     d.p = U.clamp(0.3 + Math.log10(1 + t.b.f) / 20 + (s.rep - 50) / 200, 0.2, 0.85);
   },
-  text: (s, d) => `${josa(s.tracks.band.agN, '이가')} 구해 온 새 곡 「${d.title}」 회의가 열렸다. 회사는 '${d.c}' 콘셉트로 가려고 한다. 요즘 차트에선 '${s.trend}' 콘셉트가 강세다.`,
+  text: (s, d) => `${josa(s.tracks.band.agN, '이가')} 구해 온 새 곡 「${d.title}」 회의가 열렸다. 회사는 '${d.c}' 컨셉으로 가려고 한다. 요즘 차트에선 '${s.trend}' 컨셉이 강세다.`,
   ch(s, d) {
     const go = (s, c) => queueEv(s, 'band_arr', 0, { q: d.q + cmBonus(s, c), self: false, title: d.title, c });
-    const C = [{ t: `회사 뜻대로 '${d.c}' 콘셉트로 간다`, tr: d.c === s.trend, h: `숙련도 ${gauge(cmGet(s, d.c))} ${Math.floor(cmGet(s, d.c))}`, f: s => { go(s, d.c); return `'${d.c}' 콘셉트로 새 곡 「${d.title}」 녹음을 시작했다.`; } }];
-    d.alt.forEach(c => C.push({ t: `'${c}' 콘셉트를 제안한다`, tr: c === s.trend, h: `받아들여질 가능성 ${fmtPct(d.p)} · 숙련도 ${gauge(cmGet(s, c))} ${Math.floor(cmGet(s, c))}`, f: s => { const ok = U.chance(d.p); go(s, ok ? c : d.c); return ok ? `내 의견대로 '${c}' 콘셉트로 새 곡 ${josa(`「${d.title}」`, '을를')} 녹음하기로 했다.` : `제안은 받아들여지지 않았다. 회사 뜻대로 '${d.c}' 콘셉트로 간다.`; } }));
+    const C = [{ t: `회사 뜻대로 '${d.c}' 컨셉으로 간다`, tr: d.c === s.trend, h: `숙련도 ${gauge(cmGet(s, d.c))} ${Math.floor(cmGet(s, d.c))}`, f: s => { go(s, d.c); return `'${d.c}' 컨셉으로 새 곡 「${d.title}」 녹음을 시작했다.`; } }];
+    d.alt.forEach(c => C.push({ t: `'${c}' 컨셉을 제안한다`, tr: c === s.trend, h: `받아들여질 가능성 ${fmtPct(d.p)} · 숙련도 ${gauge(cmGet(s, c))} ${Math.floor(cmGet(s, c))}`, f: s => { const ok = U.chance(d.p); go(s, ok ? c : d.c); return ok ? `내 의견대로 '${c}' 컨셉으로 새 곡 ${josa(`「${d.title}」`, '을를')} 녹음하기로 했다.` : `제안은 받아들여지지 않았다. 회사 뜻대로 '${d.c}' 컨셉으로 간다.`; } }));
     return C;
   },
 });
@@ -1823,7 +1823,7 @@ E({
   init(s, d) {
     const t = s.tracks.band;
     if (!trackOn(s, 'band')) { d.skip = true; return; }
-    // 콘셉트 궁합 (v97): 멤버들의 재능 · 나이, 힙합은 보컬의 랩
+    // 컨셉 궁합 (v97): 멤버들의 재능 · 나이, 힙합은 보컬의 랩
     const bp = [me(s)].concat(bandMembers(s, t)), cf = cFit(s, d.c, bp, stageYrs(s)), bv = bp.find(x => (x.id === s.me ? t.b.my : t.b.part[x.id]) === 'vocal');
     if (cf.rap != null) cf.rap = bv ? lv(bv, 'rap') : 0;
     const sc = songScore(s, { perf: cPerf(bandPower(s, t), cf), q: d.q, fans: t.b.f, tier: t.tier, trend: !!d.c && d.c === s.trend, bonus: (d.self ? 3 : 0) + cScoreB(cf) + bandArrB(s, t, d) });
@@ -1844,7 +1844,7 @@ E({
       d.pay = bandIncome(s, t, albums * 14000 + (d.peak ? (101 - d.peak) * 250e4 : 0), '앨범·음원 정산'); d.debt = t.debt; d.gross = t.gross;
       if (t.lastBill) { t.lastBill.t = `「${d.title}」 앨범 · 음원 정산`; d.bill = t.lastBill; }
     }
-    if (d.c) cmGain(s, d.c, 3); // 아이돌처럼 그 콘셉트로 활동만 해도 숙련도 +3 (v116 버그 7)
+    if (d.c) cmGain(s, d.c, 3); // 아이돌처럼 그 컨셉으로 활동만 해도 숙련도 +3 (v116 버그 7)
     t.rel++; musicRookie(s, true); t.nextRel = U.int(5, 8); t.yearBest = Math.max(t.yearBest || 0, sc);
     if (d.peak && (!t.bestPeak || d.peak < t.bestPeak)) t.bestPeak = d.peak;
     // 발매 결과 카드 (v118 UI C1)
@@ -1857,7 +1857,7 @@ E({
   },
   html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + songCardHTML(d.card) : '',
   // 순위 · 팬 · 반응은 카드에 있다. 본문에는 곡 정보와 앞으로 들어올 돈만 (예전 세이브의 카드 없는 창은 예전처럼)
-  text: (s, d) => `밴드 「${s.tracks.band.b.name}」의 ${josa(`「${d.title}」`, '이가')} 나왔다.${d.w || d.c ? ` (${[d.w ? `작곡 ${d.self ? '나' : d.w}` : '', d.c ? `'${d.c}' 콘셉트` : ''].filter(Boolean).join(' · ')})` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 콘셉트다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n밴드 팬 ${sgnFans(d.gain)} · 내 팬 +${fmtFans(d.my)}`}${d.roy >= 1e4 ? `\n\n매달 들어올 음원 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)` : '\n'}${d.bill ? (d.bill.note ? `\n${d.bill.note}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}.`) : d.signed ? (d.debt > 0 ? `\n이번 앨범 정산금 ${fmtWon(d.gross)}은 ${d.fromTr ? '연습생·' : ''}제작 비용을 갚는 데 들어갔다. 남은 비용 ${fmtWon(d.debt)}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}`) : ''}${d.card ? '' : `\n\n반응: ${d.cm}`}`,
+  text: (s, d) => `밴드 「${s.tracks.band.b.name}」의 ${josa(`「${d.title}」`, '이가')} 나왔다.${d.w || d.c ? ` (${[d.w ? `작곡 ${d.self ? '나' : d.w}` : '', d.c ? `'${d.c}' 컨셉` : ''].filter(Boolean).join(' · ')})` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n밴드 팬 ${sgnFans(d.gain)} · 내 팬 +${fmtFans(d.my)}`}${d.roy >= 1e4 ? `\n\n매달 들어올 음원 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)` : '\n'}${d.bill ? (d.bill.note ? `\n${d.bill.note}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}.`) : d.signed ? (d.debt > 0 ? `\n이번 앨범 정산금 ${fmtWon(d.gross)}은 ${d.fromTr ? '연습생·' : ''}제작 비용을 갚는 데 들어갔다. 남은 비용 ${fmtWon(d.debt)}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}`) : ''}${d.card ? '' : `\n\n반응: ${d.cm}`}`,
   // 댓글 모니터링 (v118 UI C1)
   ch: (s, d) => songCommentCh(s, d, `밴드 새 곡 ${josa(`「${d.title}」`, '을를')} 냈다. ${chartText(d.peak)}.`, 'band'),
 });
@@ -1875,7 +1875,7 @@ E({
     return C;
   },
 });
-// 편곡 방향이 점수에 주는 것 (숨은 값): 내 파트 · 보컬을 앞에 세우면 그 실력이 밴드 평균보다 좋을수록, 유행 쪽은 유행 콘셉트가 아닐 때 (팬이 많으면 덜), 우리 색은 팀워크 · 팬이 많을수록
+// 편곡 방향이 점수에 주는 것 (숨은 값): 내 파트 · 보컬을 앞에 세우면 그 실력이 밴드 평균보다 좋을수록, 유행 쪽은 유행 컨셉이 아닐 때 (팬이 많으면 덜), 우리 색은 팀워크 · 팬이 많을수록
 function bandPl(s, t, x) { return x.id === s.me ? t.b.my : t.b.part[x.id]; }
 function bandArrB(s, t, d) {
   if (!d.arr) return 0;
@@ -1885,7 +1885,7 @@ function bandArrB(s, t, d) {
   if (d.arr === 'trend') return d.c === s.trend ? 0.5 : 2.5 - (t.b.f >= 2e4 ? 1.5 : 0);
   return U.clamp((twOf(t.b) - 50) / 20 + (t.b.f >= 1e4 ? 1.5 : 0), -2, 4);
 }
-// 밴드 곡 반응 재료: 가장 잘하는 파트 · 가장 처지는 파트 · 곡 · 팬 · 유행 · 팀워크 · 홍보 · 콘셉트 궁합 · 편곡 방향
+// 밴드 곡 반응 재료: 가장 잘하는 파트 · 가장 처지는 파트 · 곡 · 팬 · 유행 · 팀워크 · 홍보 · 컨셉 궁합 · 편곡 방향
 function bandReactF(s, t, d, cf) {
   const L = [me(s)].concat(bandMembers(s, t)).map(x => ({ k: bandPl(s, t, x), v: lv(x, bandPl(s, t, x)) })).sort((a, b) => b.v - a.v), hi = L[0], lo = L[L.length - 1];
   const F = [
@@ -2111,23 +2111,23 @@ E({
     const selfCost = signed ? 0 : 50e4, buyCost = signed ? 0 : 300e4;
     const go = (q, self, lyr, msg) => s => { queueEv(s, 'solo_relres', 1, { q, self, lyr, title: d.title }); if (!t.sn) askStageName(s, 'solo'); return msg; };
     const o = [];
-    if (lv(p, 'compose') >= 20) o.push({ t: '자작곡으로 낸다', h: `완성도는 작곡 실력에 달렸다 · 콘셉트를 고른다 · 저작권료도 ${ownCo(s, 'solo') ? '회사' : '내'} 몫${selfCost ? ' · 제작비 ' + fmtWon(selfCost) : ''}`, ok: s => jobMoney(s, 'solo') >= selfCost, f: s => { if (selfCost) jobPay(s, selfCost, '음원 제작비', 'solo'); useSkill(s, p, 'compose', 2); pickConcept(s, { cb: 'soloT', title: d.title, what: '자작곡의', lyr: lv(p, 'lyric') >= 15 }); if (!t.sn) askStageName(s, 'solo'); return ''; } });
+    if (lv(p, 'compose') >= 20) o.push({ t: '자작곡으로 낸다', h: `완성도는 작곡 실력에 달렸다 · 컨셉을 고른다 · 저작권료도 ${ownCo(s, 'solo') ? '회사' : '내'} 몫${selfCost ? ' · 제작비 ' + fmtWon(selfCost) : ''}`, ok: s => jobMoney(s, 'solo') >= selfCost, f: s => { if (selfCost) jobPay(s, selfCost, '음원 제작비', 'solo'); useSkill(s, p, 'compose', 2); pickConcept(s, { cb: 'soloT', title: d.title, what: '자작곡의', lyr: lv(p, 'lyric') >= 15 }); if (!t.sn) askStageName(s, 'solo'); return ''; } });
     if (t.type === 'rap' && lv(p, 'lyric') >= 15) o.push({ t: '비트를 받고 가사는 직접 쓴다', h: `가사는 작사 실력에 달렸다${buyCost ? ' · 비트값 ' + fmtWon(buyCost / 2) : ''}`, ok: s => jobMoney(s, 'solo') >= buyCost / 2, f: s => { if (buyCost) jobPay(s, buyCost / 2, '비트 구입비', 'solo'); useSkill(s, p, 'lyric', 2); askTitle(s, 'soloLyr', { title: d.title, what: '직접 가사를 쓴 신곡의', q: (boughtQ(t.tier) + lv(p, 'lyric')) / 2 + 3 }); if (!t.sn) askStageName(s, 'solo'); return ''; } });
     o.push({ t: signed ? '회사가 구해 온 곡으로 낸다' : '작곡가에게 곡을 사서 낸다', h: buyCost ? '곡값 ' + fmtWon(buyCost) : '곡 완성도는 회사 크기에 따라 다르다', ok: s => jobMoney(s, 'solo') >= buyCost, f: s => { if (buyCost) jobPay(s, buyCost, '곡 구입비', 'solo'); return go(boughtQ(t.tier || 1), false, false, `새 노래 「${d.title}」 녹음을 시작했다.`)(s); } });
     o.push({ t: '이번엔 넘긴다', h: '석 달 뒤에 다시', f: s => { t.nextRel = 3; return '신곡 발표를 미뤘다.'; } });
     return o;
   },
 });
-// 콘셉트를 먼저 고르고 제목을 짓는다
-SONG_CB.soloT = (s, d, c) => askTitle(s, 'soloSelf', { title: d.title, what: `'${c}' 콘셉트 ${d.what}`, lyr: d.lyr, c });
+// 컨셉을 먼저 고르고 제목을 짓는다
+SONG_CB.soloT = (s, d, c) => askTitle(s, 'soloSelf', { title: d.title, what: `'${c}' 컨셉 ${d.what}`, lyr: d.lyr, c });
 TITLE_CB.soloSelf = (s, d) => d.c ? SONG_CB.solo(s, d, d.c) : (pickConcept(s, { cb: 'solo', what: `자작곡 「${d.title}」의`, title: d.title, lyr: d.lyr }), `자작곡 「${d.title}」 작업을 시작했다.`);
 TITLE_CB.soloLyr = (s, d) => { queueEv(s, 'solo_relres', 1, { q: d.q, self: false, lyr: true, title: d.title }); return `직접 쓴 가사로 「${d.title}」 녹음을 시작했다.`; };
-// 자작곡: 콘셉트를 고르면 숙련도만큼 완성도가 달라지고, 그 콘셉트 숙련도가 오른다
+// 자작곡: 컨셉을 고르면 숙련도만큼 완성도가 달라지고, 그 컨셉 숙련도가 오른다
 SONG_CB.solo = (s, d, c) => {
   const p = me(s), q = lv(p, 'compose') * 0.9 + U.normal(0, 5) + cmBonus(s, c);
   cmGain(s, c, 10);
   queueEv(s, 'solo_relres', 1, { q, self: true, lyr: d.lyr, title: d.title, c });
-  return `'${c}' 콘셉트로 자작곡 ${josa(`「${d.title}」`, '을를')} 썼다.`;
+  return `'${c}' 컨셉으로 자작곡 ${josa(`「${d.title}」`, '을를')} 썼다.`;
 };
 E({
   id: 'solo_relres', cat: '음원 성적', title: '신곡 성적', tag: 'career',
@@ -2136,7 +2136,7 @@ E({
     const t = s.tracks.solo;
     if (t.st !== 'indie' && t.st !== 'signed') { d.skip = true; return; }
     const mk = t.mkt || 'kr', signed = t.st === 'signed', p = me(s);
-    // 콘셉트 궁합 (v97): 내 재능 · 나이 · 랩
+    // 컨셉 궁합 (v97): 내 재능 · 나이 · 랩
     const cf = cFit(s, d.c, [p], stageYrs(s));
     const sc = songScore(s, { perf: cPerf(soloScore(s, t.type), cf), q: d.q, fans: totalFans(s), tier: signed ? t.tier : 0, trend: (d.tr = d.c ? d.c === s.trend : U.chance(0.3)), bonus: (d.self ? 3 : 0) + (p.tal.star - 50) * 0.12 + cScoreB(cf) });
     cNote(s, cf, d.title);
@@ -2154,7 +2154,7 @@ E({
     if (gross > 0) { const r = billPay(s, { rev: gross, cut: signed ? t.cut : 0, n: 1, what: '음반·음원 정산', job: 'solo', title: `「${d.title}」 음반 · 음원 정산` }); d.sale = Math.round(r.share); d.bill = r.bill; }
     t.rel++; musicRookie(s, true); t.nextRel = U.int(5, 8); t.yearBest = Math.max(t.yearBest || 0, sc);
     if (d.peak && (!t.bestPeak || d.peak < t.bestPeak)) t.bestPeak = d.peak;
-    // 발매 결과 카드 (v118 UI C1): 내 노래 · 랩 · 무대, 곡, 팬, 유행, 콘셉트 궁합, 홍보
+    // 발매 결과 카드 (v118 UI C1): 내 노래 · 랩 · 무대, 곡, 팬, 유행, 컨셉 궁합, 홍보
     const sp = soloScore(s, t.type), ty = t.type === 'rap' ? 'rap' : t.type === 'perf' ? 'perf' : 'vocal';
     const F = [{ z: (sp - 45) / 18, g: { vocal: ['목소리가 곡을 꽉 채운다', '노래 실력이 확실하다'], rap: ['랩이 귀에 꽂힌다', '플로우가 살아 있다'], perf: ['퍼포먼스가 눈을 못 떼게 한다', '무대 장악력이 대단하다'] }[ty], b: { vocal: ['노래가 곡을 다 못 받쳐 준다'], rap: ['랩이 조금 어설프다'], perf: ['무대가 아직 덜 여물었다'] }[ty] },
       RX.q(d.q), RX.fans(totalFans(s), d.gain), RX.trend(!!d.tr), RX.cf(cScoreB(cf)), RX.promo(signed ? t.tier : 0)];
@@ -2168,7 +2168,7 @@ E({
     d.sc = sc; d.cm = comments(sc, actNick(s, 'solo'));
   },
   html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + songCardHTML(d.card) : '',
-  text: (s, d) => `「${d.title}」${d.self ? ` (자작곡${d.c ? ` · '${d.c}' 콘셉트` : ''})` : ''} 성적이 나왔다.${d.c && d.c === s.trend ? ' 요즘 유행하는 콘셉트다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n팬 ${sgnFans(d.gain)}`}${d.sale ? `\n\n음반·음원 정산 ${fmtWon(d.sale)}` : ''}\n매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.card ? '' : `\n\n반응: ${d.cm}`}`,
+  text: (s, d) => `「${d.title}」${d.self ? ` (자작곡${d.c ? ` · '${d.c}' 컨셉` : ''})` : ''} 성적이 나왔다.${d.c && d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n팬 ${sgnFans(d.gain)}`}${d.sale ? `\n\n음반·음원 정산 ${fmtWon(d.sale)}` : ''}\n매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.card ? '' : `\n\n반응: ${d.cm}`}`,
   ch: (s, d) => songCommentCh(s, d, `${josa(`「${d.title}」`, '을를')} 발표했다. ${chartText(d.peak)}.`, 'solo'),
 });
 E({

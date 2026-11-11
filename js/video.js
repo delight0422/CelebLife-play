@@ -705,7 +705,7 @@ E({
 });
 
 // ════════ 유튜버 · 버튜버 ════════
-// 채널 콘셉트(유튜브 유행과 같은 목록)마다 중요한 특기가 다르다. 편집 실력(또는 고용한 편집자)이 영상 완성도를 올린다
+// 채널 컨셉(유튜브 유행과 같은 목록)마다 중요한 특기가 다르다. 편집 실력(또는 고용한 편집자)이 영상 완성도를 올린다
 // 유튜버는 얼굴이 보여 외모가 보태고, 버튜버는 아바타 품질과 소속사가 처음 시청자 수를 좌우한다
 // 구독자가 닿을 수 있는 높이: 10^((매력 + YT_REACH) / 16). 클수록 채널이 크게 자란다
 const YT_REACH = 27;
@@ -715,7 +715,7 @@ const YT_INC = 12, VT_INC = 20;
 const YT_FIT = { 먹방: ['variety'], 챌린지: ['dance', 'variety'], 브이로그: ['variety', 'edit'], '게임 방송': ['game', 'variety'], '숏폼 밈': ['variety', 'edit'], ASMR: ['voice', 'music'], 리뷰: ['variety', 'insight'], '커버 영상': ['vocal', 'dance'], 그림: ['art', 'variety'], '단편 애니메이션': ['art', 'direct'] };
 // 채널 활동으로 연습하는 특기 두 개 (분야의 특기, 모자라면 예능)
 const YT_SK = Object.fromEntries(Object.entries(YT_FIT).map(([c, L]) => { const k = L.filter(x => !TALENT_BY[x]); return [c, [k[0] || 'variety', k[1] || k[0] || 'variety']]; }));
-// 콘셉트 고르기 목록: 그 분야로 했을 때 채널 점수(내 예능 · 편집 · 분야 특기와 재능)가 높은 것부터 보여 준다
+// 컨셉 고르기 목록: 그 분야로 했을 때 채널 점수(내 예능 · 편집 · 분야 특기와 재능)가 높은 것부터 보여 준다
 function ytCatAvg(s, c) { const p = me(s), F = YT_FIT[c] || ['variety'], w = F.length > 1 ? JM_ : JS_; return jobMix([[lv(p, 'variety'), JS_], [lv(p, 'edit'), JM_]].concat(F.filter(k => !TALENT_BY[k]).map(k => [lv(p, k), w]))) + F.filter(k => TALENT_BY[k]).reduce((a, k) => a + talB(p.tal[k], F.length === 1), 0); }
 function ytCatSort(s, cats) { return cats.map((c, i) => [c, ytCatAvg(s, c), i]).sort((a, b) => b[1] - a[1] || a[2] - b[2]).map(x => x[0]); }
 function ytCatH(s, c) { const p = me(s); return (YT_FIT[c] || ['variety']).map(k => TALENT_BY[k] ? TALENT_BY[k].n : `${SKILLS[k].n} ${has(p, k) ? lvi(p, k) + '레벨' : '못 함'}`).join(' · '); }
@@ -737,13 +737,13 @@ function ytAppeal(s, t) {
   const look = t.mode === 'vt' ? avQ(t) * 5 + (t.corp ? AG[t.corp].tier * 6 : 0) : 0;
   return ytSkMix(s, t) * 0.95 + ytFitTal(s, t) + talB(p.tal.grit, false) - (s.stigma || 0) * 0.25 + look + (p.tal.star - 50) * 0.3 + ((t.mode === 'vt' ? '버튜버' : '캠튜버') === s.trendTV.yt ? 6 : 0) + MCN_HELP.grow[mcnTierT(s, t)];
 }
-// 버츄얼 아이돌 합격 (v99, 8-5): 방송 점수(vidol.js viSk)와 같다. 오디션 때는 콘셉트를 고르기 전이라 나한테 가장 잘 맞는 콘셉트로 본다 (v100). 연기는 뺐다
+// 버츄얼 아이돌 합격 (v99, 8-5): 방송 점수(vidol.js viSk)와 같다. 오디션 때는 컨셉을 고르기 전이라 나한테 가장 잘 맞는 컨셉으로 본다 (v100). 연기는 뺐다
 function vtScore(s) { return Math.max(...ytCats(true).map(c => viSk(s, c))); }
 function ytBlock(s) { return s.army ? '군 복무 중' : s.tracks.idol.st === 'trainee' ? '연습생은 개인 채널을 못 연다' : age(s) < 14 ? '14세부터 할 수 있다' : ''; }
 function ytName(t) { return t.mode === 'vt' ? '버튜버' : '유튜버'; }
 CAREERS.youtube = {
   n: '유튜버', ic: '▶️',
-  desc: '영상을 올리거나(유튜버) 아바타로 인터넷 방송을 한다(개인세 버튜버). 채널 콘셉트에 맞는 특기와 편집이 중요하다. 버튜버는 아바타가 처음 시청자 수를 좌우한다. 회사에 들어가는 버튜버는 버츄얼 아이돌이다.',
+  desc: '영상을 올리거나(유튜버) 아바타로 인터넷 방송을 한다(개인세 버튜버). 채널 컨셉에 맞는 특기와 편집이 중요하다. 버튜버는 아바타가 처음 시청자 수를 좌우한다. 회사에 들어가는 버튜버는 버츄얼 아이돌이다.',
   act: { n: '채널 활동 (촬영·편집·방송)', ic: '▶️', g: '직업 활동', eff: [['예능', '↑', 1], ['팬', '↑', 1], ['돈', '↑', 0], ['스트레스', '↑', 0]] },
   status(s, t) {
     if (t.st === 'prep') return `버튜버 데뷔 준비 중 · ${VT_AV[t.av].n} 제작 (${t.left}개월 남음)${t.corpN ? ' · ' + t.corpN : ''}`;
@@ -765,14 +765,14 @@ CAREERS.youtube = {
   actions(s, t) {
     if (t.st !== 'active') return [];
     const A = [];
-    A.push({ t: '채널 콘셉트 바꾸기', h: `지금 '${t.cat}' · 바꾸면 한동안 구독자가 조금 빠진다`, ok: !(t.catT > s.t), why: '얼마 전에 바꿨다', run: s => { fireEvent(s, 'yt_cat', { change: true }); return ''; } });
+    A.push({ t: '채널 컨셉 바꾸기', h: `지금 '${t.cat}' · 바꾸면 한동안 구독자가 조금 빠진다`, ok: !(t.catT > s.t), why: '얼마 전에 바꿨다', run: s => { fireEvent(s, 'yt_cat', { change: true }); return ''; } });
     A.push(t.editor ? { t: '편집자 내보내기', h: '매달 나가던 150만 원이 없어진다', ok: true, run: s => { t.editor = false; return '편집자와의 계약을 끝냈다. 이제 편집은 혼자 한다.'; } } : { t: '편집자 고용하기', h: t.mcn ? '월 150만 원' : '월 150만 원 · 편집 실력이 모자라도 영상 완성도가 오른다', ok: !t.mcn && s.money >= 150e4, why: t.mcn ? `${t.mcn.n} 편집팀이 무료로 편집해 준다` : '돈이 모자라다', run: s => { t.editor = true; return '영상 편집자를 고용했다.'; } });
     if (t.mode === 'vt' && avQ(t) < 4) { const ni = avQ(t) + 1, nx = VT_AV[ni]; A.push({ t: `아바타 바꾸기: ${nx.n}`, h: fmtWon(nx.c) + (ownCo(s, 'youtube') ? ' (회사 돈)' : ''), ok: jobMoney(s, 'youtube') >= nx.c, why: `${ownCo(s, 'youtube') ? '회사 ' : ''}돈이 모자라다 (${fmtWon(nx.c)} 필요)`, run: s => { jobPay(s, nx.c, '아바타 교체', 'youtube'); t.av = ni; t.subs = Math.round(t.subs * 1.05); return `${josa(nx.n, '으로')} 아바타를 바꿨다. 새 아바타 공개 방송에 시청자가 몰렸다.`; } }); }
     A.push({ t: t.mode === 'vt' ? '졸업 (버튜버 은퇴)' : '채널 접기', ok: true, danger: true, confirm: t.mode === 'vt' ? '정말 버튜버를 졸업할까요?' : '정말 채널 활동을 그만둘까요?', run: s => { t.st = 'ended'; t.endNote = `${ytName(t)} 「${t.ch}」 · 가장 많을 때 구독자 ${fmtFans(t.peak || t.subs)}`; t.hist = (t.hist || []).concat(t.endNote); milestone(s, `${age(s)}세에 ${ytName(t)} 「${t.ch}」 활동을 마쳤다.`); return t.mode === 'vt' ? `버튜버 「${t.ch}」 졸업 방송을 했다.` : `채널 「${t.ch}」 활동을 그만뒀다.`; } });
     return A;
   },
   monthly(s, t) {
-    // 아바타가 다 되면 방송 콘셉트부터 고르고(yt_cat), 이어서 채널 이름을 정해 데뷔한다(yt_debut)
+    // 아바타가 다 되면 방송 컨셉부터 고르고(yt_cat), 이어서 채널 이름을 정해 데뷔한다(yt_debut)
     if (t.st === 'prep') { t.left--; if (t.left <= 0 && !hasQ(s, 'yt_debut') && !hasQ(s, 'yt_cat')) queueEv(s, 'yt_cat', 0, { mode: 'vt' }); return; }
     if (t.st !== 'active') return;
     t.months++;
@@ -820,7 +820,7 @@ function ytCareerOffer(s, t) {
 JOB_APPLY.push({
   id: 'youtube_open', trk: 'youtube', g: '▶️ 유튜버', n: '유튜브 채널 열기',
   show: s => !trackOn(s, 'youtube'),
-  h: s => '얼굴을 보이고 영상을 올린다 · 채널 콘셉트를 고른다',
+  h: s => '얼굴을 보이고 영상을 올린다 · 채널 컨셉을 고른다',
   ok: s => !ytBlock(s), why: s => ytBlock(s),
   run: s => { fireEvent(s, 'yt_cat', { mode: 'yt' }); return ''; },
 });
@@ -839,13 +839,13 @@ function vtSolo(s) { const t = s.tracks.youtube; return t.st === 'active' && t.m
 function vtAudP(s, ag) { const t = s.tracks.youtube; return audP(vtScore(s) + pm(s, 'audition', 0) + (vtSolo(s) ? Math.log10(1 + t.subs / 1000) * 4 : 0), ag.thr); }
 // 회사 소속 버튜버(버츄얼 아이돌)의 오디션·계약·활동은 js/vidol.js
 const VT_CARRY = 0.3, VT_TAMPER_CATCH = 0.03;
-// 채널 콘셉트 고르기 (유튜브 채널을 열 때 · 버튜버 아바타가 다 됐을 때 · 바꿀 때)
-// 바꿀 때는 지금 콘셉트를 빼고 보여 주고, '역시 그만둔다'를 고르면 아무것도 잃지 않는다
+// 채널 컨셉 고르기 (유튜브 채널을 열 때 · 버튜버 아바타가 다 됐을 때 · 바꿀 때)
+// 바꿀 때는 지금 컨셉을 빼고 보여 주고, '역시 그만둔다'를 고르면 아무것도 잃지 않는다
 E({
-  id: 'yt_cat', cat: '채널', title: '채널 콘셉트', tag: 'career',
-  text: (s, d) => `${d.change ? `채널 콘셉트를 바꾼다. 지금은 '${s.tracks.youtube.cat}'.` : d.mode === 'vt' ? '아바타가 다 됐다. 어떤 방송을 하는 버튜버로 데뷔할까?' : '어떤 영상을 올리는 채널로 할까?'}`,
+  id: 'yt_cat', cat: '채널', title: '채널 컨셉', tag: 'career',
+  text: (s, d) => `${d.change ? `채널 컨셉을 바꾼다. 지금은 '${s.tracks.youtube.cat}'.` : d.mode === 'vt' ? '아바타가 다 됐다. 어떤 방송을 하는 버튜버로 데뷔할까?' : '어떤 영상을 올리는 채널로 할까?'}`,
   ch: (s, d) => ytCatSort(s, ytCats((d.change ? s.tracks.youtube.mode : d.mode) === 'vt').filter(c => !d.change || c !== s.tracks.youtube.cat)).map(c => { return { t: c, h: ytCatH(s, c), f: s => {
-    if (d.change) { const t = s.tracks.youtube; t.cat = c; t.catT = s.t + 12; t.subs = Math.round(t.subs * 0.9); return `채널 콘셉트를 '${c}'${josa(c, '으로').slice(c.length)} 바꿨다. 예전 구독자 일부가 떠났다.`; }
+    if (d.change) { const t = s.tracks.youtube; t.cat = c; t.catT = s.t + 12; t.subs = Math.round(t.subs * 0.9); return `채널 컨셉을 '${c}'${josa(c, '으로').slice(c.length)} 바꿨다. 예전 구독자 일부가 떠났다.`; }
     if (d.mode === 'vt') { s.tracks.youtube.cat = c; fireEvent(s, 'yt_debut', { mode: 'vt' }); return ''; }
     fireEvent(s, 'yt_debut', { mode: 'yt', cat: c }); return '';
   } }; }).concat(d.mode === 'vt' && !d.change ? [] : [{ t: '역시 그만둔다', f: () => '' }]),

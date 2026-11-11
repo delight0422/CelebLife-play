@@ -520,7 +520,10 @@ function talMult(s, ev) {
 }
 function pickEvent(s) {
   if (!EV_FIXED) buildEventLists();
-  for (let qi = s.queue.findIndex(q => q.at <= s.t); qi >= 0; qi = s.queue.findIndex(q => q.at <= s.t)) {
+  // 차례가 된 창 가운데 가장 오래 기다린 것부터 띄운다 (v133). 예전에는 줄 맨 앞부터라, 앞으로 끼어드는 창(컴백 회의 · 앨범 성적)이 매달 있으면
+  // 뒤에 선 창(오디션 · 재계약)이 영영 차례를 못 받았다. 같은 달에 선 창끼리는 줄 순서 그대로다
+  const due = () => { let bi = -1; for (let i = 0; i < s.queue.length; i++) if (s.queue[i].at <= s.t && (bi < 0 || s.queue[i].at < s.queue[bi].at)) bi = i; return bi; };
+  for (let qi = due(); qi >= 0; qi = due()) {
     const q = s.queue.splice(qi, 1)[0], ev = EVENTS[q.id];
     let ok = !!ev;
     if (ok && ev.cond) { try { ok = ev.cond(s); } catch (e) { ok = false; } }
@@ -583,11 +586,11 @@ function choose(s, i) {
 // 결과는 인생 기록에 남고 진행 요약 창의 '특별한 일'에 제목과 함께 강조된다. ev.autoK가 'flavor'면 '일상'으로 (새 특기를 배웠으면 늘 특별한 일)
 // ev.keepPop: 고를 게 없어도 창으로 보여 준다 (시상식 발표처럼 보는 맛이 있는 것). 함수면 그때그때 정한다
 const LOG_HTML = new WeakMap();
-// 내가 무언가를 정한 바로 그때 띄울 창 (제목 정하기 · 활동명 정하기 · 콘셉트 고르기)
+// 내가 무언가를 정한 바로 그때 띄울 창 (제목 정하기 · 활동명 정하기 · 컨셉 고르기)
 // 다른 창이 떠 있어 줄을 섰으면, 다음 달까지 기다리지 않고 앞의 창을 닫자마자 띄운다
 // 예: 작곡가로 처음 곡을 팔면 활동명 창이 먼저 뜨고, 제목 창은 그 다음 달로 밀렸다
 // 컴백 회의 · 앨범 발매(내 그룹 · 회사 그룹)도 그달에 와 있으면 앞 창에 답하자마자 이어서 뜬다 (그룹이 여럿이어도 한 달씩 밀리지 않게, 턴제 실험 6차)
-const NOW_EVS = new Set(['dorm_out', 'sk_swap', 'sk_drop', 'slot_up', 'school_start', 'title_pick', 'stage_name', 'song_concept', 'idol_cb', 'idol_cbres', 'co_cb', 'co_song', 'co_res', 'band_fest_play', 'band_arr']);
+const NOW_EVS = new Set(['co_aud_pick', 'co_aud', 'co_trn_out', 'co_tr_out', 'co_hire_tf', 'co_renew', 'co_auto_full', 'co_sq_ready', 'dorm_out', 'sk_swap', 'sk_drop', 'slot_up', 'school_start', 'title_pick', 'stage_name', 'song_concept', 'idol_cb', 'idol_cbres', 'co_cb', 'co_song', 'co_res', 'band_fest_play', 'band_arr']);
 // 숙소를 나오게 되면 바로 '숙소를 나와야 한다' 창을 띄운다 (v130: 예전엔 다음 달로 넘어가야 떴다). 한 달 진행과 선택 · 행동 뒤에 본다
 function dormCheck(s) { const dorm = isDorm(s); if (s.dormWas && !dorm && age(s) >= 19 && !s.army && s.home.mode !== 'alone' && !hasQ(s, 'dorm_out') && !(s.pending && s.pending.id === 'dorm_out')) queueEv(s, 'dorm_out', 0); s.dormWas = dorm; }
 function pullNow(s) {
@@ -920,7 +923,7 @@ function onSchoolMonth(s) {
 function onBirthday(s) {
   for (const p of parentsAlive(s)) if (pAge(s, p) >= 70 && U.chance((pAge(s, p) - 68) * 0.02)) queueEv(s, 'parent_loss', 0, { id: p.id }, true);
 }
-// 유튜브 유행 (피드백 24): 버튜버냐 캠튜버냐. 3~5년에 한 번 바뀐다. 예전 세이브(채널 콘셉트 유행)는 둘 중 하나로 바꾼다
+// 유튜브 유행 (피드백 24): 버튜버냐 캠튜버냐. 3~5년에 한 번 바뀐다. 예전 세이브(채널 컨셉 유행)는 둘 중 하나로 바꾼다
 function ytTrendCheck(s, flip) {
   const tv = s.trendTV;
   if (!YT_KINDS.includes(tv.yt)) { tv.yt = U.pick(YT_KINDS); tv.ytT = s.t + U.int(36, 60); return; }

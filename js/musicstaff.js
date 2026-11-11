@@ -20,12 +20,12 @@ function sendAdopt(s, kind, t) {
   const main = t.best >= 45 && U.chance(0.4);
   const fee = Math.round((kind === 'composer' ? [150, 400, 800] : [80, 150, 300])[a.tier - 1] * 1e4 * (1 + t.rep / 50) * (main ? 1.5 : 1));
   const title = mkt === 'kr' ? songTitle() : songTitleEn();
-  // 작곡가는 내가 정한 콘셉트로 쓴 곡이 팔리고, 작사가는 남이 쓴 곡(콘셉트는 그때그때)에 가사를 붙인다
+  // 작곡가는 내가 정한 컨셉으로 쓴 곡이 팔리고, 작사가는 남이 쓴 곡(컨셉은 그때그때)에 가사를 붙인다
   const c = kind === 'composer' && t.cc ? t.cc : U.chance(0.4) ? s.trend : U.pick(TRENDS);
   sendMsg(s, 'w_adopt', { from: `${ag.n} A&R ${anr.name}`, title: `${wJob(kind)} 곡 채택 제안`, months: 6, d: { kind, a, mkt, title, main, fee, anr: anr.id, q: t.best, c } });
 }
-// 작곡가가 앞으로 쓸 곡의 콘셉트
-SONG_CB.comp = (s, d, c) => { s.tracks.composer.cc = c; return `앞으로 '${c}' 콘셉트로 곡을 쓰기로 했다.`; };
+// 작곡가가 앞으로 쓸 곡의 컨셉
+SONG_CB.comp = (s, d, c) => { s.tracks.composer.cc = c; return `앞으로 '${c}' 컨셉으로 곡을 쓰기로 했다.`; };
 for (const kind of ['composer', 'lyricist']) {
   const key = wKey(kind), nm = wN(kind);
   JOB_APPLY.push({
@@ -37,7 +37,7 @@ for (const kind of ['composer', 'lyricist']) {
   });
   CAREERS[kind] = {
     n: nm, ic: kind === 'composer' ? '🎼' : '✍️',
-    desc: kind === 'composer' ? '내가 정한 콘셉트로 곡을 써 두면 기획사가 골라 간다. 채택되면 계약금과 저작권료가 들어온다. 앨범을 통째로 맡는 프로듀서와 달리 곡 한 곡만 쓴다.' : '곡에 가사를 붙인다. 작곡보다 채택이 잦지만 수입은 적다.',
+    desc: kind === 'composer' ? '내가 정한 컨셉으로 곡을 써 두면 기획사가 골라 간다. 채택되면 계약금과 저작권료가 들어온다. 앨범을 통째로 맡는 프로듀서와 달리 곡 한 곡만 쓴다.' : '곡에 가사를 붙인다. 작곡보다 채택이 잦지만 수입은 적다.',
     act: { n: kind === 'composer' ? '곡 쓰기' : '가사 쓰기', ic: kind === 'composer' ? '🎼' : '✍️', g: '직업 활동', eff: [[SKILLS[key].n, '↑↑', 1], ['채택 기회', '↑', 1], ['스트레스', '↑', 0]] },
     status(s, t) { return t.st !== 'active' ? (t.songs ? `채택 ${t.songs}곡 · 활동 쉬는 중` : '') : `${W_TIERS[wTier(t, kind, s)]} · 채택 ${t.songs}곡 · 히트 ${t.hits}곡 · 업계 평판 ${Math.round(t.rep)}` + (t.team ? ` · ${t.team} 소속` : ''); },
     short(s, t) { return nm; },
@@ -46,14 +46,14 @@ for (const kind of ['composer', 'lyricist']) {
     info(s, t) {
       const p = me(s);
       const R = [['내 실력', [key, kind === 'composer' ? 'lyric' : 'compose'].concat(kind === 'composer' ? ['piano', 'keyboard', 'guitar'] : []).filter(k => has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ')], ['단계', W_TIERS[wTier(t, kind, s)]], ['채택된 곡', `${t.songs}곡 · 히트 ${t.hits}곡`], ['업계 평판', `${Math.round(t.rep)}`], ['작곡팀', t.team ? `${t.team} (수익의 30%를 나눈다)` : '없음 (혼자 작업)']];
-      if (kind === 'composer') R.push(['쓰는 콘셉트', t.cc ? `'${t.cc}'${t.cc === s.trend ? ' (유행 중)' : ''} · 요즘 유행 '${s.trend}'` : '아직 안 정함']);
-      R.push({ h: '콘셉트 숙련도', bars: cmBars(s) });
+      if (kind === 'composer') R.push(['쓰는 컨셉', t.cc ? `'${t.cc}'${t.cc === s.trend ? ' (유행 중)' : ''} · 요즘 유행 '${s.trend}'` : '아직 안 정함']);
+      R.push({ h: '컨셉 숙련도', bars: cmBars(s) });
       return R;
     },
     actions(s, t) {
       if (t.st !== 'active') return [];
       const A = [];
-      if (kind === 'composer') A.push({ t: '쓰는 콘셉트 바꾸기', h: `지금 '${t.cc || '-'}' · 요즘 유행 '${s.trend}'`, ok: true, btn: '바꾸기', run: s => pickConcept(s, { cb: 'comp', what: '앞으로 쓸 곡들의', cur: t.cc }) });
+      if (kind === 'composer') A.push({ t: '쓰는 컨셉 바꾸기', h: `지금 '${t.cc || '-'}' · 요즘 유행 '${s.trend}'`, ok: true, btn: '바꾸기', run: s => pickConcept(s, { cb: 'comp', what: '앞으로 쓸 곡들의', cur: t.cc }) });
       A.push({ t: `${nm} 그만두기`, ok: true, danger: true, run: s => { t.st = 'ended'; return `${nm} 일을 그만뒀다.`; } });
       return A;
     },
@@ -66,7 +66,7 @@ for (const kind of ['composer', 'lyricist']) {
       practice(s, p, key, 1.3 * n, 1);
       if (kind === 'composer') for (const k of ['piano', 'keyboard', 'guitar']) if (has(p, k)) useSkill(s, p, k, 0.2);
       addStress(s, 1);
-      // 작곡가: 정한 콘셉트로 곡을 쓰며 그 콘셉트 숙련도가 오른다. 유행하는 콘셉트일수록 채택이 잦다
+      // 작곡가: 정한 컨셉으로 곡을 쓰며 그 컨셉 숙련도가 오른다. 유행하는 컨셉일수록 채택이 잦다
       if (kind === 'composer' && !t.cc) t.cc = s.trend;
       const cb = kind === 'composer' ? cmBonus(s, t.cc) : 0;
       if (kind === 'composer') cmGain(s, t.cc, 0.8 * n);
@@ -80,7 +80,7 @@ for (const kind of ['composer', 'lyricist']) {
 }
 INBOX.w_adopt = {
   ic: '🎼',
-  text: (s, m) => { const d = m.d; return `${d.mkt === 'kr' ? '' : MK_N[d.mkt] + ' '}${d.a.name}(${TIER_N[d.a.tier]} 기획사 ${d.a.kind})의 새 앨범 ${d.main ? '타이틀곡' : '수록곡'}으로 내 ${d.kind === 'composer' ? '곡을' : '가사를'} 쓰고 싶다는 연락이다.${d.c ? ` ('${d.c}' 콘셉트${d.c === s.trend ? ' · 유행 중' : ''})` : ''}\n\n계약금 ${fmtWon(d.fee)}` + (s.tracks[d.kind].team ? ' (팀과 나눈다)' : ''); },
+  text: (s, m) => { const d = m.d; return `${d.mkt === 'kr' ? '' : MK_N[d.mkt] + ' '}${d.a.name}(${TIER_N[d.a.tier]} 기획사 ${d.a.kind})의 새 앨범 ${d.main ? '타이틀곡' : '수록곡'}으로 내 ${d.kind === 'composer' ? '곡을' : '가사를'} 쓰고 싶다는 연락이다.${d.c ? ` ('${d.c}' 컨셉${d.c === s.trend ? ' · 유행 중' : ''})` : ''}\n\n계약금 ${fmtWon(d.fee)}` + (s.tracks[d.kind].team ? ' (팀과 나눈다)' : ''); },
   ch: (s, m) => [
     // 계약하면 곡 제목을 직접 정한다 (TITLE_CB.wsong에서 발매를 잡는다)
     { t: '계약한다', ok: s => trackOn(s, m.d.kind), h: '발매 두 달 뒤 성적이 나온다', f: s => { const d = m.d, t = s.tracks[d.kind]; t.songs++; earn(s, d.fee * (t.team ? 0.7 : 1), `${wJob(d.kind)} 계약금`); if (!t.sn) askStageName(s, d.kind); askTitle(s, 'wsong', Object.assign({}, d, { what: `${d.a.name}에게 넘길 ${d.kind === 'composer' ? '곡' : '가사를 쓴 곡'}의` })); return `${d.a.name} ${d.main ? '타이틀곡' : '수록곡'} ${wJob(d.kind)} 계약을 했다.`; } },
@@ -98,7 +98,7 @@ E({
   init(s, d) {
     const t = s.tracks[d.kind], nm = wJob(d.kind);
     const fans = [5e3, 5e4, 5e5][d.a.tier - 1] * U.fl(0.5, 2);
-    // 작사가는 그 곡 콘셉트의 숙련도만큼 가사가 좋아지고, 숙련도가 오른다 (피드백 24. 작곡가는 곡을 쓸 때 이미 반영된다)
+    // 작사가는 그 곡 컨셉의 숙련도만큼 가사가 좋아지고, 숙련도가 오른다 (피드백 24. 작곡가는 곡을 쓸 때 이미 반영된다)
     const ly = d.kind === 'lyricist' && d.c;
     const sc = songScore(s, { perf: 20 + d.a.tier * 8 + U.normal(0, 4), q: d.q + (ly ? cmBonus(s, d.c) * 0.5 : 0), fans, tier: d.a.tier, trend: !!d.c && d.c === s.trend, bonus: d.main ? 3 : 0 });
     d.peak = chartFromScore(sc);
@@ -147,13 +147,13 @@ JOB_APPLY.push({
   run: s => { const old = s.tracks.producer; s.tracks.producer = { st: 'active', months: 0, rep: Math.max(10, (s.tracks.composer.rep || 0) * 0.6, old.rep || 0), albums: old.albums || 0, hits: old.hits || 0, sn: old.sn }; milestone(s, `${age(s)}세에 프로듀서로 나섰다.`); askStageName(s, 'producer'); return '프로듀서로 나섰다. 앨범 의뢰는 메시지함으로 온다.'; },
 });
 // 작곡가와 다른 점: 작곡가는 곡 한 곡을 써 두고 기획사가 골라 가기를 기다린다.
-// 프로듀서는 남의 앨범 하나를 통째로 맡아 ① 앨범 콘셉트 ② 타이틀곡(내 곡이냐 공모로 받은 곡이냐) ③ 녹음 디렉팅을 직접 정한다.
+// 프로듀서는 남의 앨범 하나를 통째로 맡아 ① 앨범 컨셉 ② 타이틀곡(내 곡이냐 공모로 받은 곡이냐) ③ 녹음 디렉팅을 직접 정한다.
 // 프리랜서(mode free): 의뢰를 받아 앨범마다 비용을 받는다. 앨범이 크게 잘되면 그 가수 쪽이 다음 앨범도 맡아 달라고 다시 찾아온다
 // 사내 프로듀서(mode in): 기획사 직원으로 월급을 받고, 회사가 소속 그룹의 앨범을 차례로 맡긴다. 크게 잘되면 성과급. 회사를 나오면 프리랜서로 돌아간다
 function pinOn(s) { const t = s.tracks.producer; return !!t && t.st === 'active' && t.mode === 'in'; }
 CAREERS.producer = {
   n: '프로듀서', ic: '🎛️',
-  desc: '남의 앨범 하나를 통째로 맡는다. 앨범 콘셉트, 타이틀곡, 녹음 디렉팅을 직접 정한다. 프리랜서는 의뢰마다 비용을 받고, 크게 잘되면 그 가수가 다음 앨범도 맡긴다. 기획사에 들어가면(사내 프로듀서) 월급을 받고 회사 그룹의 앨범을 맡는다. 앨범을 맡으면 석 달 동안 일정 한 칸이 묶인다.',
+  desc: '남의 앨범 하나를 통째로 맡는다. 앨범 컨셉, 타이틀곡, 녹음 디렉팅을 직접 정한다. 프리랜서는 의뢰마다 비용을 받고, 크게 잘되면 그 가수가 다음 앨범도 맡긴다. 기획사에 들어가면(사내 프로듀서) 월급을 받고 회사 그룹의 앨범을 맡는다. 앨범을 맡으면 석 달 동안 일정 한 칸이 묶인다.',
   act: { n: '곡 작업·프로듀싱 영업', ic: '🎛️', g: '직업 활동', eff: [['작곡', '↑↑', 1], ['의뢰 기회', '↑', 1], ['스트레스', '↑', 0]] },
   status(s, t) { const w = s.projects.find(x => x.type === 'produce'); return t.st !== 'active' ? '' : `${t.mode === 'in' ? `${t.agN} 사내 프로듀서 · ` : ''}${P_TIERS[pTier(t, s)]} · 프로듀싱 앨범 ${t.albums}장 · 평판 ${Math.round(t.rep)}` + (t.mode === 'in' ? ` · 월급 ${fmtWon(t.sal)}` : '') + (w ? ` · ${w.a.name} 앨범 작업 중` : ''); },
   short(s, t) { return t && t.mode === 'in' ? `${t.agN} 프로듀서` : '프로듀서'; },
@@ -164,7 +164,7 @@ CAREERS.producer = {
   mainSk() { return 'compose'; },
   info(s, t) {
     const p = me(s), w = s.projects.find(x => x.type === 'produce'), inh = t.mode === 'in';
-    return [inh ? ['회사', `${t.agN} (${TIER_N[t.tier]} 기획사) 사내 프로듀서`] : ['일하는 방식', '프리랜서 (의뢰는 메시지함으로 온다)'], inh ? ['월급', fmtWon(t.sal)] : null, ['내 실력', ['compose', 'lyric', 'scout', 'vocal', 'rap', 'piano', 'keyboard', 'guitar'].filter(k => has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ')], ['단계', P_TIERS[pTier(t, s)]], ['프로듀싱한 앨범', `${t.albums}장 · 히트 ${t.hits}곡`], [inh ? '업무 평가' : '평판', `${Math.round(t.rep)}`], inh ? null : ['단골 가수', (t.clients || []).length ? t.clients.map(a => a.name).join(', ') : '없음'], ['지금 작업', w ? `${w.a.name} 「${w.title}」${w.c ? ` · '${w.c}' 콘셉트` : ''} · ${w.left}개월 남음` : inh ? `없음 (다음 앨범은 ${Math.max(1, t.next || 1)}개월쯤 뒤)` : '없음 (의뢰는 메시지함으로 온다)'], { h: '콘셉트 숙련도', bars: cmBars(s) }, inh ? { h: '맡은 그룹', items: (t.groups || []).map(g => `${g.name} (${g.kind}) · 팬 ${fmtFans(g.f)} · 대표 콘셉트 '${g.sig}'`) } : null].filter(Boolean);
+    return [inh ? ['회사', `${t.agN} (${TIER_N[t.tier]} 기획사) 사내 프로듀서`] : ['일하는 방식', '프리랜서 (의뢰는 메시지함으로 온다)'], inh ? ['월급', fmtWon(t.sal)] : null, ['내 실력', ['compose', 'lyric', 'scout', 'vocal', 'rap', 'piano', 'keyboard', 'guitar'].filter(k => has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ')], ['단계', P_TIERS[pTier(t, s)]], ['프로듀싱한 앨범', `${t.albums}장 · 히트 ${t.hits}곡`], [inh ? '업무 평가' : '평판', `${Math.round(t.rep)}`], inh ? null : ['단골 가수', (t.clients || []).length ? t.clients.map(a => a.name).join(', ') : '없음'], ['지금 작업', w ? `${w.a.name} 「${w.title}」${w.c ? ` · '${w.c}' 컨셉` : ''} · ${w.left}개월 남음` : inh ? `없음 (다음 앨범은 ${Math.max(1, t.next || 1)}개월쯤 뒤)` : '없음 (의뢰는 메시지함으로 온다)'], { h: '컨셉 숙련도', bars: cmBars(s) }, inh ? { h: '맡은 그룹', items: (t.groups || []).map(g => `${g.name} (${g.kind}) · 팬 ${fmtFans(g.f)} · 대표 컨셉 '${g.sig}'`) } : null].filter(Boolean);
   },
   actions(s, t) {
     if (t.st !== 'active') return [];
@@ -200,7 +200,7 @@ function pinAssign(s, t) {
 }
 INBOX.p_offer = {
   ic: '🎛️',
-  text: (s, m) => `${m.d.re ? `지난 앨범이 크게 잘된 ${m.d.a.name}(${TIER_N[m.d.a.tier]} 기획사 ${m.d.a.kind}) 쪽에서 다음 앨범도 맡아 달라고 한다.` : `${m.d.a.name}(${TIER_N[m.d.a.tier]} 기획사 ${m.d.a.kind})의 새 앨범을 통째로 맡아 달라는 의뢰다.`}\n\n프로듀싱 비용 ${fmtWon(m.d.fee)} · 작업 기간 석 달 (그동안 일정 한 칸이 작업으로 묶인다) · 콘셉트·타이틀곡·녹음을 내가 정한다`,
+  text: (s, m) => `${m.d.re ? `지난 앨범이 크게 잘된 ${m.d.a.name}(${TIER_N[m.d.a.tier]} 기획사 ${m.d.a.kind}) 쪽에서 다음 앨범도 맡아 달라고 한다.` : `${m.d.a.name}(${TIER_N[m.d.a.tier]} 기획사 ${m.d.a.kind})의 새 앨범을 통째로 맡아 달라는 의뢰다.`}\n\n프로듀싱 비용 ${fmtWon(m.d.fee)} · 작업 기간 석 달 (그동안 일정 한 칸이 작업으로 묶인다) · 컨셉·타이틀곡·녹음을 내가 정한다`,
   ch: (s, m) => [
     { t: '맡는다', ok: s => trackOn(s, 'producer') && !pinOn(s) && !busyWith(s, 'produce'), h: pinOn(s) ? '회사 소속이라 다른 곳 의뢰는 맡을 수 없다' : busyWith(s, 'produce') ? '이미 작업 중인 앨범이 있다' : '', f: s => {
       earn(s, m.d.fee, '프로듀싱 비용');
@@ -229,7 +229,7 @@ E({
     d.fee = Math.round((d.a.tier * 1500 + rep * 40) * 1e4 / 1e5) * 1e5;
     d.net = Math.round(d.fee * (1 - d.cut) / 1e5) * 1e5;
   },
-  text: (s, d) => `${d.a.name}(${TIER_N[d.a.tier]} 기획사 ${d.a.kind}) 쪽에서 새 앨범을 통째로 맡아 달라는 의뢰가 ${josa(d.agN, '을를')} 거쳐 들어왔다. 회사가 이번 한 번은 허락했다.\n\n프로듀싱 비용 ${fmtWon(d.fee)} · 회사 몫(${pctN(d.cut)})을 빼면 ${fmtWon(d.net)} · 작업 기간 석 달 (그동안 일정 한 칸이 작업으로 묶인다) · 콘셉트 · 타이틀곡 · 녹음을 내가 정한다`,
+  text: (s, d) => `${d.a.name}(${TIER_N[d.a.tier]} 기획사 ${d.a.kind}) 쪽에서 새 앨범을 통째로 맡아 달라는 의뢰가 ${josa(d.agN, '을를')} 거쳐 들어왔다. 회사가 이번 한 번은 허락했다.\n\n프로듀싱 비용 ${fmtWon(d.fee)} · 회사 몫(${pctN(d.cut)})을 빼면 ${fmtWon(d.net)} · 작업 기간 석 달 (그동안 일정 한 칸이 작업으로 묶인다) · 컨셉 · 타이틀곡 · 녹음을 내가 정한다`,
   ch: (s, d) => [
     { t: '맡는다', ok: s => !busyWith(s, 'produce'), h: busyWith(s, 'produce') ? '이미 작업 중인 앨범이 있다' : '', f: s => {
       earn(s, d.net, '프로듀싱 비용');
@@ -241,12 +241,12 @@ E({
   ],
 });
 function prodW(s, d) { const w = s.projects.find(x => x.id === d.wid); if (w && !w.a.sig) w.a.sig = U.pick(TRENDS); return w; }
-// ① 기획: 앨범 콘셉트. 유행 콘셉트와 그 가수에게 어울리는 콘셉트가 성적을 올리고, 내 콘셉트 숙련도가 곡 완성도를 올린다
+// ① 기획: 앨범 컨셉. 유행 컨셉과 그 가수에게 어울리는 컨셉이 성적을 올리고, 내 컨셉 숙련도가 곡 완성도를 올린다
 E({
   id: 'prod_plan', cat: '프로듀싱', title: '앨범 기획 회의', tag: 'career',
   init(s, d) { if (!prodW(s, d)) d.skip = true; },
-  text: (s, d) => { const w = prodW(s, d); return `${w.inh ? '회사에서 맡긴 ' : ''}${w.a.name}의 새 앨범 「${w.title}」 기획 회의다. 이번 앨범의 콘셉트를 정하자.\n\n요즘 유행은 ${qIda(s.trend)}. ${w.a.name}에게 가장 잘 어울리는 콘셉트는 ${qIda(w.a.sig)}.`; },
-  ch: (s, d) => { const w = prodW(s, d); return TRENDS.map(c => ({ t: c, tr: c === s.trend, h: [`숙련도 ${gauge(cmGet(s, c))} ${Math.floor(cmGet(s, c))}`, c === w.a.sig ? '잘 어울린다' : ''].filter(Boolean).join(' · '), f: s => { w.c = c; cmGain(s, c, 4); return `${w.a.name} 앨범 「${w.title}」의 콘셉트를 '${c}'로 정했다.`; } })); },
+  text: (s, d) => { const w = prodW(s, d); return `${w.inh ? '회사에서 맡긴 ' : ''}${w.a.name}의 새 앨범 「${w.title}」 기획 회의다. 이번 앨범의 컨셉을 정하자.\n\n요즘 유행은 ${qIda(s.trend)}. ${w.a.name}에게 가장 잘 어울리는 컨셉은 ${qIda(w.a.sig)}.`; },
+  ch: (s, d) => { const w = prodW(s, d); return TRENDS.map(c => ({ t: c, tr: c === s.trend, h: [`숙련도 ${gauge(cmGet(s, c))} ${Math.floor(cmGet(s, c))}`, c === w.a.sig ? '잘 어울린다' : ''].filter(Boolean).join(' · '), f: s => { w.c = c; cmGain(s, c, 4); return `${w.a.name} 앨범 「${w.title}」의 컨셉을 '${c}'로 정했다.`; } })); },
 });
 // ② 곡 수집: 타이틀곡. 내가 쓴 곡이면 저작권료를 더 받고, 공모로 받은 곡은 듣는 귀(스카우트)가 좋을수록 완성도가 정확히 보인다
 E({
@@ -276,7 +276,7 @@ E({
 });
 WORK_TYPES.produce = {
   n: '앨범 프로듀싱', ic: '🎛️',
-  status: (s, w) => `${w.a.name} 앨범 「${w.title}」${w.c ? ` · '${w.c}' 콘셉트` : ''} · ${w.left}개월 남음`,
+  status: (s, w) => `${w.a.name} 앨범 「${w.title}」${w.c ? ` · '${w.c}' 컨셉` : ''} · ${w.left}개월 남음`,
   monthly(s, w) {
     const p = me(s); useSkill(s, p, 'compose', 1.6); useSkill(s, p, 'lyric', 0.5); for (const k of ['piano', 'keyboard', 'guitar']) if (has(p, k)) useSkill(s, p, k, 0.3); addStress(s, 2.5);
     // 첫 달엔 타이틀곡을, 둘째 달엔 녹음을 정한다. 셋째 달에 앨범이 나온다
@@ -312,7 +312,7 @@ WORK_TYPES.produce = {
     if (peak && peak <= 5 && !t.hitMs) { t.hitMs = true; milestone(s, `${age(s)}세에 프로듀싱한 ${josa(`「${w.title}」`, '이가')} 차트 ${peak}위에 올랐다.`); }
     const k1 = pTier(t, s), up = !w.side && k1 > k0;
     if (up && k1 >= 4) milestone(s, `${age(s)}세에 ${josa(P_TIERS[k1], '이가')} 되었다.`);
-    return { text: `${w.a.name}의 ${josa(`「${w.title}」`, '이가')} 나왔다. (내가 프로듀싱 · '${c}' 콘셉트 · 타이틀곡 ${w.own ? '내 곡' : w.sq != null ? '공모 곡' : '-'})\n\n${chartText(peak)}\n매달 들어올 저작권료 약 ${fmtWon(roy)}\n프로듀서 평판 ${Math.round(t.rep)}` + (bonus ? `\n회사에서 성과급 ${fmtWon(bonus)}을 받았다.` : '') + (fresh ? `\n\n${josa(w.a.name, '이가')} 다음 앨범도 맡기고 싶어 한다. (단골 가수)` : '') + (up ? `\n\n🎉 ${josa(P_TIERS[k1], '으로')} 올라섰다!` : ''), log: `프로듀싱한 ${w.a.name}의 「${w.title}」 ${chartText(peak)}.` + (up ? ` ${josa(P_TIERS[k1], '으로')} 올라섰다.` : '') };
+    return { text: `${w.a.name}의 ${josa(`「${w.title}」`, '이가')} 나왔다. (내가 프로듀싱 · '${c}' 컨셉 · 타이틀곡 ${w.own ? '내 곡' : w.sq != null ? '공모 곡' : '-'})\n\n${chartText(peak)}\n매달 들어올 저작권료 약 ${fmtWon(roy)}\n프로듀서 평판 ${Math.round(t.rep)}` + (bonus ? `\n회사에서 성과급 ${fmtWon(bonus)}을 받았다.` : '') + (fresh ? `\n\n${josa(w.a.name, '이가')} 다음 앨범도 맡기고 싶어 한다. (단골 가수)` : '') + (up ? `\n\n🎉 ${josa(P_TIERS[k1], '으로')} 올라섰다!` : ''), log: `프로듀싱한 ${w.a.name}의 「${w.title}」 ${chartText(peak)}.` + (up ? ` ${josa(P_TIERS[k1], '으로')} 올라섰다.` : '') };
   },
 };
 
@@ -394,7 +394,7 @@ E({
 
 // ════════ 사내 프로듀서 (기획사 소속 프로듀서) ════════
 // A&R처럼 2년 직원 계약. 월급을 받고, 회사가 소속 그룹 둘의 앨범을 차례로 맡긴다 (pinAssign)
-// 앨범 하나하나는 프리랜서와 똑같이 콘셉트·타이틀곡·녹음을 정한다. 저작권료는 절반, 차트 10위 안이면 월급 2배(3위 안이면 4배) 성과급
+// 앨범 하나하나는 프리랜서와 똑같이 컨셉·타이틀곡·녹음을 정한다. 저작권료는 절반, 차트 10위 안이면 월급 2배(3위 안이면 4배) 성과급
 // 재계약은 프로듀서 평판으로 본다. 회사를 나오면 프리랜서 프로듀서로 돌아간다
 const PIN_SAL = [0, 250, 350, 500];
 const PIN_THR = [0, 28, 38, 48];
@@ -483,7 +483,7 @@ CAREERS.anr = {
   mainSk() { return 'scout'; },
   info(s, t) {
     const p = me(s), boss = s.people[t.boss];
-    return [['회사', `${t.agN} (${TIER_N[t.tier]} 기획사) A&R${t.lead ? ' 팀장' : ''}`], ['월급', fmtWon(t.sal)], ['내 실력', ['scout', 'compose', 'lyric', 'study'].filter(k => has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ')], ['업무 평가', `${Math.round(t.rep)}`], ['고른 곡', `${t.picks}곡 · 히트 ${t.hits}곡`], boss ? [t.lead ? '본부장' : '팀장', `${boss.name} · ${relWord(boss)}`] : ['팀장', '-'], { h: '맡은 그룹', items: t.groups.map(g => `${g.name} (${g.kind}) · 팬 ${fmtFans(g.f)}${g.sig ? ` · 대표 콘셉트 '${g.sig}'` : ''}`) }].filter(Boolean);
+    return [['회사', `${t.agN} (${TIER_N[t.tier]} 기획사) A&R${t.lead ? ' 팀장' : ''}`], ['월급', fmtWon(t.sal)], ['내 실력', ['scout', 'compose', 'lyric', 'study'].filter(k => has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ')], ['업무 평가', `${Math.round(t.rep)}`], ['고른 곡', `${t.picks}곡 · 히트 ${t.hits}곡`], boss ? [t.lead ? '본부장' : '팀장', `${boss.name} · ${relWord(boss)}`] : ['팀장', '-'], { h: '맡은 그룹', items: t.groups.map(g => `${g.name} (${g.kind}) · 팬 ${fmtFans(g.f)}${g.sig ? ` · 대표 컨셉 '${g.sig}'` : ''}`) }].filter(Boolean);
   },
   actions(s, t) { return t.st === 'active' ? [{ t: '회사 그만두기', h: '직원 계약이라 위약금은 없다', ok: true, danger: true, confirm: '정말 회사를 그만둘까요?', run: s => { t.st = 'ended'; t.endNote = `${t.agN} A&R (퇴사)`; return `${josa(t.agN, '을를')} 그만뒀다.`; } }] : []; },
   monthly(s, t) {
@@ -525,8 +525,8 @@ E({
   },
   text: (s, d) => { const t = s.tracks.anr, g = t.groups[d.gi]; return `${t.agN} 소속 ${g.name}(${g.kind}, 팬 ${fmtFans(g.f)})의 다음 앨범 타이틀곡을 골라야 한다. 작곡가들이 보낸 데모가 세 곡 들어왔다.
 
-${g.name}의 대표 콘셉트는 '${g.sig}', 요즘 유행은 ${qIda(s.trend)}.`; },
-  ch: (s, d) => d.demos.map(x => { const c = s.people[x.c]; return { t: `「${x.title}」 — 작곡 ${c.name}`, tr: x.cn === s.trend, h: `'${x.cn}' 콘셉트${cTag(s, x.cn, s.tracks.anr.groups[d.gi].sig) ? ` (${cTag(s, x.cn, s.tracks.anr.groups[d.gi].sig)})` : ''} · 작곡 ${lvSee(s, c, 'compose')}레벨 · 팬 ${fmtFans(c.fame || 0)} · ${demoGuess(s, x.q)}`, f: s => { meetAt(s, c, `「${x.title}」 데모`); bond(s, c, 4); queueEv(s, 'anr_out', 2, { gi: d.gi, q: x.q, c: x.c, title: x.title, cn: x.cn }); return `${s.tracks.anr.groups[d.gi].name}의 타이틀곡으로 ${c.name}의 ${josa(`「${x.title}」`, '을를')} 골랐다.`; } }; }),
+${g.name}의 대표 컨셉은 '${g.sig}', 요즘 유행은 ${qIda(s.trend)}.`; },
+  ch: (s, d) => d.demos.map(x => { const c = s.people[x.c]; return { t: `「${x.title}」 — 작곡 ${c.name}`, tr: x.cn === s.trend, h: `'${x.cn}' 컨셉${cTag(s, x.cn, s.tracks.anr.groups[d.gi].sig) ? ` (${cTag(s, x.cn, s.tracks.anr.groups[d.gi].sig)})` : ''} · 작곡 ${lvSee(s, c, 'compose')}레벨 · 팬 ${fmtFans(c.fame || 0)} · ${demoGuess(s, x.q)}`, f: s => { meetAt(s, c, `「${x.title}」 데모`); bond(s, c, 4); queueEv(s, 'anr_out', 2, { gi: d.gi, q: x.q, c: x.c, title: x.title, cn: x.cn }); return `${s.tracks.anr.groups[d.gi].name}의 타이틀곡으로 ${c.name}의 ${josa(`「${x.title}」`, '을를')} 골랐다.`; } }; }),
 });
 function anrEar(p) { return jobMix([[lv(p, 'scout'), JS_]]) + talB(p.tal.music, true); }
 E({
