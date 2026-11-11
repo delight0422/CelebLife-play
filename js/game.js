@@ -587,8 +587,11 @@ const LOG_HTML = new WeakMap();
 // 다른 창이 떠 있어 줄을 섰으면, 다음 달까지 기다리지 않고 앞의 창을 닫자마자 띄운다
 // 예: 작곡가로 처음 곡을 팔면 활동명 창이 먼저 뜨고, 제목 창은 그 다음 달로 밀렸다
 // 컴백 회의 · 앨범 발매(내 그룹 · 회사 그룹)도 그달에 와 있으면 앞 창에 답하자마자 이어서 뜬다 (그룹이 여럿이어도 한 달씩 밀리지 않게, 턴제 실험 6차)
-const NOW_EVS = new Set(['sk_swap', 'sk_drop', 'slot_up', 'school_start', 'title_pick', 'stage_name', 'song_concept', 'idol_cb', 'idol_cbres', 'co_cb', 'co_song', 'co_res', 'band_fest_play', 'band_arr']);
+const NOW_EVS = new Set(['dorm_out', 'sk_swap', 'sk_drop', 'slot_up', 'school_start', 'title_pick', 'stage_name', 'song_concept', 'idol_cb', 'idol_cbres', 'co_cb', 'co_song', 'co_res', 'band_fest_play', 'band_arr']);
+// 숙소를 나오게 되면 바로 '숙소를 나와야 한다' 창을 띄운다 (v130: 예전엔 다음 달로 넘어가야 떴다). 한 달 진행과 선택 · 행동 뒤에 본다
+function dormCheck(s) { const dorm = isDorm(s); if (s.dormWas && !dorm && age(s) >= 19 && !s.army && s.home.mode !== 'alone' && !hasQ(s, 'dorm_out') && !(s.pending && s.pending.id === 'dorm_out')) queueEv(s, 'dorm_out', 0); s.dormWas = dorm; }
 function pullNow(s) {
+  if (s.dormWas != null) dormCheck(s);
   for (let n = 0; n < 8 && !s.pending && !s.ended; n++) {
     const i = s.queue.findIndex(q => NOW_EVS.has(q.id) && q.at <= s.t);
     if (i < 0) return;
@@ -883,7 +886,7 @@ function tick(s) {
   careerLogMonth(s);
   // 기획사 숙소 생활이 끝나면(그룹 해체·숙소 졸업 등) 어디서 살지 고른다
   // 내 집(월세·전세·자가)이 이미 있으면 묻지 않고 그 집에서 지낸다 (v89)
-  { const dorm = isDorm(s); if (s.dormWas && !dorm && age(s) >= 19 && !s.army && s.home.mode !== 'alone') queueEv(s, 'dorm_out', 0); s.dormWas = dorm; }
+  dormCheck(s);
   parEquipMonth(s);
   if (!s.army) { actAutoMonth(s); lifeAutoMonth(s); coMeetMonth(s); if (typeof pfInvMaybe === 'function') pfInvMaybe(s); }
   pickEvent(s);
@@ -1067,6 +1070,8 @@ function bodyMonth(s) {
 // 대학 졸업: 4년이 지나면 알려 준다
 function uniMonth(s) { const u = s.edu.uni; if (u && !u.done && s.t >= u.end) { u.done = true; queueEv(s, 'uni_grad', 0, {}, true); } }
 function armyMonth(s) {
+  // 입대할 때 끊기는 지속 관리 (v129). 이미 복무 중이던 예전 세이브도 여기서 끊는다 (v130)
+  for (const id in s.subs || {}) if (s.subs[id] && SUBS[id] && !SUBS[id].kids) delete s.subs[id];
   addMoney(s, 100e4, '군 복무 월급');
   s.army.pay = (s.army.pay || 0) + 100e4;
   s.army.left--;

@@ -58,7 +58,9 @@ E({
   text: (s, d) => { const k = s.people[d.id]; return `갓 태어난 ${k.g === '여' ? '딸' : '아들'} ${k.name}.\n\n지금 ${k.name}의 인생으로 넘어갈 수 있다. 넘어가면 ${me(s).name}의 이야기는 여기서 끝나고, ${k.name}의 갓난아기 때부터 시작한다. 지금 넘어가지 않으면 ${josa(k.name, '이가')} 열여덟 살이 될 때나 ${josa(me(s).name, '이가')} 은퇴한 뒤에 이어 할 수 있다.`; },
   ch: (s, d) => { const k = s.people[d.id]; return [
     { t: '지금 인생을 계속 산다', f: () => '' },
-    { t: `${k.name}의 인생으로 넘어간다`, h: `${me(s).name}의 이야기는 여기서 끝난다`, f: s => { endLife(s, 'handoff', '', k.id); return ''; } },
+    { t: `${k.name}의 인생으로 넘어간다`, h: `${me(s).name}의 이야기는 여기서 끝난다`, confirm: `정말 ${k.name}의 인생으로 넘어갈까요?
+
+${me(s).name}의 이야기는 여기서 끝나고, 되돌릴 수 없어요.`, f: s => { endLife(s, 'handoff', '', k.id); return ''; } },
   ]; },
 });
 // 고등학교 졸업 전까지는 내가 아이에게 특기를 가르치거나 학원에 보낸다 (그게 아이가 특기를 처음 배우는 길이다)
@@ -197,7 +199,9 @@ E({
   kid: (s, d) => d.id,
   ch: (s, d) => { const k = s.people[d.id]; return [
     { t: '지금 인생을 계속 산다', f: () => '' },
-    { t: `${k.name}의 인생으로 넘어간다`, h: `${me(s).name}의 이야기는 여기서 끝난다`, f: s => { endLife(s, 'handoff', '', k.id); return ''; } },
+    { t: `${k.name}의 인생으로 넘어간다`, h: `${me(s).name}의 이야기는 여기서 끝난다`, confirm: `정말 ${k.name}의 인생으로 넘어갈까요?
+
+${me(s).name}의 이야기는 여기서 끝나고, 되돌릴 수 없어요.`, f: s => { endLife(s, 'handoff', '', k.id); return ''; } },
   ]; },
 });
 

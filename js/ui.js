@@ -466,12 +466,12 @@ function renderEqCard() {
   const s = S, el = $('#eq-card');
   if (!el || !s) return;
   const ag = dormAg(s), lock = !!ag || !!eqBuyWhy(s);
-  let L = [], from = '';
-  if (ag) { from = `${ag.n} 연습실`; L = AG_EQ.filter(id => EQUIP[id]).map(id => `${EQUIP[id].n} ${ag.eq || 1}단계`); }
-  else { const have = Object.keys(EQUIP).filter(id => eqLv(s, id)); from = !have.length ? '' : s.home.mode === 'alone' ? '내 집' : '부모님이 지원해 주신 장비'; L = have.map(id => EQUIP[id].slot ? EQUIP[id].n : `${EQUIP[id].n} ${eqLv(s, id)}단계`); }
+  let L = [], from = '', cost = '';
+  if (ag) { from = `${ag.n} 연습실`; cost = '회사 장비 · 유지비 없음'; L = AG_EQ.filter(id => EQUIP[id]).map(id => `${EQUIP[id].n} ${ag.eq || 1}단계`); }
+  else { const have = eqOrder(s); const em = eqMonthly(s); cost = have.length ? (em.mine ? `유지비 월 ${em.mine}만 원` : '유지비는 부모님이 내 주신다') : ''; from = !have.length ? '' : s.home.mode === 'alone' ? '내 집' : '부모님이 지원해 주신 장비'; L = have.map(id => EQUIP[id].slot ? EQUIP[id].n : `${EQUIP[id].n} ${eqLv(s, id)}단계`); }
   el.className = 'card eq-card' + (lock ? ' chainlk' : ' bn-card');
   if (lock) el.removeAttribute('data-lifesec'); else el.dataset.lifesec = 'equip';
-  el.innerHTML = (lock ? '' : ltDot(s, 'equip')) + `<div class="card-h">🎛️ 장비${lock ? '' : '<span class="bn-arr">›</span>'}</div>` + (L.length ? `<div class="eq-from">${U.esc(from)}</div><div class="eq-list">${L.map(x => `<span>${U.esc(x)}</span>`).join('')}</div>` : `<div class="st">쓰는 장비 없음</div>`);
+  el.innerHTML = (lock ? '' : ltDot(s, 'equip')) + `<div class="card-h">🎛️ 장비${lock ? '' : '<span class="bn-arr">›</span>'}</div>` + (L.length ? `<div class="eq-from">${U.esc(from)}${cost ? ` · ${U.esc(cost)}` : ''}</div><div class="eq-list">${L.map(x => `<span>${U.esc(x)}</span>`).join('')}</div>` : `<div class="st">쓰는 장비 없음</div>`);
 }
 // 상태: 군 복무·병은 맨 위에 눈에 띄게 (누르면 자세히)
 function renderStatusCard() {
@@ -499,7 +499,7 @@ function renderMoneyCard() {
   m += `<div class="row"><span>지난달 들어온 돈</span><b class="pos">+${fmtWon(lm.inc)}</b></div><div class="row"><span>지난달 나간 돈</span><b class="neg">-${fmtWon(lm.exp)}</b></div>`;
   if (lm.familyPaid) m += `<div class="hint">가족이 대 준 돈 ${fmtWon(lm.familyPaid)} (${famPaidWhat(s)})</div>`;
   m += `<div class="mn-r total"><span>총자산 (집 포함)</span><b>${fmtWon(s.money + ha)}</b></div>`;
-  $('#money-card').innerHTML = m;
+  const mc = $('#money-card'); if (mc) mc.innerHTML = m;
 }
 // 특기 (v122): 메인 화면에는 배운 특기 이름만 두 줄로 (배너 박스, 누르면 특기 창). 레벨 · 막대 · 그만두기는 특기 창 안에
 // 레벨이 높은 특기부터, 개수에 안 세는 학업 · 외국어는 맨 뒤
@@ -711,7 +711,7 @@ function showEnding() {
 }
 
 // ───── 패널 ─────
-function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people' && $('#panel').classList.contains('hidden')) UI.pplOpen = {}; UI.overlay = kind; UI.pRes = null; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); }
+function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people' && $('#panel').classList.contains('hidden')) UI.pplOpen = {}; UI.overlay = kind; UI.pRes = null; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
 function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.skDrop = false; UI.pRes = null; UI.pickSlot = null; if (S) render(); }
 // 행동 버튼 한 줄. 버튼이 누를 일은 UI.acts(창) 또는 UI.lacts(오른쪽 생활 카드)에 모아 둔다
 function actRow(a) {
@@ -1481,7 +1481,10 @@ function lifeSecBody(s, k) {
     const ag = dormAg(s);
     h += `<div class="lnote">집에 들인 장비 <b>${eqHomeIds(s).length}/${eqCap(s)}개</b> (${s.home.mode === 'parents' || !s.home.type ? '본가' : homeName(s.home.type, homeSize(s.home))}) · 연습실·합주실 대여와 어학 인강은 자리를 차지하지 않는다${homeKids(s).length ? ' · 자녀도 장비의 영향을 받는다.' : ''}</div>`;
     if (ag) h += `<div class="lnote">지금은 ${ag.n} 숙소에 산다. 보컬·작곡·악기·댄스·연기·예능·어학은 기획사 연습실 장비(${ag.eq || 1}단계 · 상승률 +${eqPct(ag.eq || 1)}%)로 연습하고, 집에 들인 장비는 쓰지 못한다.</div>`;
-    h += A.filter(a => a.sec === 'equip').sort((a, b) => (b.lv || 0) - (a.lv || 0)).map(actRow).join('') || '<div class="empty">배운 특기에 맞는 장비가 아직 없다.</div>';
+    // 들여놓은 장비는 들여온 순서대로, 그 아래에 아직 안 들인 장비 (v130). 매달 나가는 유지비도 위에 적는다
+    const ord = eqOrder(s).map(id => EQUIP[id].n), oi = a => a.lv ? (ord.indexOf(a.t) < 0 ? 99 : ord.indexOf(a.t)) : 100, em = eqMonthly(s);
+    if (ord.length) h += `<div class="lnote">장비 유지비 <b>월 ${em.mine}만 원</b>${em.fam ? ` · 부모님이 내 주시는 유지비 월 ${em.fam}만 원` : ''}</div>`;
+    h += A.filter(a => a.sec === 'equip').sort((a, b) => oi(a) - oi(b)).map(actRow).join('') || '<div class="empty">배운 특기에 맞는 장비가 아직 없다.</div>';
   }
   if (k === 'etc') h += (sec('learn', '📚 특기 배우기', '') + sec('surgery', '💉 시술 (평생 한 번)', '') + sec('rest', '✈️ 쉬기', '', lifeAutoRow)) || '<div class="empty">지금 할 수 있는 게 없다. 시술은 정해진 나이부터 받을 수 있다.</div>';
   return h;
@@ -1503,9 +1506,11 @@ function panelLifeSec() {
 function renderLifeCard() {
   const el = $('#life-grid');
   if (!el || !S) return;
-  const h = LIFE_SECS.filter(x => x[0] !== 'equip').map(([k, ic, n]) => { const x = lifeSecSum(S, k); return `<div class="card bn-card lt-card${ltLock(S, k) ? ' chainlk' : ''}"${ltLock(S, k) ? '' : ` data-lifesec="${k}"`}>${ltDot(S, k)}<div class="card-h">${ic} ${n}<span class="bn-arr">›</span></div><div class="lt-main">${U.esc(x.main)}</div><div class="st">${U.esc(x.sub)}</div></div>`; }).join('');
-  if (h === UI.lifeHTML) return;
+  // 오른쪽 아래 네 칸 (v130): 재정 · 지속 관리 / 집 · 기타. 장비는 회사 박스 왼쪽에 따로 있다
+  const h = `<div id="money-card" class="card bn-card lt-card" data-moneycard></div>` + ['subs', 'home', 'etc'].map(k => LIFE_SECS.find(x => x[0] === k)).map(([k, ic, n]) => { const x = lifeSecSum(S, k); return `<div class="card bn-card lt-card${ltLock(S, k) ? ' chainlk' : ''}"${ltLock(S, k) ? '' : ` data-lifesec="${k}"`}>${ltDot(S, k)}<div class="card-h">${ic} ${n}<span class="bn-arr">›</span></div><div class="lt-main">${U.esc(x.main)}</div><div class="st">${U.esc(x.sub)}</div></div>`; }).join('');
+  if (h === UI.lifeHTML && $('#money-card')) { renderMoneyCard(); return; }
   UI.lifeHTML = h; el.innerHTML = h;
+  renderMoneyCard();
 }
 // ───── 재정 창: 오른쪽 재정 박스를 누르면 뜬다. 지난달(기본) / 최근 1년 / 연도별 ─────
 function moneyTable(items) {
@@ -1668,7 +1673,11 @@ document.addEventListener('click', e => {
   if (t.dataset.logsize) return setLogSize(+t.dataset.logsize);
   if (t.dataset.min != null) { UI.minimized = true; showEvent(); return; }
 
-  if (t.dataset.choice != null) { const pre = resPre(S), ci = +t.dataset.choice; try { choose(S, ci); } catch (e) { console.error('선택 오류', S.pending && S.pending.id, e); S.pending = null; toast('선택을 처리하지 못해 건너뛰었어요'); } if (!resAfter(pre, ci)) afterChoice(); return; }
+  if (t.dataset.choice != null) {
+    // 되돌릴 수 없는 선택(자녀 인생으로 넘어가기 등)은 한 번 더 묻는다 (v130)
+    const cc = S.pending ? evChoices(S)[+t.dataset.choice] : null;
+    if (cc && cc.confirm && UI.cfOk !== S.pending) { const pd = S.pending; askConfirm(cc.confirm, () => { UI.cfOk = pd; t.click(); UI.cfOk = null; }); return; }
+    const pre = resPre(S), ci = +t.dataset.choice; try { choose(S, ci); } catch (e) { console.error('선택 오류', S.pending && S.pending.id, e); S.pending = null; toast('선택을 처리하지 못해 건너뛰었어요'); } if (!resAfter(pre, ci)) afterChoice(); return; }
   if (t.dataset.resok != null) { resOk(); return; }
   if (t.dataset.submit != null) { const vals = {}; document.querySelectorAll('#mcard input[data-k]').forEach(i => vals[i.dataset.k] = i.type === 'checkbox' ? i.checked : i.value); const pre = resPre(S), err = submitForm(S, vals); if (err) { $('#form-err').textContent = err; return; } if (!resAfter(pre, -1)) afterChoice(); return; }
   if (t.dataset.cancel != null) { cancelForm(S); afterChoice(); return; }

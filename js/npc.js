@@ -116,7 +116,10 @@ function npcRelWord(n) { return n.rk === 'rival' ? '라이벌' : n.rk === 'dongi
 function npcDebutMates(s) {
   for (const f of npcMyFields(s)) {
     if (s.npc.deb[f]) continue;
+    // 이미 이름이 알려졌거나 다른 분야에서 먼저 데뷔한 사람은 신인들과 동기로 묶이지 않는다 (v130: 경력 차이가 난다)
+    const vet = (s.fame || 0) >= 15 || Object.keys(s.npc.deb).length > 0;
     s.npc.deb[f] = calY(s);
+    if (vet) continue;
     const R = npcList(s, f).filter(n => n.ph === 'rookie' && s.t - n.pt <= 18);
     while (R.length < 2) R.push(npcMake(s, f, true));
     const M = U.shuffle(R).slice(0, 2);

@@ -167,6 +167,9 @@ function liveOpen(sp, end) {
   LIVE = { sp, B: liveBeats(sp), i: -1, tm: [], slot: 0, end: end || null };
   $('#live-card').innerHTML = liveHTML(sp);
   $('#live').classList.remove('hidden');
+  // 아래 막대는 처음부터 끝까지 같은 속도로 찬다 (v130)
+  const bar = $('#lv-bar'), tot = LIVE.B.reduce((a, b) => a + liveBeatMs(b), 0);
+  if (bar) { bar.style.transition = `width ${tot}ms linear`; void bar.offsetWidth; bar.style.width = '100%'; }
   chLoad(); chPaintAll();
   liveNext();
 }
@@ -185,17 +188,17 @@ function liveHTML(sp) {
     + `<div class="lv-bar"><i id="lv-bar"></i></div>`
     + `<div class="lv-btns"><button class="btn primary" data-liveskip>결과 바로 보기</button></div>`;
 }
+function liveBeatMs(b) { return Math.max(1050, 300 + b.L.length * 260 + 350); }
 function liveNext() {
   const L = LIVE;
   if (!L) return;
   L.i++;
-  const st = $('#lv-stage'), bar = $('#lv-bar');
+  const st = $('#lv-stage');
   if (L.i >= L.B.length) { liveDone(); return; }
   const b = L.B[L.i];
-  if (bar) bar.style.width = Math.round((L.i + 1) / L.B.length * 100) + '%';
   if (st) { st.style.setProperty('--glow', b.glow); st.classList.remove('fx-drum', 'fx-win'); if (b.fx) st.classList.add('fx-' + b.fx); st.classList.toggle('gather', !!b.gather); st.classList.toggle('lose', !!b.lose); }
   b.L.forEach(([x, k], j) => L.tm.push(setTimeout(() => liveBubble(x, k), 120 + j * 260)));
-  L.tm.push(setTimeout(liveNext, Math.max(1050, 300 + b.L.length * 260 + 350)));
+  L.tm.push(setTimeout(liveNext, liveBeatMs(b)));
 }
 function liveBubble(x, k) {
   const box = $('#lv-bub');

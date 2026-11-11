@@ -9,7 +9,7 @@ const INBOX = {};
 function sendMsg(s, kind, o) {
   const m = Object.assign({ id: 'm' + U.uid(), kind, at: s.t, due: s.t + (o.months || 6), read: false }, o);
   s.inbox.push(m);
-  addLog(s, `📨 ${m.from}에서 제안이 왔다. (${m.title})`, 'career');
+  addLog(s, `📨 ${m.from}에게서 제안이 왔다. (${m.title})`, 'career');
   return m;
 }
 // 답장을 기다리는 제안 수
