@@ -880,7 +880,7 @@ function coAlbum(s, g, o) {
   if (o.mine) { addCatalog(s, o.title, '작곡', sc, 0.7, 'agency'); cmGain(s, o.c, 4); useSkill(s, p, 'compose', 2); addWork(s, { type: '작곡', title: o.title, by: g.name, sc, note: chartText(peak) }); }
   for (const tt of o.sub || []) addCatalog(s, tt, '작곡', sc, 0.25, 'agency');
   // 무대 창 (12-1 틀): 우리 회사 아이돌 그룹의 데뷔 무대 · 1위 후보에 든 음악방송. 나는 무대에 없다 (mi: -1)
-  if (!band && typeof liveStage === 'function') card.live = liveStage({ k: 'idol', place: debut ? '데뷔 무대' : '음악방송', t: o.title, g: g.name, fd: g.fandom, mem: P.map(x => [callName(x.name), (g.pos[x.id] || '').split(' · ')[0]]), mi: -1,
+  if (!band && typeof liveStage === 'function') card.live = liveStage({ k: 'idol', place: debut ? '데뷔 무대' : '음악방송', t: o.title, g: g.name, fd: g.fandom, c: o.c, sx: liveSx(P), mem: P.map(x => [callName(x.name), (g.pos[x.id] || '').split(' · ')[0]]), mi: -1,
     z: { perf: (coPower(s, g) - 45) / 18, q: (o.q - 45) / 15, fans: (Math.log10(1 + coGFans(g)) - 4) / 1.2, trend: o.c === s.trend ? 0.7 : -0.5, tw: ((g.tw0 || 0) - 15) / 15, cf: cScoreB(cf) / 4, star: (g.star - 50) / 25, me: -1 }, sc, wins, cand: sc >= 66, debut, key: debut || wins > 0 || sc >= 66, rv: sc >= 66 && !wins && typeof npcStageRival === 'function' ? npcStageRival(s, g.name) : '' });
   const repD = U.clamp((sc - 55) / 6, -2.5, 4) + (peak === 1 ? 2 : 0) + (debut ? 1 : 0);
   // 그룹이 많을수록 앨범 하나가 회사 평판에 주는 영향은 작다

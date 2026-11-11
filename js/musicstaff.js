@@ -118,7 +118,7 @@ E({
     if (t.songs === 1) milestone(s, `${age(s)}세에 ${nm}한 곡이 처음으로 앨범에 실렸다 (${d.a.name} 「${d.title}」).`);
     const anr = s.people[d.anr]; if (anr) bond(s, anr, sc >= 60 ? 5 : 0);
     d.sc = sc;
-    if (typeof liveWatch === 'function') d.live = liveWatch(s, { name: d.a.name, kind: d.a.kind, tier: d.a.tier, title: d.title, sc, peak: d.peak, trend: !!d.c && d.c === s.trend, key: t.songs === 1 || (d.peak && d.peak <= 10) || !!d.up });
+    if (typeof liveWatch === 'function') d.live = liveWatch(s, { name: d.a.name, kind: d.a.kind, tier: d.a.tier, title: d.title, c: d.c, sc, peak: d.peak, trend: !!d.c && d.c === s.trend, key: t.songs === 1 || (d.peak && d.peak <= 10) || !!d.up });
     if (typeof plioSpec === 'function') d.pl = plioSpec({ k: 'stagew', t: `${d.a.name} 「${d.title}」 무대`, ch: `${PF.video.n} 뮤직`, me: `${actName(s, d.kind)} ${wN(d.kind)}`, sc, rv: sc >= 80 ? 2 : sc >= 65 ? 1 : 0, vw: Math.pow(10, 3.6 + sc / 22) });
   },
   text: (s, d) => `${d.a.name}의 ${josa(`「${d.title}」`, '이가')} 나왔다. (내가 ${wJob(d.kind)})\n\n${chartText(d.peak)}\n매달 들어올 저작권료 약 ${fmtWon(d.roy)} (조금씩 줄어든다)\n업계 평판 ${Math.round(s.tracks[d.kind].rep)}` + (d.up ? `\n\n🎉 ${wN(d.kind)} 단계가 ${qro(W_TIERS[d.up])} 올랐다!` : ''),
@@ -547,7 +547,7 @@ E({
     if (d.bonus) earn(s, d.bonus, 'A&R 성과급');
     t.picks++; if (d.peak && d.peak <= 20) t.hits++;
     // 12-3 보는 쪽: 내가 고른 곡의 무대
-    if (typeof liveWatch === 'function') d.live = liveWatch(s, { name: g.name, kind: '그룹', tier: Math.max(1, Math.min(3, t.tier)), title: d.title, sc, peak: d.peak, trend: !!d.cn && d.cn === s.trend, key: t.picks === 1 || (d.peak && d.peak <= 10) });
+    if (typeof liveWatch === 'function') d.live = liveWatch(s, { name: g.name, kind: '그룹', tier: Math.max(1, Math.min(3, t.tier)), title: d.title, c: d.cn, sc, peak: d.peak, trend: !!d.cn && d.cn === s.trend, key: t.picks === 1 || (d.peak && d.peak <= 10) });
     if (typeof plioSpec === 'function') d.pl = plioSpec({ k: 'stagew', t: `${g.name} 「${d.title}」 무대`, ch: `${PF.video.n} 뮤직`, me: '', sc, vw: Math.pow(10, 3.6 + sc / 22) });
     // 팀장이면 내가 고른 곡의 성적이 팀 평가에 1.8배로 반영된다
     // 팀장은 기대치가 높아서(곡 점수 55가 아니라 62부터 플러스) 웬만한 성적으로는 평가가 오르지 않는다

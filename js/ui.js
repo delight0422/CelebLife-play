@@ -486,8 +486,35 @@ function homeBgSync() {
   if (UI.bgOK[k] == null) { UI.bgOK[k] = 0; const im = new Image(); im.onload = () => { UI.bgOK[k] = 1; set(); }; im.onerror = () => { UI.bgOK[k] = -1; }; im.src = `img/bg/${k}.webp`; }
   set();
 }
+// 사건 창 위쪽 띠 그림 (v154 보탬): img/sc/ 의 장면 그림. 원본은 img/scene/ 에 두고 python dev/make_bg.py 로 줄인다
+// 사건 이름 → 장면 (사건에 bg: '장면' 또는 (s, d) => '장면' 을 적어도 된다). 그림이 읽힌 것만 쓴다 (없으면 띠 없이 예전 그대로)
+const SC_OF = {};
+for (const [k, L] of Object.entries({
+  // 회의실: 컴백 · 신곡 · 편곡 회의, 프로듀서 · A&R · 마케터의 기획, 계약 이야기
+  meeting: ['co_plan', 'co_pick', 'idol_cb', 'band_cb', 'band_arr', 'solo_meet', 'band_meet', 'prod_plan', 'prod_song', 'anr_pick', 'mk_promo', 'mk_launch', 'co_aud_pick', 'co_trn_out', 'contract_nego', 'idol_contract', 'solo_contract', 'band_contract', 'idol_renew', 'idol_jp'],
+  // 연습실: 연습생 오디션 · 평가 · 데뷔조 · 방출, 같이 남아서 하는 연습
+  practice: ['idol_aud', 'bandtr_pick', 'idol_team', 'idol_cut', 'idol_teamcut', 'team_stay', 'team_flop', 'tr_eval', 'co_eval', 'co_eval_res', 'co_sq_ready', 'co_tr_left', 'dc_aud'],
+  // 길거리: 캐스팅
+  street: ['child_model'],
+  // 음악방송 대기실: 데뷔 날 · 서바이벌 프로그램
+  waiting: ['idol_debut', 'band_debut', 'idol_surv'],
+  // fansign(팬사인회장)은 v157 팬사인회 사건에서 쓴다
+})) for (const id of L) SC_OF[id] = k;
+function scLoad() {
+  UI.scOK = UI.scOK || {};
+  for (const k of ['meeting', 'practice', 'street', 'waiting', 'fansign']) {
+    if (UI.scOK[k] != null) continue;
+    UI.scOK[k] = 0; const im = new Image(); im.onload = () => { UI.scOK[k] = 1; }; im.onerror = () => { UI.scOK[k] = -1; }; im.src = `img/sc/${k}.webp`;
+  }
+}
+function scBandHTML(id, ev, s, d) {
+  scLoad();
+  let k = SC_OF[id];
+  try { if (ev.bg) k = typeof ev.bg === 'function' ? ev.bg(s, d) : ev.bg; } catch (e) { }
+  return k && UI.scOK[k] === 1 ? `<div class="m-scene" style="background-image:linear-gradient(180deg, transparent 50%, var(--card)), url('img/sc/${k}.webp')"></div>` : '';
+}
 function renderStatusCard() {
-  homeBgSync();
+  homeBgSync(); scLoad(); // 사건 창 띠 그림도 미리 읽어 둔다
   const s = S;
   let st = `<div class="card-h">❤ 상태</div>`;
   if (s.army) st += `<div class="st-alert" data-trk="army">🪖 군 복무 중 · 전역까지 ${s.army.left}개월</div>`;
@@ -577,7 +604,7 @@ function showEventRaw() {
   if (liveOn()) return;
   const hx = ev.html ? ev.html(s, d) : '';
   UI.res = null;
-  let h = `<button class="m-min" data-min>창 내리기</button><div class="m-cat">${U.esc(ev.cat || '')}</div><div class="m-title">${U.esc(typeof ev.title === 'function' ? ev.title(s, d) : ev.title)}</div>${hx ? `<div class="m-html">${hx}</div>` : `<div class="m-text">${rich(ev.text(s, d))}</div>`}`;
+  let h = `${scBandHTML(s.pending.id, ev, s, d)}<button class="m-min" data-min>창 내리기</button><div class="m-cat">${U.esc(ev.cat || '')}</div><div class="m-title">${U.esc(typeof ev.title === 'function' ? ev.title(s, d) : ev.title)}</div>${hx ? `<div class="m-html">${hx}</div>` : `<div class="m-text">${rich(ev.text(s, d))}</div>`}`;
   // 공개 뒤 반응: 결과 글 아래에 플리오 배너 (12-3)
   if (ev.plio) { let pl = null; try { pl = ev.plio(s, d); } catch (e) { } if (pl) h += `<div class="pf-row">${plioBtnHTML(pl)}</div>`; }
   let T = null; if (ev.tbl) { try { T = ev.tbl(s, d); } catch (e) { console.error('표 오류', s.pending.id, e); T = null; } }

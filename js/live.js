@@ -20,12 +20,21 @@ function callName(n) { n = String(n || ''); return n.length >= 3 ? n.slice(1) : 
 // 내 활동명을 팬이 부르는 이름: 활동명(예명 · 본명)이 세 글자 이상이면 앞 글자를 뗀다
 function actCall(s, trk) { return callName(actName(s, trk)); }
 // 무대 spec 만들기 (결과를 계산한 자리에서 부른다)
+// 그림 (v154 보탬): c 곡 컨셉(청량 …) 또는 cos 옷 이름(practice 연습복 · project 프로젝트 그룹) → 그 옷,
+// sx 성별('f' · 'm' 한 글자면 모두, 여러 글자면 멤버 차례대로), mic 핸드 마이크. ms: 나의 성별 (내 자리 mi에 쓴다)
 function liveStage(o) {
   const z = {};
   for (const k in o.z || {}) if (isFinite(o.z[k])) z[k] = Math.round(o.z[k] * 100) / 100;
   const name = o.g || o.t || '';
-  return { v: 'stage', k: o.k, vn: o.vn || '', nw: o.nw ? 1 : 0, big: o.big || 0, old: o.old ? 1 : 0, fx2: o.fixed ? 1 : 0, x: o.x || null, key: o.key !== false, seed: U.int(1, 2e9), place: o.place || '무대', t: o.t || '', g: o.g || '', cn: o.cn || '', fd: o.fd || '', mem: (o.mem || []).slice(0, 10), mi: o.mi || 0, hue: hashN('hue' + name) % 360, z, sc: Math.round(o.sc || 0), wins: o.wins || 0, rv: o.rv || '', cand: o.cand ? 1 : 0, debut: o.debut ? 1 : 0 };
+  const ms = typeof S !== 'undefined' && S && S.people && S.people[S.me] ? (S.people[S.me].g === '남' ? 'm' : 'f') : '';
+  return { v: 'stage', k: o.k, vn: o.vn || '', nw: o.nw ? 1 : 0, big: o.big || 0, old: o.old ? 1 : 0, fx2: o.fixed ? 1 : 0, x: o.x || null, key: o.key !== false, seed: U.int(1, 2e9), place: o.place || '무대', t: o.t || '', g: o.g || '', cn: o.cn || '', fd: o.fd || '', mem: (o.mem || []).slice(0, 10), mi: o.mi || 0, hue: hashN('hue' + name) % 360, z, sc: Math.round(o.sc || 0), wins: o.wins || 0, rv: o.rv || '', cand: o.cand ? 1 : 0, debut: o.debut ? 1 : 0, cos: CH_COS[o.c] || o.cos || '', sx: o.sx || '', ms, mic: o.mic ? 1 : 0 };
 }
+// 곡 컨셉 → 의상 그림 이름 (img/src/cos_<이름>_f · _m)
+const CH_COS = { 청량: 'fresh', 강렬: 'strong', 큐티: 'cute', 몽환: 'dreamy', 힙합: 'hiphop', 레트로: 'retro', 하이틴: 'teen', 성숙: 'mature' };
+// 사람 목록 → 성별 글자 ('fmf…'). 나는 s.me
+function liveSx(L) { return (L || []).map(p => p && p.g === '남' ? 'm' : 'f').join(''); }
+// 무대 위 i번째 사람의 성별: 정해 준 것 → 내 자리면 나의 성별 → 모르면 '' (그림을 칠할 때 팀 이름으로 정한다)
+function liveMemSx(sp, i) { const x = sp.sx || ''; return x.length > 1 ? (x[i] || '') : x || (i === sp.mi ? sp.ms || '' : ''); }
 
 // 같은 곡 무대를 다른 자리에서 한 번 더 (시상식 무대 등): 요인은 그대로, 씨앗만 새로. 1위 발표 · 데뷔 인사는 뺀다
 function liveAgain(sp, o) { return Object.assign({}, sp, { seed: U.int(1, 2e9), key: false, wins: 0, cand: 0, debut: 0 }, o || {}); }
@@ -186,7 +195,7 @@ function liveWatch(s, o) {
   const band = o.kind === '밴드', grp = !band && o.kind !== '솔로 가수';
   const mem = band ? [['', '보컬'], ['', '기타'], ['', '베이스'], ['', '드럼']] : grp ? [['', ''], ['', ''], ['', ''], ['', ''], ['', '']] : [[o.name, '']];
   const tier = o.tier || 1;
-  return liveStage({ k: band ? 'band' : grp ? 'idol' : 'solo', vn: band ? 'hall' : '', place: band ? '쇼케이스' : '음악방송', t: o.title, g: o.name, cn: o.name, mem, mi: -1, key: !!o.key, sc: o.sc,
+  return liveStage({ k: band ? 'band' : grp ? 'idol' : 'solo', vn: band ? 'hall' : '', place: band ? '쇼케이스' : '음악방송', t: o.title, g: o.name, cn: o.name, mem, mi: -1, c: band ? '' : o.c, mic: !band && !grp, key: !!o.key, sc: o.sc,
     wins: !band && o.peak && o.peak <= 3 ? 1 : 0, cand: !band && o.peak && o.peak <= 10 ? 1 : 0, z: { perf: (tier - 1.6) * 0.8, q: (o.sc - 58) / 14, fans: (tier - 1.8) * 1.1, tw: o.tw != null ? o.tw : 0.2, me: 0, trend: o.trend ? 1 : 0 } });
 }
 // 평가 날: 트레이너는 회사 평가단 앞에서 연습생들이 하는 무대를, 연기 트레이너는 신인들의 연기를 지켜본다
@@ -194,7 +203,7 @@ function liveWatch(s, o) {
 function liveEvalSpec(s, d, o) {
   const st = (d.ids || []).map(id => s.people[id]).filter(Boolean).slice(0, 5).map(x => [x.name, ((d.gr || {})[x.id] || 0) >= 3 ? 2 : 1]);
   const cut = (d.cut || []).map(c => s.people[c.id]).filter(Boolean).map(x => x.name)[0] || '';
-  return liveStage({ k: 'eval', vn: o.act ? 'film' : 'hall', place: o.act ? '연기 평가' : '반기 평가', t: o.t || '', g: o.g || '', mem: st.map(x => [x[0], '']), mi: -1, key: !!o.key, sc: 50 + (d.good || 0) * 15 - (cut ? 15 : 0), x: { act: o.act ? 1 : 0, st, cut, good: d.good || 0 } });
+  return liveStage({ k: 'eval', cos: o.act ? '' : 'practice', vn: o.act ? 'film' : 'hall', place: o.act ? '연기 평가' : '반기 평가', t: o.t || '', g: o.g || '', mem: st.map(x => [x[0], '']), mi: -1, key: !!o.key, sc: 50 + (d.good || 0) * 15 - (cut ? 15 : 0), x: { act: o.act ? 1 : 0, st, cut, good: d.good || 0 } });
 }
 function liveEval(sp, R, pk) {
   const X = sp.x || {}, B = [], act = !!X.act;
@@ -371,6 +380,9 @@ const PL_ME_OF = { drama: 'act', mv: 'act', show: 'show', anime: 'voice', stage:
 function plioSpec(o) {
   const sc = Math.round(U.clamp(o.sc || 0, 0, 100));
   const sp = { v: 'plio', k: o.k, seed: U.int(1, 2e9), t: o.t || '', ch: o.ch || '', me: o.me || '', sc, rv: o.rv || 0, vw: Math.max(30, Math.round(o.vw != null ? o.vw : Math.pow(10, 3.4 + sc / 26) * (o.mul || 1))) };
+  // 썸네일 캐릭터 (v154 보탬): 성별 · 의상 (무대 영상은 그 무대의 것을 그대로)
+  if (o.sx) sp.sx = o.sx;
+  if (o.cos) sp.cos = o.cos;
   // ln: 맨 위에 올릴 댓글 (곡 결과 카드에 이미 나온 반응 한두 줄)
   if (o.ln && o.ln.length) sp.ln = o.ln.slice(0, 2);
   return sp;
@@ -383,7 +395,8 @@ function plioSong(s, d, job) {
   const c = d.card || (d.r && d.r.card);
   if (!c || !c.t) return d.pl = null;
   const sc = d.sc != null ? d.sc : d.r && d.r.sc != null ? d.r.sc : c.peak ? U.clamp(92 - c.peak * 0.3, 55, 92) : 45;
-  return d.pl = plioSpec({ k: 'stage', t: `${c.by ? c.by + ' ' : ''}「${c.t}」 무대`, ch: `${PF.video.n} 뮤직`, me: job && job !== 'co' ? actName(s, job) : '', sc, rv: sc >= 80 ? 2 : sc >= 65 ? 1 : 0, vw: Math.pow(10, 3.8 + sc / 22), ln: (c.lines || []).slice(0, 2).map(x => evPlain(x).replace(/^"|"$/g, '')) });
+  const lv = c.live || {}, lsx = lv.sx || '';
+  return d.pl = plioSpec({ k: 'stage', t: `${c.by ? c.by + ' ' : ''}「${c.t}」 무대`, ch: `${PF.video.n} 뮤직`, me: job && job !== 'co' ? actName(s, job) : '', sc, rv: sc >= 80 ? 2 : sc >= 65 ? 1 : 0, vw: Math.pow(10, 3.8 + sc / 22), ln: (c.lines || []).slice(0, 2).map(x => evPlain(x).replace(/^"|"$/g, '')), sx: lsx.length > 1 ? lsx[0] : lsx || (lv.mi === 0 ? lv.ms : ''), cos: lv.cos });
 }
 function plN(n) { n = Math.round(n); return n >= 1e8 ? (Math.round(n / 1e7) / 10) + '억' : n >= 1e5 ? Math.round(n / 1e4) + '만' : n >= 1e4 ? (Math.round(n / 1e3) / 10) + '만' : n.toLocaleString(); }
 // 댓글 목록: 작품 이야기 네 개 + 내 이야기 세 개를 섞는다. 반응은 대체로 한쪽이지만 다른 의견도 하나쯤 낀다
@@ -408,9 +421,11 @@ const PL_SCENE = { stage: ['stage', 5], stagew: ['stage', 5], mv: ['stage', 1], 
 const PL_CAP = { great: ['레전드', '난리 난 장면', '이건 꼭 봐야 해'], good: ['화제의 장면', '다시 보기'], meh: ['하이라이트', '이번 주 영상'], bad: ['하이라이트', '새 영상'] };
 function plioThumbHTML(sp, hue) {
   const R = liveRng(sp.seed + 3), K = PL_SCENE[sp.k] || ['booth', 1], n = K[1];
-  const chars = Array.from({ length: n }, (_, i) => liveChar(`pl${sp.seed}/${i}`, (hue + (K[0] === 'stage' ? 0 : i * 71)) % 360, `pl${sp.seed}/${K[0] === 'stage' ? 0 : i}`)).join('');
+  const chars = Array.from({ length: n }, (_, i) => liveChar(`pl${sp.seed}/${i}`, (hue + (K[0] === 'stage' ? 0 : i * 71)) % 360, `pl${sp.seed}/${K[0] === 'stage' ? 0 : i}`, { sx: (sp.sx || '').length > 1 ? sp.sx[i] : sp.sx, cos: sp.cos })).join('');
   const cap = PL_CAP[sp.sc >= 80 ? 'great' : sp.sc >= 65 ? 'good' : sp.sc >= 52 ? 'meh' : 'bad'], capT = cap[Math.floor(R() * cap.length)];
-  return `<div class="pl-video sc-${K[0]}" style="--hue:${hue}"><div class="pl-bg"></div><div class="pl-chars n${n}">${chars}</div><span class="pl-kind">${U.esc(PL_KIND[sp.k] || '영상')}</span><span class="pl-capt">${capT}</span><span class="pl-play">▶</span><span class="pl-dur">${1 + Math.floor(R() * 14)}:${String(Math.floor(R() * 60)).padStart(2, '0')}</span><i class="pl-prog"><b style="width:${Math.round(15 + R() * 70)}%"></b></i></div>`;
+  // 사진 배경 (v154 보탬): 무대 영상은 직캠, 뮤직비디오는 세트장 (그림이 없으면 아래 그린 배경이 보인다)
+  const ph = sp.k === 'stage' || sp.k === 'stagew' ? 'fancam' : sp.k === 'mv' ? 'mv' : '';
+  return `<div class="pl-video sc-${K[0]}" style="--hue:${hue}"><div class="pl-bg"></div>${ph ? `<div class="pl-ph" style="background-image:url('img/pl/${ph}.webp')"></div>` : ''}<div class="pl-chars n${n}">${chars}</div><span class="pl-kind">${U.esc(PL_KIND[sp.k] || '영상')}</span><span class="pl-capt">${capT}</span><span class="pl-play">▶</span><span class="pl-dur">${1 + Math.floor(R() * 14)}:${String(Math.floor(R() * 60)).padStart(2, '0')}</span><i class="pl-prog"><b style="width:${Math.round(15 + R() * 70)}%"></b></i></div>`;
 }
 function plioHTML(sp) {
   const C = plioComments(sp), R = liveRng(sp.seed + 7), hue = hashN('pl' + sp.t) % 360, like = Math.round(sp.vw * (0.02 + 0.04 * R())), cn = Math.max(C.length, Math.round(sp.vw * (0.001 + 0.003 * R())));
@@ -588,8 +603,10 @@ const CH_HAIR = [[52, 44, 58], [52, 44, 58], [84, 58, 44], [84, 58, 44], [128, 8
 function chLoad() {
   if (CH.started || typeof CH_PARTS === 'undefined') return;
   CH.started = true;
-  const L = CH_PARTS.body.concat(CH_PARTS.face, ...CH_PARTS.hair.map(h => [h + '_b', h + '_f']));
-  for (const n of L) { const im = new Image(); im.onload = () => { CH.img[n] = im; if (++CH.n === L.length) { CH.ok = true; chPaintAll(); } }; im.onerror = () => { if (!im.dataset.retry) { im.dataset.retry = 1; im.src = `img/ch/${n}.png`; } }; im.src = (CH_PARTS.data || {})[n] || `img/ch/${n}.png`; }
+  const P = CH_PARTS, L = P.body.concat(P.face, P.cos || [], P.prop || [], P.stick || [], ...P.hair.concat(P.hairM || []).map(h => [h + '_b', h + '_f']));
+  // 한 장이 끝내 안 읽혀도 나머지로 칠한다 (없는 부품은 건너뛴다)
+  const done = () => { if (++CH.n === L.length) { CH.ok = true; chPaintAll(); } };
+  for (const n of L) { const im = new Image(); im.onload = () => { CH.img[n] = im; done(); }; im.onerror = () => { if (!im.dataset.retry) { im.dataset.retry = 1; im.src = `img/ch/${n}.png`; } else done(); }; im.src = (P.data || {})[n] || `img/ch/${n}.png`; }
 }
 function chHsl(h, s, l) { const a = s * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return [f(0), f(8), f(4)]; }
 // 부품 하나를 물들여 ctx에 얹는다. mode: 'fit'(옷 → 그룹 색) · 'hair'(머리색) · ''(그대로)
@@ -611,18 +628,50 @@ function chLayer(ctx, name, mode, arg) {
   x.putImageData(D, 0, 0); ctx.drawImage(c, 0, 0);
 }
 // 캐릭터 하나: 이름(key)마다 머리 모양 · 머리색 · 얼굴, 그룹(gkey)마다 옷
+// v154 보탬: 성별(data-sx, 모르면 그룹마다 정함)에 따라 남자 머리 · 남자 옷, 컨셉(data-cos)이 있으면 그 의상, data-mic이면 핸드 마이크
 function chPaint(cv) {
-  const key = cv.dataset.ch, h = hashN('sp' + key), g = hashN('fit' + cv.dataset.g), P = CH_PARTS;
-  const hair = P.hair[h % P.hair.length], face = P.face[(h >> 5) % P.face.length], body = P.body[g % P.body.length], hc = CH_HAIR[(h >> 9) % CH_HAIR.length];
+  const D = cv.dataset, key = D.ch, h = hashN('sp' + key), g = hashN('fit' + D.g), P = CH_PARTS, has = n => !!CH.img[n];
+  const male = (D.sx === 'm' || (D.sx !== 'f' && hashN('sx' + D.g) % 2 === 1)) && (P.hairM || []).some(n => has(n + '_f'));
+  const sx = male ? 'm' : 'f', hl = male ? P.hairM.filter(n => has(n + '_f')) : P.hair;
+  const ml = (P.cos || []).filter(n => /_m$/.test(n) && !/_(practice|project)_/.test(n) && has(n));
+  const ck = D.cos ? `cos_${D.cos}_${sx}` : '';
+  const body = ck && has(ck) ? ck : male && ml.length ? ml[g % ml.length] : P.body[g % P.body.length];
+  const hair = hl[h % hl.length], face = P.face[(h >> 5) % P.face.length], hc = CH_HAIR[(h >> 9) % CH_HAIR.length];
   const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
-  chLayer(ctx, hair + '_b', 'hair', hc); chLayer(ctx, body, 'fit', +cv.dataset.hue); chLayer(ctx, face, ''); chLayer(ctx, hair + '_f', 'hair', hc);
+  chLayer(ctx, hair + '_b', 'hair', hc); chLayer(ctx, body, 'fit', +D.hue); chLayer(ctx, face, ''); chLayer(ctx, hair + '_f', 'hair', hc);
+  if (D.mic) chLayer(ctx, 'prop_mic', '');
   cv.parentNode.classList.add('on');
 }
-function chPaintAll() { if (CH.ok) document.querySelectorAll('canvas.lv-chc').forEach(chPaint); }
-// 무대에 세울 캐릭터 하나의 HTML: 그림이 준비되면 그림, 아니면 도트
-function liveChar(key, hue, gkey) {
+function chPaintAll() { if (!CH.ok) return; document.querySelectorAll('canvas.lv-chc').forEach(chPaint); document.querySelectorAll('[data-stick]').forEach(chStick); }
+// 응원봉 (v154 보탬): 흰 머리 부분을 그룹 색으로 물들이고 빛을 둘러 객석 막대 대신 쓴다. 색 · 모양마다 한 번만 만든다
+function chStick(el) {
+  const n = 'stick_' + el.dataset.stick, im = CH.img[n], hue = +el.dataset.hue || 0;
+  if (!im) return;
+  CH.stk = CH.stk || {};
+  const ck = n + '/' + hue;
+  if (!CH.stk[ck]) {
+    const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+    const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(im, 0, 0);
+    let D; try { D = x.getImageData(0, 0, c.width, c.height); } catch (e) { return; }
+    const d = D.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (!d[i + 3]) continue;
+      const L = (d[i] + d[i + 1] + d[i + 2]) / 3;
+      if (L < 110) continue; // 손잡이 · 외곽선은 그대로
+      const q = chHsl(hue, 0.95, 0.5 + 0.42 * (L - 110) / 145); d[i] = q[0]; d[i + 1] = q[1]; d[i + 2] = q[2];
+    }
+    x.putImageData(D, 0, 0);
+    const o = document.createElement('canvas'), pad = 6; o.width = c.width + pad * 2; o.height = c.height + pad * 2;
+    const y = o.getContext('2d'); y.shadowColor = `hsla(${hue}, 95%, 70%, .9)`; y.shadowBlur = 7; y.drawImage(c, pad, pad);
+    CH.stk[ck] = o.toDataURL();
+  }
+  el.style.setProperty('--stk', `url("${CH.stk[ck]}")`); el.classList.add('stk');
+}
+// 무대에 세울 캐릭터 하나의 HTML: 그림이 준비되면 그림, 아니면 도트. o: { sx 성별, cos 의상, mic }
+function liveChar(key, hue, gkey, o) {
   if (typeof CH_PARTS === 'undefined') return liveSprite(key, hue);
-  return `<span class="lv-ch">${liveSprite(key, hue)}<canvas class="lv-chc" width="${CH_PARTS.w}" height="${CH_PARTS.h}" data-ch="${U.esc(key)}" data-g="${U.esc(gkey)}" data-hue="${hue}"></canvas></span>`;
+  o = o || {};
+  return `<span class="lv-ch">${liveSprite(key, hue)}<canvas class="lv-chc" width="${CH_PARTS.w}" height="${CH_PARTS.h}" data-ch="${U.esc(key)}" data-g="${U.esc(gkey)}" data-hue="${hue}"${o.sx ? ` data-sx="${o.sx}"` : ''}${o.cos ? ` data-cos="${U.esc(o.cos)}"` : ''}${o.mic ? ' data-mic="1"' : ''}></canvas></span>`;
 }
 
 // ───── 창 ─────
@@ -646,10 +695,12 @@ function liveHTML(sp) {
   const mem = sp.mem.length ? sp.mem : [[sp.g, '']];
   // 1위 발표 때만 보이는 다른 팀들 (무대 양옆)
   const oth = k => [0, 1, 2].map(i => `<span class="lm" style="--i:${i + k}">${liveChar('rival' + sp.seed + (i + k), (sp.hue + 90 + (k ? 110 : 0)) % 360, 'rival' + sp.seed + k)}</span>`).join('');
+  // 사진 무대 (v154 보탬): 음악방송 · 콘서트 무대는 사용자가 만든 무대 그림을 깔고, 객석 막대는 응원봉 그림으로 (그림이 없으면 예전 그대로)
+  const pop = !sp.vn && (sp.k === 'idol' || sp.k === 'solo' || sp.k === 'meet'), ph = pop ? (/콘서트|팬미팅|투어/.test(sp.place) ? 'concert' : 'musicshow') : '';
   return `<div class="lv-top"><span class="lv-place">${U.esc(sp.place)}</span>${sp.t ? `<span class="lv-t">「${U.esc(sp.t)}」</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
-    + `<div class="lv-stage${sp.vn ? ' vn-' + sp.vn : ''}${sp.k === 'set' || sp.k === 'show' || sp.k === 'runway' || sp.k === 'booth' || sp.k === 'eval' || (sp.k === 'class' && (sp.x || {}).room === 'ol') ? ' mcon' : ''}${sp.k === 'class' ? ' rm-' + ((sp.x || {}).room || 'uni') : ''}" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"><div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
+    + `<div class="lv-stage${sp.vn ? ' vn-' + sp.vn : ''}${ph ? ' ph' : ''}${sp.k === 'set' || sp.k === 'show' || sp.k === 'runway' || sp.k === 'booth' || sp.k === 'eval' || (sp.k === 'class' && (sp.x || {}).room === 'ol') ? ' mcon' : ''}${sp.k === 'class' ? ' rm-' + ((sp.x || {}).room || 'uni') : ''}" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"${pop ? ` data-stick="${1 + hashN('stk' + sp.g) % 3}" data-hue="${sp.hue}"` : ''}>${ph ? `<div class="lv-ph" style="background-image:url('img/st/${ph}.webp')"></div>` : ''}<div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
     + `<div class="lv-floor"></div><div class="lv-oth l">${oth(0)}</div><div class="lv-oth r">${oth(3)}</div>`
-    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? (sp.hue + i * 67) % 360 : sp.hue, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? sp.g + i : sp.g)}${m[0] || ((sp.k === 'band' || sp.k === 'player') && m[1]) ? `<em>${sp.k === 'band' || sp.k === 'player' ? livePartIc(m[1]) + ' ' : ''}${U.esc(m[0])}</em>` : ''}</span>`).join('')}</div>`
+    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? (sp.hue + i * 67) % 360 : sp.hue, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? sp.g + i : sp.g, { sx: liveMemSx(sp, i), cos: sp.cos, mic: sp.mic })}${m[0] || ((sp.k === 'band' || sp.k === 'player') && m[1]) ? `<em>${sp.k === 'band' || sp.k === 'player' ? livePartIc(m[1]) + ' ' : ''}${U.esc(m[0])}</em>` : ''}</span>`).join('')}</div>`
     + `<div class="lv-conf">${Array.from({ length: 26 }, (_, i) => `<i style="left:${(i * 41) % 100}%;--d:${(i * 0.17) % 1.4}s;--c:${(i * 67) % 360}"></i>`).join('')}</div>`
     + liveProps(sp)
     + `<div class="lv-crowd">${sticks}</div><div class="lv-bub" id="lv-bub"></div><div class="lv-mc" id="lv-mc"></div></div>`

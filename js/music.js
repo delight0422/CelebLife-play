@@ -875,7 +875,7 @@ E({
       fxo = { stress: 4, rep: 1 };
       line = `「${g.name}」 팬미팅을 열었다. ${g.fandom} 앞에서 노래하고, 게임을 하고, 편지를 읽었다.`;
       // 실시간 창 (12-1): 팬미팅 (토크는 내 예능 · 유머, 노래는 그룹 실력)
-      d.live = liveStage({ k: 'meet', place: '팬미팅', g: g.name, fd: g.fandom, mem: idolPpl(s, g).map(x => [x.id === s.me ? actCall(s, 'idol') : callName(x.name), '']), mi: 0,
+      d.live = liveStage({ k: 'meet', place: '팬미팅', g: g.name, fd: g.fandom, sx: liveSx(idolPpl(s, g)), mem: idolPpl(s, g).map(x => [x.id === s.me ? actCall(s, 'idol') : callName(x.name), '']), mi: 0,
         z: { fans: (Math.log10(1 + gf) - 4) / 1.2, var: (lv(p, 'variety') + (p.tal.humor - 50) * 0.3 - 35) / 20, perf: (groupPower(s, g) - 45) / 18, star: (g.star - 50) / 25 }, sc: 70 });
     } else {
       if (has(p, 'variety')) practice(s, p, 'variety', 1);
@@ -1084,7 +1084,7 @@ function idolRelease(s, t, c, debut, a) {
   const card = songCardMake({ t: title, by: g.name, peak, wins, fans: [['그룹 팬', gain.kr + gain.jp + gain.us], ['내 팬', my.kr + my.jp + my.us]], pay, bill: pay > 0 || t.debt > 0 ? t.lastBill : null }, F, sc, g);
   if (a && a.mk) card.mk = a.mk; // 제작 과정 (v154): 성적표 · 작품 탭에서 본다
   // 실시간 창 (12-1): 데뷔 무대 · 컴백 첫 음악방송. 카드와 같은 요인으로 장면을 만든다 (내 몫: 내 실력 · 스타성)
-  card.live = liveStage({ k: 'idol', place: debut ? '데뷔 무대' : '음악방송', t: title, g: g.name, fd: g.fandom, mem: idolPpl(s, g).map(x => [x.id === s.me ? actCall(s, 'idol') : callName(x.name), (g.pos[x.id] || '').split(' · ')[0]]), mi: 0,
+  card.live = liveStage({ k: 'idol', place: debut ? '데뷔 무대' : '음악방송', t: title, g: g.name, fd: g.fandom, c, sx: liveSx(idolPpl(s, g)), mem: idolPpl(s, g).map(x => [x.id === s.me ? actCall(s, 'idol') : callName(x.name), (g.pos[x.id] || '').split(' · ')[0]]), mi: 0,
     z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, tw: F[4].z, cf: F[5].z, star: F[6].z, me: (Math.max(lv(p, 'vocal'), lv(p, 'rap'), lv(p, 'dance')) * 0.6 + p.tal.star * 0.4 - 45) / 18 }, sc, wins, cand: sc >= 66, debut, key: !!debut || wins > 0 || sc >= 66, rv: sc >= 66 && !wins ? npcStageRival(s, g.name) : '' });
   addWork(s, { type: debut ? '데뷔 앨범' : '앨범', title, by: g.name, sc, pay, note: chartText(peak) + (wins ? ` · 음악방송 1위 ${wins}회` : ''), card });
   if (peak === 1 && !s.flags.no1) { s.flags.no1 = true; milestone(s, `${age(s)}세에 ${g.name}의 ${josa(`「${title}」`, '으로')} 음원 차트 1위를 했다.`); }
@@ -1960,7 +1960,7 @@ function bandArrB(s, t, d) {
 // 무대 창 (12-3): 밴드 무대. vn: 장소 모양 (club 클럽 · hall 쇼케이스 · fest 페스티벌). 내가 맨 앞(mi 0)
 function bandLive(s, t, o) {
   const p = me(s), mem = [[actCall(s, 'band'), partN(t.b.my)]].concat(bandMembers(s, t).map(x => [callName(x.name), partN(t.b.part[x.id])]));
-  return liveStage(Object.assign({ k: 'band', g: t.b.name, cn: t.b.name, mem, mi: 0 }, o, { z: Object.assign({ perf: (bandPower(s, t) - 45) / 18, tw: (twOf(t.b) - 50) / 20, me: (lv(p, t.b.my) - 45) / 18, fans: (Math.log10(1 + t.b.f) - 3.4) / 0.9 }, o.z || {}) }));
+  return liveStage(Object.assign({ k: 'band', g: t.b.name, cn: t.b.name, mem, mi: 0, sx: liveSx([p].concat(bandMembers(s, t))) }, o, { z: Object.assign({ perf: (bandPower(s, t) - 45) / 18, tw: (twOf(t.b) - 50) / 20, me: (lv(p, t.b.my) - 45) / 18, fans: (Math.log10(1 + t.b.f) - 3.4) / 0.9 }, o.z || {}) }));
 }
 function bandReactF(s, t, d, cf) {
   const L = [me(s)].concat(bandMembers(s, t)).map(x => ({ k: bandPl(s, t, x), v: lv(x, bandPl(s, t, x)) })).sort((a, b) => b.v - a.v), hi = L[0], lo = L[L.length - 1];
@@ -2244,7 +2244,7 @@ E({
     d.card = songCardMake({ t: d.title, by: actName(s, 'solo'), peak: d.peak, fans: [['내 팬', d.gain]], pay: gross > 0 ? d.sale : null, bill: d.bill }, F, sc, t);
     if (d.mk) d.card.mk = d.mk;
     // 실시간 창 (12-1): 솔로는 음악방송 1위가 없어서 1위 발표 장면도 없다
-    d.card.live = liveStage({ k: 'solo', key: t.rel === 1, place: t.rel === 1 ? '데뷔 무대' : '음악방송', t: d.title, g: actName(s, 'solo'), cn: actCall(s, 'solo'), mem: [[actCall(s, 'solo'), '']], mi: 0,
+    d.card.live = liveStage({ k: 'solo', c: d.c, mic: 1, key: t.rel === 1, place: t.rel === 1 ? '데뷔 무대' : '음악방송', t: d.title, g: actName(s, 'solo'), cn: actCall(s, 'solo'), mem: [[actCall(s, 'solo'), '']], mi: 0,
       z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, cf: F[4].z, star: (p.tal.star - 50) / 25, me: F[0].z }, sc, debut: t.rel === 1 });
     addWork(s, { type: '싱글', title: d.title, by: actName(s, 'solo'), sc, pay: d.sale || 0, note: chartText(d.peak) + (d.self ? ' · 자작곡' : ''), card: d.card });
     if (t.rel === 1) milestone(s, `${age(s)}세에 첫 솔로곡 ${josa(`「${d.title}」`, '을를')} 냈다.`);

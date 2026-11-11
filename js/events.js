@@ -1210,7 +1210,7 @@ E({
       if (!d.stage || typeof liveStage !== 'function') return log;
       // 고향 무대는 실시간 창으로: 처음 보는 객석이 아니라 모두가 내 편이다
       const nm = actName(s, d.stage);
-      return showResult(s, `${d.town} 축제`, log, log, liveStage({ k: 'solo', vn: 'fest', place: `${d.town} 축제`, t: '고향 무대', g: nm, cn: typeof callName === 'function' ? callName(nm) : nm, mem: [[nm, '']], mi: 0, key: true, sc: 86, z: { fans: 1.6, perf: 0.8, q: 0.6, me: 1.2 } }));
+      return showResult(s, `${d.town} 축제`, log, log, liveStage({ k: 'solo', vn: 'fest', mic: d.stage !== 'player', place: `${d.town} 축제`, t: '고향 무대', g: nm, cn: typeof callName === 'function' ? callName(nm) : nm, mem: [[nm, '']], mi: 0, key: true, sc: 86, z: { fans: 1.6, perf: 0.8, q: 0.6, me: 1.2 } }));
     } },
     { t: '정중히 거절한다', f: s => `고향 ${d.town}의 제안을 정중히 거절했다.` },
   ],

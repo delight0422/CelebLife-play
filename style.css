@@ -1241,3 +1241,13 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .alb-sg.ti { border-color: var(--violet); background: var(--violet-soft); }
 .alb-tag { font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 999px; background: var(--line); }
 .alb-sg.ti .alb-tag { background: var(--violet); color: #fff; }
+
+/* ───── 그림 (v154 보탬): 사건 창 위쪽 띠 · 사진 무대 · 응원봉 · 플리오 사진 썸네일 ───── */
+.m-scene { margin: -22px -22px 12px; height: 150px; border-radius: 20px 20px 0 0; background-size: cover; background-position: center 55%; background-repeat: no-repeat; }
+@media (max-width: 760px) { .m-scene { margin: -18px -16px 10px; height: 112px; } }
+.lv-ph { position: absolute; inset: 0; background-size: cover; background-position: center 42%; background-repeat: no-repeat; opacity: .88; }
+.lv-stage.ph .lv-floor { display: none; }
+.lv-stage.ph .lv-lights i { opacity: .6; }
+.lv-stage.stk .lv-crowd i { width: 14px; height: 26px; border-radius: 0; background: var(--stk) center bottom / contain no-repeat; box-shadow: none; }
+@media (max-width: 700px) { .lv-stage.stk .lv-crowd i { width: 10px; height: 19px; } }
+.pl-ph { position: absolute; inset: 0; background-size: cover; background-position: center; background-repeat: no-repeat; }
