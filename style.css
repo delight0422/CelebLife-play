@@ -907,3 +907,16 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .co-last { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 4px 0 2px; }
 .co-last .lv-re { margin-top: 0; }
 .sc-c { font-size: 12.5px; color: var(--ink2); font-weight: 700; margin-bottom: 2px; }
+/* 12-3: 밴드 · 연주가 무대. 장소마다 모양만 바꾼다 (club 클럽 · hall 쇼케이스 · 연주회 · fest 페스티벌) */
+.lv-stage.vn-club { background: radial-gradient(110% 80% at 50% 0%, #4a2a1c 0%, #140b0a 60%); }
+.lv-stage.vn-club .lv-lights i { width: 22%; background: linear-gradient(180deg, hsla(32, 95%, 72%, calc(.14 + .4 * var(--glow))) 0%, transparent 70%); }
+.lv-stage.vn-club .lv-floor { left: 14%; right: 14%; background: linear-gradient(180deg, rgba(150, 100, 60, .4), rgba(70, 40, 25, .15)); border-radius: 12px; }
+.lv-stage.vn-club .lv-crowd i, .lv-stage.vn-fest .lv-crowd i { width: 7px; height: 7px; border-radius: 50%; background: #fff7e0; box-shadow: 0 0 8px rgba(255, 240, 200, .8); animation-duration: 1.6s; }
+.lv-stage.vn-hall { background: radial-gradient(120% 85% at 50% 0%, #2c2740 0%, #0b0914 62%); }
+.lv-stage.vn-hall .lv-lights i { background: linear-gradient(180deg, hsla(45, 90%, 85%, calc(.12 + .38 * var(--glow))) 0%, transparent 78%); }
+.lv-stage.vn-hall .lv-crowd i { display: none; }
+.lv-stage.vn-hall .lv-crowd { background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .75)); }
+.lv-stage.vn-fest { background: linear-gradient(180deg, #2a2a6a 0%, #7a3f8a 38%, #f08a5d 62%, #1a1022 63%); }
+.lv-stage.vn-fest .lv-lights i { opacity: .45; }
+.lv-stage.vn-fest .lv-floor { background: linear-gradient(180deg, rgba(60, 50, 80, .9), rgba(30, 24, 44, .9)); border-radius: 10px; left: 10%; right: 10%; }
+.lv-stage.vn-fest .lv-crowd { height: 30%; background: linear-gradient(180deg, rgba(20, 14, 30, .2), rgba(8, 5, 14, .9)); }

@@ -1820,6 +1820,7 @@ E({
 });
 E({
   id: 'band_relres', cat: '음원 성적', title: '밴드 새 곡 성적', tag: 'career',
+  live: (s, d) => d.card && d.card.live,
   init(s, d) {
     const t = s.tracks.band;
     if (!trackOn(s, 'band')) { d.skip = true; return; }
@@ -1849,6 +1850,8 @@ E({
     if (d.peak && (!t.bestPeak || d.peak < t.bestPeak)) t.bestPeak = d.peak;
     // 발매 결과 카드 (v118 UI C1)
     d.card = songCardMake({ t: d.title, by: `밴드 「${t.b.name}」`, peak: d.peak, fans: [['밴드 팬', d.gain], ['내 팬', my]], pay: d.pay, bill: d.bill }, bandReactF(s, t, d, cf), sc, t);
+    // 무대 창 (12-3): 인디는 클럽 공연, 소속사가 있으면 쇼케이스. 첫 곡이거나 차트에 든 곡이 '중요할 때'
+    d.card.live = bandLive(s, t, { vn: t.st === 'signed' ? 'hall' : 'club', place: t.st === 'signed' ? '쇼케이스' : '클럽 공연', t: d.title, sc, key: t.rel === 1 || !!d.peak, z: { q: (d.q - 45) / 15, trend: d.c && d.c === s.trend ? 0.7 : -0.5 } });
     addWork(s, { type: '밴드 싱글', title: d.title, by: `「${t.b.name}」`, sc, note: chartText(d.peak) + (d.self ? ' · 자작곡' : ''), card: d.card });
     if (t.rel === 1) milestone(s, `${age(s)}세에 밴드 「${t.b.name}」의 첫 곡 ${josa(`「${d.title}」`, '을를')} 냈다.`);
     if (d.peak && d.peak <= 10 && !t.hitMs) { t.hitMs = true; milestone(s, `${age(s)}세에 밴드 「${t.b.name}」의 ${josa(`「${d.title}」`, '이가')} 차트 ${d.peak}위에 올랐다.`); }
@@ -1886,6 +1889,11 @@ function bandArrB(s, t, d) {
   return U.clamp((twOf(t.b) - 50) / 20 + (t.b.f >= 1e4 ? 1.5 : 0), -2, 4);
 }
 // 밴드 곡 반응 재료: 가장 잘하는 파트 · 가장 처지는 파트 · 곡 · 팬 · 유행 · 팀워크 · 홍보 · 컨셉 궁합 · 편곡 방향
+// 무대 창 (12-3): 밴드 무대. vn: 장소 모양 (club 클럽 · hall 쇼케이스 · fest 페스티벌). 내가 맨 앞(mi 0)
+function bandLive(s, t, o) {
+  const p = me(s), mem = [[actCall(s, 'band'), partN(t.b.my)]].concat(bandMembers(s, t).map(x => [callName(x.name), partN(t.b.part[x.id])]));
+  return liveStage(Object.assign({ k: 'band', g: t.b.name, cn: t.b.name, mem, mi: 0 }, o, { z: Object.assign({ perf: (bandPower(s, t) - 45) / 18, tw: (twOf(t.b) - 50) / 20, me: (lv(p, t.b.my) - 45) / 18, fans: (Math.log10(1 + t.b.f) - 3.4) / 0.9 }, o.z || {}) }));
+}
 function bandReactF(s, t, d, cf) {
   const L = [me(s)].concat(bandMembers(s, t)).map(x => ({ k: bandPl(s, t, x), v: lv(x, bandPl(s, t, x)) })).sort((a, b) => b.v - a.v), hi = L[0], lo = L[L.length - 1];
   const F = [
@@ -1931,13 +1939,16 @@ function bandFestPlay(s, d) {
   const my = Math.round(g * 0.35);
   s.fans.kr += my;
   d.sc = sc; d.g = g; d.my = my;
+  // 무대 창 (12-3): 페스티벌. 객석 대부분이 우리를 처음 본다 (nw). 객석 크기는 페스티벌 크기만큼
+  d.live = bandLive(s, t, { vn: 'fest', place: d.from, t: '', sc, nw: t.b.f < 5e4, z: { q: (sc - 60) / 15, fans: t.b.f >= 5e4 ? 1 : 0.5 } });
   d.say = sc >= 80 ? '객석이 떠나갈 듯했다.' : sc >= 60 ? '반응이 좋았다.' : '반응이 미지근했다.';
   d.fx = ` ${d.say} (밴드 팬 ${sgnFans(g)} · 내 팬 +${fmtFans(my)} · 정산 ${fmtWon(d.pay)})`;
 }
 E({
   id: 'band_fest_play', cat: '밴드', title: (s, d) => `「${d.from}」 무대`, tag: 'career', keepPop: s => true,
+  live: (s, d) => d.cancel ? null : d.live,
   init(s, d) { if (!trackOn(s, 'band') || s.army || !s.tracks.band.b) { d.cancel = true; return; } bandFestPlay(s, d); },
-  html: (s, d) => d.bill && typeof billBtnHTML === 'function' ? cardText(s, d) + billBtnHTML(d.bill) : '',
+  html: (s, d) => d.bill && typeof billBtnHTML === 'function' ? cardText(s, d) + billBtnHTML(d.bill) + (d.live && typeof liveBtnHTML === 'function' ? ' ' + liveBtnHTML(d.live) : '') : '',
   text: (s, d) => d.cancel ? `밴드가 활동을 쉬게 되어 「${d.from}」 무대에 서지 못했다. 주최 측에 출연 취소를 알렸다.`
     : `「${d.from}」 무대에 섰다. ${d.sc >= 80 ? evG(d.say || '') : d.sc < 60 ? evB(d.say || '') : d.say || ''}\n\n밴드 팬 ${sgnFans(d.g)} · 내 팬 +${fmtFans(d.my || 0)}${d.pay != null ? ` · 정산 ${fmtWon(d.pay)}` : ''}${d.bill && d.bill.note ? `\n\n${d.bill.note}` : ''}`,
   ch: (s, d) => [{ t: '확인', f: () => d.cancel ? `「${d.from}」 출연을 취소했다.` : `「${d.from}」 무대에 섰다.${d.fx}` }],
@@ -2365,7 +2376,9 @@ INBOX.recital = {
   ],
 };
 E({
-  id: 'player_relres', cat: '음원 성적', title: '연주 앨범 성적', tag: 'career',
+  // 중요한 연주회(첫 앨범 · 반응이 좋았을 때)는 요약에만 남기지 않고 창으로 (무대 창이 먼저 뜬다)
+  id: 'player_relres', cat: '음원 성적', title: '연주 앨범 성적', tag: 'career', keepPop: (s, d) => !!(d.live && d.live.key),
+  live: (s, d) => d.live,
   init(s, d) {
     const t = s.tracks.player;
     if (t.st !== 'active') { d.skip = true; return; }
@@ -2381,6 +2394,9 @@ E({
     addWork(s, { type: '연주 앨범', title: d.title, by: actName(s, 'player'), sc, note: d.peak ? chartText(d.peak) : sc >= 60 ? '평론가 호평' : '조용히 나왔다' });
     if (t.rel === 1) milestone(s, `${age(s)}세에 첫 연주 앨범 ${josa(`「${d.title}」`, '을를')} 냈다.`);
     d.sc = sc;
+    // 무대 창 (12-3): 발매 기념 연주회
+    d.live = liveStage({ k: 'player', vn: 'hall', place: '연주회', t: d.title, g: actName(s, 'player'), cn: actCall(s, 'player'), mem: [[actCall(s, 'player'), partN(t.inst)]], mi: 0, sc, key: t.rel === 1 || sc >= 66,
+      z: { perf: (lv(p, t.inst) - 45) / 18, me: (lv(p, t.inst) - 45) / 18, q: (lv(p, 'compose') * 0.6 + lv(p, t.inst) * 0.4 - 45) / 15, fans: (Math.log10(1 + s.fans.kr) - 3.6) / 0.9 } });
   },
   text: (s, d) => `연주 앨범 ${josa(`「${d.title}」`, '이가')} 나왔다.\n\n${d.peak ? chartText(d.peak) : d.sc >= 60 ? '차트에는 못 올랐지만 평론가들이 좋게 봤다.' : '크게 알려지지는 않았다.'}\n팬 +${fmtFans(d.gain)} · 매달 들어올 음원 수익 약 ${fmtWon(d.roy)}`,
   ch: (s, d) => [{ t: '확인', f: () => `연주 앨범 ${josa(`「${d.title}」`, '을를')} 냈다.` }],

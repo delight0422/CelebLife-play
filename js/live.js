@@ -22,7 +22,7 @@ function liveStage(o) {
   const z = {};
   for (const k in o.z || {}) if (isFinite(o.z[k])) z[k] = Math.round(o.z[k] * 100) / 100;
   const name = o.g || o.t || '';
-  return { v: 'stage', k: o.k, key: o.key !== false, seed: U.int(1, 2e9), place: o.place || '무대', t: o.t || '', g: o.g || '', cn: o.cn || '', fd: o.fd || '', mem: (o.mem || []).slice(0, 10), mi: o.mi || 0, hue: hashN('hue' + name) % 360, z, sc: Math.round(o.sc || 0), wins: o.wins || 0, rv: o.rv || '', cand: o.cand ? 1 : 0, debut: o.debut ? 1 : 0 };
+  return { v: 'stage', k: o.k, vn: o.vn || '', nw: o.nw ? 1 : 0, key: o.key !== false, seed: U.int(1, 2e9), place: o.place || '무대', t: o.t || '', g: o.g || '', cn: o.cn || '', fd: o.fd || '', mem: (o.mem || []).slice(0, 10), mi: o.mi || 0, hue: hashN('hue' + name) % 360, z, sc: Math.round(o.sc || 0), wins: o.wins || 0, rv: o.rv || '', cand: o.cand ? 1 : 0, debut: o.debut ? 1 : 0 };
 }
 
 // 같은 곡 무대를 다른 자리에서 한 번 더 (시상식 무대 등): 요인은 그대로, 씨앗만 새로. 1위 발표 · 데뷔 인사는 뺀다
@@ -42,6 +42,7 @@ function liveBeats(sp) {
   const who = cn; // 팬덤 이름은 무대에서 부르지 않는다 (v134: 어느 장면에서 나와도 어색했다)
   const B = [];
   if (sp.k === 'meet') return liveMeet(sp, R, pk, z, lvl, who, mine);
+  if (sp.k === 'band' || sp.k === 'player') return liveBand(sp, R, pk, z, lvl, cn, mine);
   // 1. 등장: 팬이 많을수록 객석이 크다
   const f = lvl(z('fans'));
   B.push({ cap: `조명이 켜지고 ${josa(g, '이가')} 무대에 선다`, glow: 0.35 + f * 0.15,
@@ -82,6 +83,36 @@ function liveBeats(sp) {
     if (sp.wins > 0) B.push({ cap: '1위', glow: 1, fx: 'win', gather: 1, L: [[`${g}! 축하합니다!`, 'mc'], ['꺄아아아아!!', 'win'], [`${cn} 1위!!`, 'win'], [pk(['울지 마!!', '축하해!!']), 'big']] });
     else B.push({ cap: '2위', glow: 0.5, gather: 1, lose: 1, L: [[`${rv}! 축하합니다!`, 'mc'], ['아…', 'bad'], ['괜찮아!!', 'call'], ['다음엔 1위!!', 'big']] });
   }
+  return B;
+}
+// ───── 밴드 · 연주가 무대 (12-3) ─────
+// 클럽 공연 · 쇼케이스 · 페스티벌(밴드), 연주회(연주가). 응원법 · 1위 발표가 없고, 연주 · 합 · 내 파트 솔로 · 떼창 · 앵콜로 간다
+// 요인: perf(연주 실력) · tw(합) · me(내 파트) · q(곡) · fans(우리 팬이 얼마나 왔나) · trend. nw: 우리를 처음 보는 객석 (페스티벌)
+const LV_PART = { 보컬: ['🎤', '목소리 미쳤다!!'], 기타: ['🎸', '기타 솔로 미쳤다!!'], 베이스: ['🎸', '베이스 죽인다!!'], 드럼: ['🥁', '드럼 미쳤다!!'], 키보드: ['🎹', '건반 미쳤다!!'], 피아노: ['🎹', '피아노 미쳤다!!'] };
+function livePartIc(p) { return (LV_PART[p] || ['🎵'])[0]; }
+function liveBand(sp, R, pk, z, lvl, cn, mine) {
+  const B = [], solo = sp.k === 'player', part = (sp.mem[sp.mi] || [])[1] || '', f = lvl(z('fans'));
+  const clap = ['짝짝짝', '짝짝짝짝!'], big = solo ? ['브라보!!', '와아…!', '대단하다!!'] : LV_BIG;
+  // 1. 등장
+  B.push({ cap: '등장', glow: 0.35 + f * 0.15, L: sp.nw && f < 2 ? [[pk(['저 밴드 누구야?', '처음 보는 팀인데?']), 'soft'], ['짝… 짝…', 'soft']]
+    : f === 2 ? [[`${cn}!! ${cn}!!`, 'call'], [pk(big), 'big'], [pk(big), 'big']] : f === 1 ? [[pk(['와아!', '오오!']), 'big'], [pk(clap), 'soft']] : [[pk(['짝… 짝…', '웅성웅성']), 'soft']] });
+  // 2. 첫 곡: 연주 실력
+  const pv = lvl(z('perf'));
+  B.push({ cap: '첫 곡', glow: 0.5 + pv * 0.15, L: pv === 2 ? [[pk(solo ? ['소리가 다르다!!', '와… 소름'] : ['연주 미쳤다!!', '사운드 뭐야!!', '와… 소름']), 'big'], [pk(big), 'big']] : pv === 1 ? [[pk(['오, 괜찮은데?', '좋다!']), 'soft'], [pk(clap), 'soft']] : [[pk(['어…?', '박자가…', '……']), 'bad']] });
+  // 3. 합 (밴드만)
+  if (!solo) { const tv = lvl(z('tw')); if (tv === 2) B.push({ cap: '합', glow: 0.65, L: [['합 미쳤다!!', 'big'], ['딱딱 맞네!!', 'big']] }); else if (tv === 0) B.push({ cap: '합', glow: 0.45, L: [['어어…?', 'bad'], ['웅성웅성…', 'bad']] }); }
+  // 4. 내 파트
+  const mv = lvl(z('me')), pl = (LV_PART[part] || ['', '연주 미쳤다!!'])[1];
+  B.push({ cap: '내 파트', glow: 0.7, L: mv === 2 ? [[`${mine}!!!`, 'call'], [pl, 'big']] : mv === 1 ? [[`${mine}!`, 'call'], [pk(clap), 'soft']] : [['……', 'soft'], ['짝… 짝…', 'soft']] });
+  // 5. 후렴: 곡이 좋으면 떼창 (연주회는 숨죽여 듣는다)
+  const qv = lvl(z('q'));
+  const ch = solo ? (qv === 2 ? [['……', 'soft'], ['와…', 'big']] : qv === 1 ? [['……', 'soft']] : [['콜록', 'soft'], ['……', 'soft']])
+    : qv === 2 ? [['♪ 떼창 ♪', 'sing'], ['♪ ♪ ♪', 'sing'], [pk(['노래 너무 좋아!!', '후렴 미쳤다!!']), 'big']] : qv === 1 ? [['♪ ♪', 'sing'], ['좋다!', 'soft']] : [['……', 'soft'], ['짝… 짝…', 'soft']];
+  if (!solo && z('trend') >= 0.5 && R() < 0.6) ch.push(['너무 좋아!!', 'big']);
+  B.push({ cap: '후렴', glow: 0.6 + qv * 0.15, L: ch });
+  // 6. 엔딩
+  const sc = sp.sc, enc = solo ? '브라보!! 브라보!!' : '앵콜!! 앵콜!!';
+  B.push({ cap: '엔딩', glow: sc >= 80 ? 1 : sc >= 65 ? 0.8 : 0.55, L: sc >= 80 ? [[enc, 'call'], [pk(big), 'big'], [pk(big), 'big']] : sc >= 65 ? [['짝짝짝짝짝!!', 'big'], [solo ? '브라보!' : '한 곡 더!!', 'big']] : sc >= 52 ? [[pk(clap), 'soft'], ['수고했어요!', 'soft']] : [['짝짝…', 'soft']] });
   return B;
 }
 // 팬미팅: 토크(예능) · 노래 · 게임 · 편지 · 끝인사
@@ -180,9 +211,9 @@ function liveHTML(sp) {
   // 1위 발표 때만 보이는 다른 팀들 (무대 양옆)
   const oth = k => [0, 1, 2].map(i => `<span class="lm" style="--i:${i + k}">${liveChar('rival' + sp.seed + (i + k), (sp.hue + 90 + (k ? 110 : 0)) % 360, 'rival' + sp.seed + k)}</span>`).join('');
   return `<div class="lv-top"><span class="lv-place">${U.esc(sp.place)}</span>${sp.t ? `<span class="lv-t">「${U.esc(sp.t)}」</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
-    + `<div class="lv-stage" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"><div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
+    + `<div class="lv-stage${sp.vn ? ' vn-' + sp.vn : ''}" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"><div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
     + `<div class="lv-floor"></div><div class="lv-oth l">${oth(0)}</div><div class="lv-oth r">${oth(3)}</div>`
-    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.hue, sp.g)}<em>${U.esc(m[0])}</em></span>`).join('')}</div>`
+    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.hue, sp.g)}<em>${sp.k === 'band' || sp.k === 'player' ? livePartIc(m[1]) + ' ' : ''}${U.esc(m[0])}</em></span>`).join('')}</div>`
     + `<div class="lv-conf">${Array.from({ length: 26 }, (_, i) => `<i style="left:${(i * 41) % 100}%;--d:${(i * 0.17) % 1.4}s;--c:${(i * 67) % 360}"></i>`).join('')}</div>`
     + `<div class="lv-crowd">${sticks}</div><div class="lv-bub" id="lv-bub"></div><div class="lv-mc" id="lv-mc"></div></div>`
     + `<div class="lv-bar"><i id="lv-bar"></i></div>`
