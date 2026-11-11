@@ -991,6 +991,22 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .lv-stage.vn-booth .lm.me { position: relative; }
 .lv-stage.vn-booth .lm.me::after { content: '🎙️'; position: absolute; right: -30px; top: 16%; font-size: 38px; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .6)); }
 @media (max-width: 700px) { .p-win, .p-mon { font-size: 30px; top: 20%; height: 22%; } .p-mon span { font-size: 30px; } .p-mon { font-size: 11.5px; } .lv-stage.vn-booth .lm.me::after { font-size: 24px; right: -18px; } .lv-stage.vn-booth .lv-mem { padding: 0 4%; gap: 6px; } }
+/* 12-3: 강의실 (교수 · 강사). 칠판 앞에 서고 아래는 학생석. 인강(rm-ol)은 학생 대신 카메라 */
+.lv-stage.vn-class { background: linear-gradient(180deg, #2d3644 0%, #343e4e 58%, #4c4034 59%, #372d24 100%); }
+.lv-stage.vn-class .lv-lights, .lv-stage.vn-class .lv-crowd, .lv-stage.vn-class .lv-floor { display: none; }
+.lv-stage.vn-class .lv-mem { bottom: 36%; padding: 0; z-index: 2; }
+.lv-stage.vn-class .lv-bub, .lv-stage.vn-class .lv-mc { z-index: 3; }
+.lv-stage.vn-class.rm-ol .lv-mem { bottom: 22%; }
+.p-board { position: absolute; left: 20%; right: 20%; top: 13%; height: 34%; background: linear-gradient(180deg, #24523f, #1b4232); border: 8px solid #6b4d33; border-radius: 6px; box-shadow: inset 0 0 40px rgba(0, 0, 0, .35), 0 8px 18px rgba(0, 0, 0, .35); display: flex; flex-direction: column; justify-content: center; gap: 13%; padding: 0 8%; }
+.p-board u { display: block; height: 5px; border-radius: 3px; background: rgba(240, 244, 236, .82); transform: scaleX(0); transform-origin: 0 50%; transition: transform .9s ease-out; transition-delay: var(--d); }
+.lv-stage.wr .p-board u { transform: scaleX(1); }
+.p-sign { position: absolute; left: 3%; top: 15%; max-width: 15%; padding: 5px 9px; border-radius: 6px; background: rgba(255, 255, 255, .1); color: #d9dfea; font-size: 12.5px; font-weight: 700; line-height: 1.3; }
+.lv-props i.p-stu { border-radius: 50% 50% 46% 46%; background: #1c2029; box-shadow: 0 10px 0 6px #262b36; transform: translateX(-50%); }
+.p-stu b { position: absolute; left: 50%; top: -24px; transform: translateX(-50%); font-size: 20px; opacity: 0; transition: opacity .5s; }
+.lv-stage.zz1 .p-stu:nth-of-type(6n+3) b, .lv-stage.zz2 .p-stu:nth-of-type(3n+1) b, .lv-stage.zz3 .p-stu:nth-of-type(2n) b, .lv-stage.zz3 .p-stu:nth-of-type(5n) b { opacity: 1; animation: lvBob .9s ease-in-out infinite alternate; }
+.lv-stage.vn-class.rm-ol .p-cam { bottom: 5%; }
+.lv-stage.vn-class .lv-props i.p-rec { left: auto; right: 4%; top: 15%; transform: none; }
+@media (max-width: 700px) { .p-board { left: 10%; right: 10%; top: 16%; height: 26%; } .p-sign { display: none; } .lv-props i.p-stu { transform: translateX(-50%) scale(.62); transform-origin: 50% 100%; } .lv-stage.vn-class .lv-mem { bottom: 36%; } }
 /* 12-3: 지어낸 플랫폼의 대표 색 (사용자가 정함). 라이브온 = 라임 그린, 플리오(PLIO) = 소프트 오렌지. js/live.js의 PF와 같다 */
 :root { --pf-live: #B8F044; --pf-video: #FF914D; }
 /* 라이브 방송 플랫폼 (라이브온). 왼쪽 방송 화면, 오른쪽 채팅 */

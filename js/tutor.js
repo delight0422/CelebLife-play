@@ -120,6 +120,15 @@ CAREERS.tutor = {
 };
 function tuEnd(s, t, why) { t.st = 'ended'; t.endNote = `${TU_TIERS[t.tier]} · ${t.co} ${t.subj} (${why})`; t.hist.push(t.endNote); t.tv = null; }
 
+// ───── 실시간 창 (12-3): 강의실 ─────
+// 학원은 교실(acad), 인강은 촬영 스튜디오(ol), 입시 설명회는 큰 강의실(hall). sub: first 첫 수업 · term 개강 수업 · talk 특강
+function tuClass(s, t, sub, o) {
+  o = o || {};
+  if (typeof liveStage !== 'function') return null;
+  const ol = t.mode === 'ol', nm = me(s).name, base = o.sc != null ? o.sc : (sub === 'first' ? tuScore(s, t) * 1.2 : t.rep) + U.normal(0, 5);
+  return liveStage({ k: 'class', vn: 'class', place: ol ? '인강 촬영' : sub === 'talk' ? '입시 설명회' : '강의실', t: `${t.co} ${t.subj}`, g: nm, mem: [[nm, '']], mi: 0, key: o.key !== false, sc: U.clamp(base, 0, 100), z: { fun: (me(s).tal.verbal - 50) / 15 }, x: { room: ol ? 'ol' : sub === 'talk' ? 'hall' : 'acad', sub, sign: t.co } });
+}
+function tuClassBoxes(s, t) { return [['🧑‍🎓', '수강생', fmtFans(t.stu)], ['📝', '강의 평가', `${Math.round(t.rep)}`]]; }
 // ───── 한 달 (자동으로 하는 일) ─────
 function tuMonth(s, t) {
   if (t.st !== 'active') return;
@@ -135,6 +144,12 @@ function tuMonth(s, t) {
     t.stu = Math.max(0, Math.round(t.stu + (tg - t.stu) * U.fl(ol ? 0.03 : 0.05, ol ? 0.07 : 0.1)));
     if (t.stu > b) s.fans.kr += Math.round((t.stu - b) * (ol ? 0.05 : 0.3) * myRoom(s, 'kr'));
     if (t.book && ++t.book.prog >= t.book.need) tuBookDone(s, t);
+    // 강의실 창: 첫 수업은 '중요할 때만'에서도, 해마다 3월 개강 수업은 '매번'일 때만
+    if (typeof classShow === 'function') {
+      // (예전 세이브에서 이미 오래 가르친 사람은 첫 수업 창을 띄우지 않는다)
+      if (!t.cls1) { t.cls1 = 1; if (t.months <= 2) classShow(s, '첫 수업', `${t.co}에서 ${t.subj} 첫 수업을 했다.`, tuClass(s, t, 'first'), { boxes: tuClassBoxes(s, t) }); }
+      else if (calM(s) === 2) classShow(s, '개강', `${t.co} ${t.subj} 새 학기 수업을 시작했다.`, tuClass(s, t, 'term', { key: false }), { quiet: true, boxes: tuClassBoxes(s, t) });
+    }
   } else {
     t.stu = Math.round(t.stu * (ol ? 0.97 : 0.9));
     t.rep = Math.max(0, t.rep - 1);
@@ -182,7 +197,9 @@ function tuTalk(s, t) {
   addStress(s, 4);
   const x = `${t.mode === 'ol' ? '온라인 무료 특강' : '입시 설명회'}를 열었다. ${good ? '자리가 꽉 찼고, 끝나고 수강 신청이 몰렸다.' : '자리가 듬성듬성했다.'} (수강생 +${fmtFans(add)})` + fx(s, { fame: good ? 1 : 0 });
   const up = tuTierUp(s, t);
-  return showResult(s, '무료 특강', x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''));
+  // 특강도 강의실 창으로: '중요할 때만'에서는 첫 특강과 등급이 오른 특강만
+  const first = !t.talks; t.talks = (t.talks || 0) + 1;
+  return showResult(s, '무료 특강', x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), tuClass(s, t, 'talk', { sc: good ? U.int(62, 88) : U.int(30, 52), key: first || !!up }));
 }
 function tuVid(s, t) {
   t.cd.vid = s.t + 3;

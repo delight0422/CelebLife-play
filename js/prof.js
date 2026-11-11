@@ -122,6 +122,15 @@ CAREERS.prof = {
   monthly(s, t) { pfMonth(s, t); },
 };
 
+// ───── 실시간 창 (12-3): 강의실 ─────
+// sub: first 첫 강의 · term 학기 마지막 강의(종강) · last 정년 고별 강의. 강의 점수는 강의 평가(첫 강의는 가르치는 실력)에 그날 운을 더한다
+function pfClass(s, t, sub, o) {
+  o = o || {};
+  if (typeof liveStage !== 'function') return null;
+  const base = sub === 'first' ? pfLecture(s, t) * 1.2 : t.rep, nm = me(s).name;
+  return liveStage({ k: 'class', vn: 'class', place: '강의실', t: `${t.uni} ${t.dept}`, g: nm, mem: [[nm, '']], mi: 0, key: o.key !== false, sc: U.clamp(base + U.normal(0, 5) + (sub === 'last' ? 8 : 0), 0, 100), z: { fun: (me(s).tal.verbal - 50) / 15 }, x: { room: 'uni', sub, sign: t.uni } });
+}
+function pfClassBoxes(s, t) { return [['📝', '강의 평가', `${Math.round(t.rep)}`], ['📚', '연구·작품 실적', `${t.pts}`]]; }
 // ───── 한 달 ─────
 function pfMonth(s, t) {
   if (t.st !== 'active') return;
@@ -138,6 +147,12 @@ function pfMonth(s, t) {
     if (g) practice(s, p, 'study', 0.6 * n);
     // 강의 평가: 가르치는 실력 × 1.2 쪽으로 조금씩 다가간다
     if (pfTeaches(t)) t.rep = U.clamp(t.rep + (pfLecture(s, t) * 1.2 + U.normal(0, 6) - t.rep) * 0.06, 0, 100);
+    // 강의실 창: 첫 강의는 '중요할 때만'에서도, 학기 마지막 강의(6월 · 12월)는 '매번'일 때만
+    if (pfTeaches(t) && typeof classShow === 'function') {
+      // (예전 세이브에서 이미 오래 가르친 사람은 첫 강의 창을 띄우지 않는다)
+      if (!t.lec1) { t.lec1 = 1; if ((t.stM || 0) <= 2) classShow(s, '첫 강의', `${t.uni} ${t.dept}에서 첫 강의를 했다.`, pfClass(s, t, 'first'), { boxes: pfClassBoxes(s, t) }); }
+      else if (calM(s) === 5 || calM(s) === 11) classShow(s, '종강', `${t.uni} ${t.dept} 한 학기 강의를 마쳤다.`, pfClass(s, t, 'term', { key: false }), { quiet: true, boxes: pfClassBoxes(s, t) });
+    }
     if (t.stM % 6 === 0) pfOutput(s, t);
     if (pfTeaches(t) && (t.studs || []).length < 8 && U.chance(0.035)) pfStudent(s, t);
     if (g && t.tier === 0) t.gw = (t.gw || 0) + 1;
@@ -337,6 +352,9 @@ E({
 });
 E({
   id: 'pf_retire', cat: '정년', title: '정년 퇴임', tag: 'career',
+  // 고별 강의를 강의실 창으로 (볼 차례일 때만 창을 띄운다)
+  init(s, d) { d.live = pfClass(s, s.tracks.prof, 'last'); },
+  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live,
   cond: s => pfOn(s),
   text: s => { const t = s.tracks.prof; return `${t.uni}에서 정년을 맞았다. ${pfTitle(t)}로 마지막 강의를 했다. 제자들이 강의실을 꽉 채웠다.`; },
   ch: () => [{ t: '정년 퇴임한다', f: s => { const t = s.tracks.prof, n = `${t.uni} ${pfTitle(t)} (정년 퇴임 · 명예교수)`; milestone(s, `${age(s)}세에 ${n}.`); pfLeave(s, t, n); return `${t.uni}에서 정년 퇴임했다. 명예교수가 되었다.`; } }],
