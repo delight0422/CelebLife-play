@@ -730,9 +730,9 @@ function dreamLine(s) {
   return d === '없음' ? '장래희망은 없었다' : `장래희망은 ${josa(d, '이가')} 되는 것이었다`;
 }
 // ───── 인생 결산 창 (12-5) ─────
-// 시안 세 가지를 같은 내용으로 보여 준다 (A 무대 · B 잡지 · C 필름). 사용자가 고르면 나머지는 지운다
+// 가운데 정렬 배치(예전 시안 C)에 밝은 색과 무대의 막을 입혔다. 색 조합만 다른 시안 세 가지 (A 붉은 막 · B 푸른 막 · C 보랏빛 막). 사용자가 고르면 나머지는 지운다
 // 머리(이름 · 칭호 · 주 직업 테마) → 숫자 → 해마다 그래프 → 대표작 → 트로피 선반 → 걸어온 길(세로 줄) → 인연 → 자녀
-const END_STYLES = [['A', '무대'], ['B', '잡지'], ['C', '필름']];
+const END_STYLES = [['A', '붉은 막'], ['B', '푸른 막'], ['C', '보랏빛 막']];
 function endStyle() { if (!UI.endStyle) { try { UI.endStyle = localStorage.getItem('celebLife.endStyle') || 'A'; } catch (e) { UI.endStyle = 'A'; } } return UI.endStyle; }
 // 그래프 자료: 해마다 기록이 있으면 그것, 없으면(예전 세이브) 작품 수입으로 번 돈만 어림한다
 function endYears(s) {
@@ -785,8 +785,8 @@ function showEnding(preview) {
   const years = pv ? `${s.birthYear}년생 · 지금 ${age(s)}세 (지금 은퇴한다면)` : `${s.birthYear}년생 · ${handoff ? `${ep.retireAge}세에 아이에게 넘김` : `${ep.retireAge}세 ${ep.kind === 'fail' ? '꿈을 접음' : '은퇴'} · ${ep.deathAge}세에 세상을 떠남`}`;
   const badges = endBadges(s);
   let h = `<div class="en-pick"><span>시안</span>${END_STYLES.map(([k, n]) => `<button class="${k === st ? 'on' : ''}" data-endstyle="${k}">${k} ${n}</button>`).join('')}</div>`;
-  h += `<div class="en en-${st} th-${ep.kind === 'fail' ? 'none' : M ? M.cat : 'none'} k-${ep.kind}">`;
-  h += `<header class="en-hero"><div class="en-kicker">${handoff ? '이야기를 넘기며' : '인생 결산'}</div><div class="en-name">${U.esc(p.name)}</div><div class="en-title">${U.esc(title)}</div>${sub ? `<div class="en-sub">${U.esc(sub)}</div>` : ''}<div class="en-years">${years}</div>`
+  h += `<div class="en en-cur cv-${st} th-${ep.kind === 'fail' ? 'none' : M ? M.cat : 'none'} k-${ep.kind}">`;
+  h += `<header class="en-hero"><i class="en-val"></i><i class="en-drape l"></i><i class="en-drape r"></i><div class="en-kicker">${handoff ? '이야기를 넘기며' : '인생 결산'}</div><div class="en-name">${U.esc(p.name)}</div><div class="en-title">${U.esc(title)}</div>${sub ? `<div class="en-sub">${U.esc(sub)}</div>` : ''}<div class="en-years">${years}</div>`
     + (badges.length ? `<div class="en-badges">${badges.map(([ic, n]) => `<span>${ic} ${n}</span>`).join('')}</div>` : '') + (last ? `<div class="en-last">${U.esc(last)}</div>` : '') + `</header>`;
   h += `<div class="en-body"><div class="en-col1">`;
   const tiles = [['👥', '가장 많을 때 팬', fmtFans(s.peak.fans)], ['💰', '업계에서 번 돈', endWon(s.earned)], ['🏆', '받은 상', `${s.awards.length}개`], ['🎬', '작품', `${s.works.length}개`], ['💼', '해 본 일', `${jobs}가지`], ['👶', '자녀', `${kids(s).length}명`]];
@@ -1427,7 +1427,8 @@ function panelJob() {
   if (!ci.some(r => Array.isArray(r) && r[0] === '내 실력')) { const cs = careerSkill(s, id); if (cs) rows.push(['내 실력', cs]); }
   const cl = contractLine(s, id); if (cl) { const m = c.cLeft(s, t); rows.push(['계약 기간', `${cl.replace('계약 ', '')} (${Math.max(0, m)}개월 남음)`]); }
   // 그 직업으로 지금까지 번 돈은 맨 위에
-  const info = [['번 돈', fmtWon((s.jobEarn || {})[id] || 0)]].concat(POP_JOBS.includes(id) ? [['인기', popTxt(jpop(s, id))]] : [], rows, ci);
+  const fanTxt = MK.filter(m => (s.fans[m] || 0) >= 1).map(m => `${MK_N[m]} ${fmtFans(s.fans[m])}`).join(' · ') || '아직 없다';
+  const info = [['번 돈', fmtWon((s.jobEarn || {})[id] || 0)], ['내 팬', fanTxt]].concat(POP_JOBS.includes(id) ? [['인기', popTxt(jpop(s, id))]] : [], rows, ci);
   // 그 일에서 함께 일하는 팀들 (피드백 28 · 29): 내가 그 팀 사람이면 '나'도 들어간다
   for (const x of jobTeams(s, id)) info.push({ h: coTeamName(x.tk), items: coTeamItems(s, x.tk, x.me, x.lead) });
   if (SONG_JOBS.includes(id)) info.push({ h: '곡 컨셉 숙련도', bars: cmBars(s) });

@@ -221,7 +221,7 @@ function harshGain(s, job) {
 function songCommentCh(s, d, line, job) {
   const add = x0 => { const x = evB(x0); d.card.lines.push(x); const w = s.works.slice().reverse().find(w => w.card && w.card.t === d.card.t); if (w && w.card !== d.card) w.card.lines.push(x); };
   return [
-    { t: '쓴소리까지 다 본다', h: '스트레스가 크게 오른다 · 절반 확률로 대표 특기 +1레벨', f: s => { if (d.card && d.card.harsh) add(d.card.harsh); return line + (d.card && d.card.harsh ? ` 아픈 댓글도 봤다. ${d.card.harsh}` : '') + harshGain(s, job) + fx(s, { stress: 30 }); } },
+    { t: '쓴소리까지 다 본다', f: s => { if (d.card && d.card.harsh) add(d.card.harsh); return line + (d.card && d.card.harsh ? ` 아픈 댓글도 봤다. ${d.card.harsh}` : '') + harshGain(s, job) + fx(s, { stress: 30 }); } },
     { t: '좋은 댓글만 본다', f: s => line + fx(s, { stress: -3 }) },
     { t: '댓글은 안 본다', f: () => line },
   ];

@@ -371,7 +371,8 @@ function coPplTbl(s, P, kind, exact, on) {
     if (exact) c.mo = [s.t - x.co.since, `${s.t - x.co.since}개월`];
     return { k: x.id, on: (on || []).includes(x.id), cells: c };
   });
-  return { cols, rows };
+  // 사람 표는 어디서든 나이순으로 시작한다 (v148: 예전엔 오디션 표만 나이순이고 연습생 내보내기 · 그룹 만들기 · 데뷔조 표는 들어온 순서였다)
+  return { cols, rows, sort: ['a', 1] };
 }
 // 트레이너가 권하는 데뷔 멤버 (v133): 트레이너마다 딱 한 명. 표에서 그 줄에 초록 테두리와 '○○ 트레이너 추천'이 붙는다
 // 자기 분야를 더 무겁게 보고, 가르치는 실력이 낮을수록 잘못 본다 (같은 해에는 같은 추천). 돌려주는 값: { 연습생 id: '보컬 트레이너 추천' }

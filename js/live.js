@@ -402,10 +402,20 @@ function plioComments(sp) {
   let up = Math.max(3, sp.vw * (0.002 + 0.004 * R()));
   return out.map(x => { const c = { who: take(PL_NICK) || '익명', x, up: Math.round(up) }; up *= 0.3 + 0.45 * R(); return c; });
 }
+// 영상 화면(썸네일): 종류마다 배경을 그리고 캐릭터를 세운다. 그림 파일 없이 CSS와 지금 있는 캐릭터 그림으로 만든다
+// [배경, 사람 수]. 배경: stage 무대 · room 실내(드라마) · studio 예능 · sky 애니 · booth 방송 방 · board 칠판
+const PL_SCENE = { stage: ['stage', 5], stagew: ['stage', 5], mv: ['stage', 1], drama: ['room', 2], film: ['room', 2], show: ['studio', 3], anime: ['sky', 2], animk: ['sky', 2], cover: ['booth', 1], collab: ['booth', 2], vlog: ['booth', 1], clip: ['board', 1] };
+const PL_CAP = { great: ['레전드', '난리 난 장면', '이건 꼭 봐야 해'], good: ['화제의 장면', '다시 보기'], meh: ['하이라이트', '이번 주 영상'], bad: ['하이라이트', '새 영상'] };
+function plioThumbHTML(sp, hue) {
+  const R = liveRng(sp.seed + 3), K = PL_SCENE[sp.k] || ['booth', 1], n = K[1];
+  const chars = Array.from({ length: n }, (_, i) => liveChar(`pl${sp.seed}/${i}`, (hue + (K[0] === 'stage' ? 0 : i * 71)) % 360, `pl${sp.seed}/${K[0] === 'stage' ? 0 : i}`)).join('');
+  const cap = PL_CAP[sp.sc >= 80 ? 'great' : sp.sc >= 65 ? 'good' : sp.sc >= 52 ? 'meh' : 'bad'], capT = cap[Math.floor(R() * cap.length)];
+  return `<div class="pl-video sc-${K[0]}" style="--hue:${hue}"><div class="pl-bg"></div><div class="pl-chars n${n}">${chars}</div><span class="pl-kind">${U.esc(PL_KIND[sp.k] || '영상')}</span><span class="pl-capt">${capT}</span><span class="pl-play">▶</span><span class="pl-dur">${1 + Math.floor(R() * 14)}:${String(Math.floor(R() * 60)).padStart(2, '0')}</span><i class="pl-prog"><b style="width:${Math.round(15 + R() * 70)}%"></b></i></div>`;
+}
 function plioHTML(sp) {
   const C = plioComments(sp), R = liveRng(sp.seed + 7), hue = hashN('pl' + sp.t) % 360, like = Math.round(sp.vw * (0.02 + 0.04 * R())), cn = Math.max(C.length, Math.round(sp.vw * (0.001 + 0.003 * R())));
   return `<div class="pl-top"><span class="pl-logo">▶ ${PF.video.en}</span><span class="pl-sub">${PF.video.n}</span></div>`
-    + `<div class="pl-wrap"><div class="pl-main"><div class="pl-video" style="--hue:${hue}"><span class="pl-kind">${U.esc(PL_KIND[sp.k] || '영상')}</span><span class="pl-play">▶</span><span class="pl-dur">${1 + Math.floor(R() * 14)}:${String(Math.floor(R() * 60)).padStart(2, '0')}</span></div>`
+    + `<div class="pl-wrap"><div class="pl-main">${plioThumbHTML(sp, hue)}`
     + `<div class="pl-t">${U.esc(sp.t)}</div><div class="pl-meta"><span class="pl-ch"><i style="background:hsl(${(hue + 40) % 360} 60% 55%)"></i>${U.esc(sp.ch)}</span><span>조회수 ${plN(sp.vw)}회</span><span class="pl-like">👍 ${plN(like)}</span></div></div>`
     + `<div class="pl-cm"><div class="pl-cm-h">댓글 ${plN(cn)}개</div><div class="pl-cm-b">${C.map(c => `<div class="pl-c"><i class="pl-av" style="background:hsl(${hashN(c.who) % 360} 55% 58%)">${U.esc(c.who.slice(0, 1))}</i><div><b>${U.esc(c.who)}</b><span>${U.esc(c.x)}</span><em>👍 ${plN(c.up)}</em></div></div>`).join('')}</div></div></div>`;
 }
@@ -417,6 +427,8 @@ function plioToggle(k) {
   if (!sp) return;
   if (UI.plioOpen === k && !$('#pop').classList.contains('hidden')) { popClose(); return; }
   popOpen(sp.v === 'comm' ? commHTML(sp) : plioHTML(sp), 'live-card pf-card'); UI.plioOpen = k;
+  // 영상 화면의 캐릭터 그림을 칠한다
+  if (sp.v !== 'comm') { chLoad(); chPaintAll(); }
 }
 
 // ───── 커뮤니티 '와글' 팝업 (12-3) ─────
