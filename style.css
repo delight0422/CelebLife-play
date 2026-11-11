@@ -920,3 +920,33 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .lv-stage.vn-fest .lv-lights i { opacity: .45; }
 .lv-stage.vn-fest .lv-floor { background: linear-gradient(180deg, rgba(60, 50, 80, .9), rgba(30, 24, 44, .9)); border-radius: 10px; left: 10%; right: 10%; }
 .lv-stage.vn-fest .lv-crowd { height: 30%; background: linear-gradient(180deg, rgba(20, 14, 30, .2), rgba(8, 5, 14, .9)); }
+/* 12-3: 세트장 (영화 촬영장 · 야외 촬영 · 예능 스튜디오). 객석 대신 카메라 · 조명 · 슬레이트 */
+.lv-stage.mcon .lv-mc { display: block; }
+.lv-props { position: absolute; inset: 0; pointer-events: none; }
+.lv-props i { position: absolute; font-style: normal; line-height: 1; }
+.p-cam { bottom: 7%; font-size: 54px; filter: drop-shadow(0 4px 8px rgba(0, 0, 0, .6)); }
+.p-cam.l { left: 9%; transform: scaleX(-1); } .p-cam.r { right: 9%; }
+.p-light { top: 4%; font-size: 40px; filter: drop-shadow(0 0 calc(18px * var(--glow)) rgba(255, 240, 180, .9)); }
+.p-light.l { left: 12%; } .p-light.r { right: 12%; }
+.p-clap { left: 50%; bottom: 8%; font-size: 46px; transform: translateX(-50%); }
+.lv-stage.clap .p-clap { animation: lvClap .5s ease-out; }
+@keyframes lvClap { 0% { transform: translateX(-50%) rotate(-25deg) scale(1.5); } 60% { transform: translateX(-50%) rotate(6deg) scale(1.1); } 100% { transform: translateX(-50%); } }
+.p-sun { top: 6%; right: 10%; font-size: 52px; }
+.p-tree { bottom: 30%; font-size: 84px; } .p-tree.l { left: 3%; } .p-tree.r { right: 4%; }
+.p-air { top: 5%; left: 6%; font-size: 15px; font-weight: 800; letter-spacing: 2px; color: #fff; background: #e0304a; padding: 5px 12px; border-radius: 6px; box-shadow: 0 0 calc(16px * var(--glow)) rgba(255, 60, 90, .8); }
+.lv-stage.vn-film { background: linear-gradient(180deg, #1c1a26 0%, #2b2836 55%, #15131d 56%); }
+.lv-stage.vn-film .lv-lights i { width: 26%; background: linear-gradient(180deg, hsla(48, 95%, 86%, calc(.14 + .36 * var(--glow))) 0%, transparent 72%); animation: none; }
+.lv-stage.vn-film .lv-lights i:nth-child(2), .lv-stage.vn-film .lv-lights i:nth-child(3) { display: none; }
+.lv-stage.vn-film .lv-floor { left: 16%; right: 16%; bottom: 24%; height: 44%; border-radius: 10px; background: linear-gradient(180deg, #5d5470 0%, #4a4259 70%, #6b5a48 71%, #57493b 100%); box-shadow: 0 0 0 6px #2a2535; }
+.lv-stage.vn-outdoor { background: linear-gradient(180deg, #6ec3f4 0%, #bfe6fb 52%, #7cc56a 53%, #4d9a48 100%); filter: none; }
+.lv-stage.vn-outdoor .lv-lights, .lv-stage.vn-outdoor .lv-floor { display: none; }
+.lv-stage.vn-outdoor .lb { text-shadow: 0 2px 10px rgba(0, 0, 0, .55), 0 0 2px rgba(0, 0, 0, .6); }
+.lv-stage.vn-studio { background: repeating-linear-gradient(90deg, hsl(var(--hue) 60% 32%) 0 60px, hsl(calc(var(--hue) + 40) 60% 36%) 60px 120px); }
+.lv-stage.vn-studio .lv-lights i { opacity: .5; }
+.lv-stage.vn-studio .lv-floor { left: 8%; right: 8%; bottom: 24%; height: 16%; border-radius: 14px; background: linear-gradient(180deg, #fff3, #0003); }
+.lv-stage.vn-film .lv-crowd, .lv-stage.vn-outdoor .lv-crowd, .lv-stage.vn-studio .lv-crowd { height: 22%; background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .45)); }
+.lv-stage.vn-film .lv-crowd i, .lv-stage.vn-outdoor .lv-crowd i { display: none; }
+.lv-stage.vn-studio .lv-crowd i { width: 16px; height: 16px; border-radius: 50%; background: #1b1626; box-shadow: none; opacity: .9; animation-duration: 2s; }
+@media (max-width: 700px) { .p-cam { font-size: 34px; } .p-clap { font-size: 30px; } .p-light { font-size: 26px; } .p-tree { font-size: 50px; } .p-sun { font-size: 34px; } }
+.lv-stage.vn-outdoor .lb.soft { color: #2f2a45; text-shadow: 0 1px 6px rgba(255, 255, 255, .7); }
+.lv-stage.vn-outdoor .lb.bad { color: #b01f3c; text-shadow: 0 1px 6px rgba(255, 255, 255, .7); }

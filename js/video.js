@@ -109,6 +109,24 @@ function startProject(s, pj) {
   if (!t.sn) askStageName(s, 'actor');
   return `${T.n} 「${pj.title}」 ${ROLE_N[pj.ri]}${josa(ROLE_N[pj.ri], '으로').slice(ROLE_N[pj.ri].length)} 캐스팅됐다!${pj.teacher ? ' 학생들을 맡은 교사 역이다.' : ''} ${T.months}개월 동안 촬영한다. 감독은 ${dir.name}.`;
 }
+// 촬영 끝 (12-3): 마지막 촬영 날의 촬영장을 실시간 창으로 보여 준다. 영화 · OTT · 뮤직비디오는 영화 촬영장, 드라마 · 웹드라마는 야외 촬영
+// 주연작이거나 첫 작품이 '중요할 때'. 창을 볼 차례가 아니면 예전처럼 기록 한 줄만 남는다 (요약 창)
+function actorWrap(s, t, pj, wait) {
+  const p = me(s), T = PJ_TYPES[pj.tk], pf = actPerf(s, pj), v = pf.v + pj.pn, out = pj.tk === 'drama' || pj.tk === 'web';
+  const cast = (pj.cast || []).map(id => s.people[id]).filter(Boolean), castAvg = cast.length ? cast.reduce((a, c) => a + lv(c, 'acting'), 0) / cast.length : 40;
+  const live = typeof liveStage === 'function' ? liveStage({ k: 'set', vn: out ? 'outdoor' : 'film', place: out ? '야외 촬영' : `${T.n === '영화' ? '영화' : T.n} 촬영장`, t: pj.title, g: actName(s, 'actor'), cn: actCall(s, 'actor'),
+    mem: [[actCall(s, 'actor'), ROLE_N[pj.ri]]].concat(cast.slice(0, 4).map(c => [callName(c.name), ''])), mi: 0, key: pj.ri === 2 || !t.works, old: pf.old,
+    z: { perf: v / 14, emo: (p.tal.express - 50) / 20, co: (castAvg - 45) / 18, vis: (p.tal.looks - 55) / 20 }, sc: U.clamp(50 + v * 2, 0, 100) }) : null;
+  const mood = v > 12 ? evG('감독이 오늘 연기를 크게 칭찬했다.') : v < -5 ? evB('NG가 많아 진땀을 뺐다.') : '무난하게 마무리했다.';
+  queueEv(s, 'actor_wrap', 0, { title: pj.title, when: ymLater(s, wait), live, mood }, true);
+}
+E({
+  id: 'actor_wrap', cat: '촬영', title: (s, d) => `「${d.title}」 촬영 끝`, tag: 'career',
+  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live),
+  live: (s, d) => d.live,
+  text: (s, d) => `「${d.title}」 마지막 촬영을 마쳤다. ${d.mood}\n\n${d.when}쯤 공개된다.`,
+  ch: (s, d) => [{ t: '확인', f: () => `「${d.title}」 촬영을 마쳤다. ${d.when}쯤 공개된다.` }],
+});
 CAREERS.actor = {
   n: '배우', ic: '🎬',
   desc: '드라마와 영화에 나온다. 연기가 가장 중요하고, 외모와 인지도가 큰 배역을 넓혀 준다. 작품이 잘되면 조연에서 주연으로 올라간다.',
@@ -160,7 +178,8 @@ CAREERS.actor = {
         t.proj.id = t.proj.id || 'pj' + U.uid();
         const wait = airDelay(t.proj.tk);
         t.wait = (t.wait || []).concat({ id: t.proj.id, title: t.proj.title, tk: t.proj.tk, ri: t.proj.ri, at: s.t + wait });
-        queueEv(s, 'actor_res', wait, { pj: t.proj }, true); addLog(s, `「${t.proj.title}」 촬영을 마쳤다. ${ymLater(s, wait)}쯤 공개된다.`, 'career'); t.proj = null;
+        t.proj.pn = U.normal(0, 6);
+        queueEv(s, 'actor_res', wait, { pj: t.proj }, true); actorWrap(s, t, t.proj, wait); t.proj = null;
       }
       return;
     }
@@ -284,7 +303,8 @@ E({
     const castAvg = cast.length ? cast.reduce((a, c) => a + lv(c, 'acting'), 0) / cast.length : 40;
     const sc = U.clamp(pj.q * 0.35 + lv(p, 'acting') * [0.1, 0.2, 0.3][pj.ri] + castAvg * 0.1 + (dir ? lv(dir, 'direct') * 0.08 : 3) + visB(p) * 0.6 + Math.log10(1 + totalFans(s)) * 2.2 + (p.tal.star - 50) * 0.1 + (pj.genre === s.trendTV.drama ? 5 : 0) + promo + [10, 6, 0][pj.ri] + U.normal(0, 7), 0, 100);
     const pf = actPerf(s, pj);
-    const perf = pf.v + U.normal(0, 6);
+    // 연기 평의 운(pn)은 촬영을 마칠 때 이미 정해 뒀다 (12-3: 촬영장 창이 그 연기를 보여 준다). 예전 세이브의 작품은 여기서 굴린다
+    const perf = pf.v + (pj.pn != null ? pj.pn : U.normal(0, 6));
     d.oldSchool = pf.old;
     d.review = perf > ACT_BIG.hi ? '연기 대호평' : perf > 12 ? '연기 호평' : perf > -5 ? '무난한 연기' : perf > ACT_BIG.lo ? '연기 혹평' : '연기 대혹평';
     d.good = /호평/.test(d.review); d.bad = /혹평/.test(d.review);
@@ -553,7 +573,11 @@ function doShow(s, sh) {
   const x = `${sh.bc} 「${sh.title}」에 ${sh.fixed ? '고정 멤버로 합류했다' : '게스트로 나갔다'}. ${how}` + fx(s, { fkr: big < 0 ? -Math.round(s.fans.kr * 0.03) : gain, jp: t ? { variety: big > 0 ? 5 : good ? 2 : big < 0 ? -4 : 0 } : null, pop: t ? 0 : (big > 0 ? 5 : good ? 2 : big < 0 ? -4 : 0) / 2, fame: big > 0 ? 4 : good ? 1 : 0, stress: big < 0 ? 6 : 3 }) + varLearn(s, good);
   // 등급은 방송이 나간 뒤에 오른다 (방송 결과창에 같이 쓴다)
   const up = t ? varTierUp(s, t) : '';
-  return showResult(s, `${sh.bc} 「${sh.title}」`, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''));
+  // 실시간 창 (12-3): 예능 스튜디오 (여행 · 리얼 버라이어티는 야외 촬영). 레전드 회차 · 노잼 · 고정 합류 · 첫 예능이 '중요할 때'
+  const out = /여행|리얼/.test(sh.genre), first = !s.works.some(w => w.type === '예능' && w.title !== sh.title);
+  const live = typeof liveStage === 'function' ? liveStage({ k: 'show', vn: out ? 'outdoor' : 'studio', place: out ? '야외 촬영' : '예능 스튜디오', t: sh.title, g: sh.bc, cn: callName(p.name), mem: [[callName(p.name), '']].concat(['MC', '고정', '게스트'].slice(0, U.int(2, 3)).map(n => [n, ''])), mi: 0,
+    key: big !== 0 || !!sh.fixed || first, big, fixed: sh.fixed, z: { var: (varScore(s) - 45) / 18 }, sc: big > 0 ? 90 : good ? 70 : big < 0 ? 25 : 45 }) : null;
+  return showResult(s, `${sh.bc} 「${sh.title}」`, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), live);
 }
 // 예능인 등급: 쌓인 점수와 팬이 문턱을 넘으면 오른다. 오른 등급을 알리는 문장을 돌려준다 (안 올랐으면 '')
 function varTierUp(s, t) {
@@ -565,9 +589,11 @@ function varTierUp(s, t) {
 }
 // 결과창: 방송·촬영처럼 따로 결과 창이 없던 일의 결과를 창으로 보여 준다. 등급이 오르면 여기에 같이 쓴다 (피드백 17)
 // 다른 창(활동명 정하기 등)이 이미 떠 있으면 그다음에 뜬다
-E({ id: 'work_res', cat: '작품 성적', tag: 'career', title: (s, d) => d.title, text: (s, d) => d.text, ch: (s, d) => [{ t: '확인', f: () => d.log }] });
-function showResult(s, title, text, log) {
-  const d = { title, text, log: log || text };
+// live: 그 일의 실시간 창 (12-3: 예능 녹화). 창을 볼 차례면 결과도 따로 창으로 뜬다
+E({ id: 'work_res', cat: '작품 성적', tag: 'career', title: (s, d) => d.title, text: (s, d) => d.text, ch: (s, d) => [{ t: '확인', f: () => d.log }],
+  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live });
+function showResult(s, title, text, log, live) {
+  const d = { title, text, log: log || text, live: live || null };
   if (s.pending) queueEv(s, 'work_res', 0, d, true); else fireEvent(s, 'work_res', d);
   return '';
 }

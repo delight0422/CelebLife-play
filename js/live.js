@@ -11,6 +11,8 @@ const LIVE_MODES = [['all', '매번'], ['key', '중요할 때만'], ['off', '안
 function liveMode() { try { return localStorage.getItem('celebLife.live') || 'key'; } catch (e) { return 'key'; } }
 function liveSetMode(m) { try { localStorage.setItem('celebLife.live', m); } catch (e) { } }
 function liveWant(sp) { const m = liveMode(); return !!sp && m !== 'off' && (m === 'all' || !!sp.key); }
+// 결과 창이 따로 없는 일(촬영 끝 · 예능 녹화 · 연주회)을 창으로 띄울지: 실시간 창을 볼 차례일 때만 (설정을 따른다)
+function liveShow(sp) { return !!sp && liveWant(sp); }
 // 씨앗으로 도는 작은 난수 (같은 씨앗이면 같은 장면)
 function liveRng(seed) { let a = (seed >>> 0) || 1; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 // 팬들이 부르는 이름: 세 글자 이름은 성을 뗀다 (김하린 → 하린)
@@ -22,7 +24,7 @@ function liveStage(o) {
   const z = {};
   for (const k in o.z || {}) if (isFinite(o.z[k])) z[k] = Math.round(o.z[k] * 100) / 100;
   const name = o.g || o.t || '';
-  return { v: 'stage', k: o.k, vn: o.vn || '', nw: o.nw ? 1 : 0, key: o.key !== false, seed: U.int(1, 2e9), place: o.place || '무대', t: o.t || '', g: o.g || '', cn: o.cn || '', fd: o.fd || '', mem: (o.mem || []).slice(0, 10), mi: o.mi || 0, hue: hashN('hue' + name) % 360, z, sc: Math.round(o.sc || 0), wins: o.wins || 0, rv: o.rv || '', cand: o.cand ? 1 : 0, debut: o.debut ? 1 : 0 };
+  return { v: 'stage', k: o.k, vn: o.vn || '', nw: o.nw ? 1 : 0, big: o.big || 0, old: o.old ? 1 : 0, fx2: o.fixed ? 1 : 0, key: o.key !== false, seed: U.int(1, 2e9), place: o.place || '무대', t: o.t || '', g: o.g || '', cn: o.cn || '', fd: o.fd || '', mem: (o.mem || []).slice(0, 10), mi: o.mi || 0, hue: hashN('hue' + name) % 360, z, sc: Math.round(o.sc || 0), wins: o.wins || 0, rv: o.rv || '', cand: o.cand ? 1 : 0, debut: o.debut ? 1 : 0 };
 }
 
 // 같은 곡 무대를 다른 자리에서 한 번 더 (시상식 무대 등): 요인은 그대로, 씨앗만 새로. 1위 발표 · 데뷔 인사는 뺀다
@@ -43,6 +45,8 @@ function liveBeats(sp) {
   const B = [];
   if (sp.k === 'meet') return liveMeet(sp, R, pk, z, lvl, who, mine);
   if (sp.k === 'band' || sp.k === 'player') return liveBand(sp, R, pk, z, lvl, cn, mine);
+  if (sp.k === 'set') return liveSet(sp, R, pk, z, lvl, mine);
+  if (sp.k === 'show') return liveTv(sp, R, pk, z, lvl, mine);
   // 1. 등장: 팬이 많을수록 객석이 크다
   const f = lvl(z('fans'));
   B.push({ cap: `조명이 켜지고 ${josa(g, '이가')} 무대에 선다`, glow: 0.35 + f * 0.15,
@@ -114,6 +118,38 @@ function liveBand(sp, R, pk, z, lvl, cn, mine) {
   const sc = sp.sc, enc = solo ? '브라보!! 브라보!!' : '앵콜!! 앵콜!!';
   B.push({ cap: '엔딩', glow: sc >= 80 ? 1 : sc >= 65 ? 0.8 : 0.55, L: sc >= 80 ? [[enc, 'call'], [pk(big), 'big'], [pk(big), 'big']] : sc >= 65 ? [['짝짝짝짝짝!!', 'big'], [solo ? '브라보!' : '한 곡 더!!', 'big']] : sc >= 52 ? [[pk(clap), 'soft'], ['수고했어요!', 'soft']] : [['짝짝…', 'soft']] });
   return B;
+}
+// ───── 세트장 (12-3): 영화 촬영장 · 야외 촬영 (배우) · 예능 스튜디오 (예능인) ─────
+// 객석이 없다. 들리는 건 감독(mc: 무대 위 가운데 말풍선)의 '액션 · 컷 · NG · 오케이'와 스태프 · 방청객 소리뿐
+// 촬영장 요인: perf(내 연기가 배역에 맞았나) · emo(표현력) · co(상대 배우) · vis(화면발). old: 학원물에 안 어울리는 나이
+// clap: 슬레이트를 친다
+function liveSet(sp, R, pk, z, lvl, mine) {
+  const B = [], pv = lvl(z('perf')), ev = lvl(z('emo')), cv = lvl(z('co'));
+  B.push({ cap: '슬레이트', glow: 0.5, clap: 1, L: [['레디— 액션!', 'mc'], ['쉿…', 'soft']] });
+  B.push({ cap: '첫 테이크', glow: 0.6, L: pv === 2 ? [['컷! 오케이!!', 'mc'], [pk(['한 번에 갔다!', '와…']), 'big'], ['짝짝짝', 'soft']] : pv === 1 ? [['컷! 한 번만 더 갈게요', 'mc'], ['네!', 'soft']] : [['컷! NG!', 'mc'], [pk(['아…', '대사가…']), 'bad'], ['다시 갑니다!', 'soft']] });
+  if (sp.old) B.push({ cap: '모니터', glow: 0.5, L: [['음… 교복이 좀…', 'bad'], ['수군수군…', 'bad']] });
+  B.push({ cap: '감정 씬', glow: 0.45, clap: 1, L: ev === 2 && pv >= 1 ? [['액션!', 'mc'], ['……', 'soft'], ['훌쩍…', 'soft'], ['컷… 좋았어요', 'mc']] : ev === 0 || pv === 0 ? [['액션!', 'mc'], ['컷! 감정이 안 올라와요', 'mc'], ['어어…', 'bad']] : [['액션!', 'mc'], ['……', 'soft'], ['컷! 좋아요', 'mc']] });
+  B.push({ cap: '같이 찍는 씬', glow: 0.6, clap: 1, L: cv === 2 ? [['액션!', 'mc'], [pk(['호흡 좋다!', '둘이 잘 맞네!']), 'big']] : cv === 0 ? [['액션!', 'mc'], ['대사가 꼬였다…', 'bad'], ['컷! 다시!', 'mc']] : [['액션!', 'mc'], ['컷! 오케이', 'mc']] });
+  if (z('vis') >= 0.6) B.push({ cap: '클로즈업', glow: 0.75, L: [['화면 잘 받는다!', 'big'], [`${mine} 얼굴 좀 봐!`, 'call']] });
+  const sc = sp.sc;
+  B.push({ cap: '마지막 컷', glow: sc >= 74 ? 1 : 0.7, clap: 1, L: [['컷! 수고하셨습니다!', 'mc']].concat(sc >= 74 ? [['오늘 연기 미쳤다!!', 'big'], ['짝짝짝짝짝!!', 'big'], [`${mine}!!`, 'call']] : sc >= 46 ? [['짝짝짝짝!', 'soft'], ['수고하셨습니다!!', 'big']] : [['짝짝…', 'soft'], ['수고하셨습니다…', 'soft']]) });
+  return B;
+}
+// 예능 녹화: 오프닝 → 내 토크 → 코너 → 리액션 → 클로징. big: 1 레전드 회차 · -1 노잼. 웃음소리가 전부다
+function liveTv(sp, R, pk, z, lvl, mine) {
+  const B = [], good = sp.sc >= 60, big = sp.big || 0, HA = ['하하하하!!', '푸하하!!', '꺄하하하!'];
+  B.push({ cap: '오프닝', glow: 0.6, clap: 1, L: [['자, 시작합니다!', 'mc'], ['와아아!', 'big'], ['짝짝짝', 'soft']] });
+  B.push({ cap: '내 토크', glow: 0.65, L: big > 0 ? [[pk(HA), 'big'], [pk(HA), 'big'], ['아 진짜 웃겨!!', 'big']] : good ? [[pk(HA), 'big'], ['하하하', 'soft']] : big < 0 ? [['……', 'bad'], ['어…', 'bad']] : [['하… 하하', 'soft'], ['……', 'soft']] });
+  B.push({ cap: '코너', glow: 0.7, L: big > 0 ? [['이건 방송 나가면 난리 나겠는데요?', 'mc'], [pk(HA), 'big'], [`${mine}!! ${mine}!!`, 'call']] : good ? [['오, 잘한다!', 'big'], [pk(HA), 'big']] : big < 0 ? [['자… 다음 갈게요', 'mc'], ['에이…', 'bad']] : [['자, 다음!', 'mc'], ['짝짝', 'soft']] });
+  if (good && z('var') >= 0.6) B.push({ cap: '리액션', glow: 0.7, L: [['리액션 좋다!', 'big'], ['하하하하!!', 'big']] });
+  B.push({ cap: '클로징', glow: big > 0 ? 1 : 0.7, L: [[sp.fx2 ? '다음 주에도 함께해요!' : '오늘 게스트, 고생하셨습니다!', 'mc']].concat(big > 0 ? [['짝짝짝짝짝!!', 'big'], ['또 나와요!!', 'big']] : good ? [['짝짝짝짝!', 'soft'], ['수고했어요!', 'big']] : [['짝짝…', 'soft']]) });
+  return B;
+}
+// 세트장 소품 (그림 글자): 조명 · 카메라 · 슬레이트, 야외는 해 · 나무, 스튜디오는 ON AIR
+function liveProps(sp) {
+  if (sp.k !== 'set' && sp.k !== 'show') return '';
+  const cam = '<i class="p-cam l">🎥</i><i class="p-cam r">🎥</i>';
+  return `<div class="lv-props">` + (sp.vn === 'outdoor' ? '<i class="p-sun">☀️</i><i class="p-tree l">🌳</i><i class="p-tree r">🌲</i>' + cam + '<i class="p-clap">🎬</i>' : sp.vn === 'studio' ? '<i class="p-air">ON AIR</i>' + cam + '<i class="p-clap">🎬</i>' : '<i class="p-light l">💡</i><i class="p-light r">💡</i>' + cam + '<i class="p-clap">🎬</i>') + `</div>`;
 }
 // 팬미팅: 토크(예능) · 노래 · 게임 · 편지 · 끝인사
 function liveMeet(sp, R, pk, z, lvl, who, mine) {
@@ -211,10 +247,11 @@ function liveHTML(sp) {
   // 1위 발표 때만 보이는 다른 팀들 (무대 양옆)
   const oth = k => [0, 1, 2].map(i => `<span class="lm" style="--i:${i + k}">${liveChar('rival' + sp.seed + (i + k), (sp.hue + 90 + (k ? 110 : 0)) % 360, 'rival' + sp.seed + k)}</span>`).join('');
   return `<div class="lv-top"><span class="lv-place">${U.esc(sp.place)}</span>${sp.t ? `<span class="lv-t">「${U.esc(sp.t)}」</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
-    + `<div class="lv-stage${sp.vn ? ' vn-' + sp.vn : ''}" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"><div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
+    + `<div class="lv-stage${sp.vn ? ' vn-' + sp.vn : ''}${sp.k === 'set' || sp.k === 'show' ? ' mcon' : ''}" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"><div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
     + `<div class="lv-floor"></div><div class="lv-oth l">${oth(0)}</div><div class="lv-oth r">${oth(3)}</div>`
-    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.hue, sp.g)}<em>${sp.k === 'band' || sp.k === 'player' ? livePartIc(m[1]) + ' ' : ''}${U.esc(m[0])}</em></span>`).join('')}</div>`
+    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.k === 'set' || sp.k === 'show' ? (sp.hue + i * 67) % 360 : sp.hue, sp.k === 'set' || sp.k === 'show' ? sp.g + i : sp.g)}<em>${sp.k === 'band' || sp.k === 'player' ? livePartIc(m[1]) + ' ' : ''}${U.esc(m[0])}</em></span>`).join('')}</div>`
     + `<div class="lv-conf">${Array.from({ length: 26 }, (_, i) => `<i style="left:${(i * 41) % 100}%;--d:${(i * 0.17) % 1.4}s;--c:${(i * 67) % 360}"></i>`).join('')}</div>`
+    + liveProps(sp)
     + `<div class="lv-crowd">${sticks}</div><div class="lv-bub" id="lv-bub"></div><div class="lv-mc" id="lv-mc"></div></div>`
     + `<div class="lv-bar"><i id="lv-bar"></i></div>`
     + `<div class="lv-btns"><button class="btn primary" data-liveskip>결과 바로 보기</button></div>`;
@@ -227,7 +264,7 @@ function liveNext() {
   const st = $('#lv-stage');
   if (L.i >= L.B.length) { liveDone(); return; }
   const b = L.B[L.i];
-  if (st) { st.style.setProperty('--glow', b.glow); st.classList.remove('fx-drum', 'fx-win'); if (b.fx) st.classList.add('fx-' + b.fx); st.classList.toggle('gather', !!b.gather); st.classList.toggle('lose', !!b.lose); }
+  if (st) { st.style.setProperty('--glow', b.glow); st.classList.remove('fx-drum', 'fx-win'); if (b.fx) st.classList.add('fx-' + b.fx); st.classList.toggle('gather', !!b.gather); st.classList.toggle('lose', !!b.lose); if (b.clap) { st.classList.remove('clap'); void st.offsetWidth; st.classList.add('clap'); } }
   b.L.forEach(([x, k], j) => L.tm.push(setTimeout(() => liveBubble(x, k), 120 + j * 260)));
   L.tm.push(setTimeout(liveNext, liveBeatMs(b)));
 }
