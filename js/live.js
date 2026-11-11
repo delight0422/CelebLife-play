@@ -158,7 +158,7 @@ function liveProps(sp) {
 const PF = { live: { n: '라이브온', c: '#B8F044' }, video: { n: '플리오', en: 'PLIO', c: '#FF914D' } };
 // 왼쪽은 방송 화면(아바타 · LIVE · 시청자 수 · 후원 알림), 오른쪽은 채팅
 // 여기서는 채팅이 곧 현장 반응이다. 줄 종류: chat(채팅) · don(후원) · del(매니저가 지운 채팅) · join(다른 방송인이 들어옴)
-// sp.x = { sub: 방송 종류(debut · d3 · anniv · concert · endure · avatar 새 아바타 공개 · mile 구독자 기념 · grad 졸업), subs: 구독자, nick: 팬들이 부르는 이름, mates: 들어올 방송인 이름들, d3 }. 요인: sk(방송 실력)
+// sp.x = { sub: 방송 종류(debut · d3 · anniv · concert · endure · avatar 새 아바타 공개 · mile 구독자 기념 · grad 졸업 · collab 합방), co: 합방 상대, mgr: 매니저가 있는지(없으면 '삭제된 채팅'), subs: 구독자, nick: 팬들이 부르는 이름, mates: 들어올 방송인 이름들, d3 }. 요인: sk(방송 실력)
 const LV_NICK = ['말랑콩', '새벽두시', '감자튀김', '구름빵', '민트초코', '별사탕', '야근러', '고양이집사', '무지개떡', '초코우유', '졸린곰', '라면물', '콩나물국', '월요병', '귤껍질', '도토리묵', '밤샘러', '솜사탕', '버스기사', '옥수수'];
 const LV_CHAT = {
   hi: ['ㅎㅇ', '왔다!!', '하이~', '기다렸어ㅠㅠ', '오늘도 출석', '방송 켰다!!'],
@@ -173,6 +173,7 @@ const LV_CHAT = {
   avatar: ['새 아바타 미쳤다', '옷 예쁘다!!', '한 바퀴 돌아 봐', '머리 바뀌었네', '전 모습도 좋았는데 이것도 좋다', '캡처했다'],
   mile: ['축하해!!', '처음부터 봤다ㅠㅠ', '더 올라가자', '버튼 뜯는 것도 보여 줘', '여기까지 오다니', '내가 다 뿌듯하다'],
   grad: ['가지 마ㅠㅠ', '그동안 고마웠어', '잊지 않을게', '울고 있다ㅠㅠ', '어디서든 응원할게', '마지막까지 본다'],
+  collab: ['둘이 케미 뭐야ㅋㅋ', '이 조합 찬성', '합방 자주 해 줘', '티키타카 미쳤다', '둘 다 귀엽다', '여기가 맛집이네'],
   don: ['축하해요!', '밥 사 먹어요', '오늘도 고마워요', '응원합니다!!', '목 관리 잘해요'],
 };
 function liveStream(sp, R, pk, z, lvl) {
@@ -181,30 +182,64 @@ function liveStream(sp, R, pk, z, lvl) {
   // 한 장면 안에서는 같은 채팅 · 같은 닉네임이 겹치지 않게 뽑는다
   const used = {}, uniq = (arr, tag) => { const u = used[tag] = used[tag] || {}; let x = pk(arr); for (let i = 0; i < 8 && u[x]; i++) x = pk(arr); u[x] = 1; return x; };
   const nk = () => uniq(LV_NICK, 'nk'), ch = (pool, n) => Array.from({ length: n }, () => [uniq(LV_CHAT[pool], pool), 'chat', nk()]);
-  const base = Math.max(12, Math.round((X.subs || 500) * (0.02 + 0.03 * R()) * (sub === 'debut' || sub === 'd3' || sub === 'concert' || sub === 'grad' ? 2.2 : sub === 'avatar' || sub === 'mile' ? 1.6 : 1)));
-  const don = (won) => [pk(LV_CHAT.don), 'don', `${nk()}님이 ${won}만 원 후원`];
+  const base = Math.max(12, Math.round((X.subs || 500) * (0.02 + 0.03 * R()) * (sub === 'debut' || sub === 'd3' || sub === 'concert' || sub === 'grad' ? 2.2 : sub === 'avatar' || sub === 'mile' ? 1.6 : sub === 'collab' ? 1.4 : 1)));
+  // 후원 줄의 넷째 값은 금액(만 원): 방송 성과의 '방송 중 후원'을 셀 때 쓴다 (liveStreamStat)
+  const don = (won) => [pk(LV_CHAT.don), 'don', `${nk()}님이 ${won}만 원 후원`, won];
+  // 채팅을 지우는 사람: 매니저가 있으면 매니저, 혼자 하는 개인 방송이면 그냥 지워진 채팅
+  const delT = X.mgr === false ? '삭제된 채팅입니다' : '매니저가 지운 채팅입니다';
   const tone = sv === 2 ? 'good' : sv === 1 ? 'mid' : 'bad', own = LV_CHAT[sub] ? sub : tone;
   // 1. 방송 시작
-  B.push({ cap: '방송 시작', glow: 0.5, view: Math.round(base * 0.4), L: ch('hi', 3).concat([[`${nick} 하이~`, 'chat', nk()]]) });
+  B.push({ cap: '방송 시작', glow: 0.5, view: Math.round(base * 0.4), L: (X.co ? [[`${X.co}님과 합방을 시작합니다`, 'join', '']] : []).concat(ch('hi', X.co ? 2 : 3), [[`${nick} 하이~`, 'chat', nk()]]) });
   // 2. 본 방송: 그 방송만의 채팅 + 후원
   B.push({ cap: '본 방송', glow: 0.65, view: Math.round(base * (sv === 0 ? 0.6 : 0.9)), L: ch(own, 3).concat(sv >= 1 ? [don(pk([1, 1, 3, 5]))] : [], sub === 'grad' ? [] : ch(tone, 1)) });
   // 3. 다른 방송인이 들어온다 (동기 · 선배)
-  if ((X.mates || []).length && sub !== 'endure') { const m = pk(X.mates); B.push({ cap: '손님', glow: 0.7, view: Math.round(base * 1.05), L: [[`${m}님이 들어왔습니다`, 'join', ''], [sub === 'grad' ? pk(['마지막이라 보러 왔어', '그동안 수고 많았어', '같이 방송해서 즐거웠어']) : pk(['응원하러 왔어!', '오 잘하는데~?', '나도 끼워 줘ㅋㅋ']), 'chat', m], ['헐 레이드!!', 'chat', nk()], [sub === 'grad' ? '다들 와 줬네ㅠㅠ' : 'ㅋㅋㅋㅋ 합방각', 'chat', nk()]] }); }
+  if ((X.mates || []).length && sub !== 'endure' && sub !== 'collab') { const m = pk(X.mates); B.push({ cap: '손님', glow: 0.7, view: Math.round(base * 1.05), L: [[`${m}님이 들어왔습니다`, 'join', ''], [sub === 'grad' ? pk(['마지막이라 보러 왔어', '그동안 수고 많았어', '같이 방송해서 즐거웠어']) : pk(['응원하러 왔어!', '오 잘하는데~?', '나도 끼워 줘ㅋㅋ']), 'chat', m], ['헐 레이드!!', 'chat', nk()], [sub === 'grad' ? '다들 와 줬네ㅠㅠ' : 'ㅋㅋㅋㅋ 합방각', 'chat', nk()]] }); }
   // 4. 분위기: 잘 풀리면 채팅이 터지고, 아니면 매니저가 채팅을 지운다
-  B.push({ cap: '중반', glow: sv === 2 ? 0.85 : 0.55, view: Math.round(base * (sv === 2 ? 1.35 : sv === 1 ? 1 : 0.5)), L: sub === 'grad' ? ch('grad', 3).concat([don(pk([5, 10, 30]))]) : sv === 2 ? ch('good', 4).concat([don(pk([5, 10, 10, 30]))]) : sv === 1 ? ch('mid', 2).concat(ch('good', 1), ch(own, 1)) : ch('bad', 2).concat([['매니저가 지운 채팅입니다', 'del', ''], ['매니저가 지운 채팅입니다', 'del', '']], ch('mid', 1)) });
+  B.push({ cap: '중반', glow: sv === 2 ? 0.85 : 0.55, view: Math.round(base * (sv === 2 ? 1.35 : sv === 1 ? 1 : 0.5)), L: sub === 'grad' ? ch('grad', 3).concat([don(pk([5, 10, 30]))]) : sv === 2 ? ch('good', 4).concat([don(pk([5, 10, 10, 30]))]) : sv === 1 ? ch('mid', 2).concat(ch('good', 1), ch(own, 1)) : ch('bad', 2).concat([[delT, 'del', ''], [delT, 'del', '']], ch('mid', 1)) });
   // 5. 마무리
   const sc = sp.sc;
-  B.push({ cap: '방송 끝', glow: sc >= 70 ? 1 : 0.6, view: Math.round(base * (sc >= 70 ? 1.5 : sc >= 50 ? 1 : 0.45)), L: (sub === 'grad' ? [don(pk([10, 30, 50])), ['그동안 고마웠어ㅠㅠ', 'chat', nk()], ['잘 가…', 'chat', nk()], [`${nick} 사랑해!!`, 'chat', nk()]] : sc >= 70 ? [don(pk([10, 30, 50])), ['오늘 레전드였다', 'chat', nk()], ['내일도 와!!', 'chat', nk()], [`${nick} 수고했어!!`, 'chat', nk()]] : sc >= 50 ? [['수고했어~', 'chat', nk()], ['잘 봤어!', 'chat', nk()], ['ㅂㅂ', 'chat', nk()]] : [['ㅂㅂ', 'chat', nk()], ['다음엔 더 재밌게 해 줘', 'chat', nk()]]) });
+  B.push({ cap: '방송 끝', glow: sc >= 70 ? 1 : 0.6, view: Math.round(base * (sc >= 70 ? 1.5 : sc >= 50 ? 1 : 0.45)), L: (sub === 'grad' ? [don(pk([10, 30, 50])), ['그동안 고마웠어ㅠㅠ', 'chat', nk()], ['잘 가…', 'chat', nk()], [`${nick} 사랑해!!`, 'chat', nk()]] : sc >= 70 ? [don(pk([10, 30, 50])), ['오늘 레전드였다', 'chat', nk()], ['내일도 와!!', 'chat', nk()], [X.co ? '둘 다 수고했어!!' : `${nick} 수고했어!!`, 'chat', nk()]] : sc >= 50 ? [['수고했어~', 'chat', nk()], ['잘 봤어!', 'chat', nk()], ['ㅂㅂ', 'chat', nk()]] : [['ㅂㅂ', 'chat', nk()], ['다음엔 더 재밌게 해 줘', 'chat', nk()]]) });
   return B;
 }
 function liveStreamHTML(sp) {
   const X = sp.x || {};
   return `<div class="lv-top"><span class="lv-place st-logo">${PF.live.n}</span>${sp.t ? `<span class="lv-t">${U.esc(sp.t)}</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
     + `<div class="st-wrap"><div class="st-video" id="lv-stage" style="--hue:${sp.hue};--glow:0.4"><span class="st-live">LIVE</span><span class="st-view">👁 <b id="st-view">0</b></span>${X.d3 ? '<span class="st-3d">3D</span>' : ''}`
-    + `<div class="st-av lm">${liveChar('vt/' + sp.g, sp.hue, 'vt/' + sp.g)}</div><div class="st-don" id="st-don"></div></div>`
+    + `<div class="st-av lm${X.co ? ' duo' : ''}">${liveChar('vt/' + sp.g, sp.hue, 'vt/' + sp.g)}${X.co ? liveChar('vt/' + X.co, hashN('hue' + X.co) % 360, 'vt/' + X.co) : ''}</div><div class="st-don" id="st-don"></div></div>`
     + `<div class="st-chat"><div class="st-chat-h">채팅</div><div class="st-chat-b" id="st-chat"></div></div></div>`
     + `<div class="lv-bar"><i id="lv-bar"></i></div>`
     + `<div class="lv-btns"><button class="btn primary" data-liveskip>결과 바로 보기</button></div>`;
+}
+// ───── 방송 성과 (결과 창의 상자) ─────
+// 방송 한 번의 숫자: 최고 시청자 수와 채팅에 뜬 후원 합계. 장면이 씨앗으로 정해지니 창을 안 봐도 같은 값이다
+function liveStreamStat(sp) {
+  if (!sp || sp.k !== 'stream') return null;
+  const B = liveBeats(sp);
+  return { peak: Math.max(...B.map(b => b.view || 0)), don: B.reduce((a, b) => a + b.L.reduce((x, e) => x + (e[1] === 'don' ? (e[3] || 0) : 0), 0), 0) * 1e4 };
+}
+// 방송 중 후원으로 실제 들어오는 돈: 채팅에 뜬 후원 + 시청자 수만큼의 소액 후원. cut: 회사 몫
+function streamDon(sp, cut) { const st = liveStreamStat(sp); return st ? Math.round((st.don + st.peak * U.int(20, 60)) * (1 - (cut || 0)) / 1000) * 1000 : 0; }
+// 결과 창에 놓을 상자 목록: 최고 시청자 · 방송 중 후원 · 구독자(팬) 증가 + 그 밖의 것(more: [[아이콘, 이름, 값]])
+function streamBoxes(sp, o) {
+  o = o || {};
+  const st = liveStreamStat(sp), L = [];
+  if (st) L.push(['👁', '최고 시청자', st.peak.toLocaleString() + '명']);
+  if (o.don != null) L.push(['💰', o.donK || '방송 중 후원', fmtWon(o.don)]);
+  if (o.gain != null) L.push(['📈', o.gainK || '구독자', o.gainAbs ? fmtFans(o.gain) : sgnFans(o.gain)]);
+  return L.concat(o.more || []);
+}
+// 상자 하나에 숫자 하나 (글로 늘어놓지 않는다)
+function stResHTML(L) { return L && L.length ? `<div class="st-res">${L.map(([ic, k, v]) => `<div class="st-rb"><div class="st-rk">${ic} ${U.esc(k)}</div><div class="st-rv">${U.esc(v)}</div></div>`).join('')}</div>` : ''; }
+// 방송 하나를 결과 창으로: 후원을 받고(회사 몫 cut을 뗀다) 성과 상자와 함께 띄운다. 창을 볼 차례면 실시간 창이 먼저 뜬다
+// o.noDon: 후원을 따로 치지 않는 방송(합방 등) · o.queue: 한 달 진행 중에 생긴 방송(볼 차례가 아니면 창 없이 기록만 남긴다) · 나머지는 streamBoxes로
+function streamShow(s, job, cut, title, log, sp, o) {
+  o = o || {};
+  const don = o.noDon ? null : streamDon(sp, cut);
+  if (don) earn(s, don, '방송 후원·멤버십', job);
+  const d = { title, text: log, log: log + (don ? ` 방송 후원 ${fmtWon(don)}.` : ''), live: sp || null, boxes: streamBoxes(sp, Object.assign({}, o, don != null ? { don } : {})) };
+  if (o.queue) { if (liveShow(d.live)) queueEv(s, 'work_res', 0, d, true); else addLog(s, d.log, 'career'); return ''; }
+  if (s.pending) queueEv(s, 'work_res', 0, d, true); else fireEvent(s, 'work_res', d);
+  return '';
 }
 // 채팅 한 줄 (후원은 방송 화면에도 잠깐 뜬다)
 function liveChat(x, k, who) {

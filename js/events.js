@@ -710,8 +710,9 @@ E({
 
 // ════════ 몸과 마음 ════════
 // 스트레스 경고: 80을 넘을 때마다 한 번 (80 아래로 내려갔다가 다시 넘으면 또 뜬다. bodyMonth에서 다시 켠다)
+// v139: 80을 넘은 그 달에 진행을 끊고 창으로 띄운다 (다른 창보다 먼저. pickEvent 맨 앞). 번아웃은 80이 넘는 달이 넉 달 이어져야 오니까 늘 경고가 먼저다
 E({
-  id: 'stress_warn', fixed: true, cat: '몸과 마음', title: '⚠ 스트레스 경고',
+  id: 'stress_warn', fixed: true, keepPop: true, cat: '몸과 마음', title: '⚠ 스트레스 경고',
   cond: s => s.stress >= 80 && !s.stressWarned && age(s) >= 7,
   init(s) { s.stressWarned = true; },
   text: s => `스트레스가 ${Math.round(s.stress)}까지 쌓였다.\n\n· 80이 넘는 달이 이어지면 번아웃이 올 수 있다\n· 85가 넘으면 일하는 동안 평판이 조금씩 떨어진다\n· 70이 넘는 달이 길어질수록 수명이 줄어든다`,

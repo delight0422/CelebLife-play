@@ -520,6 +520,8 @@ function talMult(s, ev) {
 }
 function pickEvent(s) {
   if (!EV_FIXED) buildEventLists();
+  // 스트레스 경고는 줄 선 다른 창보다 먼저 띄운다 (v139: 번아웃이 오기 전에 바로 알게)
+  if (EVENTS.stress_warn && evAvail(s, EVENTS.stress_warn)) { fireEvent(s, 'stress_warn', {}); if (s.pending) return true; }
   // 차례가 된 창 가운데 가장 오래 기다린 것부터 띄운다 (v133). 예전에는 줄 맨 앞부터라, 앞으로 끼어드는 창(컴백 회의 · 앨범 성적)이 매달 있으면
   // 뒤에 선 창(오디션 · 재계약)이 영영 차례를 못 받았다. 같은 달에 선 창끼리는 줄 순서 그대로다
   const due = () => { let bi = -1; for (let i = 0; i < s.queue.length; i++) if (s.queue[i].at <= s.t && (bi < 0 || s.queue[i].at < s.queue[bi].at)) bi = i; return bi; };

@@ -664,10 +664,10 @@ function resPre(s) {
   if (!ev) return null;
   let title = '';
   try { title = typeof ev.title === 'function' ? ev.title(s, p.d) : ev.title; } catch (e) { }
-  return { L0: s.log[s.log.length - 1], cat: ev.cat || '', title, form: !!ev.form, C: ev.form ? [] : evChoices(s) };
+  return { L0: s.log[s.log.length - 1], cat: ev.cat || '', title, form: !!ev.form, noRes: !!ev.noRes, C: ev.form ? [] : evChoices(s) };
 }
 function resAfter(pre, i) {
-  if (!pre || !S || S.ended || (!pre.form && pre.C.length < 2)) return false;
+  if (!pre || pre.noRes || !S || S.ended || (!pre.form && pre.C.length < 2)) return false;
   const L = logsAfter(S, pre.L0);
   if (!L.length) return false;
   const c = pre.C[i];

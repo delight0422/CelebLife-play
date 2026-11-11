@@ -35,7 +35,8 @@ function babyGiven(s, g, other) {
 function babySur(s, other) { const pme = me(s), sp = other || partner(s), dadP = pme.g === '여' ? sp : pme; return (dadP || pme).name.slice(0, 1); }
 // 아이가 생겼다: 성별을 알려 주고 이름을 직접 짓는다 (성은 아빠 쪽으로 정해져 있다). late: 혼전 임신 뒤 결혼해서 몇 달 뒤 태어난 아이
 E({
-  id: 'baby', cd: 12, cat: '가족', title: (s, d) => d.late ? '아이가 태어났다' : '아이가 생겼다',
+  // noRes: 이름을 정하면 결과 창 없이 바로 '○○의 인생' 창으로 넘어간다 (v139). 스트레스 변화는 그 창에 적는다
+  id: 'baby', cd: 12, noRes: true, cat: '가족', title: (s, d) => d.late ? '아이가 태어났다' : '아이가 생겼다',
   // 결혼한 뒤의 아이는 아이 계획(kid_plan)에서 정한다. 예전엔 한 달 3% 우연이었는데, 다른 사건에 밀려 거의 뜨지 않았다
   cond: s => { const sp = partner(s); return !!sp && canConceive(s, sp); },
   init(s, d) { d.g = U.chance(0.5) ? '여' : '남'; d.sur = babySur(s); d.given = babyGiven(s, d.g); },
@@ -46,8 +47,9 @@ E({
     if (!given) return { err: '이름을 적어 주세요' };
     const c = makeChild(s, null, { g: d.g, name: d.sur + given });
     milestone(s, `${age(s)}세에 ${c.g === '여' ? '딸' : '아들'} ${josa(c.name, '이가')} 태어났다.`);
-    fireEvent(s, 'baby_heir', { id: c.id });
-    return { log: `${c.g === '여' ? '딸' : '아들'}이 태어났다. 이름은 ${c.name}.` + fx(s, { stress: -6 }) };
+    const f = fx(s, { stress: -6 });
+    fireEvent(s, 'baby_heir', { id: c.id, fx: f.replace(/[\[\]()]/g, '').trim() });
+    return { log: `${c.g === '여' ? '딸' : '아들'}이 태어났다. 이름은 ${c.name}.` + f };
   },
 });
 // 자녀로 이어 하기는 아이가 태어난 바로 그때, 아이가 열여덟 살이 될 때(kid_heir18), 또는 내가 은퇴한 뒤에 할 수 있다
@@ -55,7 +57,7 @@ E({
 E({
   id: 'baby_heir', cat: '가족', title: (s, d) => `${s.people[d.id].name}의 인생`, tag: 'ev',
   kid: (s, d) => d.id,
-  text: (s, d) => { const k = s.people[d.id]; return `갓 태어난 ${k.g === '여' ? '딸' : '아들'} ${k.name}.\n\n지금 ${k.name}의 인생으로 넘어갈 수 있다. 넘어가면 ${me(s).name}의 이야기는 여기서 끝나고, ${k.name}의 갓난아기 때부터 시작한다. 지금 넘어가지 않으면 ${josa(k.name, '이가')} 열여덟 살이 될 때나 ${josa(me(s).name, '이가')} 은퇴한 뒤에 이어 할 수 있다.`; },
+  text: (s, d) => { const k = s.people[d.id]; return `갓 태어난 ${k.g === '여' ? '딸' : '아들'} ${k.name}.${d.fx ? `\n${d.fx}` : ''}\n\n지금 ${k.name}의 인생으로 넘어갈 수 있다. 넘어가면 ${me(s).name}의 이야기는 여기서 끝나고, ${k.name}의 갓난아기 때부터 시작한다. 지금 넘어가지 않으면 ${josa(k.name, '이가')} 열여덟 살이 될 때나 ${josa(me(s).name, '이가')} 은퇴한 뒤에 이어 할 수 있다.`; },
   ch: (s, d) => { const k = s.people[d.id]; return [
     { t: '지금 인생을 계속 산다', f: () => '' },
     { t: `${k.name}의 인생으로 넘어간다`, h: `${me(s).name}의 이야기는 여기서 끝난다`, confirm: `정말 ${k.name}의 인생으로 넘어갈까요?

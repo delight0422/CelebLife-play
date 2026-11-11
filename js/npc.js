@@ -159,11 +159,18 @@ INBOX.npc_collab = {
     const n = npcBy(s, m.d.id);
     if (!n) return [{ t: '확인', f: () => '제안은 없던 일이 됐다.' }];
     return [
-      { t: '같이 한다', h: '팬이 조금 늘고 사이가 가까워진다', f: s => { const v = npcFanGain(s, n); npcRel(s, n, 22); n.pop = U.clamp(n.pop + 1, 1, 99); return `${n.n}${josa(n.n, '과와').slice(n.n.length)} ${npcCollabN(n.f)}${josa(npcCollabN(n.f), '을를').slice(npcCollabN(n.f).length)} 했다. 서로의 팬들이 반가워했다.` + fx(s, { fkr: v, stress: 3 }); } },
+      { t: '같이 한다', h: '팬이 조금 늘고 사이가 가까워진다', f: s => { const v = npcFanGain(s, n); npcRel(s, n, 22); n.pop = U.clamp(n.pop + 1, 1, 99); const log = `${n.n}${josa(n.n, '과와').slice(n.n.length)} ${npcCollabN(n.f)}${josa(npcCollabN(n.f), '을를').slice(npcCollabN(n.f).length)} 했다. 서로의 팬들이 반가워했다.` + fx(s, { fkr: v, stress: 3 }); const co = n.f === 'vtuber' ? npcCoLive(s, n) : null; return co ? streamShow(s, co.job, 0, '합동 방송', log, co.sp, { noDon: true, gain: v, gainK: '팬' }) : log; } },
       { t: '정중히 거절한다', f: s => { npcRel(s, n, n.ps === 'amb' ? -8 : -2); return `${n.n}의 ${npcCollabN(n.f)} 제안을 정중히 거절했다.`; } },
     ];
   },
 };
+// 버튜버 인물과의 합동 방송(합방)은 라이브온 창으로 본다 (v139: '중요할 때만'에서도). 내가 버츄얼 아이돌이거나 개인 버튜버일 때만
+function npcCoLive(s, n) {
+  if (typeof viLive === 'function' && trackOn(s, 'vidol') && s.tracks.vidol.st === 'active') { const sp = viLive(s, s.tracks.vidol, 'collab', { co: n.n }); return sp ? { job: 'vidol', sp } : null; }
+  const t = s.tracks.youtube;
+  if (typeof ytLive === 'function' && trackOn(s, 'youtube') && t.st === 'active' && t.mode === 'vt') { const sp = ytLive(s, t, 'collab', { co: n.n }); return sp ? { job: 'youtube', sp } : null; }
+  return null;
+}
 // 응원: 고를 것 없이 요약의 특별한 일에 남는다
 E({
   id: 'npc_cheer', cat: '업계', title: '응원을 받았다', tag: 'career', cond: s => npcOn(s),

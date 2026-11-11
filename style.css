@@ -690,8 +690,10 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .soul-hint { color: var(--violet); font-weight: 700; }
 
 /* v118 UI: 레드닷 · 사슬 잠금 · 상태 칸 아래 회사 박스 · 빨간 경고 */
-.soon-banner, .lt-card, .ltile { position: relative; }
+/* v139: 장비 박스의 레드닷(새로 들일 수 있는 장비)이 박스 밖 화면 오른쪽 위로 날아가던 것을 고침 */
+.soon-banner, .lt-card, .ltile, #eq-card { position: relative; }
 .rdot { position: absolute; top: 7px; right: 7px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); box-shadow: 0 0 0 2px var(--card); }
+.rdot.in { position: static; }
 .job-bn.bad { border-color: var(--red); background: linear-gradient(90deg, #fde7eb, var(--card)); }
 .job-bn.bad .sb-s { color: var(--red); font-weight: 700; }
 .lnote.bad { color: var(--red); font-weight: 700; }
@@ -961,6 +963,14 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .st-3d { position: absolute; top: 12px; right: 12px; background: #7b5cff; color: #fff; font-weight: 800; font-size: 12px; padding: 3px 9px; border-radius: 5px; }
 .st-av { margin-bottom: -6%; }
 .st-av .lv-sp { width: 150px; height: 200px; }
+/* 합방: 두 사람이 나란히 */
+.st-av.duo { display: flex; flex-direction: row; align-items: flex-end; justify-content: center; gap: 24px; }
+.st-av.duo .lv-ch .lv-chc { height: min(340px, 50vh); }
+/* 방송 성과: 숫자 하나에 상자 하나 */
+.st-res { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin: 12px 0 4px; }
+.st-rb { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; text-align: center; }
+.st-rk { font-size: 12px; color: var(--muted); font-weight: 700; }
+.st-rv { font-size: 18px; font-weight: 800; color: var(--ink); margin-top: 3px; }
 .st-av .lv-ch .lv-chc { height: min(430px, 62vh); }
 .st-don { position: absolute; left: 50%; top: 14%; transform: translateX(-50%); background: linear-gradient(90deg, #ffb347, #ff7b54); color: #2a1404; font-weight: 800; font-size: 15px; padding: 7px 16px; border-radius: 999px; opacity: 0; white-space: nowrap; }
 .st-don.in { animation: stDon 2.4s ease-out forwards; }
@@ -979,5 +989,5 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .st-l.don b { color: #ffcf8a; }
 @media (max-width: 700px) {
   .st-wrap { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1.1fr) minmax(0, 1fr); height: min(560px, calc(100vh - 170px)); }
-  .st-av .lv-ch .lv-chc { height: 200px; }
+  .st-av .lv-ch .lv-chc, .st-av.duo .lv-ch .lv-chc { height: 200px; }
 }

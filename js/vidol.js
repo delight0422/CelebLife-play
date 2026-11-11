@@ -154,8 +154,8 @@ E({
     const given = (v.given || '').trim();
     if (!given) return { err: 'RP 이름은 비울 수 없어요' };
     // 데뷔 방송을 실시간 창으로 (볼 차례가 아니면 예전처럼 결과만)
-    const log = viDebut(s, given, (v.nick || '').trim());
-    showResult(s, '데뷔 방송', log, log, viLive(s, viT(s), 'debut'));
+    const log = viDebut(s, given, (v.nick || '').trim()), t = viT(s);
+    streamShow(s, 'vidol', t.cut, '데뷔 방송', log, viLive(s, t, 'debut'), { gain: t.subs, gainK: '첫 구독자', gainAbs: true });
     return { log: '' };
   },
 });
@@ -165,9 +165,9 @@ function viLive(s, t, sub, o) {
   o = o || {};
   if (typeof liveStage !== 'function') return null;
   const ap = viAppeal(s, t), nick = (t.sn && t.sn.nick) || t.ch;
-  const T = { debut: `【데뷔】 처음 뵙겠습니다, ${t.ch}입니다!`, d3: `【3D 공개】 ${t.ch}, 움직입니다`, anniv: `【${o.y || 1}주년】 기념 방송`, concert: `【3D LIVE】 ${t.ch} 콘서트`, endure: '【내구】 24시간 방송', grad: `【졸업】 ${t.ch}의 마지막 방송` };
+  const T = { debut: `【데뷔】 처음 뵙겠습니다, ${t.ch}입니다!`, d3: `【3D 공개】 ${t.ch}, 움직입니다`, anniv: `【${o.y || 1}주년】 기념 방송`, concert: `【3D LIVE】 ${t.ch} 콘서트`, endure: '【내구】 24시간 방송', grad: `【졸업】 ${t.ch}의 마지막 방송`, collab: `【합방】 ${t.ch} × ${o.co || ''}` };
   return liveStage({ k: 'stream', place: PF.live.n, t: T[sub], g: t.ch, cn: nick, mem: [[t.ch, '']], mi: 0, key: o.key !== false, sc: o.sc != null ? o.sc : U.clamp(50 + (ap - 55) * 1.5, 0, 100), z: { sk: (ap - 55) / 12 },
-    x: { sub, subs: t.subs, nick, mates: viMates(s, t).concat(viSeniors(s, t)).slice(0, 4).map(viName), d3: sub === 'd3' || sub === 'concert' || !!t.d3 } });
+    x: { sub, subs: t.subs, nick, co: o.co || '', mgr: true, mates: viMates(s, t).concat(viSeniors(s, t)).slice(0, 4).map(viName), d3: sub === 'd3' || sub === 'concert' || !!t.d3 } });
 }
 function viDebut(s, given, nick) {
   const t = viT(s), ag = viAgOf(t);
@@ -202,14 +202,16 @@ function viCollab(s, t, n) {
   meetAt(s, x, `${t.corpN} 합방`, 'vidol', t.corpN); bond(s, x, 2);
   const gain = Math.round(x.vi.subs * U.fl(0.002, 0.006) * n * Math.min(1.5, Math.max(0.3, viAppeal(s, t) / 60)));
   t.subs += gain; x.vi.subs += Math.round(t.subs * U.fl(0.001, 0.003) * n);
-  if (first) addLog(s, `${x.vi.gen < t.gen ? '선배' : '동기'} ${viName(x)}${josa(viName(x), '과와').slice(viName(x).length)} 처음으로 합방을 했다.`, 'career');
+  // 처음 하는 상대와의 합방은 '중요할 때만'에서도 실시간 창으로 본다 (매달 하는 합방은 창 없이)
+  if (first) streamShow(s, 'vidol', t.cut, '합방', `${x.vi.gen < t.gen ? '선배' : '동기'} ${viName(x)}${josa(viName(x), '과와').slice(viName(x).length)} 처음으로 합방을 했다.`, viLive(s, t, 'collab', { co: viName(x) }), { noDon: true, gain, queue: true });
 }
 
 // ───── 회사가 정하는 일 (알림) ─────
 function viNotice(s, id, d = {}) { if (!hasQ(s, id)) queueEv(s, id, 0, d); }
 E({
   id: 'vi_3d', cat: '회사 결정', title: '3D 데뷔', tag: 'career',
-  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live,
+  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live, autoNoHtml: true,
+  html: (s, d) => `<div class="m-text">${rich(EVENTS.vi_3d.text(s, d).split('\n\n')[0])}</div>` + stResHTML(streamBoxes(d.live, { don: d.inc, gain: Math.round(viT(s).subs * 0.12), more: [['✨', '이제부터', '3D 방송']] })),
   cond: s => viOn(s) && viT(s).st === 'active' && !viT(s).d3,
   init(s, d) { const t = viT(s); d.inc = Math.round(t.subs * U.fl(200, 400) * (1 - t.cut)); d.live = viLive(s, t, 'd3', { sc: 75 }); },
   text: (s, d) => { const t = viT(s); return `구독자 ${fmtFans(t.subs)}. ${t.corpN}에서 3D 모델을 만들어 주기로 했다. 3D 데뷔 방송에 시청자가 몰렸다.\n\n후원 ${fmtWon(d.inc)} · 이제부터 3D로도 방송한다`; },
@@ -231,7 +233,8 @@ E({
 // 데뷔 기념일: 기수 합동 기념 방송과 기념 굿즈
 E({
   id: 'vi_anniv', cat: '회사 결정', title: '데뷔 기념 방송', tag: 'career',
-  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live,
+  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live, autoNoHtml: true,
+  html: (s, d) => `<div class="m-text">${rich(EVENTS.vi_anniv.text(s, d).split('\n\n')[0])}</div>` + stResHTML(streamBoxes(d.live, { don: d.inc, donK: '굿즈 수입', gain: d.gain })),
   cond: s => viOn(s) && viT(s).st === 'active',
   init(s, d) { const t = viT(s); d.y = Math.round(t.months / 12); d.live = viLive(s, t, 'anniv', { y: d.y, key: d.y === 1 || d.y % 5 === 0 }); d.inc = Math.round(t.subs * U.fl(150, 350) * (1 - t.cut)); d.gain = Math.round(t.subs * U.fl(0.02, 0.06)); },
   text: (s, d) => { const t = viT(s), m = viMates(s, t); return `「${t.ch}」 데뷔 ${d.y}주년. ${m.length ? `${t.gen}기 동기 ${m.map(viName).join(', ')}와 함께 ` : ''}기념 방송을 하고 기념 굿즈를 냈다.\n\n굿즈 수입 ${fmtWon(d.inc)} · 구독자 ${sgnFans(d.gain)}`; },
@@ -240,7 +243,8 @@ E({
 // 3D 라이브 콘서트: 3D 데뷔를 하고 구독자가 많으면 회사가 연다
 E({
   id: 'vi_live', cat: '회사 결정', title: '3D 라이브 콘서트', tag: 'career',
-  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live,
+  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live, autoNoHtml: true,
+  html: (s, d) => `<div class="m-text">${rich(EVENTS.vi_live.text(s, d).split('\n\n')[0])}</div>` + stResHTML(streamBoxes(d.live, { don: d.inc, donK: '공연 수입', gain: d.gain })),
   cond: s => viOn(s) && viT(s).st === 'active' && viT(s).d3,
   init(s, d) {
     const t = viT(s), p = me(s);
@@ -279,7 +283,8 @@ ACT_APPLY.push({
     const gain = Math.round(t.subs * U.fl(0.02, 0.05) + 200), inc = Math.round(t.subs * U.fl(50, 120) * (1 - t.cut));
     t.subs += gain; earn(s, inc, '방송 후원·멤버십', 'vidol'); addStress(s, 12);
     const first = !t.endN; t.endN = (t.endN || 0) + 1; // 첫 내구 방송만 '중요할 때'
-    return showResult(s, '내구 방송', `「${t.ch}」 24시간 내구 방송을 했다. 끝날 때쯤엔 목소리가 다 쉬었다.\n\n구독자 ${sgnFans(gain)} · 후원 ${fmtWon(inc)} · 스트레스 +12`, `24시간 내구 방송. 구독자 ${sgnFans(gain)}, 후원 ${fmtWon(inc)}.`, viLive(s, t, 'endure', { sc: 62, key: first }));
+    const sp = viLive(s, t, 'endure', { sc: 62, key: first });
+    return showResult(s, '내구 방송', `「${t.ch}」 24시간 내구 방송을 했다. 끝날 때쯤엔 목소리가 다 쉬었다.`, `24시간 내구 방송. 구독자 ${sgnFans(gain)}, 후원 ${fmtWon(inc)}.`, sp, streamBoxes(sp, { don: inc, gain, more: [['😵', '스트레스', '+12']] }));
   },
 });
 
@@ -323,7 +328,7 @@ E({
     } });
     if (d.want) C.push({ t: `${josa(t.corpN, '과와')} 재계약`, h: `회사 몫 ${pctN(Math.max(0.2, t.cut - 0.1))} · 3년`, f: s => { t.tamper = null; t.cut = Math.max(0.2, Math.round((t.cut - 0.1) * 100) / 100); t.months = 0; t.contract = 36; return `${josa(t.corpN, '과와')} 재계약했다.`; } });
     C.push({ t: '개인세로 독립한다', h: '아바타는 회사 것이라 새 아바타로 다시 태어나고, 구독자 일부만 따라온다', f: s => viGoSolo(s, t) });
-    C.push({ t: '졸업한다', h: '버츄얼 아이돌 활동을 마친다', f: s => { const live = viLive(s, t, 'grad', { sc: 75 }); viEnd(s, t, '졸업'); milestone(s, `${age(s)}세에 「${t.ch}」 졸업 방송을 했다.`); const log = `「${t.ch}」 졸업 방송을 했다.`; return showResult(s, '졸업 방송', log, log, live); } });
+    C.push({ t: '졸업한다', h: '버츄얼 아이돌 활동을 마친다', f: s => { const live = viLive(s, t, 'grad', { sc: 75 }); viEnd(s, t, '졸업'); milestone(s, `${age(s)}세에 「${t.ch}」 졸업 방송을 했다.`); return streamShow(s, 'vidol', t.cut, '졸업 방송', `「${t.ch}」 졸업 방송을 했다.`, live); } });
     return C; },
 });
 // 템퍼링: 계약 기간 중에 다른 회사가 몰래 이적을 제안한다. 걸리면 논란이 되고 다시는 버튜버로 데뷔할 수 없다
@@ -382,7 +387,7 @@ CAREERS.vidol = {
   },
   actions(s, t) {
     if (t.st !== 'active') return [];
-    return [{ t: '졸업 (버츄얼 아이돌 은퇴)', ok: true, danger: true, confirm: '정말 졸업할까요?\n계약이 남아 있어도 활동을 마쳐요.', run: s => { const live = viLive(s, t, 'grad', { sc: 75 }); viEnd(s, t, '졸업'); milestone(s, `${age(s)}세에 「${t.ch}」 졸업 방송을 했다.`); const log = `「${t.ch}」 졸업 방송을 했다.`; return showResult(s, '졸업 방송', log, log, live); } }];
+    return [{ t: '졸업 (버츄얼 아이돌 은퇴)', ok: true, danger: true, confirm: '정말 졸업할까요?\n계약이 남아 있어도 활동을 마쳐요.', run: s => { const live = viLive(s, t, 'grad', { sc: 75 }); viEnd(s, t, '졸업'); milestone(s, `${age(s)}세에 「${t.ch}」 졸업 방송을 했다.`); return streamShow(s, 'vidol', t.cut, '졸업 방송', `「${t.ch}」 졸업 방송을 했다.`, live); } }];
   },
   monthly(s, t) {
     const n = slotsOn(s, 'c_vidol'), task = n ? (jobTask(s, 'vidol') || {}).id : null, p = me(s);

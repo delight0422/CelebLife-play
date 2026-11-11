@@ -591,9 +591,11 @@ function varTierUp(s, t) {
 // 다른 창(활동명 정하기 등)이 이미 떠 있으면 그다음에 뜬다
 // live: 그 일의 실시간 창 (12-3: 예능 녹화). 창을 볼 차례면 결과도 따로 창으로 뜬다
 E({ id: 'work_res', cat: '작품 성적', tag: 'career', title: (s, d) => d.title, text: (s, d) => d.text, ch: (s, d) => [{ t: '확인', f: () => d.log }],
-  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live });
-function showResult(s, title, text, log, live) {
-  const d = { title, text, log: log || text, live: live || null };
+  keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), live: (s, d) => d.live,
+  // 방송 성과(d.boxes: 최고 시청자 · 후원 · 구독자)는 글 아래 상자로 (창 없이 처리될 때는 글만 남긴다)
+  autoNoHtml: true, html: (s, d) => d.boxes && d.boxes.length && typeof stResHTML === 'function' ? `<div class="m-text">${rich(d.text)}</div>` + stResHTML(d.boxes) : '' });
+function showResult(s, title, text, log, live, boxes) {
+  const d = { title, text, log: log || text, live: live || null, boxes: boxes || null };
   if (s.pending) queueEv(s, 'work_res', 0, d, true); else fireEvent(s, 'work_res', d);
   return '';
 }
@@ -770,16 +772,17 @@ function ytName(t) { return t.mode === 'vt' ? '버튜버' : '유튜버'; }
 // 실시간 창 (12-3): 개인세 버튜버도 라이브 방송 플랫폼(라이브온)에서 방송한다. 유튜버(영상)는 해당 없음
 // sub: debut 데뷔 방송 · avatar 새 아바타 공개 · mile 구독자 기념 방송 · grad 졸업 방송
 // 손님: 내가 아는 버튜버 인물(업계 인물). 없으면 가끔 모르는 버튜버가 들른다 (데뷔 방송은 빼고)
+function ytCut(t) { return t.mcn ? t.mcn.cut : t.corp ? t.cut : 0; }
 function ytLive(s, t, sub, o) {
   o = o || {};
   if (typeof liveStage !== 'function' || t.mode !== 'vt') return null;
   const ap = ytAppeal(s, t), who = (t.sn && t.sn.given) || t.ch, nick = (t.sn && t.sn.nick) || who;
-  const T = { debut: `【데뷔】 처음 뵙겠습니다, ${who}입니다!`, avatar: `【새 아바타 공개】 ${who}, 새 모습으로`, mile: `【구독자 ${o.n || ''} 기념】 고마워요 방송`, grad: `【졸업】 ${who}의 마지막 방송` };
+  const T = { debut: `【데뷔】 처음 뵙겠습니다, ${who}입니다!`, avatar: `【새 아바타 공개】 ${who}, 새 모습으로`, mile: `【구독자 ${o.n || ''} 기념】 고마워요 방송`, grad: `【졸업】 ${who}의 마지막 방송`, collab: `【합방】 ${who} × ${o.co || ''}` };
   const all = typeof npcList === 'function' ? npcList(s, 'vtuber').filter(n => n.ph !== 'rest') : [];
   let mates = all.filter(n => n.kn || n.fol).map(n => n.n);
   if (!mates.length && sub !== 'debut' && all.length && U.chance(0.4)) mates = [U.pick(all).n];
   return liveStage({ k: 'stream', place: PF.live.n, t: T[sub], g: t.ch, cn: nick, mem: [[t.ch, '']], mi: 0, key: o.key !== false, sc: o.sc != null ? o.sc : U.clamp(50 + (ap - 45) * 1.5, 0, 100), z: { sk: (ap - 45) / 12 },
-    x: { sub, subs: Math.max(300, t.subs || 0), nick, mates: mates.slice(0, 4), d3: avQ(t) >= 4 } });
+    x: { sub, subs: Math.max(300, t.subs || 0), nick, co: o.co || '', mgr: !!t.corp, mates: mates.slice(0, 4), d3: avQ(t) >= 4 } });
 }
 CAREERS.youtube = {
   n: '유튜버', ic: '▶️',
@@ -807,8 +810,8 @@ CAREERS.youtube = {
     const A = [];
     A.push({ t: '채널 컨셉 바꾸기', h: `지금 '${t.cat}' · 바꾸면 한동안 구독자가 조금 빠진다`, ok: !(t.catT > s.t), why: '얼마 전에 바꿨다', run: s => { fireEvent(s, 'yt_cat', { change: true }); return ''; } });
     A.push(t.editor ? { t: '편집자 내보내기', h: '매달 나가던 150만 원이 없어진다', ok: true, run: s => { t.editor = false; return '편집자와의 계약을 끝냈다. 이제 편집은 혼자 한다.'; } } : { t: '편집자 고용하기', h: t.mcn ? '월 150만 원' : '월 150만 원 · 편집 실력이 모자라도 영상 완성도가 오른다', ok: !t.mcn && s.money >= 150e4, why: t.mcn ? `${t.mcn.n} 편집팀이 무료로 편집해 준다` : '돈이 모자라다', run: s => { t.editor = true; return '영상 편집자를 고용했다.'; } });
-    if (t.mode === 'vt' && avQ(t) < 4) { const ni = avQ(t) + 1, nx = VT_AV[ni]; A.push({ t: `아바타 바꾸기: ${nx.n}`, h: fmtWon(nx.c) + (ownCo(s, 'youtube') ? ' (회사 돈)' : ''), ok: jobMoney(s, 'youtube') >= nx.c, why: `${ownCo(s, 'youtube') ? '회사 ' : ''}돈이 모자라다 (${fmtWon(nx.c)} 필요)`, run: s => { jobPay(s, nx.c, '아바타 교체', 'youtube'); t.av = ni; t.subs = Math.round(t.subs * 1.05); const log = `${josa(nx.n, '으로')} 아바타를 바꿨다. 새 아바타 공개 방송에 시청자가 몰렸다.`; return showResult(s, '새 아바타 공개 방송', log, log, ytLive(s, t, 'avatar', { sc: 72 })); } }); }
-    A.push({ t: t.mode === 'vt' ? '졸업 (버튜버 은퇴)' : '채널 접기', ok: true, danger: true, confirm: t.mode === 'vt' ? '정말 버튜버를 졸업할까요?' : '정말 채널 활동을 그만둘까요?', run: s => { const live = t.mode === 'vt' ? ytLive(s, t, 'grad', { sc: 75 }) : null; t.st = 'ended'; t.endNote = `${ytName(t)} 「${t.ch}」 · 가장 많을 때 구독자 ${fmtFans(t.peak || t.subs)}`; t.hist = (t.hist || []).concat(t.endNote); milestone(s, `${age(s)}세에 ${ytName(t)} 「${t.ch}」 활동을 마쳤다.`); if (t.mode === 'vt') { const log = `버튜버 「${t.ch}」 졸업 방송을 했다.`; return showResult(s, '졸업 방송', log, log, live); } return `채널 「${t.ch}」 활동을 그만뒀다.`; } });
+    if (t.mode === 'vt' && avQ(t) < 4) { const ni = avQ(t) + 1, nx = VT_AV[ni]; A.push({ t: `아바타 바꾸기: ${nx.n}`, h: fmtWon(nx.c) + (ownCo(s, 'youtube') ? ' (회사 돈)' : ''), ok: jobMoney(s, 'youtube') >= nx.c, why: `${ownCo(s, 'youtube') ? '회사 ' : ''}돈이 모자라다 (${fmtWon(nx.c)} 필요)`, run: s => { jobPay(s, nx.c, '아바타 교체', 'youtube'); t.av = ni; const b0 = t.subs; t.subs = Math.round(t.subs * 1.05); return streamShow(s, 'youtube', ytCut(t), '새 아바타 공개 방송', `${josa(nx.n, '으로')} 아바타를 바꿨다. 새 아바타 공개 방송에 시청자가 몰렸다.`, ytLive(s, t, 'avatar', { sc: 72 }), { gain: t.subs - b0 }); } }); }
+    A.push({ t: t.mode === 'vt' ? '졸업 (버튜버 은퇴)' : '채널 접기', ok: true, danger: true, confirm: t.mode === 'vt' ? '정말 버튜버를 졸업할까요?' : '정말 채널 활동을 그만둘까요?', run: s => { const live = t.mode === 'vt' ? ytLive(s, t, 'grad', { sc: 75 }) : null; t.st = 'ended'; t.endNote = `${ytName(t)} 「${t.ch}」 · 가장 많을 때 구독자 ${fmtFans(t.peak || t.subs)}`; t.hist = (t.hist || []).concat(t.endNote); milestone(s, `${age(s)}세에 ${ytName(t)} 「${t.ch}」 활동을 마쳤다.`); if (t.mode === 'vt') return streamShow(s, 'youtube', ytCut(t), '졸업 방송', `버튜버 「${t.ch}」 졸업 방송을 했다.`, live); return `채널 「${t.ch}」 활동을 그만뒀다.`; } });
     return A;
   },
   monthly(s, t) {
@@ -841,7 +844,7 @@ CAREERS.youtube = {
     ytCareerOffer(s, t);
     for (const [v, label] of [[1e5, '실버 버튼'], [1e6, '골드 버튼'], [1e7, '다이아 버튼']]) if (before < v && t.subs >= v) { jpopAdd(s, 'youtube', 3); addFame(s, 2); addLog(s, `「${t.ch}」 구독자 ${fmtFans(v)} 돌파! ${label}을 받았다.`, 'good'); milestone(s, `${age(s)}세에 「${t.ch}」 구독자 ${fmtFans(v)}을 넘겼다.`);
       // 개인세 버튜버는 기념 방송을 한다 (실시간 창을 볼 차례가 아니면 요약에 한 줄만)
-      if (t.mode === 'vt') { const log = `「${t.ch}」 구독자 ${fmtFans(v)} 기념 방송을 했다.`; queueEv(s, 'work_res', 0, { title: '구독자 기념 방송', text: log + ' 채팅창이 축하로 가득 찼다.', log, live: ytLive(s, t, 'mile', { n: fmtFans(v), sc: 78 }) }); } }
+      if (t.mode === 'vt') streamShow(s, 'youtube', ytCut(t), '구독자 기념 방송', `「${t.ch}」 구독자 ${fmtFans(v)} 기념 방송을 했다.`, ytLive(s, t, 'mile', { n: fmtFans(v), sc: 78 }), { queue: true, gain: v, gainK: '구독자', gainAbs: true }); }
   },
 };
 // 그림 · 단편 애니메이션 채널이 크게 되면(구독자 10만 이상) 가끔 애니 제작사에서 연락이 온다
@@ -926,7 +929,7 @@ E({
     milestone(s, `${age(s)}세에 버튜버 ${qn(given, '라는')} 이름으로 「${ch}」 채널을 열고 데뷔했다.`);
     // 데뷔 방송을 실시간 창으로 (볼 차례가 아니면 예전처럼 결과만)
     const log = `버튜버 ${given}(채널 「${ch}」)로 데뷔했다! 일정에 채널 활동을 넣어야 방송을 한다.` + (t.corp ? '' : learnMe(s, 'edit', 1, true));
-    showResult(s, '데뷔 방송', log, log, ytLive(s, t, 'debut'));
+    streamShow(s, 'youtube', ytCut(t), '데뷔 방송', log, ytLive(s, t, 'debut'), { gain: t.subs, gainK: '첫 구독자', gainAbs: true });
     return { log: '' };
   },
 });
