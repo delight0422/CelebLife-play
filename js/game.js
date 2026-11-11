@@ -941,6 +941,8 @@ function ytTrendCheck(s, flip) {
   }
 }
 function onNewYear(s) {
+  // 인생 결산 그래프(12-5): 해마다 [지난해, 그해 끝의 팬, 그때까지 번 돈]을 남긴다. 예전 세이브는 이때부터 쌓인다
+  (s.yr = s.yr || []).push([calY(s) - 1, Math.round(totalFans(s)), Math.round(s.earned || 0)]);
   if (U.chance(0.6)) s.trend = U.pick(TRENDS.filter(x => x !== s.trend));
   if (!s.trendTV) rollTV(s);
   if (U.chance(0.5)) s.trendTV.drama = U.pick(DRAMA_TRENDS.filter(x => x !== s.trendTV.drama));
@@ -1426,6 +1428,55 @@ function lifeTitle(s) {
   if (best && /^(히트곡을|스타를|히트곡을 찾아낸) /.test(best)) return best;
   return `${mod} ${ids.length ? CAREERS[ids[0]].n.replace(/ \(.*\)$/, '') : '회사원'}`;
 }
+// ───── 인생 결산의 칭호 (12-5) ─────
+// 주 직업: 등급이 가장 높고 오래 한 일. 칭호는 그 직업의 등급으로 정한다 (맨 위 등급이면 직업마다 다른 이름)
+const END_CAT = { idol: 'music', solo: 'music', band: 'music', player: 'music', dancer: 'music', actor: 'screen', variety: 'screen', model: 'screen', voice: 'screen', director: 'screen', writer: 'screen', adir: 'screen', animator: 'screen', youtube: 'stream', vidol: 'stream', webtoon: 'ink', webnovel: 'ink', illust: 'ink', prof: 'teach', tutor: 'teach', trainer: 'teach', acttrainer: 'teach', composer: 'staff', lyricist: 'staff', producer: 'staff', anr: 'staff', editor: 'staff', marketer: 'staff', agency: 'biz' };
+const END_TOP = { idol: '시대의 아이콘', solo: '국민 가수', band: '전설의 밴드', player: '연주의 거장', dancer: '춤의 전설', actor: '국민 배우', variety: '국민 MC', model: '런웨이의 전설', voice: '목소리의 장인', director: '거장 감독', writer: '믿고 보는 작가', adir: '애니메이션의 거장', animator: '작화의 신', youtube: '플리오의 얼굴', vidol: '버츄얼의 전설', webtoon: '웹툰의 신', webnovel: '웹소설의 신', illust: '그림의 장인', prof: '시대의 석학', tutor: '전설의 일타 강사', trainer: '스타 메이커', acttrainer: '배우들의 스승', composer: '히트곡 제조기', lyricist: '노랫말의 장인', producer: '미다스의 손', anr: '히트곡 사냥꾼', editor: '편집의 장인', marketer: '홍보의 귀재', agency: '엔터 업계의 큰손' };
+// 마지막 한 줄: 분야와 올라간 높이(hi 4등급 이상 · mid 2~3 · low)에 따라
+const END_LINE = {
+  music: { hi: '마지막 무대의 조명이 꺼질 때까지 객석의 떼창이 이어졌다.', mid: '작은 공연장에서 마지막 곡을 부르고 마이크를 내려놓았다.', low: '무대에 선 날은 길지 않았지만, 그때 들은 박수는 평생 잊지 않았다.' },
+  screen: { hi: '마지막 촬영 날, 스태프 모두가 일어나 박수를 쳤다.', mid: '마지막 작품의 이름 자막이 올라가는 걸 조용히 지켜봤다.', low: '화면에 이름이 크게 걸린 적은 없어도, 현장을 떠나는 발걸음은 가벼웠다.' },
+  stream: { hi: '마지막 방송의 채팅창은 고맙다는 말로 끝없이 올라갔다.', mid: '마지막 영상에 오래된 구독자들이 하나둘 댓글을 남겼다.', low: '채널은 조용히 닫았지만, 끝까지 봐 준 몇 사람의 이름은 기억했다.' },
+  ink: { hi: '마지막 화가 올라온 날, 독자들은 첫 화부터 다시 읽기 시작했다.', mid: '마지막 원고를 보내고 오랜만에 늦잠을 잤다.', low: '많이 읽히지는 않았어도, 끝까지 쓴 이야기가 서랍에 남았다.' },
+  teach: { hi: '마지막 수업이 끝나자 제자들이 강의실을 가득 채웠다.', mid: '마지막 수업을 마치고 칠판을 천천히 지웠다.', low: '가르친 사람은 많지 않았지만, 그중 누군가는 지금도 가끔 안부를 묻는다.' },
+  staff: { hi: '이름이 앞에 나선 적은 없어도, 업계 사람들은 누구의 손을 거쳤는지 다 알았다.', mid: '마지막 일을 넘기고 책상을 정리했다.', low: '빛나는 자리는 아니었지만, 맡은 일을 끝까지 해냈다.' },
+  biz: { hi: '회사 로비에는 지금도 그 이름이 걸려 있다.', mid: '회사를 다음 사람에게 맡기고 조용히 물러났다.', low: '회사는 크지 못했지만, 함께한 사람들과의 시간은 남았다.' },
+};
+function endMain(s) {
+  let best = null;
+  for (const id of CAREER_IDS) {
+    const c = CAREERS[id], t = s.tracks[id];
+    if (!c || !t || t.st === 'none') continue;
+    const k = typeof jobTier === 'function' ? jobTier(s, id) : (t.tier || 0), m = typeof jobMonths === 'function' ? jobMonths(s, id) : (t.months || 0);
+    const v = k * 100 + m / 12 + (trackOn(s, id) ? 5 : 0);
+    if (!best || v > best.v) best = { id, k, m, v, n: c.n.replace(/ \(.*\)$/, ''), ic: c.ic || '', cat: END_CAT[id] || 'staff' };
+  }
+  return best;
+}
+function endTitle(s) {
+  const M = endMain(s);
+  if (!M) return lifeTitle(s);
+  return M.k >= 6 ? (END_TOP[M.id] || `전설의 ${M.n}`) : M.k >= 4 ? `이름을 날린 ${M.n}` : M.k >= 2 ? `자리를 잡은 ${M.n}` : lifeTitle(s);
+}
+function endLastLine(s, kind, heir) {
+  if (kind === 'handoff') { const k = heir && s.people[heir]; return k ? `이야기는 ${k.name}에게 이어진다.` : '이야기는 아이에게 이어진다.'; }
+  if (kind === 'fail') { const k = topSkill(s); return (k && FAIL_SKILL_LINE[k]) || '꿈은 접었지만, 무대 뒤에서 누군가의 꿈을 지켰다.'; }
+  const M = endMain(s);
+  if (!M) return '';
+  return END_LINE[M.cat][M.k >= 4 ? 'hi' : M.k >= 2 ? 'mid' : 'low'];
+}
+// 곁들이는 칭호 (많아야 넷): 숫자로 드러나는 것만
+function endBadges(s) {
+  const B = [], f = Math.max(s.peak.fans || 0, totalFans(s)), jobs = new Set((s.careerLog || []).map(c => c.id).concat(Object.keys(s.carOn || {}))).size;
+  if (f >= 1e6) B.push(['⭐', '밀리언 스타']); else if (f >= 1e5) B.push(['⭐', '이름난 얼굴']);
+  if (s.awards.length >= 10) B.push(['🏆', '트로피 수집가']); else if (s.awards.length >= 1) B.push(['🏆', '수상자']);
+  if (s.earned >= 1e10) B.push(['💰', '백억 클럽']); else if (s.earned >= 1e9) B.push(['💰', '십억 클럽']);
+  if (jobs >= 5) B.push(['🎭', '팔방미인']);
+  if (s.works.length >= 100) B.push(['📚', '다작왕']);
+  if (kids(s).length >= 3) B.push(['👶', '다둥이 부모']);
+  if (age(s) >= 65) B.push(['⏳', '평생 현역']);
+  return B.slice(0, 4);
+}
 function bestTitle(s) {
   for (const id of CAREER_IDS) { const c = CAREERS[id], t = s.tracks[id]; if (c && c.title && t.st !== 'none') { const x = c.title(s, t); if (x) return x; } }
   return '';
@@ -1480,7 +1531,9 @@ function endLife(s, kind, why, heir) {
   const p = partner(s);
   const cur = CAREER_IDS.filter(id => CAREERS[id] && trackOn(s, id)).map(id => CAREERS[id].n.replace(/ \(.*\)$/, '')).join('·');
   // 결산에는 긴 이야기 없이 한줄평(title)만 남긴다 (은퇴·꿈 접기·아이에게 넘기기 모두)
-  const ep = { kind, retireAge: a, deathAge, cause, lines, title: kind === 'fail' ? '무대 뒤를 지킨 매니저' : lifeTitle(s), summary: lifeSummary(s) };
+  // 해마다 기록에 마지막 해를 더한다 (그래프의 끝점)
+  (s.yr = s.yr || []).push([calY(s), Math.round(totalFans(s)), Math.round(s.earned || 0)]);
+  const ep = { kind, retireAge: a, deathAge, cause, lines, title: kind === 'fail' ? '무대 뒤를 지킨 매니저' : endTitle(s), last: endLastLine(s, kind, heir), summary: lifeSummary(s) };
   if (kind === 'handoff') { ep.heir = heir; ep.job = cur || '회사원'; }
   s.ended = ep;
   s.pending = null;
