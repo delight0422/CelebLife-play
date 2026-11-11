@@ -10,7 +10,9 @@ gateApplies();
 function show(id) { document.querySelectorAll('.screen').forEach(e => e.classList.toggle('hidden', e.id !== id)); }
 function nl(t) { return U.esc(t).replace(/\n/g, '<br>'); }
 // 사건 글자 꾸미기: WAS(취소선)·NOW(초록색) 표시를 태그로 바꾼다 (inbox.js)
-function rich(t) { return nl(t).replace(/\u0001([^\u0002]*)\u0002/g, '<s class="was">$1</s>').replace(/\u0003([^\u0004]*)\u0004/g, '<b class="now">$1</b>'); }
+// 평가 색 (v132): \u0005…\u0007 = 좋은 평(초록), \u0006…\u0007 = 나쁜 평(빨강). 표시가 없으면 애매한 평(검정). music.js evG · evB가 붙인다
+function evCol(html) { return html.replace(/\u0005([^\u0007]*)\u0007/g, '<span class="ev-g">$1</span>').replace(/\u0006([^\u0007]*)\u0007/g, '<span class="ev-b">$1</span>'); }
+function rich(t) { return evCol(nl(t).replace(/\u0001([^\u0002]*)\u0002/g, '<s class="was">$1</s>').replace(/\u0003([^\u0004]*)\u0004/g, '<b class="now">$1</b>')); }
 let toastTimer = null;
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
 function askConfirm(text, yes) {
@@ -544,6 +546,8 @@ function isSkillEv(ev) {
 }
 // 선택지 중 지금 유행하는 것: 이름 옆 꼬리표 (콘셉트·장르·예능 형식·유튜브 분야 어디서든)
 const TR_BADGE = '<span class="trb">🔥 유행</span>';
+// 초록 표시 (v132): 직원이 권한 것은 '추천', 그룹 · 밴드의 대표 콘셉트와 같은 것은 '대표 콘셉트'
+const REC_BADGE = '<span class="trb rec">추천</span>', SIG_BADGE = '<span class="trb rec">대표 콘셉트</span>';
 function showEventRaw() {
   const s = S;
   if (!s.pending) { $('#modal').classList.add('hidden'); return; }
@@ -575,7 +579,7 @@ function showEventRaw() {
     const C1 = evChoices(s);
     // 고를 것이 하나뿐이면 결과 창처럼 보라색 버튼 하나 (스페이스바로 넘어간다, v129)
     if (C1.length === 1 && (!C1[0].ok || C1[0].ok(s)) && !C1[0].h && !C1[0].warn) h += `<div class="choices"><button class="btn primary" data-choice="0">${U.esc(C1[0].t)} <kbd>Space</kbd></button></div>`;
-    else h += `<div class="choices">` + C1.map((c, i) => { const ok = !c.ok || c.ok(s); return `<button class="choice${c.tr ? ' tr' : ''}" data-choice="${i}" ${ok ? '' : 'disabled'}><div class="t">${U.esc(c.t)}${c.tr ? TR_BADGE : ''}</div>${c.h ? `<div class="h">${U.esc(c.h)}</div>` : ''}${c.warn ? `<div class="h ch-warn">⚠️ ${U.esc(c.warn)}</div>` : ''}</button>`; }).join('') + `</div>`;
+    else h += `<div class="choices">` + C1.map((c, i) => { const ok = !c.ok || c.ok(s); return `<button class="choice${c.tr ? ' tr' : ''}${c.rec || c.sig ? ' rec' : ''}" data-choice="${i}" ${ok ? '' : 'disabled'}><div class="t">${U.esc(c.t)}${c.tr ? TR_BADGE : ''}${c.rec ? REC_BADGE : ''}${c.sig ? SIG_BADGE : ''}</div>${c.h ? `<div class="h">${U.esc(c.h)}</div>` : ''}${c.warn ? `<div class="h ch-warn">⚠️ ${U.esc(c.warn)}</div>` : ''}</button>`; }).join('') + `</div>`;
   }
   // 자녀 이야기가 나오는 사건: 오른쪽 아래에 그 아이의 재능을 바로 볼 수 있는 버튼
   const kidId = ev.kid ? ev.kid(s, d) : null, kid = kidId && s.people[kidId];
@@ -597,8 +601,10 @@ function showEventRaw() {
 function evTblHTML(T, form) {
   UI.tblT = T; UI.tblS = null;
   const th = T.cols.map(([k, n]) => `<th data-tsort="${k}">${U.esc(n)}<i></i></th>`).join('');
-  const tr = T.rows.map((r, i) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${U.esc(String(c[1]))}${j === 0 && r.tr ? TR_BADGE : ''}</td>`; }).join('') + `</tr>`).join('');
-  return `<div class="tbl-tools"><input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc"></th>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
+  const tr = T.rows.map((r, i) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${U.esc(String(c[1]))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}</td>`; }).join('') + `</tr>`).join('');
+  // 추천 묶음 (v132): 버튼을 누르면 그 줄들만 체크된다 (트레이너가 권하는 데뷔 멤버 등)
+  const pre = form && T.presets && T.presets.length ? `<div class="tbl-pre">${T.presets.map((p, i) => `<button type="button" class="btn sm rec" data-tpre="${i}">${U.esc(p.n)}</button>`).join('')}</div>` : '';
+  return pre + `<div class="tbl-tools"><input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc"></th>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
 }
 function evTblSort(k) {
   const T = UI.tblT, tb = $('#ev-tbl tbody');
@@ -1409,10 +1415,10 @@ function pfAwardsHTML(s) { return s.awards.length ? `<div class="sec-h">🏆 받
 function songCardHTML(c) {
   const fans = (c.fans || []).filter(([, v]) => v).map(([n, v]) => `<span class="${v >= 0 ? 'pos' : 'neg'}">${U.esc(n)} ${sgnFans(v)}</span>`).join(' · ');
   return `<div class="scard"><div class="sc-top"><span class="sc-t">${c.top != null ? U.esc(c.t) : `「${U.esc(c.t)}」`}</span><span class="sc-by">${U.esc(c.by || '')}</span></div>`
-    + (c.top != null ? `<div class="sc-peak">${U.esc(c.top)}</div>` : `<div class="sc-peak${c.peak ? '' : ' out'}">${c.peak ? `최고 ${c.peak}위` : '차트 100위 밖'}${c.wins ? ` · 음악방송 1위 ${c.wins}회` : ''}</div>`)
+    + (c.top != null ? `<div class="sc-peak${c.tp > 0 ? ' ev-g' : c.tp < 0 ? ' ev-b' : ''}">${U.esc(c.top)}</div>` : `<div class="sc-peak${c.peak ? '' : ' out'}">${c.peak ? `최고 ${c.peak}위` : '차트 100위 밖'}${c.wins ? ` · 음악방송 1위 ${c.wins}회` : ''}</div>`)
     + (fans || c.pay != null ? `<div class="sc-fans">${[fans, c.pay != null ? `<span class="sc-pay">정산 ${fmtWon(c.pay)}</span>` : ''].filter(Boolean).join(' · ')}</div>` : '')
-    + (c.lines && c.lines.length ? `<div class="sc-h">${U.esc(c.lh || '듣는 사람 반응')}</div>${c.lines.map(x => `<div class="sc-l">${U.esc(x)}</div>`).join('')}` : '')
-    + (c.cmp ? `<div class="sc-cmp">${U.esc(c.cmp)}</div>` : '') + (c.bill ? billBtnHTML(c.bill) : '') + (c.live ? liveBtnHTML(c.live) : '') + `</div>`;
+    + (c.lines && c.lines.length ? `<div class="sc-h">${U.esc(c.lh || '듣는 사람 반응')}</div>${c.lines.map(x => `<div class="sc-l">${evCol(U.esc(x))}</div>`).join('')}` : '')
+    + (c.cmp ? `<div class="sc-cmp${/낫다/.test(c.cmp) ? ' ev-g' : /아쉽다/.test(c.cmp) ? ' ev-b' : ''}">${U.esc(c.cmp)}</div>` : '') + (c.bill ? billBtnHTML(c.bill) : '') + (c.live ? liveBtnHTML(c.live) : '') + `</div>`;
 }
 function billKey(b) { UI.billMap = UI.billMap || {}; const k = UI.billN = (UI.billN || 0) + 1; UI.billMap[k] = b; delete UI.billMap[k - 400]; return k; }
 function billBtnHTML(b) { return `<button class="bill-bn" data-bill="${billKey(b)}">🧾 정산서<span class="bb-t">${U.esc(b.t || '')}</span></button>`; }
@@ -1659,6 +1665,8 @@ function setLogSize(d) {
 // ───── 버튼 처리 ─────
 document.addEventListener('click', e => {
   // 표 (v131): 칸 이름을 누르면 정렬, 줄을 누르면 고르기 (체크 칸이 있으면 체크)
+  const tp0 = e.target.closest('[data-tpre]');
+  if (tp0 && UI.tblT && UI.tblT.presets) { const ids = UI.tblT.presets[+tp0.dataset.tpre].ids; document.querySelectorAll('#ev-tbl tbody tr').forEach(tr => { const cb = tr.querySelector('input[type=checkbox]'); if (!cb) return; cb.checked = ids.includes(cb.dataset.k); tr.classList.toggle('sel', cb.checked); }); return; }
   const th0 = e.target.closest('#ev-tbl th[data-tsort]');
   if (th0) { evTblSort(th0.dataset.tsort); return; }
   const row0 = e.target.closest('#ev-tbl tbody tr');
@@ -1808,6 +1816,8 @@ document.addEventListener('keydown', e => {
   // 고를 것이 하나뿐인 창(확인 · 알겠어요)과 작은 창(정산서 · 카드)은 스페이스바로 넘긴다 (v123). 입력 칸에서는 안 먹는다
   if (e.code === 'Space' && !(e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') && $('#confirm').classList.contains('hidden')) {
     if (!$('#pop').classList.contains('hidden')) { e.preventDefault(); if (!e.repeat) popClose(); return; }
+    // 표로 고르는 창 (v132): 스페이스바 = 확인 (체크하는 표) · 고른 것으로 정하기 (하나 고르는 표, 줄을 골랐을 때만)
+    if (!$('#modal').classList.contains('hidden') && !UI.res && $('#ev-tbl')) { const b = $('#mcard [data-submit]') || $('#mcard [data-tgo]:not([disabled])'); e.preventDefault(); if (b && !e.repeat && Date.now() - (UI.enterT || 0) > 400) { UI.enterT = Date.now(); b.click(); } return; }
     if (!$('#modal').classList.contains('hidden') && !UI.res) {
       const B = $('#ev-tbl') ? [] : [...document.querySelectorAll('#mcard [data-choice]')].filter(b => b.offsetParent !== null);
       if (B.length === 1 && !B[0].disabled && !document.querySelector('#mcard input, #mcard textarea')) { e.preventDefault(); if (!e.repeat && Date.now() - (UI.enterT || 0) > 400) B[0].click(); return; }

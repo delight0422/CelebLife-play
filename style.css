@@ -888,3 +888,11 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .ev-each { display: flex; flex-direction: column; gap: 8px; }
 .ev-each div b { display: block; font-size: 13.5px; }
 .ev-each div span { font-size: 12.5px; color: var(--ink2); }
+/* v132: 초록 '추천' · '대표 콘셉트' 표시, 평가 색(좋은 평 초록 · 나쁜 평 빨강), 표 가운데 정렬 */
+.trb.rec { background: #19a974; }
+.choice.rec { border-color: #7fd6b4; }
+.btn.rec { border-color: #7fd6b4; color: #0f8a5f; }
+.ev-g { color: #0f8a5f; font-weight: 700; }
+.ev-b { color: #d6334c; font-weight: 700; }
+.ev-tbl th, .ev-tbl td, .ev-tbl td.num { text-align: center; }
+.tbl-pre { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0 0; }

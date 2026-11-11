@@ -109,7 +109,7 @@ E({
   id: 'song_concept', cat: '곡 작업', title: '어떤 콘셉트로 쓸까?', tag: 'career',
   cond: s => true,
   text: (s, d) => `${d.what} 콘셉트를 정하자. 요즘 유행은 ${qIda(s.trend)}.${d.sig ? ` ${d.sigN || '우리'}의 대표 콘셉트는 ${qIda(d.sig)}.` : ''}`,
-  ch: (s, d) => { const P = cPplOf(s, d); return TRENDS.map(c => ({ t: c, tr: c === s.trend, h: `숙련도 ${gauge(cmGet(s, c))} ${Math.floor(cmGet(s, c))}${cTag(s, c, d.sig) ? ' · ' + cTag(s, c, d.sig) : ''}${d.cur === c ? ' · 지금 콘셉트' : ''}${P && !cAgeOK(s, P, c) ? ' · 나이와 안 맞아 반응이 반토막' : ''}`, f: s => SONG_CB[d.cb](s, d, c) })); },
+  ch: (s, d) => { const P = cPplOf(s, d); return TRENDS.map(c => ({ t: c, tr: c === s.trend, sig: !!d.sig && c === d.sig, h: `숙련도 ${gauge(cmGet(s, c))} ${Math.floor(cmGet(s, c))}${cTag(s, c, d.sig) ? ' · ' + cTag(s, c, d.sig) : ''}${d.cur === c ? ' · 지금 콘셉트' : ''}${P && !cAgeOK(s, P, c) ? ' · 나이와 안 맞아 반응이 반토막' : ''}`, f: s => SONG_CB[d.cb](s, d, c) })); },
 });
 // 제목 짓기: 내가 저작권을 가진 창작물(내가 쓴 곡·가사·원고)은 제목을 직접 정한다. 처음에는 무작위로 추천한 제목이 들어 있다
 // d: { cb: TITLE_CB 이름, title: 추천 제목, what: '○○의' (창 문장에 쓴다) } — 정한 제목은 d.title에 들어간 채로 TITLE_CB에 넘어간다
@@ -189,10 +189,14 @@ const RX = {
   cf: b => ({ z: b / 4, g: ['콘셉트가 잘 어울린다'], b: ['콘셉트가 안 맞는 옷 같다'] }),
   promo: tier => ({ z: (tier - 1.2) / 1.2, g: ['홍보가 제대로 됐다'], b: ['어디서 나왔는지 모르는 사람이 많다'] }),
 };
+// 평가 색 표시 (v132): 좋은 평은 초록, 나쁜 평은 빨강, 애매한 평은 표시 없이 검정. 화면(ui.js evCol · rich)이 색으로 바꾼다. 기록에 넣을 때는 evPlain으로 뗀다
+function evG(x) { return '\u0005' + x + '\u0007'; }
+function evB(x) { return '\u0006' + x + '\u0007'; }
+function evPlain(x) { return String(x).replace(/[\u0005\u0006\u0007]/g, ''); }
 function songReact(F) {
   F = F.filter(f => f && isFinite(f.z));
   if (!F.length) return [];
-  const S = F.slice().sort((a, b) => b.z - a.z), say = f => `"${U.pick(f.z >= 0 ? f.g : f.b)}"`;
+  const S = F.slice().sort((a, b) => b.z - a.z), say = f => { const x = `"${U.pick(f.z >= 0 ? f.g : f.b)}"`; return f.z >= 0.25 ? evG(x) : f.z <= -0.25 ? evB(x) : x; };
   const L = [say(S[0])];
   if (S.length > 1) L.push(say(S[S.length - 1]));
   if (S.length > 2) L.push(say(U.pick(S.slice(1, -1))));
@@ -200,7 +204,7 @@ function songReact(F) {
 }
 // 쓴소리 한 줄 (댓글 모니터링에서 '쓴소리까지 다 본다'를 고르면 카드에 더해진다)
 // 위 반응에 이미 나온 말은 다시 쓰지 않는다 (남은 말이 없으면 쓴소리만)
-function songHarsh(F, used) { const f = F.filter(f => f && isFinite(f.z)).sort((a, b) => a.z - b.z)[0], tail = U.pick(['솔직히 실망이다', '이번 건 그냥 넘길게', '전 곡이 더 나았다', '이걸 왜 냈는지 모르겠다']); const left = f ? f.b.filter(x => !(used || []).includes(`"${x}"`)) : []; return `"${left.length ? `${U.pick(left)}. ${tail}` : tail}"`; }
+function songHarsh(F, used) { const f = F.filter(f => f && isFinite(f.z)).sort((a, b) => a.z - b.z)[0], tail = U.pick(['솔직히 실망이다', '이번 건 그냥 넘길게', '전 곡이 더 나았다', '이걸 왜 냈는지 모르겠다']); const seen = (used || []).map(evPlain), left = f ? f.b.filter(x => !seen.includes(`"${x}"`)) : []; return `"${left.length ? `${U.pick(left)}. ${tail}` : tail}"`; }
 // 지난 곡과 비교 (o.prevSc에 이번 점수를 남긴다)
 function songCmp(o, sc) { const p = o.prevSc; o.prevSc = sc; return p == null ? '' : sc - p >= 4 ? '지난 곡보다 반응이 낫다' : sc - p <= -4 ? '지난 곡보다 반응이 아쉽다' : '지난 곡과 반응이 비슷하다'; }
 function songCardMake(o, F, sc, prevHolder) { const L = songReact(F); return { t: o.t, by: o.by || '', peak: o.peak || 0, wins: o.wins || 0, fans: o.fans || [], lines: L, cmp: songCmp(prevHolder, sc), harsh: songHarsh(F, L), bill: o.bill || null, pay: o.pay != null ? Math.round(o.pay) : null }; }
@@ -215,7 +219,7 @@ function harshGain(s, job) {
   return ` 아픈 말을 곱씹으며 연습했다. (${SKILLS[k].n} +1레벨)`;
 }
 function songCommentCh(s, d, line, job) {
-  const add = x => { d.card.lines.push(x); const w = s.works.slice().reverse().find(w => w.card && w.card.t === d.card.t); if (w && w.card !== d.card) w.card.lines.push(x); };
+  const add = x0 => { const x = evB(x0); d.card.lines.push(x); const w = s.works.slice().reverse().find(w => w.card && w.card.t === d.card.t); if (w && w.card !== d.card) w.card.lines.push(x); };
   return [
     { t: '쓴소리까지 다 본다', h: '스트레스가 크게 오른다 · 절반 확률로 대표 특기 +1레벨', f: s => { if (d.card && d.card.harsh) add(d.card.harsh); return line + (d.card && d.card.harsh ? ` 아픈 댓글도 봤다. ${d.card.harsh}` : '') + harshGain(s, job) + fx(s, { stress: 30 }); } },
     { t: '좋은 댓글만 본다', f: s => line + fx(s, { stress: -3 }) },
@@ -1158,7 +1162,7 @@ E({
   ch(s, d) {
     const g = s.tracks.idol.g;
     const C = [{ t: `회사 뜻대로 '${d.c}' 콘셉트로 간다`, tr: d.c === s.trend, f: s => { queueEv(s, 'idol_cbres', 1, { c: d.c }); return `'${d.c}' 콘셉트로 컴백 준비를 시작했다.`; } }];
-    d.alt.forEach(c => C.push({ t: `'${c}' 콘셉트를 제안한다`, tr: c === s.trend, h: `받아들여질 가능성 ${fmtPct(d.p)}${c === g.sig ? ' · 그룹에 잘 어울린다' : ''}`, f: s => { const ok = U.chance(d.p); queueEv(s, 'idol_cbres', 1, { c: ok ? c : d.c }); return ok ? `내 의견대로 '${c}' 콘셉트로 가기로 했다.` : `제안은 받아들여지지 않았다. '${d.c}' 콘셉트로 간다.`; } }));
+    d.alt.forEach(c => C.push({ t: `'${c}' 콘셉트를 제안한다`, tr: c === s.trend, sig: c === g.sig, h: `받아들여질 가능성 ${fmtPct(d.p)}${c === g.sig ? ' · 그룹에 잘 어울린다' : ''}`, f: s => { const ok = U.chance(d.p); queueEv(s, 'idol_cbres', 1, { c: ok ? c : d.c }); return ok ? `내 의견대로 '${c}' 콘셉트로 가기로 했다.` : `제안은 받아들여지지 않았다. '${d.c}' 콘셉트로 간다.`; } }));
     return C;
   },
 });
@@ -1935,7 +1939,7 @@ E({
   init(s, d) { if (!trackOn(s, 'band') || s.army || !s.tracks.band.b) { d.cancel = true; return; } bandFestPlay(s, d); },
   html: (s, d) => d.bill && typeof billBtnHTML === 'function' ? cardText(s, d) + billBtnHTML(d.bill) : '',
   text: (s, d) => d.cancel ? `밴드가 활동을 쉬게 되어 「${d.from}」 무대에 서지 못했다. 주최 측에 출연 취소를 알렸다.`
-    : `「${d.from}」 무대에 섰다. ${d.say || ''}\n\n밴드 팬 ${sgnFans(d.g)} · 내 팬 +${fmtFans(d.my || 0)}${d.pay != null ? ` · 정산 ${fmtWon(d.pay)}` : ''}${d.bill && d.bill.note ? `\n\n${d.bill.note}` : ''}`,
+    : `「${d.from}」 무대에 섰다. ${d.sc >= 80 ? evG(d.say || '') : d.sc < 60 ? evB(d.say || '') : d.say || ''}\n\n밴드 팬 ${sgnFans(d.g)} · 내 팬 +${fmtFans(d.my || 0)}${d.pay != null ? ` · 정산 ${fmtWon(d.pay)}` : ''}${d.bill && d.bill.note ? `\n\n${d.bill.note}` : ''}`,
   ch: (s, d) => [{ t: '확인', f: () => d.cancel ? `「${d.from}」 출연을 취소했다.` : `「${d.from}」 무대에 섰다.${d.fx}` }],
 });
 E({
