@@ -952,6 +952,27 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 @media (max-width: 700px) { .p-cam { font-size: 34px; } .p-clap { font-size: 30px; } .p-light { font-size: 26px; } .p-tree { font-size: 50px; } .p-sun { font-size: 34px; } }
 .lv-stage.vn-outdoor .lb.soft { color: #2f2a45; text-shadow: 0 1px 6px rgba(255, 255, 255, .7); }
 .lv-stage.vn-outdoor .lb.bad { color: #b01f3c; text-shadow: 0 1px 6px rgba(255, 255, 255, .7); }
+/* 12-3: 런웨이 (모델). 가운데 긴 무대, 양옆 앞줄 객석, 플래시. --walk: 0(뒤) ~ 1(맨 앞) */
+.lv-stage.vn-runway { background: linear-gradient(180deg, #0c0a13 0%, #1b1728 55%, #09070f 100%); }
+.lv-stage.vn-runway .lv-lights i { width: 22%; background: linear-gradient(180deg, hsla(0, 0%, 100%, calc(.1 + .3 * var(--glow))) 0%, transparent 80%); animation-duration: 6s; }
+.lv-stage.vn-runway .lv-lights i:nth-child(1) { left: 30%; } .lv-stage.vn-runway .lv-lights i:nth-child(4) { left: 48%; }
+.lv-stage.vn-runway .lv-lights i:nth-child(2), .lv-stage.vn-runway .lv-lights i:nth-child(3) { display: none; }
+.lv-stage.vn-runway .lv-floor { left: 30%; right: 30%; top: 16%; bottom: 0; height: auto; border-radius: 0; background: linear-gradient(180deg, #7d778d 0%, #efecf6 100%); clip-path: polygon(30% 0, 70% 0, 100% 100%, 0 100%); }
+.lv-stage.vn-runway .lv-crowd { height: 16%; background: linear-gradient(180deg, transparent, rgba(0, 0, 0, .7)); }
+.lv-stage.vn-runway .lv-crowd i { display: none; }
+.lv-stage.vn-runway .lv-mem { padding: 0; bottom: calc(50% - var(--walk, 0) * 36%); transform: scale(calc(.5 + var(--walk, 0) * .7)); transform-origin: 50% 100%; transition: bottom 1.2s ease-in-out, transform 1.2s ease-in-out; }
+.lv-stage.vn-runway .lv-mem .lm em { display: none; }
+.lv-stage.vn-runway .lv-oth { bottom: 44%; }
+.lv-stage.vn-runway .lv-oth.l { left: 33%; } .lv-stage.vn-runway .lv-oth.r { right: 33%; }
+.lv-stage.vn-runway .lv-oth .lv-chc { height: 70px; } .lv-stage.vn-runway .lv-oth .lv-sp { width: 30px; height: 40px; }
+.p-head { border-radius: 50%; background: #2a2438; transform: translate(-50%, 0); box-shadow: 0 6px 0 2px #1d1828; }
+.p-fl { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 0 22px 10px rgba(255, 255, 255, .85); opacity: 0; transform: translate(-50%, -50%); }
+.lv-stage.fl1 .p-fl:nth-of-type(3n), .lv-stage.fl2 .p-fl { animation: lvShutter .9s steps(1) infinite; animation-delay: var(--d); }
+.lv-stage.fl2 .p-fl { animation-duration: .5s; }
+@keyframes lvShutter { 0% { opacity: 1; } 14% { opacity: 0; } 100% { opacity: 0; } }
+.lv-stage.vn-runway .p-cam { bottom: 2%; font-size: 46px; }
+.lv-stage.vn-runway .p-cam.l { left: 24%; } .lv-stage.vn-runway .p-cam.r { right: 24%; }
+@media (max-width: 700px) { .lv-stage.vn-runway .lv-floor { left: 22%; right: 22%; } .lv-stage.vn-runway .p-cam { font-size: 30px; } .lv-stage.vn-runway .p-cam.l { left: 12%; } .lv-stage.vn-runway .p-cam.r { right: 12%; } .p-head { transform: translate(-50%, 0) scale(.7); } }
 /* 12-3: 지어낸 플랫폼의 대표 색 (사용자가 정함). 라이브온 = 라임 그린, 플리오(PLIO) = 소프트 오렌지. js/live.js의 PF와 같다 */
 :root { --pf-live: #B8F044; --pf-video: #FF914D; }
 /* 라이브 방송 플랫폼 (라이브온). 왼쪽 방송 화면, 오른쪽 채팅 */

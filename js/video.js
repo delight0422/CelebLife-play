@@ -1380,10 +1380,20 @@ E({
     while (t.tier < 6 && t.pts >= MU.pts[t.tier + 1] && totalFans(s) >= MU.fans[t.tier + 1] && (t.tier < 5 || me(s).tal.star >= MU.star)) { t.tier++; up = true; }
     addWork(s, { type: '모델', pay, title: `${j.brand} ${j.n}`, by: MODEL_TIERS[t.tier], sc: big > 0 ? 85 : good ? 70 : big < 0 ? 30 : 45, note: big > 0 ? '화제가 됐다' : good ? '반응이 좋았다' : big < 0 ? '혹평' : '무난' });
     if (up && t.tier >= 4) milestone(s, `${age(s)}세에 ${josa(MODEL_TIERS[t.tier], '이가')} 되었다.`);
-    const how = big > 0 ? '사진이 크게 화제가 됐다. 여기저기서 내 사진을 퍼 갔다.' : good ? '사진이 잘 나와 반응이 좋았다.' : big < 0 ? '사진이 어색하다는 혹평이 돌았다. 브랜드 쪽 표정이 좋지 않았다.' : '무난하게 끝났다.';
+    // 패션쇼는 사진이 아니라 워킹 이야기로 (v140)
+    const show = j.id === 'show';
+    const how = show ? (big > 0 ? '워킹이 크게 화제가 됐다. 쇼가 끝나고도 내 이름이 오르내렸다.' : good ? '워킹이 좋았다는 말을 들었다.' : big < 0 ? '런웨이에서 휘청해 혹평이 돌았다. 브랜드 쪽 표정이 좋지 않았다.' : '무난하게 끝났다.')
+      : big > 0 ? '사진이 크게 화제가 됐다. 여기저기서 내 사진을 퍼 갔다.' : good ? '사진이 잘 나와 반응이 좋았다.' : big < 0 ? '사진이 어색하다는 혹평이 돌았다. 브랜드 쪽 표정이 좋지 않았다.' : '무난하게 끝났다.';
+    // 실시간 창 (12-3): 런웨이. '중요할 때만'에서는 첫 패션쇼 · 화제나 혹평이 된 쇼 · 등급이 오른 쇼만
+    let live = null;
+    if (show) {
+      const first = !t.shows; t.shows = (t.shows || 0) + 1;
+      const tal = me(s).tal, nm = actName(s, 'model');
+      if (typeof liveStage === 'function') live = liveStage({ k: 'runway', vn: 'runway', place: '런웨이', t: `${j.brand} 패션쇼`, g: nm, mem: [[nm, '']], mi: 0, key: first || big !== 0 || up, big, sc: big > 0 ? 88 : good ? 72 : big < 0 ? 28 : 48, z: { pose: (tal.express - 50) / 15, vis: (tal.looks - 50) / 15 } });
+    }
     // 결과는 결과창으로 (등급이 오르면 같이 쓴다)
     const x = `${j.brand} ${josa(j.n, '을를')} 했다. ${how}` + fxt, upT = up ? `이제 '${MODEL_TIERS[t.tier]}' 소리를 듣는다.` : '';
-    return showResult(s, `${j.brand} ${j.n}`, x + (upT ? `\n\n${upT}` : ''), x + (upT ? ` ${upT}` : ''));
+    return showResult(s, `${j.brand} ${j.n}`, x + (upT ? `\n\n${upT}` : ''), x + (upT ? ` ${upT}` : ''), live);
   } })).concat([{ t: '이번엔 넘긴다', f: () => '들어온 일감을 모두 거절했다.' }]),
 });
 
