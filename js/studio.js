@@ -303,6 +303,7 @@ function coVRev(s, t, pj, sc) {
 }
 E({
   id: 'co_vres', cat: '작품 성적', title: '우리 회사 작품 공개', tag: 'career',
+  plio: (s, d) => d.pl !== undefined ? d.pl : (d.pl = typeof plioSpec === 'function' ? plioSpec({ k: 'film', t: `「${d.pj.title}」 하이라이트`, ch: coT(s).name, me: d.pj.dir === 'me' ? `${me(s).name} 감독` : '', sc: d.sc, rv: plioRv(d.review) }) : null),
   cond: s => coOn(s),
   init(s, d) {
     const t = coT(s), pj = d.pj, V = V_KIND[pj.kind], p = me(s);

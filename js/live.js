@@ -51,13 +51,15 @@ function liveBeats(sp) {
   if (sp.k === 'runway') return liveRunway(sp, R, pk, z, lvl, mine);
   if (sp.k === 'booth') return liveBooth(sp, R, pk, z, lvl, mine);
   if (sp.k === 'class') return liveClass(sp, R, pk, z, lvl, mine);
+  if (sp.k === 'eval') return liveEval(sp, R, pk);
   // 1. 등장: 팬이 많을수록 객석이 크다
   const f = lvl(z('fans'));
   B.push({ cap: `조명이 켜지고 ${josa(g, '이가')} 무대에 선다`, glow: 0.35 + f * 0.15,
     L: f === 2 ? [[`${who}!! ${who}!!`, 'call'], [pk(LV_BIG), 'big'], [pk(LV_BIG), 'big']] : f === 1 ? [[`${cn}!`, 'call'], [pk(['와아!', '꺄아!']), 'big']] : [[pk(['짝… 짝…', '누구야?', '웅성웅성']), 'soft']].concat(sp.debut ? [['신인인가 봐', 'soft']] : []) });
   // 2. 전주 · 응원법: 팬이 모인 팀은 멤버 이름을 차례로 부른다
   if (f >= 1) {
-    const names = grp ? sp.mem.map(m => m[0]).slice(0, 7) : [cn, cn];
+    // 남의 무대를 볼 때(이름 없는 멤버)는 팀 이름을 부른다
+    const names = grp && sp.mem.every(m => m[0]) ? sp.mem.map(m => m[0]).slice(0, 7) : [cn, cn];
     B.push({ cap: '전주 · 응원법', glow: 0.55, L: [[names.join('! ') + '!', 'call']].concat(f === 2 ? [[pk(LV_BIG), 'big']] : []) });
   } else B.push({ cap: '전주', glow: 0.4, L: [['……', 'soft'], [`${cn}…!`, 'soft']] });
   // 3. 1절: 무대 실력
@@ -177,6 +179,30 @@ function liveRunwayProps() {
   for (let i = 0; i < 12; i++) { const side = i % 2 ? 1 : -1, r = (i * 5) % 7; h += `<b class="p-fl" style="left:${50 + side * (17 + r * 4.6 + (i % 3) * 4)}%;top:${20 + r * 9.5}%;--d:${(i * 0.19) % 0.9}s"></b>`; }
   return `<div class="lv-props">${h}<i class="p-cam l">📸</i><i class="p-cam r">📸</i></div>`;
 }
+// ───── 보는 쪽 직업 (12-3) ─────
+// 남의 무대를 본다: 곡을 쓴 사람(작곡 · 작사) · 고른 사람(A&R) · 안무를 만든 사람(댄서)이 그 곡의 무대를 본다. 무대에 나는 없다 (mi: -1, 멤버 이름 없음)
+// o: { name 가수 · 팀, kind '솔로 가수' · '밴드' · 그 밖은 그룹, tier 1~3, title, sc, peak, trend, tw 안무 합, key }
+function liveWatch(s, o) {
+  const band = o.kind === '밴드', grp = !band && o.kind !== '솔로 가수';
+  const mem = band ? [['', '보컬'], ['', '기타'], ['', '베이스'], ['', '드럼']] : grp ? [['', ''], ['', ''], ['', ''], ['', ''], ['', '']] : [[o.name, '']];
+  const tier = o.tier || 1;
+  return liveStage({ k: band ? 'band' : grp ? 'idol' : 'solo', vn: band ? 'hall' : '', place: band ? '쇼케이스' : '음악방송', t: o.title, g: o.name, cn: o.name, mem, mi: -1, key: !!o.key, sc: o.sc,
+    wins: !band && o.peak && o.peak <= 3 ? 1 : 0, cand: !band && o.peak && o.peak <= 10 ? 1 : 0, z: { perf: (tier - 1.6) * 0.8, q: (o.sc - 58) / 14, fans: (tier - 1.8) * 1.1, tw: o.tw != null ? o.tw : 0.2, me: 0, trend: o.trend ? 1 : 0 } });
+}
+// 평가 날: 트레이너는 회사 평가단 앞에서 연습생들이 하는 무대를, 연기 트레이너는 신인들의 연기를 지켜본다
+// 들리는 건 평가단의 말(mc)과 지켜보는 사람들 소리. sp.x = { act: 연기 평가, st: [[이름, 2 부쩍 늘었다 · 1 그대로]], cut: 내보내는 사람 이름, good: 부쩍 는 사람 수 }
+function liveEvalSpec(s, d, o) {
+  const st = (d.ids || []).map(id => s.people[id]).filter(Boolean).slice(0, 5).map(x => [x.name, ((d.gr || {})[x.id] || 0) >= 3 ? 2 : 1]);
+  const cut = (d.cut || []).map(c => s.people[c.id]).filter(Boolean).map(x => x.name)[0] || '';
+  return liveStage({ k: 'eval', vn: o.act ? 'film' : 'hall', place: o.act ? '연기 평가' : '반기 평가', t: o.t || '', g: o.g || '', mem: st.map(x => [x[0], '']), mi: -1, key: !!o.key, sc: 50 + (d.good || 0) * 15 - (cut ? 15 : 0), x: { act: o.act ? 1 : 0, st, cut, good: d.good || 0 } });
+}
+function liveEval(sp, R, pk) {
+  const X = sp.x || {}, B = [], act = !!X.act;
+  B.push({ cap: '평가 시작', glow: 0.45, L: [['평가 시작하겠습니다', 'mc'], ['꿀꺽…', 'soft']] });
+  for (const [name, g] of (X.st || []).slice(0, 3)) B.push({ cap: name, glow: g === 2 ? 0.8 : 0.55, clap: act ? 1 : 0, L: [[`다음, ${name}`, 'mc']].concat(g === 2 ? [['오…', 'big'], [pk(['많이 늘었네요', '반년 전이랑 딴사람이네요', act ? '눈빛이 달라졌네요' : '기본기가 잡혔네요']), 'big']] : [['……', 'soft'], [pk(['음, 무난하네요', '조금만 더 하면 되겠네요', '지난번이랑 비슷하네요']), 'soft']]) });
+  B.push({ cap: '평가 끝', glow: X.good ? 0.9 : 0.6, L: [['수고했습니다. 평가는 여기까지', 'mc']].concat(X.cut ? [[`${X.cut}… 여기까지 하죠`, 'bad'], ['……', 'bad']] : [], X.good ? [['트레이너가 잘 가르쳤네요', 'big'], ['짝짝짝', 'soft']] : X.cut ? [] : [['다음 평가 때 봅시다', 'soft']]) });
+  return B;
+}
 // ───── 녹음 부스 (12-3): 성우의 녹음 ─────
 // 마이크 앞에 서서 녹음한다. 왼쪽 유리창 너머에 음향 감독, 오른쪽에 모니터(애니 · 게임 · 외화 · 내레이션 화면)가 있다
 // 들리는 건 음향 감독의 말(mc: 큐 · 컷 · 오케이)과 같이 녹음하는 동료 · 스태프 소리뿐. 방영 뒤 반응은 여기 나오지 않는다
@@ -256,7 +282,7 @@ function liveProps(sp) {
 // 지어낸 플랫폼 이름과 대표 색 (사용자가 정함, 2026-11-11). 색은 style.css의 --pf-live · --pf-video와 같다
 // live: 라이브 방송 플랫폼(치지직 감성) · video: 영상 플랫폼(유튜브 감성, 팝업은 아직 안 만듦)
 // comm: 커뮤니티(모든 직업이 같이 쓴다). 이름과 색은 임시로 붙였다 (사용자가 정하면 여기와 style.css의 --pf-comm만 바꾸면 된다)
-const PF = { live: { n: '라이브온', c: '#B8F044' }, video: { n: '플리오', en: 'PLIO', c: '#FF914D' }, comm: { n: '와글', en: 'WAGLE', c: '#7C9CFF' } };
+const PF = { live: { n: '라이브온', c: '#B8F044' }, video: { n: '플리오', en: 'PLIO', c: '#FF914D' }, comm: { n: '와글', en: 'WAGGLE', c: '#7C9CFF' } };
 // 왼쪽은 방송 화면(아바타 · LIVE · 시청자 수 · 후원 알림), 오른쪽은 채팅
 // 여기서는 채팅이 곧 현장 반응이다. 줄 종류: chat(채팅) · don(후원) · del(매니저가 지운 채팅) · join(다른 방송인이 들어옴)
 // sp.x = { sub: 방송 종류(debut · d3 · anniv · concert · endure · avatar 새 아바타 공개 · mile 구독자 기념 · grad 졸업 · collab 합방), co: 합방 상대, mgr: 매니저가 있는지(없으면 '삭제된 채팅'), subs: 구독자, nick: 팬들이 부르는 이름, mates: 들어올 방송인 이름들, d3 }. 요인: sk(방송 실력)
@@ -317,7 +343,9 @@ function liveStreamHTML(sp) {
 // spec은 작게: { v, k: 종류, seed, t: 영상 제목, ch: 채널, me: 댓글에 나올 내 이름, sc: 작품 반응 0~100, rv: 나에 대한 평 2 ~ -2, vw: 조회수 }. 댓글은 씨앗으로 그때그때 만든다
 // film: 내가 연출하거나 쓴 작품 · animk: 내가 만든 애니 · stage: 곡 무대 영상 · vlog: 스트리머가 매달 올리는 영상
 const PL_KIND = { drama: '본편 클립', mv: '뮤직비디오', show: '예능 클립', anime: '애니 클립', cover: '커버 영상', clip: '강의 영상', collab: '합작 영상', film: '본편 클립', animk: '애니 클립', stage: '무대 영상', vlog: '새 영상' };
-const PL_WORK_OF = { film: 'drama', animk: 'anime', vlog: 'video', cover: 'video', clip: 'video', collab: 'video' };
+// stagew: 내가 쓰거나 고른 곡의 무대 영상 (남의 무대)
+PL_KIND.stagew = '무대 영상';
+const PL_WORK_OF = { film: 'drama', animk: 'anime', vlog: 'video', cover: 'video', clip: 'video', collab: 'video', stagew: 'stage' };
 const PL_NICK = LV_NICK.concat(['정주행중', '밤고구마', '퇴근길', '치즈김밥', '주말내내', '리모컨주인', '보리차', '참새방앗간', '소파지박령', '삼각김밥', '새우깡', '귤한박스']);
 // 작품에 대한 댓글 (종류마다 · 반응마다)
 const PL_WORK = {
@@ -339,7 +367,7 @@ const PL_ME = {
 PL_ME.stage = { 2: ['{n} 직캠 떴다', '{n} 무대 체질이다', '{n}만 보인다', '{n} 누구야? 이름 외워 간다'], 1: ['{n} 잘한다', '{n} 눈에 띈다'], 0: ['{n} 화이팅', '{n} 응원해요'] };
 // 만든 사람(감독 · 작가)에 대한 댓글. {n}에는 '○○ 감독' · '○○ 작가'가 들어간다
 PL_ME.make = { 2: ['{n} 이름 기억해 둔다', '{n} 다음 작품도 무조건 본다', '만든 사람이 {n}이라더라, 역시'], 1: ['{n} 잘 만드네', '{n} 다음 작품 기대된다'], 0: ['{n} 작품이구나', '{n} 무난하게 뽑았다'], '-1': ['{n} 이번엔 좀 아쉽다', '{n} 감이 떨어졌나'], '-2': ['{n} 작품은 이제 거른다', '{n} 왜 이렇게 만들었지'] };
-const PL_ME_OF = { drama: 'act', mv: 'act', show: 'show', anime: 'voice', stage: 'stage', film: 'make', animk: 'make' };
+const PL_ME_OF = { drama: 'act', mv: 'act', show: 'show', anime: 'voice', stage: 'stage', film: 'make', animk: 'make', stagew: 'make' };
 function plioSpec(o) {
   const sc = Math.round(U.clamp(o.sc || 0, 0, 100));
   const sp = { v: 'plio', k: o.k, seed: U.int(1, 2e9), t: o.t || '', ch: o.ch || '', me: o.me || '', sc, rv: o.rv || 0, vw: Math.max(30, Math.round(o.vw != null ? o.vw : Math.pow(10, 3.4 + sc / 26) * (o.mul || 1))) };
@@ -607,9 +635,9 @@ function liveHTML(sp) {
   // 1위 발표 때만 보이는 다른 팀들 (무대 양옆)
   const oth = k => [0, 1, 2].map(i => `<span class="lm" style="--i:${i + k}">${liveChar('rival' + sp.seed + (i + k), (sp.hue + 90 + (k ? 110 : 0)) % 360, 'rival' + sp.seed + k)}</span>`).join('');
   return `<div class="lv-top"><span class="lv-place">${U.esc(sp.place)}</span>${sp.t ? `<span class="lv-t">「${U.esc(sp.t)}」</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
-    + `<div class="lv-stage${sp.vn ? ' vn-' + sp.vn : ''}${sp.k === 'set' || sp.k === 'show' || sp.k === 'runway' || sp.k === 'booth' || (sp.k === 'class' && (sp.x || {}).room === 'ol') ? ' mcon' : ''}${sp.k === 'class' ? ' rm-' + ((sp.x || {}).room || 'uni') : ''}" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"><div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
+    + `<div class="lv-stage${sp.vn ? ' vn-' + sp.vn : ''}${sp.k === 'set' || sp.k === 'show' || sp.k === 'runway' || sp.k === 'booth' || sp.k === 'eval' || (sp.k === 'class' && (sp.x || {}).room === 'ol') ? ' mcon' : ''}${sp.k === 'class' ? ' rm-' + ((sp.x || {}).room || 'uni') : ''}" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"><div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
     + `<div class="lv-floor"></div><div class="lv-oth l">${oth(0)}</div><div class="lv-oth r">${oth(3)}</div>`
-    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? (sp.hue + i * 67) % 360 : sp.hue, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? sp.g + i : sp.g)}<em>${sp.k === 'band' || sp.k === 'player' ? livePartIc(m[1]) + ' ' : ''}${U.esc(m[0])}</em></span>`).join('')}</div>`
+    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? (sp.hue + i * 67) % 360 : sp.hue, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? sp.g + i : sp.g)}${m[0] || ((sp.k === 'band' || sp.k === 'player') && m[1]) ? `<em>${sp.k === 'band' || sp.k === 'player' ? livePartIc(m[1]) + ' ' : ''}${U.esc(m[0])}</em>` : ''}</span>`).join('')}</div>`
     + `<div class="lv-conf">${Array.from({ length: 26 }, (_, i) => `<i style="left:${(i * 41) % 100}%;--d:${(i * 0.17) % 1.4}s;--c:${(i * 67) % 360}"></i>`).join('')}</div>`
     + liveProps(sp)
     + `<div class="lv-crowd">${sticks}</div><div class="lv-bub" id="lv-bub"></div><div class="lv-mc" id="lv-mc"></div></div>`

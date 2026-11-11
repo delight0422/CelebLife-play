@@ -192,7 +192,15 @@ function dcDoJob(s, j) {
   const how = cho ? (big > 0 ? '내가 만든 안무가 챌린지로 번져 여기저기서 따라 췄다.' : good ? '안무가 곡과 잘 맞는다는 말을 들었다.' : big < 0 ? '안무가 곡과 안 어울린다는 혹평이 돌았다.' : '무난한 안무로 마무리했다.')
     : (big > 0 ? '무대 직캠이 퍼져 "저 댄서 누구냐"는 말이 돌았다.' : good ? '무대가 깔끔하게 끝났다. 다음에도 불러 주겠다는 말을 들었다.' : big < 0 ? '동선을 틀려 무대가 꼬였다. 현장 분위기가 싸늘했다.' : '무난하게 끝났다.');
   const x = `${j.who} ${josa(j.n, '을를')} 했다. ${how}` + fxt;
-  return showResult(s, `${j.who} ${j.n}`, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''));
+  // 12-3: 백댄서로 같이 선 무대(가수 옆에 내가 선다), 안무를 만든 곡은 그 무대를 지켜본다. 뮤직비디오 촬영은 창이 없다
+  // '중요할 때만'에서는 첫 무대 · 첫 안무 · 화제나 혹평 · 시상식 무대 · 등급이 오른 일만
+  let live = null;
+  if (typeof liveStage === 'function') {
+    const sc = big > 0 ? 86 : good ? 70 : big < 0 ? 34 : 50;
+    if (cho) live = typeof liveWatch === 'function' ? liveWatch(s, { name: j.who, kind: '그룹', tier: Math.min(3, 1 + Math.floor(t.tier / 2)), title: j.n, sc, tw: big > 0 ? 1.5 : good ? 0.8 : big < 0 ? -1 : 0, key: t.cho === 1 || big !== 0 || !!up }) : null;
+    else if (j.id !== 'mv') live = liveStage({ k: 'solo', place: j.id === 'tour' ? '콘서트' : j.id === 'award' ? '시상식' : '음악방송', t: j.n, g: j.who, cn: j.who, mem: [['', ''], [j.who, ''], [actName(s, 'dancer'), ''], ['', '']], mi: 2, key: t.back === 1 || big !== 0 || j.id === 'award' || !!up, sc, z: { perf: good ? 0.8 : -0.5, q: 0.4, fans: t.tier * 0.4 - 0.6, me: big > 0 ? 1 : -1 } });
+  }
+  return showResult(s, `${j.who} ${j.n}`, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), live);
 }
 // 가끔 예능 섭외 (예능인 일과 같은 방식으로 나간다. 재밌게 나오면 예능 쪽에서 고정 제안이 오기도 한다)
 E({

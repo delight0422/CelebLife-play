@@ -95,6 +95,8 @@ TITLE_CB.wsong = (s, d) => {
 };
 E({
   id: 'w_res', cat: '음원 성적', title: '참여곡 성적', tag: 'career',
+  // 12-3 보는 쪽: 내가 참여한 곡의 무대를 본다. 방영 뒤 반응은 플리오에서
+  live: (s, d) => d.live, keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), plio: (s, d) => d.pl || null,
   init(s, d) {
     const t = s.tracks[d.kind], nm = wJob(d.kind);
     const fans = [5e3, 5e4, 5e5][d.a.tier - 1] * U.fl(0.5, 2);
@@ -116,6 +118,8 @@ E({
     if (t.songs === 1) milestone(s, `${age(s)}세에 ${nm}한 곡이 처음으로 앨범에 실렸다 (${d.a.name} 「${d.title}」).`);
     const anr = s.people[d.anr]; if (anr) bond(s, anr, sc >= 60 ? 5 : 0);
     d.sc = sc;
+    if (typeof liveWatch === 'function') d.live = liveWatch(s, { name: d.a.name, kind: d.a.kind, tier: d.a.tier, title: d.title, sc, peak: d.peak, trend: !!d.c && d.c === s.trend, key: t.songs === 1 || (d.peak && d.peak <= 10) || !!d.up });
+    if (typeof plioSpec === 'function') d.pl = plioSpec({ k: 'stagew', t: `${d.a.name} 「${d.title}」 무대`, ch: `${PF.video.n} 뮤직`, me: `${actName(s, d.kind)} ${wN(d.kind)}`, sc, rv: sc >= 80 ? 2 : sc >= 65 ? 1 : 0, vw: Math.pow(10, 3.6 + sc / 22) });
   },
   text: (s, d) => `${d.a.name}의 ${josa(`「${d.title}」`, '이가')} 나왔다. (내가 ${wJob(d.kind)})\n\n${chartText(d.peak)}\n매달 들어올 저작권료 약 ${fmtWon(d.roy)} (조금씩 줄어든다)\n업계 평판 ${Math.round(s.tracks[d.kind].rep)}` + (d.up ? `\n\n🎉 ${wN(d.kind)} 단계가 ${qro(W_TIERS[d.up])} 올랐다!` : ''),
   ch: (s, d) => [{ t: '확인', f: () => `${wJob(d.kind)} 참여곡 「${d.title}」 (${d.a.name}) ${chartText(d.peak)}.` + (d.up ? ` ${wN(d.kind)} 단계가 ${qro(W_TIERS[d.up])} 올랐다.` : '') }],
@@ -531,6 +535,7 @@ ${g.name}의 대표 컨셉은 '${g.sig}', 요즘 유행은 ${qIda(s.trend)}.`; }
 function anrEar(p) { return jobMix([[lv(p, 'scout'), JS_]]) + talB(p.tal.music, true); }
 E({
   id: 'anr_out', cat: 'A&R', title: '고른 곡의 성적', tag: 'career',
+  live: (s, d) => d.live, keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), plio: (s, d) => d.pl || null,
   cond: s => trackOn(s, 'anr'),
   init(s, d) {
     const t = s.tracks.anr, g = t.groups[d.gi];
@@ -541,6 +546,9 @@ E({
     d.bonus = d.peak && d.peak <= 10 ? t.sal * 2 : d.peak && d.peak <= 40 ? Math.round(t.sal * 0.5 / 1e5) * 1e5 : 0;
     if (d.bonus) earn(s, d.bonus, 'A&R 성과급');
     t.picks++; if (d.peak && d.peak <= 20) t.hits++;
+    // 12-3 보는 쪽: 내가 고른 곡의 무대
+    if (typeof liveWatch === 'function') d.live = liveWatch(s, { name: g.name, kind: '그룹', tier: Math.max(1, Math.min(3, t.tier)), title: d.title, sc, peak: d.peak, trend: !!d.cn && d.cn === s.trend, key: t.picks === 1 || (d.peak && d.peak <= 10) });
+    if (typeof plioSpec === 'function') d.pl = plioSpec({ k: 'stagew', t: `${g.name} 「${d.title}」 무대`, ch: `${PF.video.n} 뮤직`, me: '', sc, vw: Math.pow(10, 3.6 + sc / 22) });
     // 팀장이면 내가 고른 곡의 성적이 팀 평가에 1.8배로 반영된다
     // 팀장은 기대치가 높아서(곡 점수 55가 아니라 62부터 플러스) 웬만한 성적으로는 평가가 오르지 않는다
     d.lead0 = !!t.lead; d.lc = empRep(s, 'anr', t, (sc - (t.lead ? 62 : 55)) / 3);
@@ -659,6 +667,8 @@ CAREERS.trainer = {
 // 반년마다 연습생 평가: 한 명을 데뷔조에 추천할 수 있다
 E({
   id: 'tr_eval', cat: '트레이너', title: '연습생 평가', tag: 'career',
+  // 12-3 보는 쪽: 평가단 앞에 선 제자들을 먼저 보고, 그다음 누구를 추천할지 고른다
+  live: (s, d) => d.live,
   cond: s => trackOn(s, 'trainer'),
   init(s, d) {
     const t = s.tracks.trainer;
@@ -670,7 +680,7 @@ E({
       if (!x) continue;
       if (x.trSince == null) x.trSince = s.t;
       const cur = lv(x, t.k), prev = x.trPrev != null ? x.trPrev : cur;
-      x.trPrev = cur;
+      x.trPrev = cur; (d.gr = d.gr || {})[id] = cur - prev;
       if (cur - prev >= 3) d.good++;
       const stuck = s.t - x.trSince >= 12 && cur - prev < 1.5, old = pAge(s, x) >= 23;
       if (d.cut.length || !(old || (stuck && U.chance(0.7)))) continue; // 한 번 평가에 한 명까지만 내보낸다
@@ -689,6 +699,7 @@ E({
     // 잘 가르치면 회사가 연습생을 더 맡긴다
     if (t.students.length < trCap(t)) { d.added = makeStudent(s, t); t.students.push(d.added); }
     d.ids = t.students.filter(id => s.people[id]);
+    if (typeof liveEvalSpec === 'function') { d.live = liveEvalSpec(s, d, { t: t.agN || '', g: SKILLS[t.k].n, key: !t.evN || d.cut.length > 0 || !!d.lc }); t.evN = (t.evN || 0) + 1; }
   },
   text(s, d) {
     const t = s.tracks.trainer, p = me(s);

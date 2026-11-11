@@ -317,8 +317,12 @@ E({
 const DIR_SET = ['비가 이어져 야외 촬영이 계속 밀린다.', '주연 배우가 중요한 장면의 해석이 나와 다르다고 한다.', '어제 찍은 장면이 아무래도 마음에 들지 않는다.', '제작사가 촬영 일정을 당겨 달라고 한다.'];
 E({
   id: 'dir_set', cat: '촬영 현장', title: '촬영 현장', tag: 'career',
+  // 12-3 보는 쪽: 감독 자리에서 촬영장을 먼저 보고, 그다음 어떻게 할지 고른다. '중요할 때만'에서는 첫 촬영장만
+  live: (s, d) => d.live,
   cond: s => trackOn(s, 'director') && !!s.tracks.director.proj,
-  init(s, d) { const pj = s.tracks.director.proj; if (!pj || pj.id !== d.id) { d.skip = true; return; } d.k = U.int(0, DIR_SET.length - 1); },
+  init(s, d) { const pj = s.tracks.director.proj; if (!pj || pj.id !== d.id) { d.skip = true; return; } d.k = U.int(0, DIR_SET.length - 1);
+    if (typeof liveStage === 'function') { const t = s.tracks.director, cast = (pj.cast || []).map(id => s.people[id]).filter(Boolean).slice(0, 3), av = castAvgOf(s, pj.cast);
+      d.live = liveStage({ k: 'set', vn: 'film', place: '촬영장', t: pj.title, g: DIR_PJ[pj.tk].n, cn: '감독님', mem: cast.length ? cast.map(c => [c.name, '']) : [['배우', '']], mi: -1, key: !t.setN, sc: U.clamp(av + 15 + U.normal(0, 8), 0, 100), z: { perf: (av - DIR_PJ[pj.tk].demand) / 12, emo: U.fl(-0.6, 1), co: U.fl(-0.6, 1) } }); t.setN = (t.setN || 0) + 1; } },
   text: (s, d) => { const pj = s.tracks.director.proj; return `${DIR_PJ[pj.tk].n} 「${pj.title}」 촬영 현장. ${DIR_SET[d.k]}`; },
   ch: (s, d) => {
     const pj = s.tracks.director.proj;

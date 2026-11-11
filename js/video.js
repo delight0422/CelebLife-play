@@ -480,6 +480,7 @@ CAREERS.acttrainer = {
 // 반년마다 평가: 실력이 부쩍 는 신인이 있으면 오르고, 덜 키운 신인이 나가면 깎인다. 한 명을 작품 오디션에 추천할 수 있다
 E({
   id: 'atr_eval', cat: '연기 트레이너', title: '신인 평가', tag: 'career',
+  live: (s, d) => d.live,
   cond: s => trackOn(s, 'acttrainer'),
   init(s, d) {
     const t = s.tracks.acttrainer;
@@ -489,7 +490,7 @@ E({
       if (!x) continue;
       if (x.trSince == null) x.trSince = s.t;
       const cur = lv(x, 'acting'), prev = x.trPrev != null ? x.trPrev : cur;
-      x.trPrev = cur;
+      x.trPrev = cur; (d.gr = d.gr || {})[id] = cur - prev;
       if (cur - prev >= 3) d.good++;
       const stuck = s.t - x.trSince >= 12 && cur - prev < 1.5, old = pAge(s, x) >= 30;
       if (d.cut.length || !(old || (stuck && U.chance(0.7)))) continue;
@@ -504,6 +505,7 @@ E({
     else if (t.lead) { d.leadPen = Math.round(3 * LEAD_MULT); d.lc = empRep(s, 'acttrainer', t, -3) || d.lc; }
     if (t.students.length < trCap(t)) { d.added = makeActStudent(s, t); t.students.push(d.added); }
     d.ids = t.students.filter(id => s.people[id]);
+    if (typeof liveEvalSpec === 'function') { d.live = liveEvalSpec(s, d, { act: true, t: t.agN || '', g: '연기', key: !t.evN || d.cut.length > 0 || !!d.lc }); t.evN = (t.evN || 0) + 1; }
   },
   text(s, d) {
     const t = s.tracks.acttrainer, p = me(s);
@@ -1042,8 +1044,11 @@ CAREERS.editor = {
         t.jobs++; empRep(s, 'editor', t, (q - bar) / 3);
         if (t.mcn && AG[t.mcn]) mcnGrow(s, t.mcn, U.clamp((q - bar) / 8, 0, 1.5) * (t.lead ? 1.5 : 1));
         const word = q >= bar + 12 ? `${t.mcn ? '크리에이터가' : '연출팀이'} 극찬했다` : q >= bar + 4 ? '좋다는 평' : q >= bar - 4 ? '무난하다는 평' : q >= bar - 12 ? '아쉽다는 평' : '다시 손보라는 말을 들었다';
+        const ttl = t.mcn ? `${t.agN} 소속 채널 영상` : tvShowTitle();
         addRes(s, `맡은 ${t.mcn ? '소속 채널 영상' : EM_N[mk]} 편집 반응: ${word}. (업무 평가 ${r0} → ${Math.round(t.rep)})`);
-        addWork(s, { type: '영상 편집', title: t.mcn ? `${t.agN} 소속 채널 영상` : tvShowTitle(), by: t.agN, sc: Math.round(q + 10), note: q >= bar + 4 ? '호평' : q >= bar - 4 ? '무난' : '아쉬움' });
+        // 12-3 보는 쪽: 내가 편집한 영상의 반응은 플리오에서
+        if (typeof plioSpec === 'function') s.log[s.log.length - 1].pl = plioSpec({ k: mk === 'yt' ? 'vlog' : mk === 'show' ? 'show' : 'drama', t: t.mcn ? ttl : `「${ttl}」 클립`, ch: t.agN, me: '', sc: U.clamp(55 + (q - bar) * 2, 5, 98) });
+        addWork(s, { type: '영상 편집', title: ttl, by: t.agN, sc: Math.round(q + 10), note: q >= bar + 4 ? '호평' : q >= bar - 4 ? '무난' : '아쉬움' });
       }
       return;
     }
