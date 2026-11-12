@@ -805,11 +805,11 @@ function idolAlbMonth(s, t) {
   if (k === 1 && !a.deb && !a.told) { a.told = true; addLog(s, albNewsLine(s, a, `「${t.g.name}」 다음 앨범에 실을`), 'career'); if (typeof idolMyArc === 'function') idolMyArc(s, t, a); }
   if (k > 6 && !hasQ(s, 'idol_cbres')) { t.alb = null; t.nextCb = 1; }
 }
-// '내 곡 내기 · 가사 내기' (v154): 켜 두면 다음 앨범부터 내 곡이 데모곡 모집에 들어가 남의 곡과 똑같이 심사를 받고, 실린 곡의 가사를 맡을 수도 있다
+// '자작곡 쓰기 · 가사 쓰기' (v154): 켜 두면 다음 앨범부터 내 곡이 데모곡 모집에 들어가 남의 곡과 똑같이 심사를 받고, 실린 곡의 가사를 맡을 수도 있다
 function songSubActs(s, t) {
   const p = me(s), A = [];
-  if (has(p, 'compose')) A.push({ t: '🎼 내 곡 내기', sw: true, on: !!t.subSong, tag: t.subSong ? '켜 둠' : '', h: `다음 앨범 데모곡 모집에 내 곡을 낸다 · 남의 곡과 똑같이 A&R 심사를 받는다 · 작곡 ${lvi(p, 'compose')}레벨`, btn: t.subSong ? '끄기' : '켜기', ok: true, run: s => { t.subSong = !t.subSong; return t.subSong ? '다음 앨범부터 데모곡 모집에 내 곡을 내기로 했다.' : '데모곡 모집에 내 곡을 내지 않기로 했다.'; } });
-  if (has(p, 'lyric')) A.push({ t: '✍️ 가사 내기', sw: true, on: !!t.subLyr, tag: t.subLyr ? '켜 둠' : '', h: `실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡, 조금 모자라면 수록곡 · 작사 ${lvi(p, 'lyric')}레벨`, btn: t.subLyr ? '끄기' : '켜기', ok: true, run: s => { t.subLyr = !t.subLyr; return t.subLyr ? '다음 앨범부터 가사를 써 보겠다고 했다.' : '가사는 내지 않기로 했다.'; } });
+  if (has(p, 'compose')) A.push({ t: '🎼 자작곡 쓰기', sw: true, on: !!t.subSong, tag: t.subSong ? '켜 둠' : '', h: `다음 앨범 데모곡 모집에 내 곡을 낸다 · 남의 곡과 똑같이 A&R 심사를 받는다 · 작곡 ${lvi(p, 'compose')}레벨`, btn: t.subSong ? '끄기' : '켜기', ok: true, run: s => { t.subSong = !t.subSong; return t.subSong ? '다음 앨범부터 데모곡 모집에 내 곡을 내기로 했다.' : '데모곡 모집에 내 곡을 내지 않기로 했다.'; } });
+  if (has(p, 'lyric')) A.push({ t: '✍️ 가사 쓰기', sw: true, on: !!t.subLyr, tag: t.subLyr ? '켜 둠' : '', h: `실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡, 조금 모자라면 수록곡 · 작사 ${lvi(p, 'lyric')}레벨`, btn: t.subLyr ? '끄기' : '켜기', ok: true, run: s => { t.subLyr = !t.subLyr; return t.subLyr ? '다음 앨범부터 가사를 써 보겠다고 했다.' : '가사는 내지 않기로 했다.'; } });
   return A;
 }
 // 그룹 나이: 나를 포함한 멤버 평균 나이와 막내 나이
@@ -1035,6 +1035,7 @@ function makeGroup(s, t, surv) {
   }
   for (const id of ids) { const n = s.people[id]; n.rel = '멤버'; n.job = '아이돌'; n.trainee = null; n.aff = Math.max(n.aff, 40); n.metOrg = ag.n; }
   const all = [s.me].concat(ids);
+  uniqNames(s, all); // 같은 그룹에 동명이인은 없다 (v163)
   const star = Math.round(all.reduce((a, id) => a + s.people[id].tal.star, 0) / all.length + U.normal(0, 6));
   return { tw: surv ? 20 : 30, name: newGroupName(s, all.length), fandom: U.pick(FANDOM_NAMES), members: ids, pos: assignIdolPos(s, all), mo: U.normal(0, 4) + (agPlan(t) - 50) * 0.04, sig: U.pick(TRENDS.filter(x => cAgeOK(s, all.map(id => s.people[id]).filter(Boolean), x, 1))), star: U.clamp(star, 10, 98), f: { kr: 0, jp: 0, us: 0 }, base: ag.tier * 3000 + U.int(300, 2000) + (surv || 0) };
 }
@@ -1086,7 +1087,7 @@ function idolRelease(s, t, c, debut, a) {
   // 앨범 제작비: 아직 작은 그룹에는 회사도 돈을 덜 쓴다 (그룹 팬 30만 명이 되면 다 쓴다)
   t.debt += [0, 1.2e8, 2.5e8, 4e8][t.tier] * (0.45 + 0.55 * Math.min(1, gf / 3e5)) / (g.members.length + 1);
   const pay = memberIncome(s, t, albums * 14000 + (peak ? (101 - peak) * 400e4 : 0), '앨범·음원 정산');
-  // 내 곡 · 가사 (v154): 예전에는 주사위로 이름이 올랐다. 이제 '내 곡 내기 · 가사 내기'를 켜 두고 심사 · 선정을 거쳐 실려야 한다
+  // 내 곡 · 가사 (v154): 예전에는 주사위로 이름이 올랐다. 이제 '자작곡 쓰기 · 가사 쓰기'를 켜 두고 심사 · 선정을 거쳐 실려야 한다
   const wrote = a ? albRoyalty(s, a, sc, 'idol').txt : '';
   // 그 컨셉으로 활동하는 것만으로도 컨셉 숙련도가 조금 오른다 (직접 작곡의 30%)
   cmGain(s, c, 3);
@@ -1674,6 +1675,8 @@ E({
 function startBand(s, d, name) {
   (s.usedNames = s.usedNames || []).push(name);
   const part = {};
+  // 이미 있는 밴드에 들어가면(AI가 만든 밴드) 동명이인이 없게 (v163)
+  if (d.join) uniqNames(s, [s.me].concat(d.mem.map(x => x[0])));
   for (const [id, k] of d.mem) { const m = s.people[id]; m.rel = '멤버'; m.job = '밴드 멤버'; m.met = `밴드 「${name}」`; m.hidden = false; part[id] = k; }
   const old = s.tracks.band;
   const full = d.mem.length > 0;
@@ -2514,7 +2517,7 @@ E({
 });
 
 // ════════ 솔로 · 밴드 앨범 (v154: 앨범 제작 틀 album.js) ════════
-// 회사 소속: 신곡 회의(회사가 컨셉을 정해 오고 나는 제안할 수 있다) → 회사(대표 · 전담 프로듀서 · A&R 팀장)가 나머지를 한다. '내 곡 내기 · 가사 내기'를 켜 두면 내 곡도 심사를 받는다
+// 회사 소속: 신곡 회의(회사가 컨셉을 정해 오고 나는 제안할 수 있다) → 회사(대표 · 전담 프로듀서 · A&R 팀장)가 나머지를 한다. '자작곡 쓰기 · 가사 쓰기'를 켜 두면 내 곡도 심사를 받는다
 // 회사 없음(인디 · 내 회사 소속): 내가 대표 역할로 ① 기획 · 데모곡 확보 → 한 달 뒤 ② 곡 선정을 직접 한다. A&R 팀이 없어 모인 곡을 내가 전부 듣는다 (내 회사면 회사 A&R 팀장이 추린다)
 // 밴드는 곡이 정해지면 편곡 회의(band_arr)를 거친다. 다음 곡 기획은 발매 3~6달 뒤, 기획에서 발매까지 석 달
 function musPpl(s, k) { return k === 'band' ? [me(s)].concat(bandMembers(s, s.tracks.band)) : [me(s)]; }

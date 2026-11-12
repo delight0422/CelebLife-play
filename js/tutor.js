@@ -95,7 +95,7 @@ CAREERS.tutor = {
     return [
       { t: '📖 교재 집필', h: t.book ? `「${t.book.title}」 쓰는 중` : '6개월 동안 쓴다 · 다 쓰면 교재가 팔린다', ok: !t.book && !cd('book'), why: t.book ? '이미 쓰는 교재가 있다' : '교재를 낸 지 얼마 안 됐다', run: s => tuBookStart(s, t) },
       { t: '🎤 무료 특강·입시 설명회', h: '수강생이 는다 · 스트레스 ↑', ok: !cd('talk'), why: '얼마 전에 했다', run: s => tuTalk(s, t) },
-      { t: '🎬 맛보기 강의 영상', h: '플리오·SNS에 올린다 · 인지도 ↑', ok: !cd('vid'), why: '얼마 전에 올렸다', run: s => tuVid(s, t) },
+      { t: '🎬 맛보기 강의 영상', h: '라이브온·SNS에 올린다 · 인지도 ↑', ok: !cd('vid'), why: '얼마 전에 올렸다', run: s => tuVid(s, t) },
     ];
   },
   status(s, t) { return t.st !== 'active' ? (t.endNote || '') : `${TU_TIERS[t.tier]} · ${t.co} ${t.subj} · 수강생 ${fmtFans(t.stu)} · 강의 평가 ${Math.round(t.rep)}`; },

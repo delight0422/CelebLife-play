@@ -154,7 +154,7 @@ function anOfferCh(s, d) {
     { t: '거절한다', f: () => '입사 제안을 거절했다.' },
   ];
 }
-// 그림 플리오 채널이 크게 되면 애니 제작사 작화팀에서 먼저 연락이 온다 (js/video.js ytCareerOffer)
+// 그림 라이브온 채널이 크게 되면 애니 제작사 작화팀에서 먼저 연락이 온다 (js/video.js ytCareerOffer)
 E({
   id: 'an_scout', cat: '제안', title: '작화팀 스카우트', tag: 'career',
   init(s, d) { d.co = aniCoOf(d.tier).n; d.p = 0.75; d.lead = empStartLead(s, 'animator'); d.sal = empStartSal(s, 'animator', ANIM_SAL[d.tier] * 1e4, d.lead); },
@@ -192,7 +192,7 @@ function anDoJob(s, j) {
   addWork(s, { type: '작화', pay: j.fee, title: `${j.who} ${j.n}`, by: ANIM_TIERS[t.tier], sc: big > 0 ? 85 : good ? 70 : big < 0 ? 30 : 45, note: `${j.g} · ${big > 0 ? '작화가 화제가 됐다' : good ? '반응이 좋았다' : big < 0 ? '작화 붕괴 소리를 들었다' : '무난'}` });
   const how = big > 0 ? '내가 그린 장면이 "작화가 미쳤다"며 퍼졌다.' : good ? '컷이 깔끔하다는 말을 들었다.' : big < 0 ? '작화가 무너졌다는 말이 돌았다. 수정 요청이 쏟아졌다.' : '무난하게 넘겼다.';
   const x = `${j.who}의 ${josa(j.n, '을를')} 끝냈다. ${how}` + fxt;
-  // 방영 뒤 반응은 플리오에서 (작화 이야기라 내 이름은 나오지 않는다)
+  // 방영 뒤 반응은 라이브온에서 (작화 이야기라 내 이름은 나오지 않는다)
   const plio = typeof plioSpec === 'function' ? plioSpec({ k: 'animk', t: `${j.who} ${j.n}`, ch: j.who, me: '', sc: big > 0 ? 88 : good ? 70 : big < 0 ? 30 : 50 }) : null;
   return showResult(s, `${j.who} ${j.n}`, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), null, null, plio);
 }
@@ -472,7 +472,7 @@ function voDoJob(s, j) {
     live = liveStage({ k: 'booth', vn: 'booth', place: '녹음 부스', t: `${j.title || j.who} · ${j.n}`, g: me0, mem: [[me0, '']].concat(ani && j.id !== 'extra' ? [['동료 성우', ''], ['동료 성우', '']] : []), mi: 0,
       key: t.jobs === 1 || firstLead || j.id === 'movie' || big !== 0 || !!up, big, sc: big > 0 ? 88 : good ? 72 : big < 0 ? 28 : 48, z: { voice: (p.tal.voice - 50) / 15 }, x: { kind, title: j.title || j.who } });
   }
-  // 애니가 방영된 뒤 반응은 플리오 팝업에서 (애니 배역만)
+  // 애니가 방영된 뒤 반응은 라이브온 팝업에서 (애니 배역만)
   const plio = typeof plioSpec === 'function' && ['extra', 'sup', 'lead', 'movie'].includes(j.id) ? plioSpec({ k: 'anime', t: `「${j.title}」 ${j.id === 'movie' ? '극장판 예고편' : '본편 클립'}`, ch: j.who, me: j.id === 'extra' ? '' : actName(s, 'voice'), sc: big > 0 ? 88 : good ? 72 : big < 0 ? 28 : 48, rv: big > 0 ? 2 : good ? 1 : big < 0 ? -2 : 0, mul: j.id === 'movie' ? 3 : j.id === 'extra' ? 0.4 : 1 }) : null;
   return showResult(s, nm, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), live, null, plio);
 }

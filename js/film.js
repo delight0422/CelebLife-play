@@ -372,7 +372,7 @@ function dirCast(p, c) { const e = lv(p, 'edu'); return e >= c ? c + (e - c) / 2
 // 작품 공개: 성적과 연출 평, 연출료, 등급
 E({
   id: 'dir_res', cat: '작품 성적', title: '연출작 공개', tag: 'career',
-  // 공개 뒤 반응은 플리오에서 (단편영화는 영화제에서만 틀어서 없다)
+  // 공개 뒤 반응은 라이브온에서 (단편영화는 영화제에서만 틀어서 없다)
   plio: (s, d) => d.pl !== undefined ? d.pl : (d.pl = typeof plioSpec === 'function' && d.pj.tk !== 'short' && d.plsc != null ? plioSpec({ k: 'film', t: `「${d.pj.title}」 하이라이트`, ch: `${DIR_PJ[d.pj.tk].n} 「${d.pj.title}」`, me: `${me(s).name} 감독`, sc: d.plsc, rv: plioRv(d.review) }) : null),
   cond: s => true,
   init(s, d) {

@@ -96,7 +96,7 @@ const TRENDS = ['청량', '강렬', '큐티', '몽환', '힙합', '레트로', '
 // 곡 컨셉마다 무대에 서는 사람에게서 더 보는 것 (v97, 8-4 사용자 표). young 어린 나이, rap 랩 (보컬 포지션도)
 // 레트로 (v98): 예술 감각 + 데뷔 연차 (오래 활동한 가수일수록 '추억' 반응. 신인은 손해 없음, music.js cFit)
 const CONCEPT_FIT = { 청량: ['express', 'star'], 강렬: ['athletic'], 큐티: 'young', 몽환: ['voice'], 힙합: 'rap', 레트로: ['aesth'], 하이틴: 'young', 성숙: ['verbal'] };
-// 방송·영상·플리오 업계 유행 (해마다 바뀐다). 5단계 방송·영상 직업이 열리면 작품 성적에 쓰인다
+// 방송·영상·라이브온 업계 유행 (해마다 바뀐다). 5단계 방송·영상 직업이 열리면 작품 성적에 쓰인다
 const DRAMA_TRENDS = ['로맨스', '스릴러', '액션', '사극', '판타지', '학원물', '의학물', '법정물', '휴먼 코미디'];
 // 장르마다 연기 평에 더 보태는 것 (연기·표현력·전달력은 모든 장르에 들어간다). 조건이 아니라 평가에 보태고 빼는 것
 // tal: 그 재능이 평에 들어간다(fitB), actW: 연기 실력 차이가 평에 들어가는 배수, young: 30대는 몰입이 깨진다(학원물, 40세부터는 교사 역)
@@ -116,7 +116,7 @@ function ytCats(vt) { return vt ? YT_TRENDS.filter(c => c !== '단편 애니메�
 const ANIME_TRENDS = ['판타지', '이세계', '액션', '로맨스', '일상', 'SF', '스포츠', '학원물', '미스터리', '아이돌'];
 // 애니 장르마다 사전 조사에 들어가는 재능 (v97, 8-4 사용자 표). 애니 감독 작품 · 웹툰 · 웹소설 연재를 시작할 때 조사한다
 const RESEARCH_FIT = { 판타지: ['creative'], 이세계: ['verbal'], 액션: ['athletic'], 로맨스: ['aesth'], 일상: ['insight'], SF: ['verbal'], 스포츠: ['athletic'], 학원물: ['intel', 'insight'], 미스터리: ['intel'], 아이돌: ['music'] };
-// 플리오 유행은 채널 컨셉이 아니라 버튜버냐 캠튜버냐다 (피드백 24). 다른 유행보다 훨씬 천천히, 3~5년에 한 번 바뀐다 (ytT: 바뀌는 때)
+// 라이브온 유행은 채널 컨셉이 아니라 버튜버냐 캠튜버냐다 (피드백 24). 다른 유행보다 훨씬 천천히, 3~5년에 한 번 바뀐다 (ytT: 바뀌는 때)
 const YT_KINDS = ['버튜버', '캠튜버'];
 function rollTV(s) { s.trendTV = { drama: U.pick(DRAMA_TRENDS), show: U.pick(SHOW_TRENDS), yt: U.pick(YT_KINDS), ytT: (s.t || 0) + U.int(36, 60), anime: U.pick(ANIME_TRENDS), web: U.pick(ANIME_TRENDS) }; }
 
@@ -732,7 +732,7 @@ const FLAVOR = [
   { c: s => age(s) >= 13, x: '좋아하는 노래 가사를 공책에 옮겨 적었다.', f: { sk: { lyric: 0.3 } } },
   { c: s => age(s) >= 6 && age(s) < 19, x: '수업 시간에 공책 귀퉁이에 낙서를 했다.', f: { sk: { art: 0.3 } } },
   { c: s => age(s) >= 9 && age(s) < 19 && has(me(s), 'game'), x: '밤새 게임을 하다 엄마한테 혼났다.', f: { sk: { game: 0.4 } } },
-  { c: s => has(me(s), 'guitar'), x: '플리오를 보며 새 코드를 하나 익혔다.', f: { sk: { guitar: 0.4 } } },
+  { c: s => has(me(s), 'guitar'), x: '라이브온을 보며 새 코드를 하나 익혔다.', f: { sk: { guitar: 0.4 } } },
   { c: s => has(me(s), 'piano'), x: '좋아하는 영화 음악을 귀로 듣고 피아노로 따라 쳐 봤다.', f: { sk: { piano: 0.4 } } },
   { c: s => has(me(s), 'drum'), x: '책상을 두드리며 드럼 박자를 연습했다.', f: { sk: { drum: 0.3 } } },
   { c: s => has(me(s), 'art') && lv(me(s), 'art') >= 30, x: '그린 그림을 SNS에 올렸더니 반응이 좋았다.', f: { sk: { art: 0.3 } } },

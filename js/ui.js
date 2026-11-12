@@ -393,12 +393,12 @@ function idLabel(s) {
   return s.slots.some(sl => sl.act === 'job') ? '아르바이트 중' : '진로를 찾는 중';
 }
 // 프로필 박스 (UI 개편 시안): 오른쪽 위에 이름 · 나이, 첫 줄에 신분, 아래에 배너 네 개 (기본 정보 · 가족 · 기록 · 재능 및 특기). 박스 자체는 누르지 않는다
-const PF_BNS = [['born', '🪪', '기본 정보'], ['fam', '👪', '가족'], ['rec', '📖', '기록'], ['skills', '🎯', '재능 및 특기']];
+const PF_BNS = [['born', '🪪', '프로필'], ['fam', '👪', '가족'], ['rec', '📖', '기록'], ['skills', '🎯', '재능 및 특기']];
 function renderProfileCard() {
   const s = S, p = me(s), el = $('#profile-card');
   if (!el) return;
   const sc = schoolLine(s);
-  el.innerHTML = `<div class="card-h">👤 프로필<span class="pf-who">${U.esc(p.name)} <b>${age(s)}세</b></span></div>`
+  el.innerHTML = `<div class="card-h"><span class="pf-name">👤 ${U.esc(p.name)} <b>${age(s)}세</b></span></div>`
     + `<div class="pf-id">${U.esc(idLabel(s))}${sc && sc[1] ? `<span class="hint"> · ${U.esc(sc[1])}</span>` : ''}</div>`
     + `<div class="pf-tbn">${PF_BNS.map(([k, ic, n]) => k === 'skills' ? `<button class="pf-tb" data-tstab="tal"><span class="pf-ic">${ic}</span> ${n}</button>` : `<button class="pf-tb" data-pftab="${k}"><span class="pf-ic">${ic}</span> ${n}</button>`).join('')}</div>`;
 }
@@ -640,7 +640,7 @@ function isSkillEv(ev) {
   if (ev._sk == null) ev._sk = !!ev.sk || /learnMe|gainH|learnable/.test(String(ev.ch || '') + String(ev.init || '') + String(ev.submit || ''));
   return ev._sk;
 }
-// 선택지 중 지금 유행하는 것: 이름 옆 꼬리표 (컨셉·장르·예능 형식·플리오 분야 어디서든)
+// 선택지 중 지금 유행하는 것: 이름 옆 꼬리표 (컨셉·장르·예능 형식·라이브온 분야 어디서든)
 const TR_BADGE = '<span class="trb">🔥 유행</span>';
 // 초록 표시 (v132): 직원이 권한 것은 '추천', 그룹 · 밴드의 대표 컨셉과 같은 것은 '대표 컨셉'
 const REC_BADGE = '<span class="trb rec">추천</span>', SIG_BADGE = '<span class="trb rec">대표 컨셉</span>';
@@ -661,7 +661,7 @@ function showEventRaw() {
   const hx = ev.html ? ev.html(s, d) : '';
   UI.res = null;
   let h = `${scBandHTML(s.pending.id, ev, s, d)}<button class="m-min" data-min>창 내리기</button><div class="m-cat">${U.esc(ev.cat || '')}</div><div class="m-title">${U.esc(typeof ev.title === 'function' ? ev.title(s, d) : ev.title)}</div>${hx ? `<div class="m-html">${hx}</div>` : `<div class="m-text">${rich(ev.text(s, d))}</div>`}`;
-  // 공개 뒤 반응: 결과 글 아래에 플리오 배너 (12-3)
+  // 공개 뒤 반응: 결과 글 아래에 라이브온 배너 (12-3)
   if (ev.plio) { let pl = null; try { pl = ev.plio(s, d); } catch (e) { } const bn = pl ? plioBtnHTML(pl) : ''; if (bn) h += `<div class="pf-row">${bn}</div>`; }
   let T = null; if (ev.tbl) { try { T = ev.tbl(s, d); } catch (e) { console.error('표 오류', s.pending.id, e); T = null; } }
   if (ev.form) {
@@ -1123,7 +1123,7 @@ function panelProfile() {
   if (k === 'fam') return `<h2>👪 가족</h2>` + famHTML(s);
   if (k === 'rec' || k === 'log' || k === 'works' || k === 'job') { const tab = UI.recTab === 'log' || (k === 'log' && !UI.recTab) ? 'log' : 'career'; return `<h2>📖 기록</h2><div class="ap-row pf-tabs">${[['career', '💼 경력'], ['log', '📖 걸어온 길']].map(([t, n]) => `<button class="ap-tab ${tab === t ? 'on' : ''}" data-rectab="${t}">${n}</button>`).join('')}</div>` + (tab === 'log' ? lifeLogHTML(s) : pfRecHTML(s)); }
   if (k === 'tal') { UI.tsTab = 'tal'; return panel_skills(); }
-  return `<h2>🪪 기본 정보</h2>` + pfBornTab(s, p);
+  return `<h2>🪪 프로필</h2>` + pfBornTab(s, p);
 }
 // 기록 창의 경력 탭: 작품(받은 상 포함) → 번 돈 → 지난 경력. 걸어온 길은 따로 탭 (v162)
 function pfRecHTML(s) {
@@ -1227,7 +1227,7 @@ function infoTable(rows) {
     if (Array.isArray(r)) { tb.push(r); continue; }
     flush();
     if (r.bars) { h += `<div class="sec-h">${U.esc(r.h)}</div>` + mastBars(r.bars); continue; }
-    // html: 미리 만든 조각을 그대로 (플리오 배너 등)
+    // html: 미리 만든 조각을 그대로 (라이브온 배너 등)
     if (r.html != null) { h += (r.h ? `<div class="sec-h">${U.esc(r.h)}</div>` : '') + r.html; continue; }
     h += `<div class="sec-h">${U.esc(r.h)}</div>` + (r.items.length ? r.items.map(x => `<div class="ms">· ${U.esc(x)}</div>`).join('') : '<div class="muted">없음</div>');
   }
@@ -1299,7 +1299,7 @@ function panelCareer() {
         // 지금 하는 일은 현황 아래에 그 직업 설명도 함께 보여 준다
         h += `<div class="act" style="border:none;padding-bottom:0"><div><div class="a-t">${C.ic || ''} ${U.esc(C.n)}${trackOn(s, c.id) ? '<span class="tag">진행 중</span>' : ''}</div><div class="a-h">${U.esc(trackOn(s, c.id) && C.status ? careerStatus(s, c.id) : C.desc || '')}</div>${trackOn(s, c.id) && C.status && C.desc ? `<div class="hint">${U.esc(C.desc)}</div>` : ''}${trackOn(s, c.id) ? '' :`<div class="hint">${t.endNote || (C.status && C.status(s, t)) ? U.esc((t.endNote || C.status(s, t)) + ' · ') : ''}${c.id === 'agency' ? '🏢 메인 화면 회사 박스에서 차릴 수 있어요' : '📝 직업 지원에서 시작할 수 있어요'}</div>`}</div></div>`;
         for (const a of (C.actions ? C.actions(s, t) : []).filter(a => !a.danger)) h += actRow(a);
-        if (trackOn(s, c.id) && C.actions && C.actions(s, t).some(a => a.danger)) h += `<div class="hint" style="margin:0 0 var(--sp-2)">그만두기·탈퇴는 직업 활동 박스의 그 직업 창 '행동' 탭에서 할 수 있어요</div>`;
+        if (trackOn(s, c.id) && C.actions && C.actions(s, t).some(a => a.danger)) h += `<div class="hint" style="margin:0 0 var(--sp-2)">그만두기·탈퇴는 직업 활동 박스의 그 직업 창 '정보' 탭 맨 아래에서 할 수 있어요</div>`;
       }
     }
   }
@@ -1582,18 +1582,22 @@ function panelJob() {
   const isM = r => Array.isArray(r) && MONEY_ROWS.includes(r[0]), isB = r => !Array.isArray(r) && r.bars;
   // 활동명 (v162): 직업 지원 창이 아니라 여기서만 바꾼다
   const sn = snRowHTML(s, id);
-  return h + sn + infoGroups([['⭐ 나', info.filter(r => !isM(r) && !isB(r))], ['📈 숙련도', info.filter(isB)], ['💰 계약 · 돈', info.filter(isM)]]) + (c.desc ? `<p class="hint" style="margin-top:var(--sp-3)">${U.esc(c.desc)}</p>` : '');
+  return h + sn + infoGroups([['⭐ 나', info.filter(r => !isM(r) && !isB(r))], ['📈 숙련도', info.filter(isB)], ['💰 계약 · 돈', info.filter(isM)]]) + (c.desc ? `<p class="hint" style="margin-top:var(--sp-3)">${U.esc(c.desc)}</p>` : '') + jobQuitHTML(s, id);
 }
-// 행동 탭: 자동 활동(할 일) → 선택 활동(골라서 하는 일) → 그 밖에 할 수 있는 일 → 탈퇴 · 그만두기
+// 탈퇴 · 그만두기 (v163: 정보 탭 맨 아래). 누르면 정말 할지 한 번 묻는다
+function jobQuitHTML(s, id) {
+  const c = CAREERS[id], Q = (c.actions ? c.actions(s, s.tracks[id]) : []).filter(a => a.danger);
+  return Q.length ? `<div class="sec-h">🚪 탈퇴 · 그만두기</div>` + Q.map(a => actRow(a.confirm ? a : Object.assign({}, a, { confirm: `'${a.t}' — 정말 할까요?\n되돌릴 수 없어요.` }))).join('') : '';
+}
+// 행동 탭: 자동 활동(할 일) → 선택 활동(골라서 하는 일) → 그 밖에 할 수 있는 일
 function jobActTab(s, id) {
   const c = CAREERS[id], t = s.tracks[id];
   let h = '';
   // 따로 창이 있는 직업 (회사 대표 → 회사 창)
   if (c.panel) h += `<button class="btn primary" style="margin:var(--sp-1) 0 var(--sp-2)" data-panel="${c.panel}">${U.esc(c.panelN || '창 열기')}</button>`;
   if (c.act) h += jobTaskHTML(s, id);
-  const A = c.actions ? c.actions(s, t) : [], other = A.filter(a => !a.danger), quit = A.filter(a => a.danger);
+  const A = c.actions ? c.actions(s, t) : [], other = A.filter(a => !a.danger);
   if (other.length) h += `<div class="sec-h">할 수 있는 일</div>` + other.map(actRow).join('');
-  if (quit.length) h += `<div class="sec-h">🚪 탈퇴 · 그만두기</div>` + quit.map(a => actRow(a.confirm ? a : Object.assign({}, a, { confirm: `'${a.t}' — 정말 할까요?\n되돌릴 수 없어요.` }))).join('');
   return h || `<div class="empty">지금 할 수 있는 일이 없다.</div>`;
 }
 // 업계 인물 탭: 그 직업 분야의 업계 인물만 (인간관계 창의 업계 인물과 같은 줄)
@@ -1603,12 +1607,13 @@ function jobNpcTab(s, id) {
 }
 // 자동 활동 (v162): 지금 하는 것 하나만, 이름과 내용만 보인다 (고정 일정 · 시기 설명은 빼고)
 function effTxt(x) { return Array.isArray(x.eff) ? x.eff.map(([k, v]) => `${k} ${v}`).join(' · ') : (x.eff || ''); }
-function actNowRow(x) { return `<div class="act lrow"><div><div class="a-t">${U.esc(`${x.ic || ''} ${x.n}`)}</div><div class="lr-eff">${U.esc(effTxt(x))}</div></div></div>`; }
+function autoActN(n) { n = String(n || ''); return n.includes('활동') ? n.replace('활동', '자동 활동') : `자동 활동 · ${n}`; }
+function actNowRow(x) { return `<div class="act lrow"><div><div class="a-t">${U.esc(`${x.ic || ''} ${autoActN(x.n)}`)}</div><div class="lr-eff">${U.esc(effTxt(x))}</div></div></div>`; }
 const ACT_NONE = `<div class="lnote">지금 하는 자동 활동이 없다</div>`;
 function jobTaskHTML(s, id) {
   const c = CAREERS[id], n = jobSlots(s, id), cur = jobTask(s, id), f = jobForced(s, id), t = s.tracks[id];
   if (c.auto && !f) return jobAutoHTML(s, id, n);
-  const head = `<div class="sec-h">${c.act.ic} 자동 활동</div>`;
+  const head = '';
   if (f) {
     // 회사 · 촬영이 정한 일: 시기에 따라 바뀌는 직업(아이돌)은 지금 시기의 것 하나
     const AL = c.autoList ? c.autoList(s, t) : null, x = AL ? AL.find(x => x.on) : cur && jobTasks(id).find(y => y.id === cur.id);
@@ -1654,7 +1659,7 @@ function jobAutoHTML(s, id, n) {
   const c = CAREERS[id], t = s.tracks[id];
   // 지금 하는 자동 활동 하나만 (일정에 칸이 없으면 없음)
   const x = n ? (c.autoList ? c.autoList(s, t) : []).find(x => x.tag !== false) : null;
-  let h = `<div class="sec-h">🔄 자동 활동</div>` + (x ? actNowRow(x) : ACT_NONE);
+  let h = x ? actNowRow(x) : ACT_NONE;
   const P = c.picks ? c.picks(s, t) : [];
   if (P.some(a => a.sw)) (s.pickSig = s.pickSig || {})[id] = pickSig(P);
   if (P.length) h += `<div class="sec-h">🖐️ 선택 활동</div>` + P.map(a => (a.sec ? `<div class="lnote">${U.esc(a.sec)}</div>` : '') + actRow(Object.assign({}, pickWrap(id, a), n ? {} : { ok: false, why: '일정에 빈 칸이 없다' }))).join('');
@@ -1679,7 +1684,7 @@ function billBtnHTML(b) { return `<button class="bill-bn" data-bill="${billKey(b
 function billHTML(b) {
   return `<div class="bill"><div class="bill-h">🧾 ${U.esc(b.t || '정산서')}</div><table>${b.rows.map(r => r === '-' ? '<tr class="sep"><td colspan="2"></td></tr>' : `<tr${r[2] ? ' class="tot"' : ''}><td>${U.esc(r[0])}</td><td>${r[1] < 0 ? '− ' : ''}${fmtBill(r[1])}</td></tr>`).join('')}</table>${b.note ? `<div class="bill-note">${U.esc(b.note)}</div>` : ''}</div>`;
 }
-// cls: 큰 팝업(플리오 · 커뮤니티)은 실시간 창과 같은 크기 · 같은 어두운 바탕 ('live-card pf-card')
+// cls: 큰 팝업(라이브온 · 커뮤니티)은 실시간 창과 같은 크기 · 같은 어두운 바탕 ('live-card pf-card')
 function popOpen(h, cls) { const c = $('#pop-card'); c.className = 'mcard pop-card' + (cls ? ' ' + cls : ''); c.innerHTML = `<button class="m-close" data-popclose>✕</button>` + h; $('#pop').classList.remove('hidden'); UI.plioOpen = null; }
 function popClose() { $('#pop').classList.add('hidden'); UI.plioOpen = null; }
 // 요약 창의 발매 줄: 그 곡의 카드 번호 (없으면 -1). 내 회사 그룹 앨범(v119)은 'co|그룹 id|제목'
@@ -1790,9 +1795,15 @@ function panelLife() { UI.lifeFrom = 'panel'; return `<h2>🏠 생활</h2>` + li
 // 특기를 배워 새로 들일 수 있는 장비가 생기면 오른쪽 위에 레드닷 (장비 창을 열면 꺼진다)
 function eqCanIds(s) { return Object.keys(EQUIP).filter(id => !eqLv(s, id) && (EQUIP[id].slot ? age(s) >= EQUIP[id].min : EQUIP[id].k.some(x => has(me(s), x) || homeKids(s).some(c => has(c, x))))); }
 function ltLock(s, k) { return k === 'equip' && !Object.keys(EQUIP).some(id => eqLv(s, id)) && !!eqBuyWhy(s) && !dormAg(s); }
-function ltDot(s, k) { if (k !== 'equip' || ltLock(s, k)) return ''; const L = eqCanIds(s); if (!s.eqSeen) s.eqSeen = L.slice(); return L.some(id => !s.eqSeen.includes(id)) ? '<span class="rdot"></span>' : ''; }
+// v163: 한 번이라도 가졌던 장비는 본 것으로 친다. 예전에는 독립하면서 부모님 집에 두고 온 장비가 '새로 들일 수 있는 장비'로 다시 잡혀서, 창은 그대로인데 레드닷이 떴다
+function ltDot(s, k) {
+  if (k !== 'equip' || ltLock(s, k)) return '';
+  const L = eqCanIds(s); if (!s.eqSeen) s.eqSeen = L.slice();
+  for (const id of Object.keys(s.equip || {})) if (eqLv(s, id) && !s.eqSeen.includes(id)) s.eqSeen.push(id);
+  return L.some(id => !s.eqSeen.includes(id)) ? '<span class="rdot"></span>' : '';
+}
 function panelLifeSec() {
-  if (UI.lifeSec === 'equip' && S) S.eqSeen = eqCanIds(S);
+  if (UI.lifeSec === 'equip' && S) S.eqSeen = [...new Set((S.eqSeen || []).concat(eqCanIds(S)))];
   const k = UI.lifeSec || 'home', d = LIFE_SECS.find(x => x[0] === k) || LIFE_SECS[0];
   return `${UI.lifeFrom === 'panel' ? '<button class="btn sm ghost back-btn" data-panel="life">← 생활</button>' : ''}<h2>${d[1]} ${d[2]}</h2>` + lifeCashHTML(S) + lifeSecBody(S, k);
 }
@@ -1844,11 +1855,11 @@ function panelMoney() {
   if (L.length) h += `<div class="sec-h">💳 갚기 · 빌리기</div>` + L.map(actRow).join('');
   return h;
 }
-// 은퇴 (v162): 직업 지원 창에서 메뉴로 옮겼다. 누르면 정말 할지 한 번 묻는다
-function retireRowHTML(s) {
+// 연예계 은퇴 (v163): 메뉴의 '이 인생을 그만두고 새로 시작'을 대신한다. 성인이 된 뒤에 할 수 있고, 누르면 정말 할지 한 번 묻는다
+function retireBtnHTML(s) {
   if (!s || s.ended) return '';
-  const fail = !s.everSuccess;
-  return `<div class="sec-h">🌙 인생 마무리</div>` + actRow({ t: fail ? '🌙 꿈을 접기' : '🌙 은퇴하기', h: '이번 인생이 여기서 정리된다', ok: age(s) >= 19, why: '성인이 된 뒤에 할 수 있다', danger: true, btn: fail ? '꿈 접기' : '은퇴', confirm: `정말 ${fail ? '꿈을 접을까요' : '은퇴할까요'}?\n이번 인생이 여기서 정리됩니다.`, run: s => { endLife(s, fail ? 'fail' : 'retire', ''); return ''; } });
+  const ok = age(s) >= 19;
+  return `<button class="btn danger" id="m-retire"${ok ? '' : ' disabled'}>🌙 연예계 은퇴${ok ? '' : ' (성인이 된 뒤에)'}</button>`;
 }
 function panelMenu() {
   return `<h2>메뉴</h2><div class="choices">
@@ -1862,8 +1873,8 @@ function panelMenu() {
     <div class="lv-set"><span>실시간 창</span>${LIVE_MODES.map(([k, n]) => `<button class="btn sm${liveMode() === k ? ' primary' : ''}" data-livemode="${k}">${n}</button>`).join('')}</div>
     <button class="btn" data-panel="help">도움말</button>
     <button class="btn" id="m-title">첫 화면으로 (자동 저장됨)</button>
-    <button class="btn danger" id="m-newlife">이 인생을 그만두고 새로 시작</button>
-  </div>${retireRowHTML(S)}<p class="hint">키보드: 스페이스바 진행 · 1 한 달 후 · 2 1년 후</p>`;
+    ${retireBtnHTML(S)}
+  </div><p class="hint">키보드: 스페이스바 진행 · 1 한 달 후 · 2 1년 후</p>`;
 }
 function panelHall() {
   const h = getHall();
@@ -1967,6 +1978,7 @@ document.addEventListener('click', e => {
   if (t.id === 'm-copycode') return copyCode();
   if (t.id === 'm-loadcode') { const err = loadCode($('#code-in').value); if (err) $('#code-err').textContent = err; return; }
   if (t.id === 'm-title') { save(S); closePanel(); showTitle(); return; }
+  if (t.id === 'm-retire') { if (!S || S.ended || age(S) < 19) return; const fail = !S.everSuccess; askConfirm(`정말 연예계를 은퇴할까요?\n이번 인생이 여기서 정리됩니다.`, () => { closePanel(); endLife(S, fail ? 'fail' : 'retire', ''); save(S); render(); showEnding(); }); return; }
   if (t.id === 'm-newlife') { askConfirm('지금 인생을 그만두고 새로 태어날까요?\n지금 세이브는 지워져요.', () => { clearSave(); closeAll(); showBirth(); }); return; }
   if (t.id === 'btn-ending') return showEnding();
   if (t.id === 'btn-newlife2' || t.id === 'end-new') { clearSave(); closeAll(); showBirth(); return; }

@@ -41,8 +41,8 @@ function idolAutoPractice(s, t, n) {
 const IDOL_WAY_MAX = 2;
 const IDOL_WAYS = [
   // v159: 여섯 가지가 늘 보인다. 지금 할 수 없는 것은 막힌 채로 이유(no)를 보여 준다
-  { id: 'song', ic: '🎼', n: '내 곡 내기', f: 'subSong', show: (s, t) => t.st === 'active' && has(me(s), 'compose'), no: (s, t) => t.st !== 'active' ? '데뷔한 뒤에 할 수 있다' : '작곡 특기가 있어야 한다', h: s => has(me(s), 'compose') ? `다음 앨범 데모곡 모집에 내 곡을 낸다 · 남의 곡과 똑같이 A&R 심사를 받는다 · 작곡 ${lvi(me(s), 'compose')}레벨` : '다음 앨범 데모곡 모집에 내 곡을 낸다 · 남의 곡과 똑같이 A&R 심사를 받는다' },
-  { id: 'lyr', ic: '✍️', n: '가사 내기', f: 'subLyr', show: (s, t) => t.st === 'active' && has(me(s), 'lyric'), no: (s, t) => t.st !== 'active' ? '데뷔한 뒤에 할 수 있다' : '작사 특기가 있어야 한다', h: s => has(me(s), 'lyric') ? `실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡 · 작사 ${lvi(me(s), 'lyric')}레벨` : '실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡' },
+  { id: 'song', ic: '🎼', n: '자작곡 쓰기', f: 'subSong', show: (s, t) => t.st === 'active' && has(me(s), 'compose'), no: (s, t) => t.st !== 'active' ? '데뷔한 뒤에 할 수 있다' : '작곡 특기가 있어야 한다', h: s => has(me(s), 'compose') ? `다음 앨범 데모곡 모집에 내 곡을 낸다 · 남의 곡과 똑같이 A&R 심사를 받는다 · 작곡 ${lvi(me(s), 'compose')}레벨` : '다음 앨범 데모곡 모집에 내 곡을 낸다 · 남의 곡과 똑같이 A&R 심사를 받는다' },
+  { id: 'lyr', ic: '✍️', n: '가사 쓰기', f: 'subLyr', show: (s, t) => t.st === 'active' && has(me(s), 'lyric'), no: (s, t) => t.st !== 'active' ? '데뷔한 뒤에 할 수 있다' : '작사 특기가 있어야 한다', h: s => has(me(s), 'lyric') ? `실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡 · 작사 ${lvi(me(s), 'lyric')}레벨` : '실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡' },
   { id: 'act', ic: '🎭', n: '연기 연습', sk: 'acting', show: () => true, h: (s, t) => `연기 ↑ · 스트레스 조금 ↑${t.st === 'active' ? ' · 연기가 늘면 웹드라마 제안이 온다' : ''}` },
   { id: 'fan', ic: '💬', n: '팬 소통', show: (s, t) => t.st === 'active', no: () => '데뷔한 뒤에 할 수 있다', h: () => '라이브 방송 · 메시지 · 내 팬 ↑ · 그룹 팬 조금 ↑ · 스트레스 조금 ↑ · 가끔 말실수' },
   { id: 'mate', ic: '🤝', n: t => t.st === 'active' ? '멤버 챙기기' : '동기 챙기기', show: (s, t) => t.st === 'active' || idMates(s, t).length > 0, no: () => '같이 지내는 동기가 없다', h: (s, t) => `${t.st === 'active' ? '멤버 사이 ↑ · 팀워크 ↑' : '동기 사이 ↑'} · 스트레스 ↓ · 밥값` },
@@ -405,14 +405,14 @@ E({
     ];
   },
 });
-// ⑬ 직캠 화제 (활동기, 플리오): 크게 뜨는 '화제의 중심'과 따로, 내 직캠 하나가 퍼진다
+// ⑬ 직캠 화제 (활동기, 라이브온): 크게 뜨는 '화제의 중심'과 따로, 내 직캠 하나가 퍼진다
 E({
   id: 'idol_fancam', cat: '화제', title: '직캠 화제', tag: 'career', cd: 8,
   p: s => idOn(s) && idT(s).promo > 0 ? 0.02 * boomStatMult(boomStageS(s, idT(s)), 40) : 0,
   cond: s => idOn(s) && idT(s).promo > 0,
   init(s, d) {
     const t = idT(s), g = t.g, gm = idMain(t), w = s.works.filter(x => x.by === g.name).slice(-1)[0];
-    d.song = w ? w.title : '데뷔곡'; d.sc = Math.round(U.clamp(55 + (boomStageS(s, t) - 35) * 1.2 + U.normal(0, 6), 40, 98)); d.vw = Math.round(Math.pow(10, 3.6 + d.sc / 30) * PL_VW); // v159: 플리오 조회수와 같게 (PL_VW)
+    d.song = w ? w.title : '데뷔곡'; d.sc = Math.round(U.clamp(55 + (boomStageS(s, t) - 35) * 1.2 + U.normal(0, 6), 40, 98)); d.vw = Math.round(Math.pow(10, 3.6 + d.sc / 30) * PL_VW); // v159: 라이브온 조회수와 같게 (PL_VW)
     d.my = Math.round((600 + groupFans(g) * 0.004) * U.clamp((d.sc - 40) / 30, 0.2, 2) * popSpeed(s) * myRoom(s, gm)); d.gf = Math.round(d.my * 0.6);
     s.fans[gm] += d.my; g.f[gm] = Math.min(FANCAP[gm], g.f[gm] + d.gf);
   },

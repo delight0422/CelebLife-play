@@ -180,7 +180,7 @@ function startScandal(s, id, truth) {
   queueEv(s, 'scandal', 0, {}, true);
 }
 // 지각 (v93): 끈기가 낮으면 일정이 잡힌 달에 가끔 늦는다 (끈기 50 이상은 늦지 않는다)
-// 혼자 하는 일(플리오 · 글 · 그림 · 작곡 · 작사 · 회사 대표)은 늦을 데가 없어서 뺀다. 12개월 안에 세 번이면, 이름이 알려졌으면 지각 논란
+// 혼자 하는 일(라이브온 · 글 · 그림 · 작곡 · 작사 · 회사 대표)은 늦을 데가 없어서 뺀다. 12개월 안에 세 번이면, 이름이 알려졌으면 지각 논란
 const LATE_AT = { actor: '촬영장', model: '촬영장', director: '촬영장', variety: '녹화장', voice: '녹음실', producer: '녹음실', idol: '리허설', band: '공연 리허설', solo: '리허설', player: '리허설', dancer: '리허설', vidol: '', anr: '회의', marketer: '회의', editor: '회의', animator: '회의', adir: '회의', trainer: '수업', acttrainer: '수업', prof: '강의', tutor: '강의' };
 function lateP(s) { const g = me(s).tal.grit; return g >= 50 ? 0 : 0.18 * Math.pow((50 - g) / 50, 1.5); }
 function lateMonth(s) {
@@ -371,8 +371,8 @@ E({
   init(s, d) { const t = s.tracks.youtube; d.b = U.pick(BRANDS).n; d.fee = Math.round(Math.max(100e4, t.subs * 30) / 1e5) * 1e5; },
   text: (s, d) => `${d.b}에서 영상 하나에 제품을 넣어 달라는 광고 제안이 왔다. 광고비는 ${fmtWon(d.fee)}.\n\n담당자가 슬쩍 덧붙인다. "광고라고 밝히지 않으면 절반을 더 드릴게요."`,
   ch: (s, d) => [
-    { t: '광고라고 밝힌다', h: fmtWon(d.fee), f: s => { earn(s, d.fee, '플리오 광고비'); return `${d.b} 광고 영상을 올렸다. '유료 광고 포함'이라고 적었다.`; } },
-    { t: '밝히지 않는다', h: fmtWon(Math.round(d.fee * 1.5)), f: s => { earn(s, Math.round(d.fee * 1.5), '플리오 광고비'); s.flags.backAd = true; return `${d.b} 제품을 직접 산 것처럼 영상에 넣었다.`; } },
+    { t: '광고라고 밝힌다', h: fmtWon(d.fee), f: s => { earn(s, d.fee, '라이브온 광고비'); return `${d.b} 광고 영상을 올렸다. '유료 광고 포함'이라고 적었다.`; } },
+    { t: '밝히지 않는다', h: fmtWon(Math.round(d.fee * 1.5)), f: s => { earn(s, Math.round(d.fee * 1.5), '라이브온 광고비'); s.flags.backAd = true; return `${d.b} 제품을 직접 산 것처럼 영상에 넣었다.`; } },
     { t: '거절한다', f: () => `${d.b}의 광고 제안을 거절했다.` },
   ],
 });

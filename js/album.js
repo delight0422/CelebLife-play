@@ -130,7 +130,7 @@ function albStepsHTML(mk) {
     ['편곡 · 작사', mk.arr ? `편곡 ${mk.arr} · 작사 ${mk.lyr}` : mk.boss === '나' ? '직접' : '회사에서'],
     ['녹음', '한 달'],
   ];
-  // 내가 낸 곡이 어디까지 갔는지 (v154: 가수가 '내 곡 내기'를 켜 뒀을 때)
+  // 내가 낸 곡이 어디까지 갔는지 (v154: 가수가 '자작곡 쓰기'를 켜 뒀을 때)
   if (mk.my) R.push(['내 곡', `「${mk.my.t}」 · ${mk.my.r}`]);
   return `<div class="alb-mk"><div class="alb-h">제작 과정</div><div class="alb-steps">${R.map(([k, v], i) => `<div class="alb-st"><b>${i + 1}</b><span class="alb-k">${U.esc(k)}</span><span class="alb-v">${U.esc(v)}</span></div>`).join('')}</div><div class="alb-h">실린 곡</div><div class="alb-songs">${mk.pk.map(p => `<div class="alb-sg${p.ti ? ' ti' : ''}"><span class="alb-tag">${p.ti ? '타이틀' : '수록'}</span><b>「${U.esc(p.t)}」</b><span>작곡 ${U.esc(p.by)}${p.ly ? ` · 작사 ${U.esc(p.ly)}` : ''} · '${U.esc(p.c)}'</span></div>`).join('')}</div></div>`;
 }
@@ -147,7 +147,7 @@ function albPlanRead(s, x, v) { return { cs: TRENDS.filter(c => albOn(v, 'c_' + 
 
 // ───── 남이 정하는 앨범 (v154: 아이돌 멤버 · 회사 소속 솔로 · 밴드 · 버츄얼 아이돌) ─────
 // 대표(소형 회사) 또는 전담 프로듀서(중 · 대형)가 ① 기획 · ② 데모곡 확보 · ④ 선정을, 회사 A&R 팀장이 ③ 심사를 맡는다. 가수(나)는 정하지 않는다
-// 직업 창에서 '내 곡 내기 · 가사 내기'를 켜 두면 내 곡도 남의 곡과 똑같이 심사를 받고, 실린 곡 하나의 가사를 맡을 수도 있다
+// 직업 창에서 '자작곡 쓰기 · 가사 쓰기'를 켜 두면 내 곡도 남의 곡과 똑같이 심사를 받고, 실린 곡 하나의 가사를 맡을 수도 있다
 // o = { tier, rep, sig, mem 다른 멤버들, cs 정한 컨셉, ok(c) 가수에게 맞는 컨셉인가, boss · anr 정하는 사람 · A&R 팀장 (인물 또는 귀만 { sd }),
 //       bossN · anrN 제작 기록에 남길 이름, my 내 곡을 낸다, lyr 가사를 낸다, out 편곡 · 작사를 밖에 맡길 가능성, fav 가수 본인 · 멤버 곡을 더 챙겨 보는 정도 }
 // 남의 회사 타이틀곡 완성도를 예전 평균(24 + 회사 크기 × 7)에 맞추는 값 (v154 기준선)

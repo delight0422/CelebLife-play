@@ -170,7 +170,7 @@ E({
 });
 E({
   id: 'w_res', cat: '음원 성적', title: '참여곡 성적', tag: 'career',
-  // 12-3 보는 쪽: 내가 참여한 곡의 무대를 본다. 방영 뒤 반응은 플리오에서
+  // 12-3 보는 쪽: 내가 참여한 곡의 무대를 본다. 방영 뒤 반응은 라이브온에서
   live: (s, d) => d.live, keepPop: (s, d) => typeof liveShow === 'function' && liveShow(d.live), plio: (s, d) => d.pl || null,
   init(s, d) {
     const t = s.tracks[d.kind], nm = wJob(d.kind);

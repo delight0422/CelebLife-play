@@ -339,7 +339,7 @@ E({
     else jpopAdd(s, 'actor', (sc - 50) / 20);
     for (const c of cast.concat(dir ? [dir] : [])) bond(s, c, sc >= 60 ? U.int(3, 8) : U.int(-4, 2));
     d.sc = sc;
-    // 방영 · 공개 뒤 반응은 플리오 팝업에서 (12-3)
+    // 방영 · 공개 뒤 반응은 라이브온 팝업에서 (12-3)
     if (typeof plioSpec === 'function') d.plio = plioSpec({ k: T.mv ? 'mv' : 'drama', t: `「${pj.title}」 ${T.mv ? '뮤직비디오' : pj.tk === 'movie' ? '예고편 · 명장면' : '하이라이트'}`, ch: `${T.n} 「${pj.title}」`, me: actName(s, 'actor'), sc, rv: ({ '연기 대호평': 2, '연기 호평': 1, '연기 혹평': -1, '연기 대혹평': -2 })[d.review] || 0, vw: Math.pow(10, (T.mv ? 4.5 : 3.8) + sc / 25) });
     addWork(s, { type: T.n, title: pj.title, by: roleTxt(pj), sc, pay: d.fee, note: `${d.res} · ${d.review}` });
     if (t.works === 1) milestone(s, `${age(s)}세에 ${T.n} ${josa(`「${pj.title}」`, '으로')} 첫 작품에 출연했다.`);
@@ -582,7 +582,7 @@ function doShow(s, sh) {
   const out = /여행|리얼/.test(sh.genre), first = !s.works.some(w => w.type === '예능' && w.title !== sh.title);
   const live = typeof liveStage === 'function' ? liveStage({ k: 'show', vn: out ? 'outdoor' : 'studio', place: out ? '야외 촬영' : '예능 스튜디오', t: sh.title, g: sh.bc, cn: callName(p.name), mem: [[callName(p.name), '']].concat(['MC', '고정', '게스트'].slice(0, U.int(2, 3)).map(n => [n, ''])), mi: 0,
     key: big !== 0 || !!sh.fixed || first, big, fixed: sh.fixed, z: { var: (varScore(s) - 45) / 18 }, sc: big > 0 ? 90 : good ? 70 : big < 0 ? 25 : 45 }) : null;
-  // 방송이 나간 뒤 반응은 플리오 팝업에서
+  // 방송이 나간 뒤 반응은 라이브온 팝업에서
   const plio = typeof plioSpec === 'function' ? plioSpec({ k: 'show', t: `「${sh.title}」 ${big > 0 ? '레전드 장면 모음' : '이번 주 클립'}`, ch: sh.bc, me: actName(s, 'variety'), sc: big > 0 ? 90 : good ? 70 : big < 0 ? 25 : 45, rv: big > 0 ? 2 : good ? 1 : big < 0 ? -2 : 0, mul: 1 + VAR_POW[tier] * 0.5 }) : null;
   return showResult(s, `${sh.bc} 「${sh.title}」`, x + (up ? `\n\n${up}` : ''), x + (up ? ` ${up}` : ''), live, null, plio);
 }
@@ -740,7 +740,7 @@ E({
 });
 
 // ════════ 스트리머 · 버튜버 ════════
-// 채널 컨셉(플리오 유행과 같은 목록)마다 중요한 특기가 다르다. 편집 실력(또는 고용한 편집자)이 영상 완성도를 올린다
+// 채널 컨셉(라이브온 유행과 같은 목록)마다 중요한 특기가 다르다. 편집 실력(또는 고용한 편집자)이 영상 완성도를 올린다
 // 스트리머는 얼굴이 보여 외모가 보태고, 버튜버는 아바타 품질과 소속사가 처음 시청자 수를 좌우한다
 // 구독자가 닿을 수 있는 높이: 10^((매력 + YT_REACH) / 16). 클수록 채널이 크게 자란다
 const YT_REACH = 27;
@@ -839,7 +839,7 @@ CAREERS.youtube = {
     const before = t.subs;
     if (t.subs < target) t.subs += Math.round((target - t.subs) * U.fl(0.02, 0.06) * Math.min(2, n) + U.int(3, 20));
     else t.subs = Math.round(t.subs * U.fl(0.99, 1.0));
-    // 이번 달에 올린 영상 (v144): 반응은 플리오에서 본다. 직업 창에 가장 최근 영상의 배너가 있고, 크게 터지거나 차갑게 식은 달에는 기록에도 남는다
+    // 이번 달에 올린 영상 (v144): 반응은 라이브온에서 본다. 직업 창에 가장 최근 영상의 배너가 있고, 크게 터지거나 차갑게 식은 달에는 기록에도 남는다
     if (t.mode !== 'vt' && typeof plioSpec === 'function') {
       const dev = U.normal(0, 10), vs = U.clamp(ytAppeal(s, t) + 8 + dev, 0, 100);
       t.vid = plioSpec({ k: 'vlog', t: `【${t.cat}】 ${calM(s) + 1}월 새 영상`, ch: t.ch, me: (t.sn && t.sn.nick) || '', sc: vs, rv: dev >= 12 ? 2 : dev >= 0 ? 1 : dev >= -12 ? 0 : -1, vw: Math.max(40, t.subs * (0.08 + vs / 140)) * (dev >= 15 ? 4 : 1) });
@@ -853,7 +853,7 @@ CAREERS.youtube = {
     const inc = t.mode === 'vt' ? t.subs * VT_INC * U.fl(0.6, 1.4) : t.subs * U.fl(1, 3) * Math.min(2, n) * YT_INC;
     t.lastInc = t.subs >= 1000 ? Math.round(inc * (1 - cut)) : 0;
     incPush(t, t.lastInc);
-    if (t.lastInc) earn(s, t.lastInc, t.mode === 'vt' ? '방송 후원·멤버십' : '플리오 광고 수익', 'youtube');
+    if (t.lastInc) earn(s, t.lastInc, t.mode === 'vt' ? '방송 후원·멤버십' : '라이브온 광고 수익', 'youtube');
     if (before < 1000 && t.subs >= 1000) addLog(s, `「${t.ch}」 구독자가 1,000명을 넘었다. 이제 ${t.mode === 'vt' ? '방송 후원과 멤버십' : '영상 광고'} 수익이 들어온다. (이번 달 ${fmtWon(t.lastInc)})`, 'good');
     ytCareerOffer(s, t);
     for (const [v, label] of [[1e5, '실버 버튼'], [1e6, '골드 버튼'], [1e7, '다이아 버튼']]) if (before < v && t.subs >= v) { jpopAdd(s, 'youtube', 3); addFame(s, 2); addLog(s, `「${t.ch}」 구독자 ${fmtFans(v)} 돌파! ${label}을 받았다.`, 'good'); milestone(s, `${age(s)}세에 「${t.ch}」 구독자 ${fmtFans(v)}을 넘겼다.`);
@@ -877,7 +877,7 @@ function ytCareerOffer(s, t) {
   }
 }
 JOB_APPLY.push({
-  id: 'youtube_open', trk: 'youtube', g: '▶️ 스트리머', n: '플리오 채널 열기',
+  id: 'youtube_open', trk: 'youtube', g: '▶️ 스트리머', n: '라이브온 채널 열기',
   show: s => !trackOn(s, 'youtube'),
   h: s => '얼굴을 보이고 영상을 올린다 · 채널 컨셉을 고른다',
   ok: s => !ytBlock(s), why: s => ytBlock(s),
@@ -898,7 +898,7 @@ function vtSolo(s) { const t = s.tracks.youtube; return t.st === 'active' && t.m
 function vtAudP(s, ag) { const t = s.tracks.youtube; return audP(vtScore(s) + pm(s, 'audition', 0) + (vtSolo(s) ? Math.log10(1 + t.subs / 1000) * 4 : 0), ag.thr); }
 // 회사 소속 버튜버(버츄얼 아이돌)의 오디션·계약·활동은 js/vidol.js
 const VT_CARRY = 0.3, VT_TAMPER_CATCH = 0.03;
-// 채널 컨셉 고르기 (플리오 채널을 열 때 · 버튜버 아바타가 다 됐을 때 · 바꿀 때)
+// 채널 컨셉 고르기 (라이브온 채널을 열 때 · 버튜버 아바타가 다 됐을 때 · 바꿀 때)
 // 바꿀 때는 지금 컨셉을 빼고 보여 주고, '역시 그만둔다'를 고르면 아무것도 잃지 않는다
 E({
   id: 'yt_cat', cat: '채널', title: '채널 컨셉', tag: 'career',
@@ -929,8 +929,8 @@ E({
     if (d.mode === 'yt') {
       const old = s.tracks.youtube;
       s.tracks.youtube = { st: 'active', mode: 'yt', ch, cat: d.cat, subs: Math.round(totalFans(s) * 0.05), months: 0, peak: 0, corp: null, cut: 0, sn: old.sn, hist: old.hist || [] };
-      milestone(s, `${age(s)}세에 플리오 채널 ${josa(`「${ch}」`, '을를')} 열었다.`);
-      return { log: `플리오 채널 ${josa(`「${ch}」`, '을를')} 열었다. 일정에 채널 활동을 넣어야 영상을 올린다.` + learnMe(s, 'edit', 1, true) };
+      milestone(s, `${age(s)}세에 라이브온 채널 ${josa(`「${ch}」`, '을를')} 열었다.`);
+      return { log: `라이브온 채널 ${josa(`「${ch}」`, '을를')} 열었다. 일정에 채널 활동을 넣어야 영상을 올린다.` + learnMe(s, 'edit', 1, true) };
     }
     const given = (v.given || '').trim();
     if (!given) return { err: 'RP 이름은 비울 수 없어요' };
@@ -954,17 +954,17 @@ const EDIT_SAL = [0, 210, 250, 300];
 const EDIT_THR = [0, 22, 34, 46];
 const EDIT_BAR = [0, 45, 50, 55]; // 회사 편집팀 석 달 평가 기준 (크기별)
 EMP_N.editor = '편집자';
-// 편집 숙련도 (피드백 24): 같은 종류의 영상을 많이 편집할수록 오른다 (0~100, s.emast { yt 플리오 영상 · show 예능 · drama 드라마 · film 영화 })
+// 편집 숙련도 (피드백 24): 같은 종류의 영상을 많이 편집할수록 오른다 (0~100, s.emast { yt 라이브온 영상 · show 예능 · drama 드라마 · film 영화 })
 // 편집 품질을 올린다 (최대 +5). 창의력이 높으면 빨리 오른다 (곡·각본·연출 숙련도와 같은 셈)
-const EM_N = { yt: '플리오 영상', show: '예능', drama: '드라마', film: '영화' };
+const EM_N = { yt: '라이브온 영상', show: '예능', drama: '드라마', film: '영화' };
 function emGet(s, k) { return (s.emast || {})[k] || 0; }
 function emGain(s, k, amt) { if (!EM_N[k]) return; const M = s.emast = s.emast || {}, m = M[k] || 0; M[k] = Math.min(100, m + amt * (1 - m / 100) * (0.6 + me(s).tal.creative / 100)); }
 function emBonus(s, k) { return EM_N[k] ? (emGet(s, k) - 15) / 17 : 0; }
 function emBars(s) { return Object.keys(EM_N).map(k => ({ n: EM_N[k], v: emGet(s, k) })).sort((a, b) => b.v - a.v); }
-// 편집 품질 (v95): 영상 편집(강함), 플리오 · 예능을 편집할 때만 유머 감각(강함, 가산점)
+// 편집 품질 (v95): 영상 편집(강함), 라이브온 · 예능을 편집할 때만 유머 감각(강함, 가산점)
 // v96: 드라마 · 영화 편집은 연출 레벨만큼 가산점 (fitB, 레벨 1에 0.1)
 function editQ(s, k) { const p = me(s); return lv(p, 'edit') * 0.95 + (k === 'yt' || k === 'show' ? talB(p.tal.humor, true) : k === 'drama' || k === 'film' ? fitB(p, ['direct']) : 0) + emBonus(s, k) + U.normal(0, 7); }
-// 편집자 합격 (v99, 8-5): 영상 편집(강함) + 포트폴리오 재능(보통, 가산점). 회사 편집팀은 예술 감각, 플리오 영상만 맡는 곳(MCN · 크리에이터 전속)은 유머 감각
+// 편집자 합격 (v99, 8-5): 영상 편집(강함) + 포트폴리오 재능(보통, 가산점). 회사 편집팀은 예술 감각, 라이브온 영상만 맡는 곳(MCN · 크리에이터 전속)은 유머 감각
 function editScore(s, yt) { const p = me(s); return lv(p, 'edit') * 0.85 + talB(yt ? p.tal.humor : p.tal.aesth, false); }
 // 프리랜서 일감 (피드백 19): m 걸리는 개월, dem 난이도(이보다 잘하면 평판이 오르고 못하면 떨어진다), rw 평판이 움직이는 크기
 const EDIT_CLIENTS = [
@@ -1046,7 +1046,7 @@ CAREERS.editor = {
         const word = q >= bar + 12 ? `${t.mcn ? '크리에이터가' : '연출팀이'} 극찬했다` : q >= bar + 4 ? '좋다는 평' : q >= bar - 4 ? '무난하다는 평' : q >= bar - 12 ? '아쉽다는 평' : '다시 손보라는 말을 들었다';
         const ttl = t.mcn ? `${t.agN} 소속 채널 영상` : tvShowTitle();
         addRes(s, `맡은 ${t.mcn ? '소속 채널 영상' : EM_N[mk]} 편집 반응: ${word}. (업무 평가 ${r0} → ${Math.round(t.rep)})`);
-        // 12-3 보는 쪽: 내가 편집한 영상의 반응은 플리오에서
+        // 12-3 보는 쪽: 내가 편집한 영상의 반응은 라이브온에서
         if (typeof plioSpec === 'function') s.log[s.log.length - 1].pl = plioSpec({ k: mk === 'yt' ? 'vlog' : mk === 'show' ? 'show' : 'drama', t: t.mcn ? ttl : `「${ttl}」 클립`, ch: t.agN, me: '', sc: U.clamp(55 + (q - bar) * 2, 5, 98) });
         addWork(s, { type: '영상 편집', title: ttl, by: t.agN, sc: Math.round(q + 10), note: q >= bar + 4 ? '호평' : q >= bar - 4 ? '무난' : '아쉬움' });
       }

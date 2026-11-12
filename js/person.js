@@ -201,6 +201,15 @@ function givenList(g, by) {
 }
 function genName(g, by) { return U.wpick(SURNAMES, x => x[1])[0] + U.pick(givenList(g, by)); }
 function genJpName(g) { return U.pick(JP_SUR) + ' ' + U.pick(g === '여' ? JP_F : JP_M); }
+// 한 그룹 안 동명이인 없애기 (AI가 만든 그룹, v163): 앞사람과 이름이 같으면 새 이름을 짓는다 (일본 · 미국식 이름은 그 꼴로). 맨 앞(나)은 그대로
+function uniqNames(s, ids) {
+  const seen = new Set();
+  for (const id of ids) {
+    const x = s.people[id]; if (!x) continue;
+    for (let i = 0; i < 30 && seen.has(x.name); i++) { const f = x.name.split(' ')[0]; x.name = typeof JP_SUR !== 'undefined' && JP_SUR.includes(f) ? genJpName(x.g) : x.name.includes(' ') ? genUsName(x.g) : genName(x.g, x.by); }
+    seen.add(x.name);
+  }
+}
 function genUsName(g) { return U.pick(g === '여' ? US_F : US_M) + ' ' + U.pick(US_SUR); }
 // o: { g, name, age, rel, aff, job, tal, skills:{k:lv}, met, trait, look, orient, fame }
 function makePerson(s, o = {}) {

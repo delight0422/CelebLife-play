@@ -1192,26 +1192,83 @@ E({
 // 이름이 알려지면 태어난 곳에서 연락이 온다: 노래 · 연주하는 사람은 고향 축제 무대, 그 밖의 사람은 고향 홍보대사. 지금 고향 쪽에 살면 더 자주 온다
 // 고향 이름: '부산광역시 해운대구' → 해운대구 · '포항시 남구' → 포항시 · '해남군' → 해남군
 function homeTown(s) { const P = String(s.birthPlace || '').split(' '); return /특별시$|광역시$/.test(P[0]) && P[1] ? P[1] : P[0] || ''; }
+// 고향 무대에 같이 갈 그룹 (v163): 활동 중인 아이돌 그룹 · 밴드. 솔로 가수 · 연주가로 활동하면 혼자 간다
+function homeGrp(s) {
+  const ti = trackOn(s, 'idol') && s.tracks.idol.st === 'active' && s.tracks.idol.g ? s.tracks.idol : null;
+  if (ti) return { k: 'idol', t: ti, g: ti.g, nm: ti.g.name, mem: ti.g.members.map(id => s.people[id]).filter(x => x && x.alive) };
+  const tb = trackOn(s, 'band') && s.tracks.band.b && ['indie', 'signed'].includes(s.tracks.band.st) ? s.tracks.band : null;
+  if (tb) return { k: 'band', t: tb, g: tb.b, nm: tb.b.name, mem: bandMembers(s, tb).filter(x => x.alive) };
+  return null;
+}
+// 그룹 무대 장면 (고향 무대). hf: 반응이 모이는 사람의 자리 (0 = 나)
+function homeGrpLive(s, G, place, hf) {
+  const z = { fans: 1.6, perf: 0.8, q: 0.6, tw: 0.6, me: 1.6 };
+  if (G.k === 'band') return bandLive(s, G.t, { vn: 'fest', place, t: '고향 무대', key: true, sc: 86, hf, z });
+  const P = idolPpl(s, G.g);
+  return liveStage({ k: 'idol', vn: 'fest', place, t: '고향 무대', g: G.nm, fd: G.g.fandom, sx: liveSx(P), mem: P.map(x => [x.id === s.me ? actCall(s, 'idol') : callName(x.name), (G.g.pos[x.id] || '').split(' · ')[0]]), mi: 0, hf, key: true, sc: 86, z });
+}
+// 그룹 팬 늘리기 (아이돌 그룹은 나라별, 밴드는 한 수)
+function homeGrpFans(G, n) { if (G.k === 'band') G.g.f = (G.g.f || 0) + n; else G.g.f.kr += n; }
+// 사람의 고향 (멤버는 처음 물어볼 때 정해 둔다): 사는 사람 비율대로 지역을 고르고 그 안의 동네
+function personTown(s, x) {
+  if (!x.home) { const R = U.wpick(REGIONS, r => r.w); x.home = U.pick(R.places); }
+  const P = String(x.home).split(' ');
+  return /특별시$|광역시$/.test(P[0]) && P[1] ? P[1] : P[0] || '';
+}
 E({
   id: 'home_call', cd: 18, cat: '섭외', title: '고향에서 온 연락', tag: 'career',
   p: s => (0.004 + (s.fame || 0) / 100 * 0.012) * (s.region === s.birthRegion ? 1.5 : 1),
   cond: s => age(s) >= 16 && (s.fame || 0) >= 20 && !!homeTown(s) && !s.army && !s.hiatus && !s.scandal,
   init(s, d) {
     d.town = homeTown(s);
-    d.stage = ['idol', 'solo', 'band', 'player'].find(id => CAREERS[id] && trackOn(s, id)) || '';
-    d.fee = Math.round((200 + (s.fame || 0) * 40) * U.fl(0.8, 1.3)) * 1e4;
+    // 솔로 가수 · 연주가로 활동하면 혼자, 아니면 활동 중인 그룹 전체가 간다 (v163). 그룹 없는 연습생은 예전처럼 혼자
+    const solo = ['solo', 'player'].find(id => CAREERS[id] && trackOn(s, id)), G = !solo ? homeGrp(s) : null;
+    d.stage = solo || (G ? G.k : ['idol', 'band'].find(id => CAREERS[id] && trackOn(s, id)) || '');
+    d.grp = G ? G.k : '';
+    d.fee = Math.round((200 + (s.fame || 0) * 40) * U.fl(0.8, 1.3) * (G ? 1.5 : 1)) * 1e4;
   },
-  text: (s, d) => d.stage ? `고향 ${d.town}에서 연락이 왔다. 올해 ${d.town} 축제 무대에 서 달라고 한다. "우리 동네가 낳은 스타"라며 현수막도 걸겠다고 한다.` : `고향 ${d.town}에서 연락이 왔다. ${d.town} 홍보대사를 맡아 달라고 한다. "우리 동네의 자랑"이라고 한다.`,
+  text: (s, d) => { const G = d.grp ? homeGrp(s) : null; return G ? `고향 ${d.town}에서 연락이 왔다. 올해 ${d.town} 축제 무대에 ${josa(G.nm, '을를')} 초대하고 싶다고 한다. "우리 동네가 낳은 스타"라며 ${me(s).name} 얼굴이 들어간 현수막도 걸겠다고 한다.`
+    : d.stage ? `고향 ${d.town}에서 연락이 왔다. 올해 ${d.town} 축제 무대에 서 달라고 한다. "우리 동네가 낳은 스타"라며 현수막도 걸겠다고 한다.` : `고향 ${d.town}에서 연락이 왔다. ${d.town} 홍보대사를 맡아 달라고 한다. "우리 동네의 자랑"이라고 한다.`; },
   ch: (s, d) => [
-    { t: d.stage ? '고향 축제 무대에 선다' : '홍보대사를 맡는다', h: `${fmtWon(d.fee)} · 고향 사람들이 반긴다`, f: s => {
+    { t: d.grp ? '멤버들과 고향 축제 무대에 선다' : d.stage ? '고향 축제 무대에 선다' : '홍보대사를 맡는다', h: `${fmtWon(d.fee)} · 고향 사람들이 반긴다`, f: s => {
       earn(s, d.fee, d.stage ? '행사 출연료' : '홍보대사 사례비', d.stage || undefined);
+      const G = d.grp ? homeGrp(s) : null;
       const gain = Math.round(Math.max(200, fanGain(s, 68, 'kr', 0.4)) * (d.stage ? 1.5 : 0.8));
-      const log = (d.stage ? `고향 ${d.town} 축제 무대에 섰다. 객석이 온통 아는 얼굴 같았다.` : `고향 ${d.town} 홍보대사가 됐다. 동네 어귀에 내 얼굴이 걸렸다.`) + fx(s, { fkr: gain, rep: 2, stress: d.stage ? 2 : -2 });
+      if (G) homeGrpFans(G, Math.round(gain * 0.6));
+      const log = (G ? `${josa(G.nm, '과와')} 고향 ${d.town} 축제 무대에 섰다. 객석이 온통 내 이름을 불렀다.` : d.stage ? `고향 ${d.town} 축제 무대에 섰다. 객석이 온통 아는 얼굴 같았다.` : `고향 ${d.town} 홍보대사가 됐다. 동네 어귀에 내 얼굴이 걸렸다.`) + fx(s, { fkr: gain, rep: 2, stress: d.stage ? 2 : -2 });
       if (!d.stage || typeof liveStage !== 'function') return log;
-      // 고향 무대는 실시간 창으로: 처음 보는 객석이 아니라 모두가 내 편이다
+      // 고향 무대는 실시간 창으로: 처음 보는 객석이 아니라 모두가 내 편이다. 그룹이면 반응은 나에게 모인다
+      if (G) return showResult(s, `${d.town} 축제`, log, log, homeGrpLive(s, G, `${d.town} 축제`, 0));
       const nm = actName(s, d.stage);
       return showResult(s, `${d.town} 축제`, log, log, liveStage({ k: 'solo', vn: 'fest', mic: d.stage !== 'player', place: `${d.town} 축제`, t: '고향 무대', g: nm, cn: typeof callName === 'function' ? callName(nm) : nm, mem: [[nm, '']], mi: 0, key: true, sc: 86, z: { fans: 1.6, perf: 0.8, q: 0.6, me: 1.2 } }));
     } },
     { t: '정중히 거절한다', f: s => `고향 ${d.town}의 제안을 정중히 거절했다.` },
+  ],
+});
+// 멤버 고향 무대 (v163): 우리 그룹 멤버의 고향 축제에서 섭외가 온다. 그룹 전체가 가고, 반응은 그 멤버에게 모인다
+E({
+  id: 'member_home', cd: 24, cat: '섭외', title: '멤버 고향에서 온 연락', tag: 'career',
+  p: s => 0.005 + (s.fame || 0) / 100 * 0.01,
+  cond: s => age(s) >= 16 && !s.army && !s.hiatus && !s.scandal && !!homeGrp(s) && homeGrp(s).mem.length > 0,
+  init(s, d) {
+    const G = homeGrp(s), x = U.pick(G.mem);
+    d.mid = x.id; d.town = personTown(s, x);
+    d.fee = Math.round((150 + (s.fame || 0) * 30) * U.fl(0.8, 1.3)) * 1e4;
+  },
+  text: (s, d) => { const G = homeGrp(s), x = s.people[d.mid]; return `${x.name}의 고향 ${d.town}에서 연락이 왔다. 올해 ${d.town} 축제 무대에 ${josa(G.nm, '이가')} 와 달라고 한다. "우리 동네가 낳은 스타"라며 ${x.name} 얼굴이 들어간 현수막도 걸겠다고 한다.`; },
+  ch: (s, d) => [
+    { t: '다 같이 간다', h: `${fmtWon(d.fee)} · ${s.people[d.mid] ? s.people[d.mid].name : '멤버'}와 사이가 가까워진다`, f: s => {
+      const G = homeGrp(s), x = s.people[d.mid];
+      if (!G || !x) return '';
+      earn(s, d.fee, '행사 출연료', G.k);
+      homeGrpFans(G, Math.round(Math.max(150, fanGain(s, 60, 'kr', 0.3))));
+      x.aff = Math.min(100, (x.aff || 50) + 6);
+      const log = `${x.name}의 고향 ${d.town} 축제 무대에 ${josa(G.nm, '이가')} 섰다. 객석이 온통 ${x.name}의 이름을 불렀다. ${x.name}의 눈가가 촉촉해졌다.` + fx(s, { rep: 1, stress: 1 });
+      if (typeof liveStage !== 'function') return log;
+      // 반응이 모이는 자리: 무대에서 그 멤버의 자리 (나는 맨 앞 0)
+      const P = G.k === 'band' ? [me(s)].concat(bandMembers(s, G.t)) : idolPpl(s, G.g), hf = Math.max(0, P.findIndex(p => p.id === x.id));
+      return showResult(s, `${d.town} 축제`, log, log, homeGrpLive(s, G, `${d.town} 축제`, hf));
+    } },
+    { t: '이번엔 거절한다', f: s => `${s.people[d.mid] ? s.people[d.mid].name + '의 ' : ''}고향 ${d.town}의 제안을 정중히 거절했다.` },
   ],
 });

@@ -284,7 +284,7 @@ const EARN_LABEL = {
   '단편 상영권 판매': 'director', '부가 판권': 'director', '뮤직비디오 연출': 'director', '광고 연출': 'director',
   '전속 계약금': 'director',
   '원고료': 'writer', '공모전 상금': 'writer', '각본 수정료': 'writer', '2차 판권·굿즈': 'writer',
-  '유료 광고 영상': 'youtube', '굿즈 판매': 'youtube', '개인 행사': 'youtube', '플리오 광고비': 'youtube', '플리오 광고 수익': 'youtube',
+  '유료 광고 영상': 'youtube', '굿즈 판매': 'youtube', '개인 행사': 'youtube', '라이브온 광고비': 'youtube', '라이브온 광고 수익': 'youtube',
   '페스티벌 출연료': 'band', '공연 정산': 'band', '공연 수입': 'band',
   '음반·음원 정산': 'solo', '일본 공연': 'solo', '오디션 우승 상금': 'solo', '공연·행사': 'solo',
   '세션 연주비': 'player', '독주회 출연료': 'player', '공연·레슨': 'player',
@@ -604,7 +604,7 @@ function choose(s, i) {
     addLog(s, r, ev.tag || 'ev'); s.log[s.log.length - 1].e = ev.id;
     // 실시간 창이 있던 사건은 기록에 장면(spec)을 남긴다: 요약 창의 '▶ 무대 보기' (12-1)
     if (ev.live) { try { const sp = ev.live(s, p.d); if (sp) s.log[s.log.length - 1].lv = sp; } catch (e) { } }
-    // 공개 뒤 반응(플리오)도 기록에 남긴다: 요약 창 · 걸어온 길의 배너 (12-3)
+    // 공개 뒤 반응(라이브온)도 기록에 남긴다: 요약 창 · 걸어온 길의 배너 (12-3)
     if (ev.plio) { try { const pl = ev.plio(s, p.d); if (pl) s.log[s.log.length - 1].pl = pl; } catch (e) { } }
   }
   // 고른 뒤 이어서 생긴 사건도 고를 게 없으면 창 없이 처리한다
@@ -679,7 +679,7 @@ function autoEvs(s) {
     addLog(s, x, ev.tag || 'ev');
     const L = s.log[s.log.length - 1];
     L.sp = ti || ev.cat || '알림'; L.c = ev.cat || ''; L.e = ev.id;
-    // 창 없이 처리된 결과도 요약 창에서 장면(▶ 무대 보기)과 플리오 반응을 볼 수 있게 남긴다 (12-3)
+    // 창 없이 처리된 결과도 요약 창에서 장면(▶ 무대 보기)과 라이브온 반응을 볼 수 있게 남긴다 (12-3)
     if (ev.live) { try { const sp = ev.live(s, d); if (sp) L.lv = sp; } catch (e) { } }
     if (ev.plio) { try { const pl = ev.plio(s, d); if (pl) L.pl = pl; } catch (e) { } }
     // ev.sub: 기록 아래 작게 덧붙이는 말 (아이돌 정산이 빚 갚는 데 들어갔을 때 남은 비용 등)
@@ -960,14 +960,14 @@ function onSchoolMonth(s) {
 function onBirthday(s) {
   for (const p of parentsAlive(s)) if (pAge(s, p) >= 70 && U.chance((pAge(s, p) - 68) * 0.02)) queueEv(s, 'parent_loss', 0, { id: p.id }, true);
 }
-// 플리오 유행 (피드백 24): 버튜버냐 캠튜버냐. 3~5년에 한 번 바뀐다. 예전 세이브(채널 컨셉 유행)는 둘 중 하나로 바꾼다
+// 라이브온 유행 (피드백 24): 버튜버냐 캠튜버냐. 3~5년에 한 번 바뀐다. 예전 세이브(채널 컨셉 유행)는 둘 중 하나로 바꾼다
 function ytTrendCheck(s, flip) {
   const tv = s.trendTV;
   if (!YT_KINDS.includes(tv.yt)) { tv.yt = U.pick(YT_KINDS); tv.ytT = s.t + U.int(36, 60); return; }
   if (tv.ytT == null) tv.ytT = s.t + U.int(36, 60);
   if (flip && s.t >= tv.ytT) {
     tv.yt = YT_KINDS.find(x => x !== tv.yt); tv.ytT = s.t + U.int(36, 60);
-    if (trackOn(s, 'youtube') || trackOn(s, 'vidol')) addLog(s, `플리오 판도가 바뀌었다. 요즘은 ${josa(tv.yt, '이가')} 대세다.`, 'career');
+    if (trackOn(s, 'youtube') || trackOn(s, 'vidol')) addLog(s, `라이브온 판도가 바뀌었다. 요즘은 ${josa(tv.yt, '이가')} 대세다.`, 'career');
   }
 }
 function onNewYear(s) {
@@ -1202,10 +1202,10 @@ function save(s) { try { if (s) localStorage.setItem(SAVE_KEY, JSON.stringify(s)
 function loadSave() {
   try { const j = localStorage.getItem(SAVE_KEY); if (!j) return null; const s = JSON.parse(j); return s && s.v === 4 ? migrate(s) : null; } catch (e) { return null; }
 }
-// v144: 영상 플랫폼 이름을 지어낸 '플리오'로, 직업 이름을 '스트리머'로 바꿨다. 예전 세이브에 남은 글 · 직업 이름 · 돈 항목 이름도 한 번에 바꾼다 (값과 열쇠 모두)
+// v144: 영상 플랫폼 이름을 지어낸 '라이브온'로, 직업 이름을 '스트리머'로 바꿨다. 예전 세이브에 남은 글 · 직업 이름 · 돈 항목 이름도 한 번에 바꾼다 (값과 열쇠 모두)
 function pfRename(o) {
   const A = '유튜브', B = '유튜버', H = '유튜';
-  const fix = x => x.split(A).join('플리오').split(B).join('스트리머');
+  const fix = x => x.split(A).join('라이브온').split(B).join('스트리머');
   const walk = v => {
     if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) { const x = v[i]; if (typeof x === 'string') { if (x.includes(H)) v[i] = fix(x); } else if (x && typeof x === 'object') walk(x); } return; }
     for (const k of Object.keys(v)) {
@@ -1470,7 +1470,7 @@ function lifeTitle(s) {
 // ───── 인생 결산의 칭호 (12-5) ─────
 // 주 직업: 등급이 가장 높고 오래 한 일. 칭호는 그 직업의 등급으로 정한다 (맨 위 등급이면 직업마다 다른 이름)
 const END_CAT = { idol: 'music', solo: 'music', band: 'music', player: 'music', dancer: 'music', actor: 'screen', variety: 'screen', model: 'screen', voice: 'screen', director: 'screen', writer: 'screen', adir: 'screen', animator: 'screen', youtube: 'stream', vidol: 'stream', webtoon: 'ink', webnovel: 'ink', illust: 'ink', prof: 'teach', tutor: 'teach', trainer: 'teach', acttrainer: 'teach', composer: 'staff', lyricist: 'staff', producer: 'staff', anr: 'staff', editor: 'staff', marketer: 'staff', agency: 'biz' };
-const END_TOP = { idol: '시대의 아이콘', solo: '국민 가수', band: '전설의 밴드', player: '연주의 거장', dancer: '춤의 전설', actor: '국민 배우', variety: '국민 MC', model: '런웨이의 전설', voice: '목소리의 장인', director: '거장 감독', writer: '믿고 보는 작가', adir: '애니메이션의 거장', animator: '작화의 신', youtube: '플리오의 얼굴', vidol: '버츄얼의 전설', webtoon: '웹툰의 신', webnovel: '웹소설의 신', illust: '그림의 장인', prof: '시대의 석학', tutor: '전설의 일타 강사', trainer: '스타 메이커', acttrainer: '배우들의 스승', composer: '히트곡 제조기', lyricist: '노랫말의 장인', producer: '미다스의 손', anr: '히트곡 사냥꾼', editor: '편집의 장인', marketer: '홍보의 귀재', agency: '엔터 업계의 큰손' };
+const END_TOP = { idol: '시대의 아이콘', solo: '국민 가수', band: '전설의 밴드', player: '연주의 거장', dancer: '춤의 전설', actor: '국민 배우', variety: '국민 MC', model: '런웨이의 전설', voice: '목소리의 장인', director: '거장 감독', writer: '믿고 보는 작가', adir: '애니메이션의 거장', animator: '작화의 신', youtube: '라이브온의 얼굴', vidol: '버츄얼의 전설', webtoon: '웹툰의 신', webnovel: '웹소설의 신', illust: '그림의 장인', prof: '시대의 석학', tutor: '전설의 일타 강사', trainer: '스타 메이커', acttrainer: '배우들의 스승', composer: '히트곡 제조기', lyricist: '노랫말의 장인', producer: '미다스의 손', anr: '히트곡 사냥꾼', editor: '편집의 장인', marketer: '홍보의 귀재', agency: '엔터 업계의 큰손' };
 // 마지막 한 줄: 분야와 올라간 높이(hi 4등급 이상 · mid 2~3 · low)에 따라
 const END_LINE = {
   music: { hi: '마지막 무대의 조명이 꺼질 때까지 객석의 떼창이 이어졌다.', mid: '작은 공연장에서 마지막 곡을 부르고 마이크를 내려놓았다.', low: '무대에 선 날은 길지 않았지만, 그때 들은 박수는 평생 잊지 않았다.' },

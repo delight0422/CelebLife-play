@@ -662,7 +662,8 @@ function coEvalCard(s, kind, ids) {
 // 사내 데뷔평가를 거쳐 온 창(evalDone)이면 고른 결과 앞에 평가 반응을 붙여 기록한다 (중간에 결과 창이 한 번 더 뜨지 않게)
 function coMakeOkCh(s, d, evalDone) {
   const t = coT(s), cost = coEvalCost(t), pre = evalDone && d.card ? `사내 데뷔평가(${fmtWon(d.cost || 0)})에서 ${d.card.top} ` : '';
-  const L = [{ t: '이대로 데뷔시킨다', f: s => { const ok = d.ids.every(id => s.people[id] && s.people[id].co && s.people[id].co.role === 'tr'); if (!ok) return pre + '그사이 멤버가 바뀌어 데뷔를 미뤘다.'; const g = coMakeGroup(s, coT(s), d.kind, d.name, d.ids, d.fandom); fireEvent(s, d.kind === 'vt' ? 'co_vav' : 'co_sig', { gid: g.id }); return pre + `${coKindN(d.kind)} 「${d.name}」의 멤버를 정했다.`; } }];
+  // 이대로 데뷔: 그룹 · 기수 이름과 멤버 예명을 정하는 창으로 (v163)
+  const L = [{ t: '이대로 데뷔시킨다', h: '그룹 이름과 멤버 예명을 정한다', f: s => { const ok = d.ids.every(id => s.people[id] && s.people[id].co && s.people[id].co.role === 'tr'); if (!ok) return pre + '그사이 멤버가 바뀌어 데뷔를 미뤘다.'; fireEvent(s, 'co_make_names', { kind: d.kind, name: d.name, fandom: d.fandom, ids: d.ids.slice(), pre }); return ''; } }];
   if (!evalDone && d.kind !== 'vt') L.push({ t: '사내 데뷔평가부터 해 본다', h: `비용 ${fmtWon(cost)} (자본금) · 테스트 무대로 반응을 본다`, ok: s => coT(s).money >= cost, f: s => { coOut(coT(s), cost, '사내 데뷔평가'); fireEvent(s, 'co_eval_res', Object.assign({}, d, { back: 1, cost })); return ''; } });
   // 데뷔조 (v131): 바로 데뷔시키지 않고 이 멤버끼리 같이 연습시킨다
   if (!coSquadSame(t, d)) L.push({ t: '데뷔조로 묶어 두고 합을 맞추게 한다', h: `이 멤버끼리 같이 연습한다 · 준비되면 연습생 탭에서 데뷔시킨다${coSquad(t, d.kind) ? ' · 지금 데뷔조는 이 멤버로 바뀐다' : ''}`, f: s => { coSquadSet(s, d); return pre + `${d.ids.length}명을 ${coKindN(d.kind)} 데뷔조 「${d.name}」${josa(d.name, '으로').slice(d.name.length)} 묶었다. 이제 같이 연습하며 합을 맞춘다.`; } });
@@ -670,6 +671,35 @@ function coMakeOkCh(s, d, evalDone) {
   L.push({ t: '아직 이르다', f: () => pre + `${coKindN(d.kind)} 데뷔를 미뤘다.` });
   return L;
 }
+// 데뷔 이름 정하기 (v163): 내가 데뷔시키는 그룹 · 밴드 · 기수는 이름과 멤버 예명을 내가 정한다
+// 본명이 같은 멤버는 괜찮지만, 같은 그룹 안에서 예명은 겹치면 안 된다. 버츄얼 아이돌은 예명이 곧 방송 이름(RP 이름)
+function coSN(x) { return x.co && x.co.sn ? x.co.sn : callName(x.name); }
+function coSNLabel(x) { return x.co && x.co.sn && x.co.sn !== x.name && x.co.sn !== callName(x.name) ? `${x.co.sn}(${x.name})` : x.name; }
+E({
+  id: 'co_make_names', cat: '그룹 만들기', tag: 'career',
+  title: (s, d) => `${coKindN(d.kind)} 이름 정하기`,
+  cond: s => coOn(s),
+  // 처음 칸에 넣어 두는 이름: 버츄얼 아이돌은 새 방송 이름, 그 밖에는 본명 (겹치면 성까지, 그래도 겹치면 숫자)
+  init(s, d) { if (d.sn) return; const used = new Set(); d.sn = {}; for (const id of d.ids) { const x = s.people[id]; if (!x) continue; let n = d.kind === 'vt' ? vtRpName(x.g) : callName(x.name); if (used.has(n)) n = x.name; for (let i = 2; used.has(n); i++) n = `${callName(x.name)}${i}`; used.add(n); d.sn[id] = n; } },
+  text: (s, d) => `데뷔할 ${d.kind === 'vt' ? '기수' : d.kind === 'band' ? '밴드' : '그룹'} 이름과 멤버 ${d.kind === 'vt' ? '방송 이름' : '예명'}을 정하자. 같은 ${d.kind === 'vt' ? '기수' : '그룹'} 안에서 ${d.kind === 'vt' ? '방송 이름' : '예명'}은 겹치면 안 된다 (본명이 같은 건 괜찮다).`,
+  form: (s, d) => [{ k: 'name', label: d.kind === 'band' ? '밴드 이름' : d.kind === 'vt' ? '기수 이름' : '그룹 이름', value: d.name, max: 16 }].concat(d.kind === 'band' ? [] : [{ k: 'fandom', label: '팬덤 이름', value: d.fandom, max: 12 }],
+    d.ids.map(id => s.people[id]).filter(Boolean).map(x => ({ k: 'sn_' + x.id, label: `${x.name} (${gNn(x)} · ${pAge(s, x)}세) ${d.kind === 'vt' ? '방송 이름' : '예명'}`, value: d.sn[x.id] || '', max: 10 }))),
+  cancel: () => '데뷔를 미뤘다.',
+  submit(s, d, v) {
+    const name = (v.name || '').trim(), fandom = (v.fandom || '').trim(), P = d.ids.map(id => s.people[id]).filter(Boolean);
+    if (!name) return { err: '이름을 적어 주세요' };
+    if (d.kind !== 'band' && !fandom) return { err: '팬덤 이름을 적어 주세요' };
+    const SN = P.map(x => (v['sn_' + x.id] || '').trim());
+    if (SN.some(x => !x)) return { err: `${d.kind === 'vt' ? '방송 이름' : '예명'}을 모두 적어 주세요` };
+    const dup = SN.find((x, i) => SN.indexOf(x) !== i);
+    if (dup) return { err: `'${dup}' ${d.kind === 'vt' ? '방송 이름' : '예명'}이 겹쳐요. 같은 ${d.kind === 'vt' ? '기수' : '그룹'} 안에서는 달라야 해요` };
+    if (!P.every(x => x.co && x.co.role === 'tr') || P.length !== d.ids.length) return { log: (d.pre || '') + '그사이 멤버가 바뀌어 데뷔를 미뤘다.' };
+    const g = coMakeGroup(s, coT(s), d.kind, name, d.ids, fandom);
+    P.forEach((x, i) => { x.co.sn = SN[i]; });
+    fireEvent(s, d.kind === 'vt' ? 'co_vav' : 'co_sig', { gid: g.id });
+    return { log: (d.pre || '') + `${coKindN(d.kind)} 「${name}」의 멤버를 정했다. ${P.map((x, i) => SN[i] === callName(x.name) ? x.name : `${SN[i]}(${x.name})`).join(' · ')}` };
+  },
+});
 function coMakeOkText(s, d) { const t = coT(s), q = coSquad(t, d.kind), tw = coSquadTw(t, d.kind, d.ids); return `「${d.name}」 데뷔 멤버\n${d.ids.map(id => s.people[id]).filter(Boolean).map(x => `· ${x.name} (${pAge(s, x)}세)${x.co.part ? ` ${partN(x.co.part)}` : ''}${d.kind === 'band' ? '' : d.kind === 'vt' ? ` · 목소리 ${talentWord(x.tal.voice)}` : ` · 외모 ${talentWord(x.tal.looks)}`}`).join('\n')}${q && d.ids.some(id => q.ids.includes(id)) ? `\n\n데뷔조로 같이 연습한 지 ${s.t - q.t0}개월 · ${coTwWord(tw)}` : ''}`; }
 E({
   id: 'co_make_ok', cat: '그룹 만들기', tag: 'career',
@@ -791,6 +821,7 @@ E({
     if (!name) return { err: '이름을 적어 주세요' };
     if (ids.length < 2 || ids.length > 9) return { err: '프로젝트 그룹은 2~9명이에요' };
     if (new Set(ids.map(id => (coProjOf(t, s.people[id]) || {}).id)).size < 2) return { err: '두 그룹 이상에서 뽑아 주세요' };
+    { const SN = ids.map(id => coSN(s.people[id])), dup = SN.find((x, i) => SN.indexOf(x) !== i); if (dup) return { err: `예명 '${dup}'인 멤버가 둘이에요. 한 그룹에는 예명이 겹치면 안 돼요` }; }
     const g = coProjMake(s, t, name, ids);
     return { log: `프로젝트 그룹 「${g.name}」을 만들었다. ${coP(s, g.members).map(x => `${x.name}(「${(coProjOf(t, x) || {}).name || ''}」)`).join(' · ')}. 다음 달에 기획 회의를 연다.` };
   },
@@ -1068,7 +1099,7 @@ function coAlbum(s, g, o) {
   if (o.mine) { addCatalog(s, o.title, '작곡', sc, 0.7, 'agency'); cmGain(s, o.c, 4); useSkill(s, p, 'compose', 2); addWork(s, { type: '작곡', title: o.title, by: g.name, sc, note: chartText(peak) }); }
   for (const tt of o.sub || []) addCatalog(s, tt, '작곡', sc, 0.25, 'agency');
   // 무대 창 (12-1 틀): 우리 회사 아이돌 그룹의 데뷔 무대 · 1위 후보에 든 음악방송. 나는 무대에 없다 (mi: -1)
-  if (!band && typeof liveStage === 'function') card.live = liveStage({ k: 'idol', place: debut && !g.proj ? '데뷔 무대' : '음악방송', t: o.title, g: g.name, fd: g.fandom, c: o.c, cos: g.proj ? 'project' : '', sx: liveSx(P), mem: P.map(x => [callName(x.name), (g.pos[x.id] || '').split(' · ')[0]]), mi: -1,
+  if (!band && typeof liveStage === 'function') card.live = liveStage({ k: 'idol', place: debut && !g.proj ? '데뷔 무대' : '음악방송', t: o.title, g: g.name, fd: g.fandom, c: o.c, cos: g.proj ? 'project' : '', sx: liveSx(P), mem: P.map(x => [coSN(x), (g.pos[x.id] || '').split(' · ')[0]]), mi: -1,
     z: { perf: (coPower(s, g) - 45) / 18, q: (o.q - 45) / 15, fans: (Math.log10(1 + coGFans(g)) - 4) / 1.2, trend: o.c === s.trend ? 0.7 : -0.5, tw: ((g.tw0 || 0) - 15) / 15, cf: cScoreB(cf) / 4, star: (g.star - 50) / 25, me: -1 }, sc, wins, cand: sc >= 66, debut, key: debut || wins > 0 || sc >= 66, rv: sc >= 66 && !wins && typeof npcStageRival === 'function' ? npcStageRival(s, g.name) : '' });
   const repD = U.clamp((sc - 55) / 6, -2.5, 4) + (peak === 1 ? 2 : 0) + (debut ? 1 : 0);
   // 그룹이 많을수록 앨범 하나가 회사 평판에 주는 영향은 작다
@@ -1218,7 +1249,7 @@ function coVDebut(s, t, g, av, c) {
   const P = coP(s, g.members), tier = coTier(t, 'vidol');
   coOut(t, c * P.length, '아바타 제작비'); g.debt += c * P.length;
   for (const x of P) {
-    x.co.given = vtRpName(x.g); (s.usedNames = s.usedNames || []).push(x.co.given);
+    x.co.given = x.co.sn || vtRpName(x.g); (s.usedNames = s.usedNames || []).push(x.co.given);
     x.co.av = Math.min(3, av); x.co.d3 = av >= 4; x.co.subs = Math.round(tier * 2500 * U.fl(0.7, 1.3)); x.co.peak = x.co.subs; x.co.luck = U.normal(0, 2);
   }
   g.debuted = true; g.debutT = s.t; g.debutY = calY(s); g.f.kr = coVSubs(s, g);
@@ -1703,7 +1734,7 @@ function coTabGrp(s, t, f) {
     h += `<div class="sec-h">${U.esc(g.name)} <span class="n">${g.proj ? '프로젝트 그룹' : coKindN(g.kind)} · ${g.debuted ? `${g.debutY}년 ${g.proj ? '발매' : '데뷔'}` : g.proj ? '앨범 준비 중' : '데뷔 전'}</span></div>`;
     const GP = coGProd(s, g);
     h += infoTable([['팬', `${fmtFans(coGFans(g))}${g.fandom && g.kind !== 'band' ? ` · 팬덤 '${g.fandom}'` : ''}`], ['지금', st], ['대표 컨셉', g.sig || '-'], ['전담 프로듀서', GP ? `${GP.name} · ${coTopCm(GP)} · 앨범 기획 · 선정을 맡는다` : '없음 · 앨범마다 내가 정한다'],g.proj ? ['프로젝트 그룹', `앨범 한 장 · 활동 두 달 뒤 흩어진다 · 원래 그룹 ${g.proj.src.map(id => coGroup(s, id)).filter(Boolean).map(o => `「${o.name}」`).join(' · ')}`] : ['계약', `${Math.max(0, left)}개월 남음 · 회사 몫 ${pctN(g.cut)}`], ['정산', g.debt > 0 ? `연습생·제작 비용 회수 중 · 남은 ${fmtWon(g.debt)}` : `멤버 정산 누적 ${fmtWon(g.paid)}`],
-      { h: '멤버', items: coP(s, g.members).map(x => `${x.name} (${gNn(x)} · ${pAge(s, x)}세) ${g.pos[x.id] || ''}${g.proj && coProjOf(t, x) ? ` · 「${coProjOf(t, x).name}」` : ''} — ${coMemberSub(s, x)}`) },
+      { h: '멤버', items: coP(s, g.members).map(x => `${coSNLabel(x)} (${gNn(x)} · ${pAge(s, x)}세) ${g.pos[x.id] || ''}${g.proj && coProjOf(t, x) ? ` · 「${coProjOf(t, x).name}」` : ''} — ${coMemberSub(s, x)}`) },
     ]);
     // 앨범 줄 (v119): 결과 카드가 있는 앨범은 🎧 · 누르면 카드를 다시 본다
     h += `<div class="sec-h">앨범</div>` + (g.disc.length ? g.disc.slice(-5).reverse().map(a => `<div class="ms${a.card ? ' has-card' : ''}"${a.card ? ` data-song="${U.esc(`co|${g.id}|${a.title}`)}"` : ''}>· ${U.esc(`${a.y} 「${a.title}」 '${a.c}' · ${chartText(a.peak)}${a.mine ? ' · 내가 쓴 곡' : ''}`)}${a.card ? ' 🎧' : ''}</div>`).join('') : '<div class="muted">없음</div>');

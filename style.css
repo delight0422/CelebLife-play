@@ -978,9 +978,9 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .lv-stage.vn-class.rm-ol .p-cam { bottom: 5%; }
 .lv-stage.vn-class .lv-props i.p-rec { left: auto; right: 4%; top: 15%; transform: none; }
 @media (max-width: 700px) { .p-board { left: 10%; right: 10%; top: 16%; height: 26%; } .p-sign { display: none; } .lv-props i.p-stu { transform: translateX(-50%) scale(.62); transform-origin: 50% 100%; } .lv-stage.vn-class .lv-mem { bottom: 36%; } }
-/* 12-3: 지어낸 플랫폼의 대표 색 (사용자가 정함). 라이브온 = 라임 그린, 플리오(PLIO) = 소프트 오렌지. js/live.js의 PF와 같다 */
+/* 12-3: 지어낸 플랫폼의 대표 색 (사용자가 정함). 라이브온 = 라임 그린, 라이브온 (예전 플리오) = 소프트 오렌지. js/live.js의 PF와 같다 */
 :root { --pf-live: #B8F044; --pf-video: #FF914D; --pf-comm: #7C9CFF; }
-/* 영상 플랫폼 (플리오 PLIO) 팝업: 왼쪽 영상, 오른쪽 댓글. 대표 색은 소프트 오렌지 */
+/* 영상 플랫폼 (라이브온 (예전 플리오)) 팝업: 왼쪽 영상, 오른쪽 댓글. 대표 색은 소프트 오렌지 */
 .pf-row { margin: var(--sp-3) 0 2px; }
 .pf-bn { display: inline-flex; align-items: center; gap: var(--sp-2); border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: var(--sp-1) var(--sp-3) var(--sp-1) var(--sp-1); font: inherit; font-size: var(--fs-2); font-weight: 700; color: var(--ink2); cursor: pointer; margin-top: var(--sp-2); }
 .pf-bn b { border-radius: 999px; padding: var(--sp-1) var(--sp-2); font-size: var(--fs-1); letter-spacing: .5px; }
@@ -1027,7 +1027,7 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .pl-c span { display: block; font-size: var(--fs-3); color: #f3eefe; line-height: 1.35; margin: 1px 0 2px; word-break: keep-all; }
 .pl-c em { font-style: normal; font-size: var(--fs-1); color: #8f86ad; }
 @media (max-width: 700px) { .pl-wrap { grid-template-columns: 1fr; grid-template-rows: minmax(0, .8fr) minmax(0, 1fr); height: min(560px, calc(100vh - 150px)); } .pl-t { font-size: var(--fs-4); } }
-/* 커뮤니티 (와글) 팝업: 왼쪽 글 + 실시간 인기글, 오른쪽 댓글. 플리오 팝업의 틀을 같이 쓴다 */
+/* 커뮤니티 (와글) 팝업: 왼쪽 글 + 실시간 인기글, 오른쪽 댓글. 라이브온 팝업의 틀을 같이 쓴다 */
 .pf-bn.comm b { background: var(--pf-comm); color: #0f1838; }
 .pf-bn.comm:hover { border-color: var(--pf-comm); }
 .pf-bn.st-ego { margin-top: var(--sp-3); width: 100%; justify-content: flex-start; }
@@ -1210,7 +1210,7 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .alb-tag { font-size: var(--fs-1); font-weight: 800; padding: 1px var(--sp-2); border-radius: 999px; background: var(--line); }
 .alb-sg.ti .alb-tag { background: var(--violet); color: #fff; }
 
-/* ───── 그림 (v154 보탬): 사건 창 위쪽 띠 · 사진 무대 · 응원봉 · 플리오 사진 썸네일 ───── */
+/* ───── 그림 (v154 보탬): 사건 창 위쪽 띠 · 사진 무대 · 응원봉 · 라이브온 사진 썸네일 ───── */
 .m-scene { margin: calc(var(--sp-4) * -1) calc(var(--sp-4) * -1) var(--sp-3); height: 150px; border-radius: 20px 20px 0 0; background-size: cover; background-position: center 55%; background-repeat: no-repeat; }
 @media (max-width: 760px) { .m-scene { margin: calc(var(--sp-4) * -1) calc(var(--sp-4) * -1) var(--sp-3); height: 112px; } }
 .lv-ph { position: absolute; inset: 0; background-size: cover; background-position: center 42%; background-repeat: no-repeat; opacity: .88; }
@@ -1311,7 +1311,7 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .co-new.chainlk > .co-why { opacity: 1; font-size: var(--fs-2); font-weight: 700; color: var(--red); }
 .co-card .co-bn + .co-bn { margin-top: var(--sp-2); }
 
-/* 와글 (v162): 플리오를 합쳤다. 창을 더 크게, 글 안에 활동 사진 */
+/* 와글 (v162): 라이브온을 합쳤다. 창을 더 크게, 글 안에 활동 사진 */
 .mcard.live-card.cm-big { max-width: min(1280px, 100%); }
 .cm-big .pl-wrap.cm-wrap { height: min(760px, calc(100vh - 120px)); }
 .cm-wrap .pl-main { overflow-y: auto; min-height: 0; }
@@ -1319,3 +1319,6 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .cm-ph .pl-video { flex: none; height: clamp(180px, 34vh, 340px); }
 .cm-ph .pl-dur, .cm-ph .pl-kind, .cm-ph .pl-prog { display: none; }
 .cm-ph-t { margin-top: var(--sp-1); font-size: var(--fs-2); color: #b9b0d6; }
+
+/* 프로필 박스 제목 = 주인공 이름 · 나이 (v163) */
+.pf-name b { color: var(--violet); }

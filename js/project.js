@@ -53,7 +53,7 @@ E({
     { t: '빠지고 싶다고 말해 본다', h: '회사가 들어줄지는 모른다', f: s => { if (U.chance(0.45)) { for (const id of d.mates) { const x = s.people[id]; if (x) delete s.people[id]; } return `회사가 이번엔 빼 주기로 했다. ${josa(`「${d.name}」`, '은는')} 다른 멤버로 꾸린다.`; } return '회사는 이미 정해진 일이라고 했다. ' + projJoin(s, d) + fx(s, { stress: 5 }); } },
   ],
 });
-// 참여: 회사가 앨범을 만든다 (소형은 대표, 중 · 대형은 전담 프로듀서). '내 곡 내기 · 가사 내기'도 그대로 통한다. 석 달 뒤 발매
+// 참여: 회사가 앨범을 만든다 (소형은 대표, 중 · 대형은 전담 프로듀서). '자작곡 쓰기 · 가사 쓰기'도 그대로 통한다. 석 달 뒤 발매
 function projJoin(s, d) {
   const t = s.tracks[d.k], ag = AG[t.ag] || { tier: t.tier || 1 }, M = d.mates.map(id => s.people[id]).filter(Boolean), PP = [me(s)].concat(M);
   const P = { name: d.name, mates: M.map(x => x.id), c: d.c, at: s.t, k: d.k };
