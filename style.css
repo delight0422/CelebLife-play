@@ -1238,6 +1238,7 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .pf-id { font-size: var(--fs-3); font-weight: 700; color: var(--ink2); }
 
 /* 인간관계: 박스 전체가 배너. 안의 가족 · 연인은 누르지 않는 작은 박스 */
+#people-card .pp-dot { margin-left: var(--sp-1); }
 #people-card .pp-bns { display: flex; flex-direction: column; gap: var(--sp-2); }
 .pp-box { display: flex; align-items: center; gap: var(--sp-2); border: 1px solid var(--line); background: var(--card2); border-radius: 12px; padding: var(--sp-2) var(--sp-3); }
 .pp-box .sb-ic { font-size: var(--fs-4); }

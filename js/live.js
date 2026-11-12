@@ -533,7 +533,7 @@ function commNow(s) {
   if (UI.cmNow && UI.cmNow.t === s.t && UI.cmNow.id === me(s).id) return UI.cmNow.sp;
   const nm = me(s).name, bd = '자유 게시판';
   let sp;
-  if (s.scandal && typeof SC !== 'undefined' && SC[s.scandal.id]) sp = commSpec(s, { k: 'scandal', bd: '이슈 게시판', t: SC[s.scandal.id].n, me: nm, tn: 'meh' });
+  if (s.scandal && typeof SC !== 'undefined' && SC[s.scandal.id]) sp = commSpec(s, { k: 'scandal', bd: '이슈 게시판', t: typeof scCmN === 'function' ? scCmN(s.scandal.id) : SC[s.scandal.id].n, me: nm, tn: 'meh' });
   else if (totalFans(s) < 300 && (s.fame || 0) < 5) sp = commSpec(s, { k: 'ego', bd, me: nm, tn: 'none' });
   else sp = commSpec(s, { k: 'ego', bd, me: nm, tn: (s.stigma || 0) >= 15 ? 'bad' : (s.fame || 0) >= 55 ? 'great' : (s.fame || 0) >= 25 ? 'good' : 'meh' });
   // 요즘(1년 안) 한 활동의 장면이 기록에 있으면 사진이 붙은 활동 글로 (분위기는 그 활동 반응)
@@ -603,9 +603,9 @@ function liveMeet(sp, R, pk, z, lvl, who, mine) {
 // 그림 파일 없이 12×16칸 도트로 그린다. 이름(씨앗)마다 머리 모양 · 머리색 · 피부색이 정해지고, 옷은 그룹 색이다
 const LV_HAIR = ['#2b2330', '#4a3326', '#7a4e2d', '#c9a45c', '#e8d9b0', '#d96a9a', '#6f8fe0', '#b9b4c9', '#8e3b46'];
 const LV_SKIN = ['#ffe0c4', '#f6cfa8', '#eab98f'];
-function liveSprite(key, hue) {
+function liveSprite(key, hue, fk) {
   const h = hashN('sp' + key), hair = LV_HAIR[h % LV_HAIR.length], skin = LV_SKIN[(h >> 4) % LV_SKIN.length], st = (h >> 7) % 3;
-  const fit = `hsl(${hue} 70% 62%)`, fit2 = `hsl(${hue} 60% 46%)`, leg = '#2c2740', shoe = '#f4f1fa';
+  const fit = fk === 'w' ? '#eceef4' : fk === 'b' ? '#3a3846' : `hsl(${hue} 70% 62%)`, fit2 = fk === 'w' ? '#c8cbd8' : fk === 'b' ? '#24222e' : `hsl(${hue} 60% 46%)`, leg = '#2c2740', shoe = '#f4f1fa';
   const r = (x, y, w, hh, c) => `<rect x="${x}" y="${y}" width="${w}" height="${hh}" fill="${c}"/>`;
   let p = r(3, 0, 6, 1, hair) + r(2, 1, 8, 2, hair) + r(2, 3, 1, 2, hair) + r(9, 3, 1, 2, hair) + r(3, 3, 6, 4, skin) + r(4, 7, 4, 1, skin) + r(3, 3, st === 1 ? 6 : 3, 1, hair);
   if (st >= 1) p += r(2, 5, 1, st === 2 ? 5 : 2, hair) + r(9, 5, 1, st === 2 ? 5 : 2, hair); // 단발 · 긴 머리
@@ -629,8 +629,18 @@ function chLoad() {
   const done = () => { if (++CH.n === L.length) { CH.ok = true; chPaintAll(); } };
   for (const n of L) { const im = new Image(); im.onload = () => { CH.img[n] = im; done(); }; im.onerror = () => { if (!im.dataset.retry) { im.dataset.retry = 1; im.src = `img/ch/${n}.png`; } else done(); }; im.src = (P.data || {})[n] || `img/ch/${n}.png`; }
 }
+// 의상 색 (v164): 갈색 · 겨자색(색상 12~58도)은 쓰지 않고, 흰 옷 · 검은 옷을 자주 쓴다. 그룹(gkey)마다 하나로 정하고, 컨셉마다 흰 · 검 비율이 다르다 ([흰, 검])
+const CH_BW = { '': [0.25, 0.25], fresh: [0.45, 0.05], strong: [0.1, 0.55], cute: [0.3, 0.05], dreamy: [0.45, 0.1], hiphop: [0.2, 0.45], retro: [0.2, 0.2], teen: [0.3, 0.15], mature: [0.2, 0.45], practice: [0.25, 0.4], project: [0.3, 0.3] };
+function chBrown(h) { h = ((h % 360) + 360) % 360; return h >= 12 && h < 58; }
+// 'w' 흰 옷 · 'b' 검은 옷 · 'c' 그룹 색 옷 (그룹 색이 갈색 쪽이면 흰 옷이나 검은 옷)
+function chFit(g, cos, hue) {
+  const [w, b] = CH_BW[cos || ''] || CH_BW[''], r = (hashN('fitc' + g) % 1000) / 1000;
+  if (r < w) return 'w';
+  if (r < w + b) return 'b';
+  return chBrown(hue) ? (hashN('fitb' + g) % 2 ? 'w' : 'b') : 'c';
+}
 function chHsl(h, s, l) { const a = s * Math.min(l, 1 - l), f = n => { const k = (n + h / 30) % 12; return Math.round(255 * (l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)))); }; return [f(0), f(8), f(4)]; }
-// 부품 하나를 물들여 ctx에 얹는다. mode: 'fit'(옷 → 그룹 색) · 'hair'(머리색) · ''(그대로)
+// 부품 하나를 물들여 ctx에 얹는다. mode: 'fit'(옷 → arg { k: chFit, h: 그룹 색 }) · 'hair'(머리색) · ''(그대로)
 function chLayer(ctx, name, mode, arg) {
   const im = CH.img[name]; if (!im) return;
   if (!mode) { ctx.drawImage(im, 0, 0); return; }
@@ -643,7 +653,7 @@ function chLayer(ctx, name, mode, arg) {
     if (!d[i + 3]) continue;
     const r = d[i], g = d[i + 1], b = d[i + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), L = (r + g + b) / 3;
     if (mx - mn > 26 || L < 42) continue; // 살색 · 볼터치 같은 색 있는 칸과 검은 외곽선은 그대로
-    if (mode === 'fit') { if (L > 236) continue; const q = chHsl(arg, 0.62, 0.1 + 0.72 * L / 255); d[i] = q[0]; d[i + 1] = q[1]; d[i + 2] = q[2]; }
+    if (mode === 'fit') { if (L > 236) continue; const q = arg.k === 'w' ? chHsl(228, 0.1, 0.57 + 0.41 * L / 255) : arg.k === 'b' ? chHsl(245, 0.12, 0.07 + 0.3 * L / 255) : chHsl(arg.h, 0.62, 0.1 + 0.72 * L / 255); d[i] = q[0]; d[i + 1] = q[1]; d[i + 2] = q[2]; }
     else { const k = L <= 150 ? L / 150 : 1, w = L <= 150 ? 0 : (L - 150) / 105 * 0.75; for (let j = 0; j < 3; j++) d[i + j] = Math.round(arg[j] * k + (255 - arg[j] * k) * w); }
   }
   x.putImageData(D, 0, 0); ctx.drawImage(c, 0, 0);
@@ -662,7 +672,7 @@ function chPaint(cv) {
   if (CH_NO_HAIR.includes(hair)) { const ok = hl.filter(n => !CH_NO_HAIR.includes(n)); hair = ok[(h >> 3) % ok.length]; }
   const face = P.face[(h >> 5) % P.face.length], hc = CH_HAIR[(h >> 9) % CH_HAIR.length];
   const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
-  chLayer(ctx, hair + '_b', 'hair', hc); chLayer(ctx, body, 'fit', +D.hue); chLayer(ctx, face, ''); chLayer(ctx, hair + '_f', 'hair', hc);
+  chLayer(ctx, hair + '_b', 'hair', hc); chLayer(ctx, body, 'fit', { k: chFit(D.g, D.cos, +D.hue), h: +D.hue }); chLayer(ctx, face, ''); chLayer(ctx, hair + '_f', 'hair', hc);
   if (D.mic) chLayer(ctx, 'prop_mic', '');
   cv.parentNode.classList.add('on');
 }
@@ -693,9 +703,10 @@ function chStick(el) {
 }
 // 무대에 세울 캐릭터 하나의 HTML: 그림이 준비되면 그림, 아니면 도트. o: { sx 성별, cos 의상, mic }
 function liveChar(key, hue, gkey, o) {
-  if (typeof CH_PARTS === 'undefined') return liveSprite(key, hue);
   o = o || {};
-  return `<span class="lv-ch">${liveSprite(key, hue)}<canvas class="lv-chc" width="${CH_PARTS.w}" height="${CH_PARTS.h}" data-ch="${U.esc(key)}" data-g="${U.esc(gkey)}" data-hue="${hue}"${o.sx ? ` data-sx="${o.sx}"` : ''}${o.cos ? ` data-cos="${U.esc(o.cos)}"` : ''}${o.mic ? ' data-mic="1"' : ''}></canvas></span>`;
+  const fk = chFit(gkey, o.cos, hue);
+  if (typeof CH_PARTS === 'undefined') return liveSprite(key, hue, fk);
+  return `<span class="lv-ch">${liveSprite(key, hue, fk)}<canvas class="lv-chc" width="${CH_PARTS.w}" height="${CH_PARTS.h}" data-ch="${U.esc(key)}" data-g="${U.esc(gkey)}" data-hue="${hue}"${o.sx ? ` data-sx="${o.sx}"` : ''}${o.cos ? ` data-cos="${U.esc(o.cos)}"` : ''}${o.mic ? ' data-mic="1"' : ''}></canvas></span>`;
 }
 
 // ───── 창 ─────

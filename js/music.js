@@ -2222,10 +2222,10 @@ CAREERS.solo = {
 };
 // 새 곡: 자작곡, 가사만 직접 쓰기(래퍼), 남의 곡 받기
 E({
-  id: 'solo_rel', cat: '신곡', title: '신곡 준비', tag: 'career',
+  id: 'solo_rel', cat: '신곡', title: '솔로 신곡 준비', tag: 'career',
   cond: s => s.tracks.solo.st === 'indie' || s.tracks.solo.st === 'signed',
   init(s, d) { d.title = songTitle(); },
-  text: s => { const t = s.tracks.solo, p = me(s); return `새 노래를 낼 때가 됐다. 어떤 곡으로 갈까?\n\n${SKILLS[soloMain(t)].n} ${lvi(p, soloMain(t))}레벨 · 작곡 ${has(p, 'compose') ? lvi(p, 'compose') + '레벨' : '못 함'} · 작사 ${has(p, 'lyric') ? lvi(p, 'lyric') + '레벨' : '못 함'} · 요즘 유행 '${s.trend}'` + (t.st === 'signed' ? `\n${josa(t.agN, '이가')} 제작비를 댄다.` : ownCo(s, 'solo') ? `\n내 회사 ${josa(`「${ownCo(s, 'solo').name}」`, '이가')} 제작비를 대고, 수익도 회사로 들어간다.` : '\n인디라서 제작비는 내 돈으로 낸다.'); },
+  text: s => { const t = s.tracks.solo, p = me(s); return `솔로 가수로 새 노래를 낼 때가 됐다. 어떤 곡으로 갈까?\n\n${SKILLS[soloMain(t)].n} ${lvi(p, soloMain(t))}레벨 · 작곡 ${has(p, 'compose') ? lvi(p, 'compose') + '레벨' : '못 함'} · 작사 ${has(p, 'lyric') ? lvi(p, 'lyric') + '레벨' : '못 함'} · 요즘 유행 '${s.trend}'` + (t.st === 'signed' ? `\n${josa(t.agN, '이가')} 제작비를 댄다.` : ownCo(s, 'solo') ? `\n내 회사 ${josa(`「${ownCo(s, 'solo').name}」`, '이가')} 제작비를 대고, 수익도 회사로 들어간다.` : '\n인디라서 제작비는 내 돈으로 낸다.'); },
   ch(s, d) {
     const t = s.tracks.solo, signed = t.st === 'signed', p = me(s);
     const selfCost = signed ? 0 : 50e4, buyCost = signed ? 0 : 300e4;
@@ -2250,7 +2250,7 @@ SONG_CB.solo = (s, d, c) => {
   return `'${c}' 컨셉으로 자작곡 ${josa(`「${d.title}」`, '을를')} 썼다.`;
 };
 E({
-  id: 'solo_relres', cat: '음원 성적', title: '신곡 성적', tag: 'career',
+  id: 'solo_relres', cat: '음원 성적', title: '솔로 신곡 성적', tag: 'career',
   plio: (s, d) => typeof plioSong === 'function' ? plioSong(s, d, 'solo') : null,
   live: (s, d) => d.card && d.card.live,
   init(s, d) {
@@ -2529,7 +2529,7 @@ function musAlbMonth(s, k) {
   if (t.alb && t.alb.five && t.alb.at == null && t.st === 'signed') t.alb = null; // 인디 때 모아 둔 곡은 회사와 계약하면 없던 일로
   const a = t.alb;
   if (a && a.at != null) {
-    if (a.npc && s.t - a.at === 1 && !a.told) { a.told = true; addLog(s, albNewsLine(s, a, k === 'band' ? `밴드 「${t.b.name}」 새 앨범에 실을` : '다음 신곡에 실을'), 'career'); }
+    if (a.npc && s.t - a.at === 1 && !a.told) { a.told = true; addLog(s, albNewsLine(s, a, k === 'band' ? `밴드 「${t.b.name}」 새 앨범에 실을` : '다음 솔로 신곡에 실을'), 'career'); }
     if (s.t - a.at > 6 && !musRelQ(s, k)) t.alb = null;
     return;
   }
@@ -2549,7 +2549,7 @@ function musAlbStart(s, k, c) {
   return a;
 }
 for (const k of ['solo', 'band']) E({
-  id: k + '_meet', cat: k === 'band' ? '밴드' : '신곡', title: k === 'band' ? '새 곡 회의' : '신곡 회의', tag: 'career',
+  id: k + '_meet', cat: k === 'band' ? '밴드' : '신곡', title: k === 'band' ? '새 곡 회의' : '솔로 신곡 회의', tag: 'career',
   cond: s => s.tracks[k].st === 'signed',
   init(s, d) {
     const t = s.tracks[k], P = musPpl(s, k), L = TRENDS.filter(c => cAgeOK(s, P, c, 1));
@@ -2558,10 +2558,10 @@ for (const k of ['solo', 'band']) E({
     d.p = U.clamp(0.3 + Math.log10(1 + musFans(s, k)) / 20 + (s.rep - 50) / 200, 0.2, 0.85);
     d.who = agProd(s, t.ag, k === 'band' ? t.b : t).n;
   },
-  text: (s, d) => `${k === 'band' ? `밴드 「${s.tracks.band.b.name}」의 다음 앨범` : '다음 신곡'} 회의가 열렸다. ${josa(d.who, '은는')} '${d.c}' 컨셉으로 가려고 한다. 요즘 차트에선 '${s.trend}' 컨셉이 강세다.\n\n컨셉이 정해지면 회사가 데모곡을 모아 A&R 심사를 하고, 실을 곡을 정해 편곡 · 녹음을 거친다. 석 달쯤 걸린다.${s.tracks[k].subSong ? ' 내 곡도 데모곡 모집에 낸다.' : ''}`,
+  text: (s, d) => `${k === 'band' ? `밴드 「${s.tracks.band.b.name}」의 다음 앨범` : '다음 솔로 신곡'} 회의가 열렸다. ${josa(d.who, '은는')} '${d.c}' 컨셉으로 가려고 한다. 요즘 차트에선 '${s.trend}' 컨셉이 강세다.\n\n컨셉이 정해지면 회사가 데모곡을 모아 A&R 심사를 하고, 실을 곡을 정해 편곡 · 녹음을 거친다. 석 달쯤 걸린다.${s.tracks[k].subSong ? ' 내 곡도 데모곡 모집에 낸다.' : ''}`,
   ch(s, d) {
     const go = c => { if (s.tracks[k].st === 'signed' && !s.tracks[k].alb) musAlbStart(s, k, c); };
-    const nm = k === 'band' ? '새 곡' : '신곡';
+    const nm = k === 'band' ? '새 곡' : '솔로 신곡';
     const C = [{ t: `회사 뜻대로 '${d.c}' 컨셉으로 간다`, tr: d.c === s.trend, h: `숙련도 ${gauge(cmGet(s, d.c))} ${Math.floor(cmGet(s, d.c))}`, f: s => { go(d.c); return `'${d.c}' 컨셉으로 ${nm} 준비를 시작했다.`; } }];
     d.alt.forEach(c => C.push({ t: `'${c}' 컨셉을 제안한다`, tr: c === s.trend, h: `받아들여질 가능성 ${fmtPct(d.p)} · 숙련도 ${gauge(cmGet(s, c))} ${Math.floor(cmGet(s, c))}`, f: s => { const ok = U.chance(d.p); go(ok ? c : d.c); return ok ? `내 의견대로 '${c}' 컨셉으로 가기로 했다.` : `제안은 받아들여지지 않았다. 회사 뜻대로 '${d.c}' 컨셉으로 간다.`; } }));
     return C;
@@ -2591,7 +2591,7 @@ function myAlbTbl(s, k) {
 }
 function myAlbHead(s, k) {
   const t = s.tracks[k], p = me(s), co = ownCo(s, k);
-  return `${k === 'band' ? `밴드 「${t.b.name}」 새 곡을` : '새 노래를'} 낼 때가 됐다.\n\n작곡 ${has(p, 'compose') ? lvi(p, 'compose') + '레벨' : '못 함'} · 작사 ${has(p, 'lyric') ? lvi(p, 'lyric') + '레벨' : '못 함'} · 요즘 유행 '${s.trend}'\n` + (co ? `내 회사 ${josa(`「${co.name}」`, '이가')} 비용을 대고, 수익도 회사로 들어간다.` : '인디라서 비용은 내 돈으로 낸다.');
+  return `${k === 'band' ? `밴드 「${t.b.name}」 새 곡을` : '솔로 가수로 새 노래를'} 낼 때가 됐다.\n\n작곡 ${has(p, 'compose') ? lvi(p, 'compose') + '레벨' : '못 함'} · 작사 ${has(p, 'lyric') ? lvi(p, 'lyric') + '레벨' : '못 함'} · 요즘 유행 '${s.trend}'\n` + (co ? `내 회사 ${josa(`「${co.name}」`, '이가')} 비용을 대고, 수익도 회사로 들어간다.` : '인디라서 비용은 내 돈으로 낸다.');
 }
 // 곡을 정하면: 돈을 치르고, 작곡가들을 만나고, 편곡 · 작사를 거쳐 두 달 뒤에 나온다 (밴드는 편곡 회의를 먼저)
 function myAlbGo(s, k) {
@@ -2611,15 +2611,15 @@ function myAlbGo(s, k) {
   if (k === 'solo' && !t.sn) askStageName(s, 'solo');
   const o = { q: keep.q, self: keep.mine, lyr: keep.lyrT, title: ti.title, c: ti.c, w: keep.w, mk, a: keep, alb: 1 };
   if (k === 'band') queueEv(s, 'band_arr', 0, o, true); else queueEv(s, 'solo_relres', 2, o, true);
-  return `${k === 'band' ? `밴드 「${t.b.name}」 새 곡에` : '신곡에'} 실을 곡을 정했다. 타이틀곡은 ${ti.mine ? '내가 쓴' : `${albBy(s, ti)}의`} 「${ti.title}」 ('${ti.c}' 컨셉). ${k === 'band' ? '편곡 회의를 하고' : '편곡과'} 녹음을 거쳐 두 달 뒤에 나온다. (${fmtWon(cost)})`;
+  return `${k === 'band' ? `밴드 「${t.b.name}」 새 곡에` : '솔로 신곡에'} 실을 곡을 정했다. 타이틀곡은 ${ti.mine ? '내가 쓴' : `${albBy(s, ti)}의`} 「${ti.title}」 ('${ti.c}' 컨셉). ${k === 'band' ? '편곡 회의를 하고' : '편곡과'} 녹음을 거쳐 두 달 뒤에 나온다. (${fmtWon(cost)})`;
 }
 TITLE_CB.myAlb = (s, d) => { const t = s.tracks[d.k]; if (!trackOn(s, d.k) || !t.alb || !t.alb.sel) return ''; t.alb.five[t.alb.sel.ti].title = d.title; return myAlbGo(s, d.k); };
 for (const k of ['solo', 'band']) {
-  const nm = k === 'band' ? '새 곡' : '신곡', cat = k === 'band' ? '밴드' : '신곡';
+  const nm = k === 'band' ? '새 곡' : '솔로 신곡', cat = k === 'band' ? '밴드' : '신곡';
   const live = s => trackOn(s, k) && s.tracks[k].st !== 'signed' && (k !== 'band' || !!s.tracks.band.b);
   // ① 기획 · 데모곡 확보
   E({
-    id: k + '_plan', cat, tag: 'career', title: k === 'band' ? '밴드 새 곡 기획' : '신곡 기획',
+    id: k + '_plan', cat, tag: 'career', title: k === 'band' ? '밴드 새 곡 기획' : '솔로 신곡 기획',
     cond: live,
     init(s, d) { if (!live(s)) d.skip = true; },
     text: (s, d) => { const j = myAlbJudge(s, k); return myAlbHead(s, k) + `\n\n컨셉과 곡을 모을 곳을 정하자. 여러 개를 같이 고를 수 있고, 고른 만큼 돈이 든다. ${j ? `모인 곡은 A&R 팀장 ${josa(j.name, '이가')} 다섯 곡으로 추려 오고,` : '회사가 없어 A&R 팀도 없다. 모인 곡은 내가 전부 들어 보고,'} 한 달 뒤에 실을 곡을 정한다.`; },
@@ -2646,7 +2646,7 @@ for (const k of ['solo', 'band']) {
   });
   // ② 곡 선정: 실을 세 곡 + 타이틀곡, 편곡 · 작사를 맡길지, 타이틀곡 가사를 내가 쓸지
   E({
-    id: k + '_sel', cat, tag: 'career', title: k === 'band' ? '밴드 새 곡 · 실을 곡 정하기' : '신곡 · 실을 곡 정하기',
+    id: k + '_sel', cat, tag: 'career', title: k === 'band' ? '밴드 새 곡 · 실을 곡 정하기' : '솔로 신곡 · 실을 곡 정하기',
     cond: live,
     init(s, d) { const a = s.tracks[k].alb; if (!live(s) || !a || !a.five || !a.five.length || a.at != null) d.skip = true; },
     text: (s, d) => {

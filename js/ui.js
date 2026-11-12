@@ -481,7 +481,7 @@ function renderPeopleCard() {
   if (!el) return;
   const pt = partner(s), wed = isSpouse(pt);
   const bn = (k, ic, n, parts) => `<div class="pp-box"><span class="sb-ic">${ic}</span><span class="pp-tx"><span class="sb-t">${n}</span><span class="sb-s pp-line" data-parts="${U.esc(JSON.stringify(parts))}"></span></span></div>`;
-  let h = `<div class="card-h">👥 인간관계<span class="bn-arr">›</span></div><div class="pp-bns">` + bn('fam', '👪', '가족', famParts(s));
+  let h = `<div class="card-h">👥 인간관계${pplDot(s) ? '<span class="rdot in pp-dot"></span>' : ''}<span class="bn-arr">›</span></div><div class="pp-bns">` + bn('fam', '👪', '가족', famParts(s));
   if (!wed) h += bn('love', '💕', '연인', pt ? [pt.name, `${pAge(s, pt)}세`, `친밀도 ${Math.round(pt.aff)}`] : ['없음']);
   el.innerHTML = h + `</div>`;
   el.querySelectorAll('.pp-line').forEach(fitLine);
@@ -919,7 +919,7 @@ function showEnding(preview) {
 }
 
 // ───── 패널 ─────
-function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people' && $('#panel').classList.contains('hidden')) UI.pplOpen = {}; UI.overlay = kind; UI.pRes = null; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
+function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people' && $('#panel').classList.contains('hidden')) UI.pplOpen = {}; if (kind === 'people' && S.pplSeenT !== S.t) { S.pplSeenT = S.t; renderPeopleCard(); } UI.overlay = kind; UI.pRes = null; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
 function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.skDrop = false; UI.pRes = null; UI.pickSlot = null; if (S) render(); }
 // 행동 버튼 한 줄. 버튼이 누를 일은 UI.acts(창) 또는 UI.lacts(오른쪽 생활 카드)에 모아 둔다
 function actRow(a) {
@@ -1313,6 +1313,12 @@ function halfName(s) { return calM(s) < 6 ? '1~6월' : '7~12월'; }
 function contactsUsed(s) { return s.contactH === halfKey(s) ? (s.contactN || 0) : 0; }
 function calledN(s, n) { return n.callH === halfKey(s) ? (n.callN || 1) : 0; }
 function calledThisHalf(s, n) { return calledN(s, n) >= CONTACT_PER; }
+// 인간관계 레드닷 (v164): 턴을 넘긴 뒤 이번 반년 연락이 남아 있고 연락할 수 있는 사람이 있으면 뜬다. 인간관계 창을 열면 그 턴에는 사라진다
+function pplCanCall(s) {
+  if (contactsUsed(s) >= CONTACT_MAX) return false;
+  return people(s, n => (!['엄마', '아빠', '업계'].includes(n.rel) || coMine(s, n)) && !n.hidden && n.rel !== '자녀' && !(n.rel === '형제자매' && pAge(s, n) < 19) && !calledThisHalf(s, n)).length > 0;
+}
+function pplDot(s) { return !!s && s.t > 0 && s.pplSeenT !== s.t && pplCanCall(s); }
 // 인간관계 창의 같은 묶음 안 차례 (v162): 나와의 나이 차이(작은 순) → 친밀도(낮은 순) → 직급(높은 순) → 팀(가나다)
 const PPL_RANK = [[/대표|사장|회장/, 9], [/임원|이사|본부장|국장/, 8], [/부장|실장|총괄|수석/, 7], [/팀장|리더|감독|교수|원장/, 6], [/PD|프로듀서|작가|매니저|과장/, 5], [/선배|대리|주임/, 4], [/트레이너|강사|담당자|기자/, 3], [/사원|직원|막내|연습생|인턴|신입/, 1]];
 function pplRank(n) { const j = `${n.job || ''} ${n.co && n.co.job ? n.co.job : ''}`; for (const [re, v] of PPL_RANK) if (re.test(j)) return v; return 2; }

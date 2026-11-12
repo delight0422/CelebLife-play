@@ -63,7 +63,8 @@ const SC = {
     know: { fake: '물론 전혀 사실이 아니다. 누가 지어낸 이야기다.' },
   },
   fakephoto: {
-    n: '합성 사진 유포', who: s => scFame(s) >= 1e5, w: () => 0.6, truth: () => 'fake', sev: 2,
+    // cm (v164): 커뮤니티에서 부르는 이름. 사람들은 합성인지 모르니 '합성'이라고 하지 않는다
+    n: '합성 사진 유포', cm: '사진 논란', who: s => scFame(s) >= 1e5, w: () => 0.6, truth: () => 'fake', sev: 2,
     claim: '내 얼굴을 합성한 민망한 사진이 진짜처럼 퍼지고 있다.',
     know: { fake: '찍은 적도 없는 사진이다.' },
   },
@@ -173,6 +174,8 @@ function scAgency(s) { return agencyContract(s); }
 const SC_SUE = 1000e4, SC_PROVE = 300e4;
 function hiatusMonths(s, T) { return 2 + scSev(s, T) * 2; }
 
+// 커뮤니티 글에 쓰는 논란 이름 (v164): 진짜인지 모르는 사람들이 쓰는 말 (없으면 논란 이름 그대로)
+function scCmN(id) { return SC[id].cm || SC[id].n; }
 // 논란을 시작한다 (무작위로, 또는 다른 사건이 불러서)
 function startScandal(s, id, truth) {
   const T = SC[id];
@@ -189,7 +192,13 @@ function lateMonth(s) {
   if (!L.length || !U.chance(lateP(s))) return;
   const id = U.pick(L), t = s.tracks[id], at = LATE_AT[id];
   if (typeof t.rep === 'number') t.rep = Math.max(0, t.rep - 1.5); else jpopAdd(s, id, -0.8);
-  addLog(s, at ? `${at}에 늦었다. ` + U.pick(['함께 일하는 사람들이 한참 기다렸다.', '다들 말은 안 했지만 분위기가 싸늘했다.', '사과는 했지만 눈치가 보였다.']) : '방송을 약속한 시간보다 한참 늦게 켰다. 기다리던 시청자들이 하나둘 나갔다.', 'bad');
+  // v164: 지각이 반복될수록 주변 평판이 크게 떨어지고, 같이 일하는 사람들(멤버 · 동료 · 동기 · 선배)과도 사이가 멀어진다 (2년 안의 지각 횟수로)
+  s.lateH = (s.lateH || []).filter(x => x > s.t - 24).concat(s.t);
+  const n = s.lateH.length, rd = [1, 3, 5, 7, 9][Math.min(n, 5) - 1];
+  s.rep = U.clamp((s.rep || 0) - rd, 0, 100);
+  const co = n >= 2 ? people(s, x => ['멤버', '동료', '동기', '선배'].includes(x.rel) && !x.hidden && typeof relJob === 'function' && relJob(s, x) === id) : [];
+  for (const x of co) aff(x, -Math.min(6, n) * (x.trait === 'kind' ? 0.5 : x.trait === 'blunt' ? 1.4 : 1));
+  addLog(s, (at ? `${at}에 늦었다. ` + (n >= 3 ? U.pick(['또 늦었다는 말이 현장에 금방 퍼졌다.', '이제는 늦을 거라고 다들 미리 각오하고 있었다.', '"또야?" 하는 소리가 들렸다.']) : U.pick(['함께 일하는 사람들이 한참 기다렸다.', '다들 말은 안 했지만 분위기가 싸늘했다.', '사과는 했지만 눈치가 보였다.'])) : '방송을 약속한 시간보다 한참 늦게 켰다. 기다리던 시청자들이 하나둘 나갔다.') + ` (평판 -${rd}${co.length ? ` · 같이 일하는 ${co.length}명과 사이가 멀어졌다` : ''})`, 'bad');
   s.lateT = (s.lateT || []).filter(x => x > s.t - 12).concat(s.t);
   if (s.lateT.length < 3) return;
   s.lateT = [];
@@ -228,7 +237,7 @@ E({
 E({
   id: 'scandal', cat: '논란', tag: 'career',
   // 커뮤니티에서 어떤 말이 도는지 볼 수 있다 (진짜인지 아닌지는 여기서도 알 수 없다)
-  plio: s => s.scandal && typeof commSpec === 'function' ? (s.scandal.cm || (s.scandal.cm = commSpec(s, { k: 'scandal', bd: '이슈 게시판', t: SC[s.scandal.id].n, me: me(s).name, tn: 'meh' }))) : null,
+  plio: s => s.scandal && typeof commSpec === 'function' ? (s.scandal.cm && s.scandal.cm.t === scCmN(s.scandal.id) ? s.scandal.cm : (s.scandal.cm = commSpec(s, { k: 'scandal', bd: '이슈 게시판', t: scCmN(s.scandal.id), me: me(s).name, tn: 'meh' }))) : null,
   cond: s => !!s.scandal && !s.scandal.resp,
   title: s => s.scandal ? SC[s.scandal.id].n : '논란',
   text: s => { const sc = s.scandal, T = SC[sc.id]; return `${scText(T.claim, s)} 기사와 댓글이 쏟아지고 있다. ${T.know[sc.truth]}`; },
