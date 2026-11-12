@@ -1833,7 +1833,7 @@ JOB_TASKS.agency = [
 ];
 CAREERS.agency = {
   n: '회사 대표', ic: '🏢',
-  desc: '내 회사를 차려 운영한다. 기획사는 연습생을 뽑아 아이돌 그룹이나 밴드로, 버츄얼 아이돌 기획사는 기수로 데뷔시킨다. MCN은 활동 중인 스트리머·버튜버를 영입한다. 영상 제작사는 드라마·영화를, 애니메이션 제작사는 애니메이션을 기획해 만든다. 어느 분야든 중형이 되면 다른 분야를 더할 수 있다. 자본금은 내 돈과 따로다. 회사마다 CEO를 두면 그 회사 일은 CEO가 맡고, 나는 경영 방향을 정하고 성적을 본다. 회사 직원(A&R · 트레이너 · 마케터 · 편집자 · 애니메이터)으로 팀장급까지 오르고 사업 실력이 있으면, 그 회사 회장이 CEO를 맡아 달라고 하기도 한다 (남의 회사라 자본금은 회장 돈이고, 나는 월급과 보너스를 받는다).',
+  desc: '내 회사를 차려 운영한다. 기획사는 연습생을 뽑아 아이돌 그룹이나 밴드로, 버츄얼 아이돌 기획사는 기수로 데뷔시킨다. MCN은 활동 중인 스트리머·버튜버를 영입한다. 영상 제작사는 드라마·영화를, 애니메이션 제작사는 애니메이션을 기획해 만든다. 어느 분야든 중형이 되면 다른 분야를 더할 수 있다. 자본금은 내 돈과 따로다. 회사마다 CEO를 두면 그 회사 일은 CEO가 맡고, 나는 경영 방향을 정하고 성적을 본다. 회사 직원(A&R · 트레이너 · 마케터 · 편집자 · 애니메이터)으로 한 회사에서 5년 넘게 일해 팀장급까지 오르고 사업 실력이 있으면, 그 회사 회장(작은 회사는 은퇴하는 창업자)이 CEO를 맡아 달라고 하기도 한다 (남의 회사라 자본금은 회장 돈이고, 나는 월급과 보너스를 받는다).',
   act: { n: '회사 경영', ic: '🏢', g: '직업 활동', eff: [['회사 평판', '↑', 1], ['사업', '↑', 1], ['스트레스', '↑', 0]] },
   panel: 'company', panelN: '🏢 회사 창 열기',
   status(s, t) { if (t.st !== 'active') return t.endNote || ''; return [t.hire ? `${t.name} CEO` : t.name, coSizesN(t), coTrFields(t).length ? `연습생 ${coTrainees(s).length}명` : '', coGrpCount(t), `${coFields(t).length > 1 ? '그룹 자본금' : '자본금'} ${fmtWon(t.money)}`, t.hire ? `월급 ${fmtWon(t.hire.sal)}` : ''].filter(Boolean).join(' · '); },
@@ -2580,9 +2580,19 @@ function coTabCeo(s, t, f) {
 const HIRE_JOBS = { anr: 'music', trainer: 'music', marketer: 'music', editor: 'mcn', animator: 'anime' };
 const HIRE_ROLE = { anr: 'A&R 팀장', trainer: '트레이너 팀장', editor: '편집 팀장', animator: '작화 팀장' };
 const HIRE_TERM = 36, HIRE_CD = 24, HIRE_BONUS_M = 6, HIRE_REP_UP = 6, HIRE_BAIL_M = 12, HIRE_FAN_UP = 0.25, HIRE_STEP = 1;
+// v171: 그 회사에서 5년 이상 일했어야 제의가 온다 (재계약해도 근속은 이어진다)
+const HIRE_YRS = 5;
+// v171: 같은 사업 실력이면 회사 크기마다 제의 확률이 다르다. 소형은 창업자가 은퇴할 때만(드물게), 대형은 데려올 사람이 많아 까다롭다
+const HIRE_TIER_P = [0, 0.4, 1, 0.5];
+// v171: 소형 회사는 창업자가 일선에서 물러나며 대신 맡기는 것 (keep: 목표가 해마다 오르지 않는다 · 회사 키우기는 팬 +10% · 평판 +3)
+const HIRE_KEEP_FAN = 0.1, HIRE_KEEP_REP = 3;
 // 기획사가 아닌 회사(MCN · 영상 · 애니)의 돈 벌기 목표: 꼭 나가는 돈 몇 달 치 (음수면 그만큼 적자까지는 봐준다)
 const HIRE_FLOOR_M = { bad: -6, flat: 0, ok: 3 };
 const HIRE_COND = { bad: '몇 해째 적자가 이어지고 있다. 자본금도 넉넉하지 않다.', flat: '크게 망하지도 크게 크지도 않고 몇 해째 제자리다.', ok: '잘 돌아가고 있지만, 회장은 회사를 더 키울 사람을 찾고 있다.' };
+const HIRE_COND_KEEP = { bad: '몇 해째 적자가 이어지고 있다. 창업자도 지쳤다.', flat: '크게 망하지도 크게 크지도 않고 몇 해째 제자리다.', ok: '그럭저럭 잘 돌아가고 있다. 창업자는 이제 쉬고 싶을 뿐이다.' };
+function hireOwnT(t) { return t && t.hire && t.hire.keep ? '창업자' : '회장'; }
+function hireMonthsAt(s, job) { return (s.tracks[job] || {}).months || 0; }
+function hireOK(s, job) { return hireLead(s, job) && hireMonthsAt(s, job) >= HIRE_YRS * 12; }
 function hireJobF(s, job) { const t = s.tracks[job]; return job === 'editor' ? (t.mcn ? 'mcn' : 'video') : HIRE_JOBS[job]; }
 function hireLead(s, job) {
   const t = s.tracks[job]; if (!t || !trackOn(s, job) || !t.agN) return false;
@@ -2592,7 +2602,7 @@ function hireLead(s, job) {
 }
 function hireRoleN(s, job) { const t = s.tracks[job]; return job === 'marketer' ? MK_TIERS[t.tier] : HIRE_ROLE[job]; }
 function hireTier(s, job) { const t = s.tracks[job]; return U.clamp((job === 'marketer' ? t.agT : job === 'animator' ? t.coTier : t.tier) || 1, 1, 3); }
-function hireJobOf(s) { return Object.keys(HIRE_JOBS).find(j => hireLead(s, j)) || null; }
+function hireJobOf(s) { return Object.keys(HIRE_JOBS).find(j => hireOK(s, j)) || null; }
 function hireOwnerN(s, t) { const o = t && t.hire && s.people[t.hire.owner]; return o ? o.name : '회장'; }
 // 겸직 규칙: 지금 하는 직원 일은 그만두니 빼고 본다. 고용 CEO는 회사 대표(ceo)이면서 회사에 다니는 사람(emp)
 function hireBlock(s, job) {
@@ -2604,36 +2614,46 @@ function hireBlock(s, job) {
   }
   return '';
 }
-// 매달: 사업 30 이상인 팀장급 직원에게 드물게 (사업 30이면 한 해에 13%쯤, 60이면 25%쯤). 한 번 오면 2년은 다시 안 온다
+// 매달: 그 회사에서 5년 넘게 일한 사업 30 이상 팀장급 직원에게 드물게. 중형 회사 기준 사업 30이면 한 해에 13%쯤, 60이면 25%쯤
+// 소형은 0.4배(창업자가 은퇴할 때), 대형은 0.5배(데려올 사람이 많아 까다롭다). 한 번 오면 2년은 다시 안 온다
 function ceoOfferMonth(s) {
   if (s.army || trackOn(s, 'agency') || (s.cd.ceoOffer || 0) > s.t || hasQ(s, 'ceo_offer')) return;
   const L = lv(me(s), 'biz'); if (L < 30) return;
   const job = hireJobOf(s); if (!job) return;
-  // 작은 회사는 보통 회장이 직접 꾸려서 CEO를 잘 들이지 않는다 (소형 0.4배)
-  if (!U.chance((0.012 + (L - 30) / 2500) * (hireTier(s, job) === 1 ? 0.4 : 1))) return;
+  if (!U.chance((0.012 + (L - 30) / 2500) * HIRE_TIER_P[hireTier(s, job)])) return;
   s.cd.ceoOffer = s.t + HIRE_CD;
   queueEv(s, 'ceo_offer', 0, { job });
 }
-function hireDirGoalN(dir) { return dir === 'profit' ? '해마다 순이익 목표 (첫해는 회사 형편만큼, 해마다 조금씩 오른다 · 적자 회사는 3년 안에 흑자로)' : dir === 'grow' ? `소속 그룹 팬 (MCN은 구독자)을 해마다 +${Math.round(HIRE_FAN_UP * 100)}%씩 (영상 · 애니 제작사는 평판 +${HIRE_REP_UP}씩)` : '해마다 새 그룹 하나 이상 데뷔'; }
+// 회장(창업자)이 바라는 것 (제의 글): 그 회사에 맞는 잣대만 보인다 (기획사는 그룹 팬, MCN은 구독자, 영상 · 애니 제작사는 평판)
+function hireDirGoalN(dir, keep, f) {
+  if (dir === 'rookie') return '해마다 새 그룹 하나 이상 데뷔';
+  if (dir === 'profit') return keep ? '회사를 지금 형편만큼 지켜 주기 (해마다 같은 순이익 목표 · 적자 회사는 적자를 지금의 절반 이하로)' : '해마다 순이익 목표 (첫해는 회사 형편만큼, 해마다 조금씩 오른다 · 적자 회사는 3년 안에 흑자로)';
+  const what = f === 'music' ? '소속 그룹 팬' : f === 'mcn' ? '소속 크리에이터 구독자' : null;
+  return what ? `${what}을 해마다 +${Math.round((keep ? HIRE_KEEP_FAN : HIRE_FAN_UP) * 100)}%씩` : `회사 평판을 해마다 +${keep ? HIRE_KEEP_REP : HIRE_REP_UP}씩`;
+}
 E({
   id: 'ceo_offer', cat: 'CEO', tag: 'career', bg: 'meeting',
   title: (s, d) => `「${d.n}」 CEO 제의`,
   init(s, d) {
     const job = d.job;
-    if (trackOn(s, 'agency') || !hireLead(s, job)) { d.skip = true; return; }
+    if (trackOn(s, 'agency') || !hireOK(s, job)) { d.skip = true; return; }
     const jt = s.tracks[job];
-    d.f = hireJobF(s, job); d.n = jt.agN; d.tier = hireTier(s, job); d.role = hireRoleN(s, job);
-    const r = Math.random(); d.cond = r < 0.55 ? 'bad' : r < 0.85 ? 'flat' : 'ok';
+    d.f = hireJobF(s, job); d.n = jt.agN; d.tier = hireTier(s, job); d.role = hireRoleN(s, job); d.yrs = Math.floor(hireMonthsAt(s, job) / 12);
+    // 소형 회사 (v171): 창업자가 일선에서 물러나며 대신 맡긴다. 망해서라기보다 쉬고 싶어서라 사정이 덜 나쁘다
+    d.keep = d.tier === 1;
+    const r = Math.random(); d.cond = d.keep ? (r < 0.3 ? 'bad' : r < 0.8 ? 'flat' : 'ok') : (r < 0.55 ? 'bad' : r < 0.85 ? 'flat' : 'ok');
     d.dir = d.cond === 'bad' ? 'profit' : d.cond === 'flat' ? U.pick(['grow', 'profit']) : U.pick(['grow', 'profit'].concat(d.f === 'music' ? ['rookie'] : []));
     // 큰 회사는 평판이 이미 높아 '회사 키우기'보다 '돈 벌기'를 바란다
     if (d.tier >= 3 && d.dir === 'grow') d.dir = 'profit';
-    d.owner = makePerson(s, { age: U.int(52, 72), rel: '업계', job: `${d.n} 회장`, aff: 50 }).id;
+    d.owner = makePerson(s, { age: d.keep ? U.int(62, 76) : U.int(52, 72), rel: '업계', job: `${d.n} ${d.keep ? '창업자' : '회장'}`, aff: 50 }).id;
     d.sal = ceoPay(d.tier, lv(me(s), 'biz'));
     d.mcn = job === 'editor' ? jt.mcn || null : null;
   },
   text: (s, d) => {
-    const o = s.people[d.owner], on = o ? o.name : '회장';
-    return `「${d.n}」 회장 ${josa(on, '이가')} 따로 보자고 했다.\n"우리 회사 CEO를 맡아 주게. ${josa(d.role, '으로')} 일하는 걸 쭉 지켜봤네."\n\n${TIER_N[d.tier]} ${CO_TYPE_N[d.f]} · ${HIRE_COND[d.cond]}\n\n· 회사 일(오디션 · 데뷔 · 앨범 · 직원 · 영업 · 작품 기획)은 내 회사처럼 모두 내가 정한다\n· 자본금은 회장 돈이다. 내 돈을 넣거나 꺼낼 수 없고, 자회사도 세울 수 없다\n· 월급 ${fmtWon(d.sal)} · 3년 계약\n· 회장이 바라는 것: ${hireDirGoalN(d.dir)}\n· 해마다 1월에 목표를 이루면 월급 ${HIRE_BONUS_M}개월치 보너스, 두 해 연속 못 미치면 물러나야 한다\n· 3년 동안 목표를 이룬 해가 절반을 넘으면 재계약을 제안받는다\n· 맡으면 지금 하는 ${d.role} 일은 그만둔다`;
+    const o = s.people[d.owner], on = o ? o.name : '회장', ow = d.keep ? '창업자' : '회장';
+    const head = d.keep ? `${josa(`「${d.n}」`, '을를')} 세운 ${on} 대표가 따로 보자고 했다.\n"이제 일선에서 물러나 좀 쉬려고 하네. 회사를 자네가 대신 맡아 주게. ${d.yrs}년 동안 지켜봤는데 믿을 만하더군."`
+      : `「${d.n}」 회장 ${josa(on, '이가')} 따로 보자고 했다.\n"우리 회사 CEO를 맡아 주게. ${d.yrs}년 동안 ${josa(d.role, '으로')} 일하는 걸 쭉 지켜봤네."`;
+    return `${head}\n\n${TIER_N[d.tier]} ${CO_TYPE_N[d.f]} · ${(d.keep ? HIRE_COND_KEEP : HIRE_COND)[d.cond]}\n\n· 회사 일(오디션 · 데뷔 · 앨범 · 직원 · 영업 · 작품 기획)은 내 회사처럼 모두 내가 정한다\n· ${d.keep ? '회사는 여전히 창업자 것이라 자본금도 창업자 돈이다' : '자본금은 회장 돈이다'}. 내 돈을 넣거나 꺼낼 수 없고, 자회사도 세울 수 없다\n· 월급 ${fmtWon(d.sal)} · 3년 계약\n· ${josa(ow, '이가')} 바라는 것: ${hireDirGoalN(d.dir, d.keep, d.f)}\n· 해마다 1월에 목표를 이루면 월급 ${HIRE_BONUS_M}개월치 보너스, 두 해 연속 못 미치면 물러나야 한다\n· 3년 동안 목표를 이룬 해가 절반을 넘으면 재계약을 제안받는다\n· 맡으면 지금 하는 ${d.role} 일은 그만둔다`;
   },
   ch: (s, d) => {
     const w = hireBlock(s, d.job);
@@ -2656,7 +2676,8 @@ function hireStart(s, d) {
   hireLeaveJob(s, d.job);
   const t = hireMake(s, d);
   milestone(s, `${age(s)}세에 「${t.name}」 CEO가 되었다.`);
-  return `${josa(d.role, '으로')} 일하던 「${t.name}」의 CEO가 되었다! 월급 ${fmtWon(t.hire.sal)} · 3년 계약. 첫 목표는 ${hireGoalText(s, t)}. 메인 화면의 회사 박스에서 회사를 꾸린다.`;
+  if (d.keep) { const o = s.people[d.owner]; if (o) o.job = `${t.name} 창업자 (은퇴)`; }
+  return `${josa(d.role, '으로')} 일하던 「${t.name}」의 CEO가 되었다!${d.keep ? ' 창업자는 일선에서 물러나 쉬기로 했다.' : ''} 월급 ${fmtWon(t.hire.sal)} · 3년 계약. 첫 목표는 ${hireGoalText(s, t)}. 메인 화면의 회사 박스에서 회사를 꾸린다.`;
 }
 // 회사 만들기: 크기 · 사정에 맞게 이미 데뷔한 그룹 · 연습생 · 직원 · 크리에이터를 채운다. 자본금은 꼭 나가는 돈 몇 달 치 (사정이 나쁠수록 적게)
 function hireMake(s, d) {
@@ -2666,7 +2687,7 @@ function hireMake(s, d) {
   for (const r of CO_ROOMS) rooms[r.id] = r.fs.includes(f) ? k - 1 : 0;
   const t = s.tracks.agency = { st: 'active', name: d.n, main: f, founded: y0, months: 0, money: 0, inv: 0, out: 0, f: { [f]: { rep, tier: k, money: 0, since: s.t - (calY(s) - y0) * 12, cap: 0, re: 0, L: {}, Y: {} } }, tr: [], groups: [], staff: [], crs: [], vw: [], vdone: [], aw: [], adone: [], past: [], rooms, audCd: {}, gen: {}, L: {}, lastL: {}, Y: {}, lastY: {}, peakF: 0, rankMax: 0, awN: 0,
     hist: (old.hist || []).concat(old.name ? [coHistLine(old)] : []),
-    hire: { owner: d.owner, job: d.job, dir: d.dir, cond: d.cond, sal: d.sal, since: s.t, y0: calY(s), c0: calM(s), end: s.t + HIRE_TERM, m: 0, miss: 0, hits: 0, bail: 0, deb: 0, goal: 0, mcn: d.mcn || null, log: [] } };
+    hire: { owner: d.owner, keep: !!d.keep, job: d.job, dir: d.dir, cond: d.cond, sal: d.sal, since: s.t, y0: calY(s), c0: calM(s), end: s.t + HIRE_TERM, m: 0, miss: 0, hits: 0, bail: 0, deb: 0, goal: 0, mcn: d.mcn || null, log: [] } };
   const staff = (job, kk, n) => { for (let i = 0; i < n; i++) { const x = coStaffCand(s, t, job, kk, 0, f); x.co.role = 'staff'; x.co.since = s.t - U.int(6, 60); x.co.f = f; x.job = job === 'trainer' ? trFieldN(kk) : CO_JOBS[job]; t.staff.push(x.id); } };
   if (f === 'music') {
     staff('cast', null, 1); if (k >= 2) staff('anr', null, 1);
@@ -2736,8 +2757,9 @@ function hireGoalSet(s, t, first) {
   }
   H.span += H.gn / 12;
   const y = H.span, up = Math.max(0, y - 1);
-  if (H.dir === 'profit') { const R = H.b0 >= 0 ? H.b0 + HIRE_STEP * H.fx0 * up : H.b0 * Math.max(0, 1 - up / 2); H.goal = Math.round(R * H.gn / 12 / 1e6) * 1e6; }
-  else if (H.dir === 'grow') H.goal = H.gk === 'fans' ? Math.round(H.b0 * (1 + HIRE_FAN_UP * y) / 100) * 100 : Math.min(97, Math.round(H.b0 + HIRE_REP_UP * y));
+  // 창업자가 맡긴 소형 회사(keep)는 목표가 해마다 오르지 않는다
+  if (H.dir === 'profit') { const R = H.keep ? H.b0 : H.b0 >= 0 ? H.b0 + HIRE_STEP * H.fx0 * up : H.b0 * Math.max(0, 1 - up / 2); H.goal = Math.round(R * H.gn / 12 / 1e6) * 1e6; }
+  else if (H.dir === 'grow') H.goal = H.gk === 'fans' ? Math.round(H.b0 * (1 + (H.keep ? HIRE_KEEP_FAN : HIRE_FAN_UP) * y) / 100) * 100 : Math.min(97, Math.round(H.b0 + (H.keep ? HIRE_KEEP_REP : HIRE_REP_UP) * y));
   else H.goal = 1;
 }
 function hireGoalText(s, t) {
@@ -2778,8 +2800,8 @@ E({
   init(s, d) { if (!coOn(s) || !coT(s).hire) d.skip = true; },
   text: (s, d) => {
     const t = coT(s), H = t.hire, on = hireOwnerN(s, t), L = [`목표: ${d.goalT}`, `결과: ${d.resT} · ${d.hit ? '달성' : '미달'}`, ''];
-    if (d.hit) L.push(`회장 ${josa(on, '이가')} 약속대로 보너스 ${fmtWon(d.bonus)}을 줬다.`);
-    else if (d.fired) L.push(`두 해 연속 목표에 못 미쳤다. 회장 ${josa(on, '은는')} CEO를 바꾸겠다고 한다.`);
+    if (d.hit) L.push(`${hireOwnT(t)} ${josa(on, '이가')} 약속대로 보너스 ${fmtWon(d.bonus)}을 줬다.`);
+    else if (d.fired) L.push(`두 해 연속 목표에 못 미쳤다. ${hireOwnT(t)} ${josa(on, '은는')} CEO를 바꾸겠다고 한다.`);
     else L.push(`"내년에도 이러면 곤란하네." 한 해 더 못 미치면 물러나야 한다.`);
     if (!d.fired) L.push(`\n올해 목표: ${hireGoalText(s, t)} · 계약 ${Math.max(0, H.end - s.t)}개월 남음`);
     return L.join('\n');
@@ -2794,7 +2816,7 @@ E({
     const H = t.hire; d.ev = H.cEv || 0; d.hit = H.cHit || 0; d.ok = d.hit * 2 > d.ev;
     if (d.ok) d.sal = Math.max(H.sal, Math.round(ceoPay(coTier(t, coMainF(t)), lv(me(s), 'biz')) * 1.1 / 10e4) * 10e4);
   },
-  text: (s, d) => { const t = coT(s), on = hireOwnerN(s, t); return d.ok ? `3년 계약이 끝났다. 회장 ${josa(on, '이가')} 말했다. "자네 덕에 회사가 제대로 굴러가네. 3년 더 맡아 주게."\n\n재계약하면 월급 ${fmtWon(d.sal)} (지금 ${fmtWon(t.hire.sal)})` : `3년 계약이 끝났다. 평가 ${d.ev}번 중 목표를 이룬 해가 ${d.hit}번뿐이라, 회장 ${josa(on, '은는')} 재계약하지 않겠다고 한다.`; },
+  text: (s, d) => { const t = coT(s), on = hireOwnerN(s, t); return d.ok ? `3년 계약이 끝났다. ${hireOwnT(t)} ${josa(on, '이가')} 말했다. "자네 덕에 회사가 제대로 굴러가네. 3년 더 맡아 주게."\n\n재계약하면 월급 ${fmtWon(d.sal)} (지금 ${fmtWon(t.hire.sal)})` : `3년 계약이 끝났다. 평가 ${d.ev}번 중 목표를 이룬 해가 ${d.hit}번뿐이라, ${hireOwnT(t)} ${josa(on, '은는')} 재계약하지 않겠다고 한다.`; },
   ch: (s, d) => d.ok ? [{ t: '3년 더 맡는다', f: s => { const t = coT(s), H = t.hire; if (!H) return ''; H.sal = d.sal; H.end = s.t + HIRE_TERM; H.endQ = 0; H.renew = (H.renew || 0) + 1; H.cEv = 0; H.cHit = 0; H.b0 = null; return `「${t.name}」 CEO로 3년 재계약했다. 월급 ${fmtWon(d.sal)}.`; } },
     { t: '그만둔다', f: s => hireEnd(s, '계약 만료') }] : [{ t: '확인', f: s => hireEnd(s, '계약 만료') }],
 });
@@ -2802,8 +2824,8 @@ E({
 E({
   id: 'hire_short', cat: '자본금', title: '자본금이 바닥났다', tag: 'career', keepPop: true,
   init(s, d) { const t = coOn(s) && coT(s); if (!t || !t.hire || coM(t) >= 0) { d.skip = true; return; } d.last = (t.hire.bail || 0) >= 1; d.need = Math.ceil((-coM(t) + coFixed(s, t, coMainF(t)) * HIRE_BAIL_M) / 1e6) * 1e6; },
-  text: (s, d) => { const t = coT(s), on = hireOwnerN(s, t); return d.last ? `자본금이 또 바닥났다 (${fmtWon(-coM(t))} 모자람). 회장 ${josa(on, '은는')} 더는 돈을 넣지 않겠다며 CEO 자리에서 물러나라고 한다.` : `자본금이 ${fmtWon(-coM(t))} 모자라다. 회장 ${on}에게 사정을 말했다.\n\n"이번 한 번은 메워 주지. 다음엔 없네." 회장이 ${fmtWon(d.need)}을 넣어 주었다.`; },
-  ch: (s, d) => d.last ? [{ t: '확인', f: s => hireEnd(s, '자금난') }] : [{ t: '확인', f: s => { const t = coT(s); if (!t.hire) return ''; coIn(t, d.need, '출자 받음', coMainF(t)); t.hire.bail = (t.hire.bail || 0) + 1; return `회장이 ${fmtWon(d.need)}을 넣어 급한 불을 껐다.`; } }],
+  text: (s, d) => { const t = coT(s), on = hireOwnerN(s, t); return d.last ? `자본금이 또 바닥났다 (${fmtWon(-coM(t))} 모자람). ${hireOwnT(t)} ${josa(on, '은는')} 더는 돈을 넣지 않겠다며 CEO 자리에서 물러나라고 한다.` : `자본금이 ${fmtWon(-coM(t))} 모자라다. ${hireOwnT(t)} ${on}에게 사정을 말했다.\n\n"이번 한 번은 메워 주지. 다음엔 없네." ${josa(hireOwnT(t), '이가')} ${fmtWon(d.need)}을 넣어 주었다.`; },
+  ch: (s, d) => d.last ? [{ t: '확인', f: s => hireEnd(s, '자금난') }] : [{ t: '확인', f: s => { const t = coT(s); if (!t.hire) return ''; coIn(t, d.need, '출자 받음', coMainF(t)); t.hire.bail = (t.hire.bail || 0) + 1; return `${josa(hireOwnT(t), '이가')} ${fmtWon(d.need)}을 넣어 급한 불을 껐다.`; } }],
 });
 // 물러나기: 회사는 회장에게 돌아간다. 사람들은 그 회사에 남고 나와의 연결만 끊긴다
 function hireEnd(s, why) {
@@ -2821,14 +2843,14 @@ function hireEnd(s, why) {
 // 회사 창 (고용 CEO): 회사 탭에는 돈 넣기 · 꺼내기 · 정리 대신 사임, CEO 탭은 내 계약
 function hireTabHome(s, t, f) {
   const H = t.hire, lm = coLocM(s), rk = Math.max(coRank(t), t.rankMax || 0);
-  let h = infoTable([[`${CO_FIELDS[f].ic} ${CO_TYPE_N[f]}`, `평판 ${Math.round(t.f[f].rep)} · ${TIER_N[t.f[f].tier]}`], ['회장', hireOwnerN(s, t)], ['내 자리', `CEO · 월급 ${fmtWon(H.sal)} · 계약 ${Math.max(0, H.end - s.t)}개월 남음`], ['이번 목표', hireGoalText(s, t)], lm > 1 ? ['사는 곳 효과', `${REGION_BY[s.region].n} · 회사 일(회사 운영 · 직접 가르치기 · 영업) 효율 +${Math.round((lm - 1) * 100)}%`] : null, ['회사 등급', coRankName(t, rk)], t.f.music ? ['받은 상', `${t.awN}개`] : null]);
-  h += `<p class="hint">남의 회사라 자본금은 회장 돈이다. 내 돈을 넣거나 꺼낼 수 없고, 자회사도 세울 수 없다. 자본금이 바닥나면 회장이 한 번은 메워 주지만, 두 번째에는 물러나야 한다.</p>`;
+  let h = infoTable([[`${CO_FIELDS[f].ic} ${CO_TYPE_N[f]}`, `평판 ${Math.round(t.f[f].rep)} · ${TIER_N[t.f[f].tier]}`], [hireOwnT(t), hireOwnerN(s, t)], ['내 자리', `CEO · 월급 ${fmtWon(H.sal)} · 계약 ${Math.max(0, H.end - s.t)}개월 남음`], ['이번 목표', hireGoalText(s, t)], lm > 1 ? ['사는 곳 효과', `${REGION_BY[s.region].n} · 회사 일(회사 운영 · 직접 가르치기 · 영업) 효율 +${Math.round((lm - 1) * 100)}%`] : null, ['회사 등급', coRankName(t, rk)], t.f.music ? ['받은 상', `${t.awN}개`] : null]);
+  h += `<p class="hint">남의 회사라 자본금은 ${hireOwnT(t)} 돈이다. 내 돈을 넣거나 꺼낼 수 없고, 자회사도 세울 수 없다. 자본금이 바닥나면 ${josa(hireOwnT(t), '이가')} 한 번은 메워 주지만, 두 번째에는 물러나야 한다.</p>`;
   const A = [{ t: 'CEO 사임', h: '계약 중에 그만두면 남은 보너스는 없다', ok: true, danger: true, btn: '사임하기', confirm: `정말 「${t.name}」 CEO를 그만둘까요?`, run: s => hireEnd(s, '사임') }];
   return h + `<div class="sec-h">할 수 있는 일</div>` + A.map(actRow).join('') + (t.hist && t.hist.length ? `<div class="sec-h">예전에 운영한 회사</div>${t.hist.map(x => `<div class="ms">· ${U.esc(x)}</div>`).join('')}` : '');
 }
 function hireTabCeo(s, t, f) {
-  const H = t.hire, R = [['회장', hireOwnerN(s, t)], ['회장이 바라는 것', CEO_DIR[H.dir][0]], ['이번 목표', hireGoalText(s, t)], ['월급', fmtWon(H.sal)], ['보너스', `목표를 이루면 월급 ${HIRE_BONUS_M}개월치 (${fmtWon(H.sal * HIRE_BONUS_M)})`], ['계약', `${Math.max(0, H.end - s.t)}개월 남음 · 맡은 지 ${H.m || 0}개월${H.renew ? ` · 재계약 ${H.renew}번` : ''}`], ['자본금 지원', H.bail ? '이미 한 번 받았다 (다음엔 없다)' : '바닥나면 한 번은 회장이 메워 준다']];
+  const H = t.hire, R = [[hireOwnT(t), hireOwnerN(s, t)], [`${josa(hireOwnT(t), '이가')} 바라는 것`, CEO_DIR[H.dir][0]], ['이번 목표', hireGoalText(s, t)], ['월급', fmtWon(H.sal)], ['보너스', `목표를 이루면 월급 ${HIRE_BONUS_M}개월치 (${fmtWon(H.sal * HIRE_BONUS_M)})`], ['계약', `${Math.max(0, H.end - s.t)}개월 남음 · 맡은 지 ${H.m || 0}개월${H.renew ? ` · 재계약 ${H.renew}번` : ''}`], ['자본금 지원', H.bail ? '이미 한 번 받았다 (다음엔 없다)' : `바닥나면 한 번은 ${josa(hireOwnT(t), '이가')} 메워 준다`]];
   if (H.miss) R.push(['경고', '지난해 목표에 못 미쳤다 · 올해도 못 미치면 물러난다']);
   if ((H.log || []).length) R.push({ h: '지난 평가', items: H.log.slice().reverse() });
-  return infoTable(R) + `<p class="hint" style="margin-top:var(--sp-2)">해마다 1월에 회장이 지난해 성적을 본다. 목표를 이루면 보너스, 두 해 연속 못 미치면 물러난다. 3년 계약이 끝날 때 목표를 이룬 해가 절반을 넘으면 재계약을 제안받는다.</p>`;
+  return infoTable(R) + `<p class="hint" style="margin-top:var(--sp-2)">해마다 1월에 ${josa(hireOwnT(t), '이가')} 지난해 성적을 본다. 목표를 이루면 보너스, 두 해 연속 못 미치면 물러난다. 3년 계약이 끝날 때 목표를 이룬 해가 절반을 넘으면 재계약을 제안받는다.</p>`;
 }
