@@ -481,7 +481,7 @@ function renderPeopleCard() {
   if (!el) return;
   const pt = partner(s), wed = isSpouse(pt);
   const bn = (k, ic, n, parts) => `<div class="pp-box"><span class="sb-ic">${ic}</span><span class="pp-tx"><span class="sb-t">${n}</span><span class="sb-s pp-line" data-parts="${U.esc(JSON.stringify(parts))}"></span></span></div>`;
-  let h = `<div class="card-h">👥 인간관계${pplDot(s) ? '<span class="rdot in pp-dot"></span>' : ''}<span class="bn-arr">›</span></div><div class="pp-bns">` + bn('fam', '👪', '가족', famParts(s));
+  let h = `${pplDot(s) ? '<span class="rdot pp-dot"></span>' : ''}<div class="card-h">👥 인간관계<span class="bn-arr">›</span></div><div class="pp-bns">` + bn('fam', '👪', '가족', famParts(s));
   if (!wed) h += bn('love', '💕', '연인', pt ? [pt.name, `${pAge(s, pt)}세`, `친밀도 ${Math.round(pt.aff)}`] : ['없음']);
   el.innerHTML = h + `</div>`;
   el.querySelectorAll('.pp-line').forEach(fitLine);
@@ -699,7 +699,7 @@ function showEventRaw() {
 // T = { cols: [[키, 이름]], rows: [{ k: 체크 칸 키(폼) 또는 ci: 선택지 번호, on, tr, ok, cells }], rest: 표 밖에 버튼으로 둘 선택지 번호들, go: 고르는 버튼 글 }
 // 칸 이름을 누르면 그 칸으로 줄을 세우고(다시 누르면 거꾸로), 찾기 칸에 적으면 그 글자가 든 줄만 남는다. 줄을 옮기기만 해서 체크는 그대로 남는다
 // 사건 창의 적는 칸 · 체크 줄 (v153): head = 묶음 제목(grid면 두세 칸으로), opt = 표가 있어도 그대로 보이는 체크 줄
-function formFieldHTML(f) { return f.type === 'won' ? wonFieldHTML(f) : f.type === 'radio' ? `<label class="ck-row"><input type="radio" name="fr-${f.k}" data-k="${f.k}" value="${U.esc(f.v)}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}</span>${f.sub ? `<span class="ck-h">${U.esc(f.sub)}</span>` : ''}</span></label>` : f.type === 'check' || f.type === 'opt' ? `<label class="ck-row"><input type="checkbox" data-k="${f.k}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}${f.tr ? TR_BADGE : ''}</span>${f.sub ? `<span class="ck-h">${U.esc(f.sub)}</span>` : ''}</span></label>` : `<div class="field"><label>${U.esc(f.label)}</label><input data-k="${f.k}" value="${U.esc(f.value || '')}" maxlength="${f.max || 20}" placeholder="${U.esc(f.ph || '')}"></div>`; }
+function formFieldHTML(f) { return f.type === 'won' ? wonFieldHTML(f) : f.type === 'radio' ? `<label class="ck-row rd"><input type="radio" name="fr-${f.k}" data-k="${f.k}" value="${U.esc(f.v)}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}</span>${f.sub ? `<span class="ck-h">${U.esc(f.sub)}</span>` : ''}</span></label>` : f.type === 'check' || f.type === 'opt' ? `<label class="ck-row"><input type="checkbox" data-k="${f.k}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}${f.tr ? TR_BADGE : ''}</span>${f.sub ? `<span class="ck-h">${U.esc(f.sub)}</span>` : ''}</span></label>` : `<div class="field"><label>${U.esc(f.label)}</label><input data-k="${f.k}" value="${U.esc(f.value || '')}" maxlength="${f.max || 20}" placeholder="${U.esc(f.ph || '')}"></div>`; }
 function formFieldsHTML(F) {
   let h = '', open = false;
   for (const f of F) {
@@ -1764,7 +1764,7 @@ function lifeSecBody(s, k) {
   if (k === 'home') {
     const hn = homeNow(s);
     h += `<div class="home-now big"><span class="hn-ic">${hn.ic}</span><div><div class="hn-k">지금 사는 곳 · ${hn.k}</div><div class="hn-n">${U.esc(hn.n)}</div><div class="hn-d">${U.esc(hn.d)}</div>${houseAsset(s) ? `<div class="hn-a">${houseLabel(s)} <b>${fmtWon(houseAsset(s))}</b> · ${houseNote(s)}</div>` : ''}</div></div>`;
-    h += `<div class="lnote">${r.d}. 서울에 가까울수록 오디션·섭외 기회가 많다.</div>`;
+    h += `<div class="lnote">${r.d}. 서울에 가까울수록 오디션·섭외 기회가 많다.${typeof coOn === 'function' && coOn(s) && coLocM(s) > 1 ? ` 회사 대표라 회사 일(회사 운영 · 직접 가르치기 · 영업) 효율도 +${Math.round((coLocM(s) - 1) * 100)}%.` : ''}</div>`;
     h += sec('loan', '💳 대출 · 빚', '');
     if (age(s) < 19) h += `<div class="sec-h">🏠 이사</div><div class="lnote">성인이 되면(19세) 혼자 나가 살 집을 구할 수 있다.</div>`;
     else {

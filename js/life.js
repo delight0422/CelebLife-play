@@ -298,7 +298,9 @@ function lifeActs(s) {
     if (here) { A.push(Object.assign({ sec: 'home', homeType: type, t: `${pn} ${nm}`, tag: '지금 사는 집', ok: false, why: '', btn: '사는 중', run: () => '' }, info)); continue; }
     if (size === 's' && married(s)) continue; // 결혼하면 원룸에서 살 수 없다
     if (needApt(s) && !isAptHome(type, size)) continue; // 자녀가 셋이면 아파트에서 산다
-    if (rid !== s.region) info.note = r.d + (info.note ? ` · ${info.note}` : '');
+    // v166: 회사 대표면 그 동네에서의 회사 일 효율도 보여 준다 (company.js coLocM)
+    const lm = typeof coOn === 'function' && coOn(s) ? 1 + U.clamp(r.access - 0.8, 0, 0.32) : 1;
+    if (rid !== s.region) info.note = r.d + (lm > 1 ? ` · 대표: 회사 일 효율 +${Math.round((lm - 1) * 100)}%` : '') + (info.note ? ` · ${info.note}` : '');
     A.push(Object.assign({ sec: 'home', homeType: type, t: `${pn} ${nm}`, ok: canMove && s.money + Math.max(0, back) >= need, why: canMove ? `돈이 모자라다 (${fmtWon(need)} 필요)` : why, btn: '이사', run: s => moveTo(s, rid, type, size) }, info));
   }
   // 집 팔기 (내 집): 판 돈으로 남은 대출을 갚고 나머지를 받은 뒤, 같은 동네 월세 원룸(결혼했으면 투룸)으로 옮긴다

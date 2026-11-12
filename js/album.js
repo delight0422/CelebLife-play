@@ -107,11 +107,16 @@ function albScreen(s, x, demos, judge) {
 }
 // ⑤ 편곡 · 작사: 이름난 사람에게 맡기면 그 실력만큼 곡이 다듬어진다
 // v165: out이 { arr, lyr }(사람 id)면 고른 사람에게만 맡긴다. 맡기지 않은 쪽은 조금만 다듬어진다 ('me'는 내가 직접 · 쓰는 쪽에서 따로 셈한다)
+// 편곡은 작곡 특기, 작사는 작사 특기로 본다 (편곡 특기는 따로 없다)
+// v166: 'in:사람 id'는 사내 프로듀서 (돈 안 듦). arrLv · lyrLv가 있으면 맡기지 않은 쪽도 그 실력만큼 (회사에서 = 사내 프로듀서들이 같이)
+function albPolWho(s, v) { if (!v || v === 'me') return null; return s.people[String(v).replace(/^in:/, '')] || null; }
+function albPolDa(L) { return U.clamp(0.25 + L * 0.02 + U.normal(0, 0.35), 0.5, 2.5); }
+function albPolDl(L) { return U.clamp(0.25 + L * 0.015 + U.normal(0, 0.35), 0.5, 2); }
 function albPolish(s, x, out) {
   if (out && typeof out === 'object') {
-    const a = out.arr && s.people[out.arr], l = out.lyr && s.people[out.lyr];
-    const da = a ? U.clamp(0.25 + lv(a, 'compose') * 0.02 + U.normal(0, 0.35), 0.5, 2.5) : U.fl(0, 0.75);
-    const dl = l ? U.clamp(0.25 + lv(l, 'lyric') * 0.015 + U.normal(0, 0.35), 0.5, 2) : U.fl(0, 0.75);
+    const a = albPolWho(s, out.arr), l = albPolWho(s, out.lyr);
+    const da = a ? albPolDa(lv(a, 'compose')) : out.arrLv ? albPolDa(out.arrLv) : U.fl(0, 0.75);
+    const dl = l ? albPolDl(lv(l, 'lyric')) : out.lyrLv ? albPolDl(out.lyrLv) : U.fl(0, 0.75);
     return { dq: da + dl, arr: a ? a.name : '', lyr: l ? l.name : '', aid: a ? a.id : null, lid: l ? l.id : null };
   }
   if (!out) return { dq: U.fl(0, 1.5), arr: '', lyr: '' };
@@ -139,13 +144,13 @@ function albPolFields(s, x, C, last, base, vf) {
     const L = (base[k] || []).map(o => o.v).concat(C[k] || []), cur = last && L.includes(last[k]) ? last[k] : '';
     F.push({ type: 'head', label: `${n} 맡기기`, after: true });
     for (const o of base[k] || []) F.push({ k, type: 'radio', after: true, v: o.v, on: cur === o.v, label: o.label, sub: o.sub || '' });
-    for (const id of C[k] || []) { const p = s.people[id]; if (!p) continue; F.push({ k, type: 'radio', after: true, v: id, on: cur === id, label: `${p.name}${last && last[k] === id ? ' · 지난번에 맡김' : ''}`, sub: `${n} 실력 ${typeof coCellLv === 'function' ? coCellLv(vf(sk), p, sk, false)[1] : lvi(p, sk)}레벨 · ${fmtWon(albPolFee(x, p, k))}` }); }
+    for (const id of C[k] || []) { const p = s.people[id]; if (!p) continue; F.push({ k, type: 'radio', after: true, v: id, on: cur === id, label: `${p.name}${last && last[k] === id ? ' · 지난번에 맡김' : ''}`, sub: `${SKILLS[sk].n} ${typeof coCellLv === 'function' ? coCellLv(vf(sk), p, sk, false)[1] : lvi(p, sk)}레벨 · ${fmtWon(albPolFee(x, p, k))}` }); }
   }
   return F;
 }
 function albPolRead(v) { return { arr: v.arr || '', lyr: v.lyr || '' }; }
 // 편곡 · 작사에 드는 돈: 예전 방식(참 · 거짓)도 그대로 받는다
-function albPolPay(s, x, pol) { if (!pol) return 0; if (typeof pol !== 'object') return albPolCost(x); return ['arr', 'lyr'].reduce((a, k) => { const p = pol[k] && s.people[pol[k]]; return a + (p ? albPolFee(x, p, k) : 0); }, 0); }
+function albPolPay(s, x, pol) { if (!pol) return 0; if (typeof pol !== 'object') return albPolCost(x); return ['arr', 'lyr'].reduce((a, k) => { const p = pol[k] && !String(pol[k]).startsWith('in:') && s.people[pol[k]]; return a + (p ? albPolFee(x, p, k) : 0); }, 0); }
 function albBy(s, d) { const c = d.cid && s.people[d.cid]; return d.mine || d.me ? '나' : c ? c.name : '작곡가'; }
 // 성적표에 남기는 제작 기록 (작게): 누가 무엇을 했는지
 function albMk(s, a, picks, ti, pol, boss) {

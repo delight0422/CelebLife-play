@@ -177,11 +177,14 @@ E({
 });
 
 // ───── 유행을 바꾼 곡 (v165) ─────
-// 유행이 아닌 컨셉으로 낸 내 곡 · 내 그룹 곡(내 회사 그룹 포함)이 차트 3위 안에 들면, 그 컨셉이 새 유행이 된다 (1위면 60%, 2~3위면 35%)
-// 한 번 바뀌면 2년 동안은 다시 일어나지 않고, 그 해 · 이듬해 첫 달에는 유행이 저절로 바뀌지 않는다 (s.trendLock)
-function hitTrend(s, c, sc, peak) {
-  if (!c || c === s.trend || !TRENDS.includes(c) || !peak || peak > 3 || (s.cd.hitTr || 0) > s.t) return false;
-  return U.chance(peak === 1 ? 0.6 : 0.35);
+// 유행이 아닌 컨셉으로 낸 내 그룹 곡(내 회사 그룹 포함)이 차트 최고 1위 + 음악방송 1위 6회 이상이면, 그 컨셉이 새 유행이 될 수 있다
+// v166: 확률은 6회에 50%, 6회를 넘는 1위 한 번마다 8%씩 (9회 74% · 12회 98%). 음악방송 1위가 없는 솔로 · 밴드는 해당 없음
+// 한 번 바뀌면 2년 동안은 다시 일어나지 않고, 1년 동안은 유행이 저절로 바뀌지 않는다 (s.trendLock)
+function hitTrendP(peak, wins) { return peak === 1 && wins >= 6 ? Math.min(1, 0.5 + 0.08 * (wins - 6)) : 0; }
+function hitTrend(s, c, peak, wins) {
+  if (!c || c === s.trend || !TRENDS.includes(c) || (s.cd.hitTr || 0) > s.t) return false;
+  const p = hitTrendP(peak, wins || 0);
+  return p > 0 && U.chance(p);
 }
 function hitTrendGo(s, c, title, by) {
   const old = s.trend;
@@ -1081,7 +1084,7 @@ function idolRelease(s, t, c, debut, a) {
   const ob = typeof idolTakeB === 'function' ? idolTakeB(t) : { st: 0, part: 0 };
   const sc = songScore(s, { perf: cPerf(groupPower(s, g), cf), q, fans: gf, tier: 0, trend: c === s.trend, bonus: IDOL_TIER_B[t.tier] + (g.star - 50) * 0.12 + (c === g.sig ? 3 : 0) + Math.min(t.cbCount, 6) * 0.6 + buzz + g.mo - tired + rookie + cScoreB(cf) + ob.st });
   g.mo = g.mo * 0.6 + U.normal(0, 4.5);
-  const peak = chartFromScore(sc), ht = hitTrend(s, c, sc, peak);
+  const peak = chartFromScore(sc);
   jpopWork(s, 'idol', sc);
   const main = t.mkt === 'jp' ? 'jp' : 'kr';
   const gain = { kr: 0, jp: 0, us: 0 };
@@ -1093,7 +1096,7 @@ function idolRelease(s, t, c, debut, a) {
   else gain.kr = Math.round(pos * 0.05);
   gain.us = t.usDebut ? Math.round(fanGainRaw(sc - 6, g.f.us, 0.5, starCap(g.star, 'us')) * langMult(p, 'en')) : Math.round(pos * 0.02);
   MK.forEach(m => { g.f[m] = U.clamp(g.f[m] + gain[m], 0, FANCAP[m]); });
-  const wins = showWins(sc, groupFans(g));
+  const wins = showWins(sc, groupFans(g)), ht = hitTrend(s, c, peak, wins);
   // 내 개인 팬 (v94): 외모 · 스타성, 그리고 노래(랩) · 춤 실력이 좋을수록 그룹 팬 중에서 나를 좋아하는 사람이 많다
   const share = U.clamp(0.3 + ((p.tal.looks * 0.4 + p.tal.star * 0.3 + Math.max(lv(p, 'vocal'), lv(p, 'rap')) * 0.15 + lv(p, 'dance') * 0.15) - 45) / 80, 0.12, 0.85) * 3 / (g.members.length + 1) * (1 + ob.part);
   const my = {};
@@ -1409,7 +1412,7 @@ function matePot(m, k) { const o = m && m.sk && m.sk[k]; if (!o || o.potUp) retu
 // 멤버 연습에 붙는 회사 몫: 내 회사 소속이면 내 회사 연습실 · 트레이너, 기획사 소속이면 그 회사 연습실 (밴드 악기 트레이너는 따로 없다: 외부 레슨)
 function mateEqM(s, tm, k) {
   const own = tm.k === 'band' ? ownCo(s, 'band') : null;
-  if (own) { const tr = typeof coTrainer === 'function' ? coTrainer(s, k, 'music') : null; return CO_EQ.mult[own.eq || 0] * (tr ? 1 + teachLv(tr, k) / 50 : 1); }
+  if (own) { const tr = typeof coTrainer === 'function' ? coTrainer(s, k, 'music') : null; return (typeof coEqM === 'function' ? coEqM(own, k) : 1) * (tr ? 1 + teachLv(tr, k) / 50 : 1); }
   const ag = tm.t.ag && AG[tm.t.ag];
   return ag && AG_EQ.some(id => EQUIP[id].k.includes(k)) ? 1 + eqPct(ag.eq || 1) / 100 : 1;
 }
@@ -1950,7 +1953,7 @@ E({
     if (cf.rap != null) cf.rap = bv ? lv(bv, 'rap') : 0;
     const sc = songScore(s, { perf: cPerf(bandPower(s, t), cf), q: d.q, fans: t.b.f, tier: t.tier, trend: !!d.c && d.c === s.trend, bonus: (d.self ? 3 : 0) + cScoreB(cf) + bandArrB(s, t, d) });
     cNote(s, cf, d.title);
-    d.peak = chartFromScore(sc); d.ht = hitTrend(s, d.c, sc, d.peak);
+    d.peak = chartFromScore(sc); d.ht = false; // 밴드는 음악방송 1위가 없어 유행을 바꾸지 않는다 (v166)
     jpopWork(s, 'band', sc);
     d.gain = fanGainRaw(sc, t.b.f, t.st === 'signed' ? 1 : 0.6, starCap(60, 'kr'));
     t.b.f = Math.max(0, t.b.f + d.gain);
@@ -2282,7 +2285,7 @@ E({
     const cf = cFit(s, d.c, [p], stageYrs(s));
     const sc = songScore(s, { perf: cPerf(soloScore(s, t.type), cf), q: d.q, fans: totalFans(s), tier: signed ? t.tier : 0, trend: (d.tr = d.c ? d.c === s.trend : U.chance(0.3)), bonus: (d.self ? 3 : 0) + (p.tal.star - 50) * 0.12 + cScoreB(cf) });
     cNote(s, cf, d.title);
-    d.peak = chartFromScore(sc); d.ht = hitTrend(s, d.c, sc, d.peak);
+    d.peak = chartFromScore(sc); d.ht = false; // 솔로는 음악방송 1위가 없어 유행을 바꾸지 않는다 (v166)
     jpopWork(s, 'solo', sc);
     d.gain = Math.round(fanGain(s, sc, mk, signed ? 1.1 : 0.7) * myRoom(s, mk));
     s.fans[mk] = Math.max(0, s.fans[mk] + d.gain);
@@ -2607,9 +2610,11 @@ function myPickCost(s, x, ti, pol) { return (ti ? ti.price || 0 : 0) + albPolPay
 // 편곡자 · 작사가 후보 (v165, 앨범마다 한 번 정해 둔다). 작사는 내가 직접 쓸 수도 있다 (작사 특기)
 function myPolC(s, k) { const t = s.tracks[k]; return t.alb.polC || (t.alb.polC = albPolCands(s, t.lastPol)); }
 function myPolFields(s, k) {
-  const p = me(s), v = ownCo(s, k) && typeof coViewer === 'function' ? sk => coViewer(s, 'anr', sk, 'music') : () => p, lyr = [{ v: '', label: '따로 맡기지 않는다', sub: '돈 안 듦 · 조금만 다듬어진다' }];
-  if (has(p, 'lyric')) lyr.push({ v: 'me', label: '타이틀곡 가사는 내가 쓴다', sub: `작사 ${lvi(p, 'lyric')}레벨 · 실력만큼 곡이 달라지고, 작사 저작권료 몫이 생긴다` });
-  return albPolFields(s, myAlbX(s, k), myPolC(s, k), s.tracks[k].lastPol, { arr: [{ v: '', label: '따로 맡기지 않는다', sub: '돈 안 듦 · 조금만 다듬어진다' }], lyr }, v);
+  const p = me(s), co = ownCo(s, k) && typeof coPolBase === 'function', v = co && typeof coViewer === 'function' ? sk => coViewer(s, 'anr', sk, 'music') : () => p;
+  // v166: 내 회사 소속이면 사내 프로듀서에게 맡기거나 '회사에서'(사내 프로듀서들이 같이) 할 수 있다
+  const B = co ? coPolBase(s) : { arr: [{ v: '', label: '따로 맡기지 않는다', sub: '돈 안 듦 · 조금만 다듬어진다' }], lyr: [{ v: '', label: '따로 맡기지 않는다', sub: '돈 안 듦 · 조금만 다듬어진다' }] };
+  if (has(p, 'lyric')) B.lyr.splice(1, 0, { v: 'me', label: '타이틀곡 가사는 내가 쓴다', sub: `작사 ${lvi(p, 'lyric')}레벨 · 실력만큼 곡이 달라지고, 작사 저작권료 몫이 생긴다` });
+  return albPolFields(s, myAlbX(s, k), myPolC(s, k), s.tracks[k].lastPol, B, v);
 }
 function myAlbTbl(s, k) {
   const a = s.tracks[k].alb, v = ownCo(s, k) && typeof coViewer === 'function' ? coViewer(s, 'anr', 'compose', 'music') : me(s);
@@ -2629,7 +2634,8 @@ function myAlbGo(s, k) {
   jobPay(s, cost, k === 'band' ? '밴드 새 곡 제작비' : '신곡 제작비', k);
   for (const d of picks) { const c = d.cid && s.people[d.cid]; if (c && c.ind) { meetAt(s, c, `「${d.title}」`, k); bond(s, c, d === ti ? 3 : 1); const cm = coCm(c); cm[d.c] = Math.min(100, cm[d.c] + (100 - cm[d.c]) * (d === ti ? 0.06 : 0.02)); } }
   x.cs = a.cs; x.src = a.src;
-  const pol = albPolish(s, x, a.sel.pol);
+  const sp = a.sel.pol, T = sp && typeof sp === 'object' && ownCo(s, k) && typeof coProdTeam === 'function' ? coProdTeam(s) : null;
+  const pol = albPolish(s, x, T ? Object.assign({}, sp, { arrLv: sp.arr ? 0 : T.arr, lyrLv: sp.lyr ? 0 : T.lyr }) : sp);
   // 타이틀곡 가사를 내가 쓰면: 내 작사 실력만큼 곡이 달라지고, 작사 저작권료 몫이 생긴다
   if (a.sel.ly) { pol.dq += U.clamp((lv(p, 'lyric') - 35) * 0.05, -2, 2.5); useSkill(s, p, 'lyric', 2); pol.lyr = '나'; }
   const mk = albMk(s, a, picks, ti, pol, '나');
