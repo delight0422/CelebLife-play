@@ -283,3 +283,6 @@ function grade5(viewer, v, kind = 'pot', k) {
   return GRADE_W[kind][v < lo / 2 ? 0 : v < lo ? 1 : v <= hi ? 2 : v <= hi + (100 - hi) / 2 ? 3 : 4];
 }
 function potGrade(viewer, target, k) { return has(target, k) ? grade5(viewer, target.sk[k].pot, 'pot', k) : ''; }
+// v181: 성장성은 글자 대신 다섯 칸 막대 그림으로 보인다. 글 속에 표시(\u0005 등급 \u0006, '?' = 볼 눈이 없다)를 넣으면 그리는 곳에서 막대로 바꾼다 (ui.js potH)
+function potTok(viewer, target, k) { const g = potGrade(viewer, target, k); return g ? '\u0005' + GRADE_W.pot.indexOf(g) + '\u0006' : ''; }
+const POT_UNK = '\u0005?\u0006';

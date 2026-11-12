@@ -904,7 +904,7 @@ CAREERS.trainer = {
   info(s, t) {
     const p = me(s), sts = t.students.map(id => s.people[id]).filter(Boolean);
     return [['회사', `${t.agN} (${TIER_N[t.tier]} 기획사) · ${trFieldN(t.k)}${t.lead ? ' 팀장' : ''}`], ['월급', fmtWon(t.sal)], ['내 실력', `${SKILLS[t.k].n} ${lvi(p, t.k)} · 교육 ${lvi(p, 'edu')}`], ['업무 평가', `${Math.round(t.rep)}`], ['길러 낸 연습생', `데뷔 ${t.debuts}명${t.cuts ? ` · 방출 ${t.cuts}명` : ''}`],
-      { h: `맡은 연습생 (${sts.length}명)`, items: sts.map(x => ({ who: x.id, t: x.name, sub: `${gN(x)} · ${pAge(s, x)}세 · ${SKILLS[t.k].n} ${lvi(x, t.k)}레벨${canScout(p, t.k) ? ` · 성장성 ${potGrade(p, x, t.k)}` : ''} · 맡은 지 ${Math.max(0, s.t - (x.trSince != null ? x.trSince : s.t))}개월 · ${relWord(x)}` })) }].filter(Boolean);
+      { h: `맡은 연습생 (${sts.length}명)`, items: sts.map(x => ({ who: x.id, t: x.name, sub: `${gN(x)} · ${pAge(s, x)}세 · ${SKILLS[t.k].n} ${lvi(x, t.k)}레벨${canScout(p, t.k) ? potTok(p, x, t.k) : ''} · 맡은 지 ${Math.max(0, s.t - (x.trSince != null ? x.trSince : s.t))}개월 · ${relWord(x)}` })) }].filter(Boolean);
   },
   actions(s, t) { return t.st === 'active' ? [{ t: '회사 그만두기', h: '직원 계약이라 위약금은 없다', ok: true, danger: true, confirm: '정말 회사를 그만둘까요?', run: s => { const n = t.agN; leaveEmp(s, 'trainer', '퇴사'); return `${josa(n, '을를')} 그만뒀다.`; } }] : []; },
   monthly(s, t) {
@@ -973,7 +973,7 @@ E({
     const cutTxt = d.cut.map(c => { const x = s.people[c.id], n = s.people[c.nw]; return `회사가 ${josa(who(x), '을를')} 방출했다. ${c.why}는 이유다. ` + (c.maxed ? '가진 재능은 다 끌어냈다는 평이라 내 평가는 그대로다.' : `제대로 키우지 못했다는 평을 받았다. (평가 -${c.pen || 5})`) + `\n→ 새 연습생 ${josa(who(n), '이가')} 들어왔다.`; }).join('\n\n');
     const goodTxt = d.good ? `\n\n반년 사이 실력이 부쩍 는 연습생이 ${d.good}명이다. (평가 +${d.gain})` : d.leadPen ? `\n\n팀장인데 반년 동안 실력이 부쩍 는 연습생이 한 명도 없다는 말을 들었다. (평가 -${d.leadPen})` : '';
     const addTxt = d.added && s.people[d.added] ? `\n\n회사가 연습생을 한 명 더 맡겼다. ${josa(who(s.people[d.added]), '이가')} 들어왔다. (지금 ${d.ids.length}명)` : '';
-    const lines = d.ids.map(id => { const x = s.people[id]; return `· ${who(x)} ${SKILLS[t.k].n} ${lvi(x, t.k)}레벨${canScout(p, t.k) ? ` · 성장성 ${potGrade(p, x, t.k)}` : ''} · ${relWord(x)}`; }).join('\n');
+    const lines = d.ids.map(id => { const x = s.people[id]; return `· ${who(x)} ${SKILLS[t.k].n} ${lvi(x, t.k)}레벨${canScout(p, t.k) ? potTok(p, x, t.k) : ''} · ${relWord(x)}`; }).join('\n');
     const leadTxt = d.lc === 'up' ? '\n\n그동안의 성과를 인정받아 트레이닝팀 팀장이 되었다! 월급이 오른다.' : d.lc === 'down' ? '\n\n평가가 떨어져 팀장 자리에서 내려왔다. 월급도 줄었다.' : '';
     return `${t.agN} 반기 평가 날이다.${cutTxt ? '\n\n' + cutTxt : ''}${goodTxt}${addTxt}${leadTxt}\n\n지금 맡은 연습생들:\n${lines}\n\n한 명을 데뷔조에 추천할 수 있다. 실력이 모자라면 회사가 받아 주지 않는다. 지금 내 평가 ${Math.round(t.rep)}.`;
   },

@@ -531,6 +531,10 @@ function coVidYear(s, t) {
 }
 
 // ───── 회사 창: 🎬 작품 탭 ─────
+// 공개 예정 (v181): 만드는 중인 작품이 공개되기까지 남은 달 · 공개 달. 만든 작품 칸 맨 위에 '공개 예정'으로 보인다
+function coPjLeft(pj, K) { return pj.stage === 'prep' ? pj.left + pj.shootN + K.post : pj.stage === 'shoot' ? pj.left + K.post : pj.left; }
+function coRelYM(s, pj, KS) { const y = ymOfT(s, s.t + coPjLeft(pj, KS[pj.kind])); return `${y.y}년 ${y.m}월`; }
+function coPjRelLines(s, L, KS, ST) { return (L || []).map(pj => { const K = KS[pj.kind], n = coPjLeft(pj, K), ym = ymOfT(s, s.t + n); return { n, h: `<div class="ms rel">· <b>${ym.y}년 ${ym.m}월 공개 예정</b> 「${U.esc(pj.title)}」 ${U.esc(K.n)} · ${U.esc(ST[pj.stage])} · ${n}개월 남음</div>` }; }).sort((a, b) => a.n - b.n).map(x => x.h).join(''); }
 function coTabVw(s, t) {
   // v178: 오디션 줄처럼 이 줄에서 바로 자동을 켜고 끈다
   const w = coVWhy(s, t), A = [{ t: '새 작품 기획', h: `함께 만드는 작품 ${t.vw.length}/${CO_V_CAP[coVTier(t)]}편 · 자본금 ${fmtWon(coM(t, 'video'))}${coAuto(t).on.video ? ' · 자동: 작품이 끝날 때마다 기획 회의를 연다' : ''}`, why: w, opts: [{ btn: '기획', on: true, ok: !w, run: s => { fireEvent(s, 'co_vplan', {}); return ''; } }, coAutoSw(t, 'video')] }];
@@ -542,7 +546,7 @@ function coTabVw(s, t) {
     h += actRow({ ppl: coPjPpl(s, pj), t: `「${pj.title}」 · ${vKindN(pj.kind)} ${V_BUD_N[pj.lvl]}`, h: `${V_STAGE[pj.stage]} (${pj.stage === 'post' ? `${pj.left}개월 뒤 공개` : `${pj.left}개월 남음`}) · 감독 ${dir} · 주연 ${lead} · ${DIST[pj.dist].n} · 낸 제작비 ${fmtWon(pj.paidB)}/${fmtWon(pj.bud)}`, ok: true, danger: true, btn: '중단', confirm: `「${pj.title}」 제작을 중단할까요?\n들인 돈은 돌려받지 못해요.`, run: s => coVDrop(s, t, pj) });
   }
   const D = (t.vdone || []).slice().reverse();
-  if (D.length) h += `<div class="sec-h">만든 작품 ${D.length}편</div>` + D.slice(0, 12).map(w => `<div class="ms">· ${w.y} 「${U.esc(w.title)}」 ${vKindN(w.kind)} · ${U.esc(w.res)} · ${w.profit >= 0 ? `남은 돈 ${fmtWon(w.profit)}` : `손해 ${fmtWon(-w.profit)}`}</div>`).join('');
+  if (D.length || t.vw.length) h += `<div class="sec-h">만든 작품 ${D.length}편${t.vw.length ? ` <span class="n">공개 예정 ${t.vw.length}편</span>` : ''}</div>` + coPjRelLines(s, t.vw, V_KIND, V_STAGE) + D.slice(0, 12).map(w => `<div class="ms">· ${w.y} 「${U.esc(w.title)}」 ${vKindN(w.kind)} · ${U.esc(w.res)} · ${w.profit >= 0 ? `남은 돈 ${fmtWon(w.profit)}` : `손해 ${fmtWon(-w.profit)}`}</div>`).join('');
   return h;
 }
 
@@ -858,6 +862,6 @@ function coTabAw(s, t) {
     h += actRow({ ppl: coPjPpl(s, pj), t: `「${pj.title}」 · ${aKindN(pj.kind)} ${A_BUD_N[pj.lvl]}`, h: `${A_STAGE[pj.stage]} (${pj.stage === 'post' ? `${pj.left}개월 뒤 공개` : `${pj.left}개월 남음`}) · 감독 ${nm(pj.dir)} · 작화감독 ${nm(pj.key)} · 원화 ${(pj.team || []).length}명 · 주연 ${coVCastN(s, pj, 'lead') || '-'} · ${DIST[pj.dist].n} · 낸 제작비 ${fmtWon(pj.paidB)}/${fmtWon(pj.bud)}`, ok: true, danger: true, btn: '중단', confirm: `「${pj.title}」 제작을 중단할까요?\n들인 돈은 돌려받지 못해요.`, run: s => coADrop(s, t, pj) });
   }
   const D = (t.adone || []).slice().reverse();
-  if (D.length) h += `<div class="sec-h">만든 애니 ${D.length}편</div>` + D.slice(0, 12).map(w => `<div class="ms">· ${w.y} 「${U.esc(w.title)}」 ${aKindN(w.kind)}${w.src ? ` · ${w.src.kind} 원작` : ''} · ${U.esc(w.res)} · ${w.profit >= 0 ? `남은 돈 ${fmtWon(w.profit)}` : `손해 ${fmtWon(-w.profit)}`}</div>`).join('');
+  if (D.length || t.aw.length) h += `<div class="sec-h">만든 애니 ${D.length}편${t.aw.length ? ` <span class="n">공개 예정 ${t.aw.length}편</span>` : ''}</div>` + coPjRelLines(s, t.aw, A_KIND, A_STAGE) + D.slice(0, 12).map(w => `<div class="ms">· ${w.y} 「${U.esc(w.title)}」 ${aKindN(w.kind)}${w.src ? ` · ${w.src.kind} 원작` : ''} · ${U.esc(w.res)} · ${w.profit >= 0 ? `남은 돈 ${fmtWon(w.profit)}` : `손해 ${fmtWon(-w.profit)}`}</div>`).join('');
   return h;
 }

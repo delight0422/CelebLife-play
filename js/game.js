@@ -556,7 +556,7 @@ function pickEvent(s) {
   const due = () => { let bi = -1; for (let i = 0; i < s.queue.length; i++) if (s.queue[i].at <= s.t && (bi < 0 || s.queue[i].at < s.queue[bi].at)) bi = i; return bi; };
   for (let qi = due(); qi >= 0; qi = due()) {
     const q = s.queue.splice(qi, 1)[0], ev = EVENTS[q.id];
-    let ok = !!ev;
+    let ok = !!ev && !(typeof coAutoStale === 'function' && coAutoStale(s, q)); // v181: 자동을 꺼 둔 창은 버린다
     if (ok && ev.cond) { try { ok = ev.cond(s); } catch (e) { ok = false; } }
     if (!ok) continue;
     fireQ(s, q);
@@ -649,6 +649,7 @@ function pullNow(s) {
     const i = s.queue.findIndex(q => NOW_EVS.has(q.id) && q.at <= s.t);
     if (i < 0) return;
     const q = s.queue.splice(i, 1)[0], ev = EVENTS[q.id];
+    if (typeof coAutoStale === 'function' && coAutoStale(s, q)) continue;
     if (!ev) continue;
     if (ev.cond) { let ok = false; try { ok = ev.cond(s); } catch (e) { } if (!ok) continue; }
     fireQ(s, q);

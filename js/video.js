@@ -476,7 +476,7 @@ CAREERS.acttrainer = {
   info(s, t) {
     const p = me(s), sts = t.students.map(id => s.people[id]).filter(Boolean);
     return [['회사', `${t.agN} (${TIER_N[t.tier]} 배우 소속사) · 연기 트레이너${t.lead ? ' 팀장' : ''}`], ['월급', fmtWon(t.sal)], ['내 실력', `연기 ${lvi(p, 'acting')} · 교육 ${lvi(p, 'edu')}`], ['업무 평가', `${Math.round(t.rep)}`], ['길러 낸 배우', `${t.debuts}명${t.cuts ? ` · 내보낸 신인 ${t.cuts}명` : ''}`],
-      { h: `맡은 신인 (${sts.length}명)`, items: sts.map(x => ({ who: x.id, t: x.name, sub: `${gN(x)} · ${pAge(s, x)}세 · 연기 ${lvi(x, 'acting')}레벨${canScout(p, 'acting') ? ` · 성장성 ${potGrade(p, x, 'acting')}` : ''} · ${relWord(x)}` })) }];
+      { h: `맡은 신인 (${sts.length}명)`, items: sts.map(x => ({ who: x.id, t: x.name, sub: `${gN(x)} · ${pAge(s, x)}세 · 연기 ${lvi(x, 'acting')}레벨${canScout(p, 'acting') ? potTok(p, x, 'acting') : ''} · ${relWord(x)}` })) }];
   },
   actions(s, t) { return t.st === 'active' ? [{ t: '회사 그만두기', h: '직원 계약이라 위약금은 없다', ok: true, danger: true, confirm: '정말 회사를 그만둘까요?', run: s => { const n = t.agN; leaveEmp(s, 'acttrainer', '퇴사'); return `${josa(n, '을를')} 그만뒀다.`; } }] : []; },
   monthly(s, t) {
@@ -534,7 +534,7 @@ E({
     const goodTxt = d.good ? `\n\n반년 사이 실력이 부쩍 는 신인이 ${d.good}명이다. (평가 +${d.gain})` : d.leadPen ? `\n\n팀장인데 반년 동안 실력이 부쩍 는 신인이 한 명도 없다는 말을 들었다. (평가 -${d.leadPen})` : '';
     const addTxt = d.added && s.people[d.added] ? `\n\n회사가 신인을 한 명 더 맡겼다. ${josa(who(s.people[d.added]), '이가')} 들어왔다. (지금 ${d.ids.length}명)` : '';
     const leadTxt = d.lc === 'up' ? '\n\n그동안의 성과를 인정받아 팀장이 되었다! 월급이 오른다.' : d.lc === 'down' ? '\n\n평가가 떨어져 팀장 자리에서 내려왔다. 월급도 줄었다.' : '';
-    const lines = d.ids.map(id => { const x = s.people[id]; return `· ${who(x)} 연기 ${lvi(x, 'acting')}레벨${canScout(p, 'acting') ? ` · 성장성 ${potGrade(p, x, 'acting')}` : ''} · ${relWord(x)}`; }).join('\n');
+    const lines = d.ids.map(id => { const x = s.people[id]; return `· ${who(x)} 연기 ${lvi(x, 'acting')}레벨${canScout(p, 'acting') ? potTok(p, x, 'acting') : ''} · ${relWord(x)}`; }).join('\n');
     return `${t.agN} 반기 평가 날이다.${cutTxt ? '\n\n' + cutTxt : ''}${goodTxt}${addTxt}${leadTxt}\n\n지금 맡은 신인들:\n${lines}\n\n한 명을 작품 오디션에 추천할 수 있다. 실력이 모자라면 붙지 못한다. 지금 내 평가 ${Math.round(t.rep)}.`;
   },
   ch(s, d) {

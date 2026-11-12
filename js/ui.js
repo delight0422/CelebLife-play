@@ -12,7 +12,11 @@ function nl(t) { return U.esc(t).replace(/\n/g, '<br>'); }
 // 사건 글자 꾸미기: WAS(취소선)·NOW(초록색) 표시를 태그로 바꾼다 (inbox.js)
 // 평가 색 (v132): \u0005…\u0007 = 좋은 평(초록), \u0006…\u0007 = 나쁜 평(빨강). 표시가 없으면 애매한 평(검정). music.js evG · evB가 붙인다
 function evCol(html) { return html.replace(/\u0005([^\u0007]*)\u0007/g, '<span class="ev-g">$1</span>').replace(/\u0006([^\u0007]*)\u0007/g, '<span class="ev-b">$1</span>'); }
-function rich(t) { return evCol(nl(t).replace(/\u0001([^\u0002]*)\u0002/g, '<s class="was">$1</s>').replace(/\u0003([^\u0004]*)\u0004/g, '<b class="now">$1</b>')); }
+function rich(t) { return potH(evCol(nl(t).replace(/\u0001([^\u0002]*)\u0002/g, '<s class="was">$1</s>').replace(/\u0003([^\u0004]*)\u0004/g, '<b class="now">$1</b>'))); }
+// 성장성 막대 (v181): 글자 없이 다섯 칸 막대. 채운 칸 수 = 등급 (매우 낮음 1칸 ~ 매우 높음 5칸), 색도 등급마다. '?' = 볼 눈이 없어 점선만
+function potBars(g) { const n = g === '?' ? -1 : +g; return `<span class="potv ${n < 0 ? 'pq' : 'p' + n}" role="img" aria-label="${n < 0 ? '알 수 없음' : GRADE_W.pot[n]}">${[0, 1, 2, 3, 4].map(i => `<i${i <= n ? ' class="on"' : ''}></i>`).join('')}</span>`; }
+// 이미 HTML로 바꾼 글 속의 성장성 표시(work.js potTok)를 막대로
+function potH(h) { return String(h).replace(/\u0005([0-4?])\u0006/g, (m, g) => potBars(g)); }
 let toastTimer = null;
 // cls 'pt' (v180): 작품 기획처럼 창이 이어질 때 위쪽에 띄우는 여러 줄 토스트
 function toast(msg, cls) { const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (cls ? ' ' + cls : ''); void t.offsetWidth; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), cls ? 3600 : 2600); }
@@ -724,7 +728,7 @@ function showEventRaw() {
 // T = { cols: [[키, 이름]], rows: [{ k: 체크 칸 키(폼) 또는 ci: 선택지 번호, on, tr, ok, cells }], rest: 표 밖에 버튼으로 둘 선택지 번호들, go: 고르는 버튼 글 }
 // 칸 이름을 누르면 그 칸으로 줄을 세우고(다시 누르면 거꾸로), 찾기 칸에 적으면 그 글자가 든 줄만 남는다. 줄을 옮기기만 해서 체크는 그대로 남는다
 // 사건 창의 적는 칸 · 체크 줄 (v153): head = 묶음 제목(grid면 두세 칸으로), opt = 표가 있어도 그대로 보이는 체크 줄
-function formFieldHTML(f) { return f.type === 'won' ? wonFieldHTML(f) : f.type === 'radio' ? `<label class="ck-row rd"><input type="radio" name="fr-${f.k}" data-k="${f.k}" value="${U.esc(f.v)}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}</span>${f.sub ? `<span class="ck-h">${U.esc(f.sub)}</span>` : ''}</span></label>` : f.type === 'check' || f.type === 'opt' ? `<label class="ck-row"><input type="checkbox" data-k="${f.k}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}${f.tr ? TR_BADGE : ''}</span>${f.sub ? `<span class="ck-h">${U.esc(f.sub)}</span>` : ''}</span></label>` : `<div class="field"><label>${U.esc(f.label)}</label><input data-k="${f.k}" value="${U.esc(f.value || '')}" maxlength="${f.max || 20}" placeholder="${U.esc(f.ph || '')}"></div>`; }
+function formFieldHTML(f) { return f.type === 'won' ? wonFieldHTML(f) : f.type === 'radio' ? `<label class="ck-row rd"><input type="radio" name="fr-${f.k}" data-k="${f.k}" value="${U.esc(f.v)}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}</span>${f.sub ? `<span class="ck-h">${potH(U.esc(f.sub))}</span>` : ''}</span></label>` : f.type === 'check' || f.type === 'opt' ? `<label class="ck-row"><input type="checkbox" data-k="${f.k}" ${f.on ? 'checked' : ''}><span><span class="ck-t">${U.esc(f.label)}${f.tr ? TR_BADGE : ''}</span>${f.sub ? `<span class="ck-h">${potH(U.esc(f.sub))}</span>` : ''}</span></label>` : `<div class="field"><label>${U.esc(f.label)}</label><input data-k="${f.k}" value="${U.esc(f.value || '')}" maxlength="${f.max || 20}" placeholder="${U.esc(f.ph || '')}"></div>`; }
 function formFieldsHTML(F) {
   let h = '', open = false;
   for (const f of F) {
@@ -745,7 +749,7 @@ function evTblHTML(T, form) {
   const ord = T.rows.map((r, i) => i);
   if (T.sort) { const [sk, sd] = T.sort, val = i => { const c = T.rows[i].cells[sk]; return c ? c[0] : 0; }; ord.sort((a, b) => { const x = val(a), y = val(b); return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'ko')) * sd; }); UI.tblS = { k: sk, dir: sd }; }
   const th = T.cols.map(([k, n]) => `<th data-tsort="${k}"${T.sort && T.sort[0] === k ? ' class="on"' : ''}>${U.esc(n)}<i>${T.sort && T.sort[0] === k ? (T.sort[1] > 0 ? ' ▲' : ' ▼') : ''}</i></th>`).join('');
-  const tr = ord.map(i => [T.rows[i], i]).map(([r, i]) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}${r.rec ? ' rec' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>${form && T.radio ? `<td class="tc"><input type="radio" name="tbl-r" data-k="${T.radio.k}" value="${r.k}"></td>` : ''}` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${U.esc(String(c[1]))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}${j === 0 && r.rec && !r.cells.rec ? `<span class="trb rec">${U.esc(r.rec)}</span>` : ''}${j === 0 && S && S.people[r.pid || r.k] ? `<button type="button" class="pi-btn" data-pinfo="${r.pid || r.k}">정보</button>` : ''}</td>`; }).join('') + `</tr>`).join('');
+  const tr = ord.map(i => [T.rows[i], i]).map(([r, i]) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}${r.rec ? ' rec' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>${form && T.radio ? `<td class="tc"><input type="radio" name="tbl-r" data-k="${T.radio.k}" value="${r.k}"></td>` : ''}` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${potH(U.esc(String(c[1])))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}${j === 0 && r.rec && !r.cells.rec ? `<span class="trb rec">${U.esc(r.rec)}</span>` : ''}${j === 0 && S && S.people[r.pid || r.k] ? `<button type="button" class="pi-btn" data-pinfo="${r.pid || r.k}">정보</button>` : ''}</td>`; }).join('') + `</tr>`).join('');
   // 추천 묶음 (v132): 버튼을 누르면 그 줄들만 체크된다 (트레이너가 권하는 데뷔 멤버 등)
   const pre = form && T.presets && T.presets.length ? `<div class="tbl-pre">${T.presets.map((p, i) => `<button type="button" class="btn sm rec" data-tpre="${i}">${U.esc(p.n)}</button>`).join('')}</div>` : '';
   return pre + `<div class="tbl-tools">${form && T.cnt ? `<span class="tbl-cnt" id="tbl-cnt"></span>` : ''}<input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc">${form ? T.ckN || (T.radio ? '실을 곡' : '') : ''}</th>${form && T.radio ? `<th class="tc">${U.esc(T.radio.n)}</th>` : ''}${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
@@ -963,7 +967,7 @@ function actRow(a) {
   const btn = (o, cls) => `<button class="btn sm ${cls}" data-${at}="${reg.push(o) - 1}" ${o.ok ? '' : 'disabled'}>${U.esc(o.btn || (o.danger ? '실행' : '하기'))}</button>`;
   const head = `<div class="a-t">${a.emo ? a.emo + ' ' : ''}${U.esc(a.t)}${a.tag ? `<span class="tag">${a.tag}</span>` : ''}</div>`;
   // 생활 창처럼 돈(price)·효과(eff)·덧붙임(note)을 나눠 둔 줄: 돈을 가장 크게, 효과는 보통, 덧붙임은 작게
-  const body = o => o.price || o.eff || o.note ? `${o.price ? `<div class="lr-price">${U.esc(o.price)}</div>` : ''}${o.eff ? `<div class="lr-eff">${U.esc(o.eff)}</div>` : ''}${o.note ? `<div class="lr-note">${U.esc(o.note)}</div>` : ''}` : (o.h ? `<div class="a-h">${U.esc(o.h)}</div>` : '');
+  const body = o => o.price || o.eff || o.note ? `${o.price ? `<div class="lr-price">${U.esc(o.price)}</div>` : ''}${o.eff ? `<div class="lr-eff">${U.esc(o.eff)}</div>` : ''}${o.note ? `<div class="lr-note">${U.esc(o.note)}</div>` : ''}` : (o.h ? `<div class="a-h">${potH(U.esc(o.h))}</div>` : '');
   const lr = a.price || a.eff ? ' lrow' : '';
   // 사람 줄 (v177): a.who가 있으면 왼쪽을 배너로 (누르면 그 사람 정보 창), a.ppl은 줄 아래에 사람 칩
   const wx = a.who && S.people[a.who], wc = wx ? ' act-who' : '';
@@ -1273,7 +1277,7 @@ function infoTable(rows) {
     if (r.html != null) { h += (r.h ? `<div class="sec-h">${U.esc(r.h)}</div>` : '') + r.html; continue; }
     // 사람은 배너로 (v177): items에 { who: id, t: 글자, sub: 작은 글자 }를 넣으면 배너 묶음으로 그린다
     const it = r.items.filter(x => !(x && x.who)), wh = r.items.filter(x => x && x.who && S.people[x.who]);
-    h += `<div class="sec-h">${U.esc(r.h)}</div>` + (wh.length ? `<div class="pbn-list">${wh.map(x => pbnHTML(S.people[x.who], x.t, x.sub)).join('')}</div>` : '') + (it.length ? it.map(x => `<div class="ms">· ${U.esc(x)}</div>`).join('') : wh.length ? '' : '<div class="muted">없음</div>');
+    h += `<div class="sec-h">${U.esc(r.h)}</div>` + (wh.length ? `<div class="pbn-list">${wh.map(x => pbnHTML(S.people[x.who], x.t, x.sub)).join('')}</div>` : '') + (it.length ? it.map(x => `<div class="ms">· ${potH(U.esc(x))}</div>`).join('') : wh.length ? '' : '<div class="muted">없음</div>');
   }
   flush();
   return h;
@@ -1539,7 +1543,7 @@ function scoutLine(s, n) {
   const ks = learnedSkills(n).sort((a, b) => lv(n, b) - lv(n, a)).slice(0, 4);
   if (!ks.length) return '특기 없음';
   const v = me(s);
-  return ks.map(k => `${SKILLS[k].n} ${lvSee(s, n, k)}${canScout(v, k) ? ` <span class="hint">(성장성 ${potGrade(v, n, k)})</span>` : ''}`).join(' · ');
+  return ks.map(k => `${SKILLS[k].n} ${lvSee(s, n, k)}${canScout(v, k) ? potBars(GRADE_W.pot.indexOf(potGrade(v, n, k))) : ''}`).join(' · ');
 }
 function npcOp(id, op) {
   const s = S, n = s.people[id];
@@ -2450,7 +2454,7 @@ function errTip(btn, msg) {
 // 인간관계 창 밖(회사 창 · 직업 창 · 사건 창의 표 등)에 나오는 사람은 배너로 보여 주고, 누르면 그 사람의 프로필과 모든 특기(성장성)를 작은 창에 띄운다
 // 특기 레벨은 다른 창과 같은 눈으로 본다: 회사 사람 · 가까운 사람은 정확히, 그 밖의 사람은 범위로. 성장성은 회사 사람이면 회사 눈(스카우트 직원), 아니면 내가 볼 수 있을 때만
 function pAvHTML(x, big) { return `<span class="pav ${x.g === '여' ? 'f' : 'm'}${big ? ' big' : ''}">${U.esc(String(x.name || '?').trim().charAt(0))}</span>`; }
-function pbnHTML(x, txt, sub) { return `<button type="button" class="pbn" data-pinfo="${x.id}">${pAvHTML(x)}<span class="pbn-b"><b>${U.esc(txt || x.name)}</b>${sub ? `<span class="pbn-s">${U.esc(sub)}</span>` : ''}</span><span class="pbn-go">정보 ›</span></button>`; }
+function pbnHTML(x, txt, sub) { return `<button type="button" class="pbn" data-pinfo="${x.id}">${pAvHTML(x)}<span class="pbn-b"><b>${U.esc(txt || x.name)}</b>${sub ? `<span class="pbn-s">${potH(U.esc(sub))}</span>` : ''}</span><span class="pbn-go">정보 ›</span></button>`; }
 function pchipHTML(x, lab) { return `<button type="button" class="pchip" data-pinfo="${x.id}">${pAvHTML(x)}<span>${U.esc(lab || x.name)}</span></button>`; }
 function piCo(s) { return typeof coOn === 'function' && coOn(s) ? coT(s) : null; }
 // 소속 · 하는 일
@@ -2488,9 +2492,9 @@ function pinfoHTML(s, x) {
   if (x.yt) R.push(['채널', `「${x.yt.ch}」 · 구독자 ${fmtFans(x.yt.subs || 0)}`]);
   else if ((x.fame || 0) >= 100) R.push(['팬', fmtFans(x.fame)]);
   const ks = learnedSkills(x).map(k => [k, piSkView(s, x, k)]).sort((a, b) => (b[1].lo + b[1].hi) - (a[1].lo + a[1].hi));
-  const sk = ks.length ? ks.map(([k, v]) => `<div class="pi-sk"><span class="pi-n">${U.esc(SKILLS[k].n)}</span><span class="pi-bar"><i style="left:0;width:${v.lo}%"></i>${v.hi > v.lo ? `<i class="rg" style="left:${v.lo}%;width:${v.hi - v.lo}%"></i>` : ''}</span><span class="pi-lv">${v.t}</span>${v.pot ? `<span class="pi-pot g${GRADE_W.pot.indexOf(v.pot)}">성장성 ${U.esc(v.pot)}</span>` : ''}</div>`).join('') : '<div class="muted">특기 없음</div>';
+  const sk = ks.length ? ks.map(([k, v]) => `<div class="pi-sk"><span class="pi-n">${U.esc(SKILLS[k].n)}</span><span class="pi-bar"><i style="left:0;width:${v.lo}%"></i>${v.hi > v.lo ? `<i class="rg" style="left:${v.lo}%;width:${v.hi - v.lo}%"></i>` : ''}</span><span class="pi-lv">${v.t}</span>${v.pot ? potBars(v.pot === '?' ? '?' : GRADE_W.pot.indexOf(v.pot)) : ''}</div>`).join('') : '<div class="muted">특기 없음</div>';
   return `<div class="pinfo"><div class="pi-h">${pAvHTML(x, true)}<div><div class="pi-name">${U.esc(x.name)} <span class="gchip ${x.g === '여' ? 'f' : 'm'}">${x.g === '여' ? '여성' : '남성'}</span></div><div class="pi-sub">${U.esc(x.job || '')}${x.soul ? ' · <span class="soul-hint">어딘가 낯익은 얼굴</span>' : ''}</div></div></div>`
     + infoTable(R) + `<div class="sec-h">특기 <span class="n">${ks.length}개 · 레벨 높은 순</span></div><div class="pi-sks">${sk}</div>`
-    + (ks.some(([, v]) => v.pot === '?') ? `<p class="hint">성장성 ?: 스카우트 특기와 그 분야 특기가 있어야 보인다</p>` : '') + `</div>`;
+    + (ks.some(([, v]) => v.pot === '?') ? `<p class="hint">${potBars('?')} 점선 막대: 스카우트 특기와 그 분야 특기가 있어야 채워진다</p>` : '') + `</div>`;
 }
 function pinfoOpen(id) { const x = S && S.people[id]; if (!x) return; popOpen(pinfoHTML(S, x), 'pinfo-card'); }

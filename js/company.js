@@ -382,7 +382,9 @@ function coViewer(s, job, k, f) {
 }
 function coLvSee(viewer, x, k) { const r = lvRange(viewer, x, k); return r[0] === r[1] ? String(r[0]) : `${r[0]}~${r[1]}`; }
 // 회사 사람(연습생·소속 아티스트)이 가진 특기: 아이돌은 노래·랩·춤·예능, 밴드는 파트와 노래, 버츄얼 아이돌은 예능·노래·게임·연기
-function coSkillsOf(x) { const ks = x.co.kind === 'band' ? [x.co.part, 'vocal'] : x.co.kind === 'vt' ? ['variety', 'vocal', 'game', 'acting'] : ['vocal', 'rap', 'dance', 'variety']; return [...new Set(ks)].filter(k => has(x, k)); }
+// 연습생이 연습하는 특기 (그 종류의 분야 전부 · 가진 것만)
+function coSkillsAll(x) { const ks = x.co.kind === 'band' ? [x.co.part, 'vocal'] : x.co.kind === 'vt' ? ['variety', 'vocal', 'game', 'acting'] : ['vocal', 'rap', 'dance', 'variety']; return [...new Set(ks)]; }
+function coSkillsOf(x) { return coSkillsAll(x).filter(k => has(x, k)); }
 
 // ───── 직원 뽑기 (헤드헌터 · A&R 팀장 · 트레이너) ─────
 // 지원자의 특기 레벨은 정확히 보인다. 회사가 클수록 실력 좋은 사람이 많이 지원한다
@@ -561,29 +563,29 @@ function coCand(s, t, kind, g) {
 function coCandLabel(s, x) { return `${x.name} (${gNn(x)} · ${pAge(s, x)}세 · ${x.look}${soulTag(x)}${x.co.part ? ` · ${partN(x.co.part)}` : ''})`; }
 // 지원자: 특기 레벨은 범위, 성장성은 5단계. 외모는 보이는 대로, 스타성은 5단계 (내 스타성은 숨기지만 지원자 것은 보인다, 피드백 31)
 function coCandSub(s, x) {
-  const sk = coSkillsOf(x).map(k => { const v = coViewer(s, 'cast', k, x.co.f || coFOfKind(x.co.kind)); return `${SKILLS[k].n} ${coLvSee(v, x, k)} (성장성 ${potGrade(v, x, k)})`; }).join(' · ');
+  const sk = coSkillsOf(x).map(k => { const v = coViewer(s, 'cast', k, x.co.f || coFOfKind(x.co.kind)); return `${SKILLS[k].n} ${coLvSee(v, x, k)}${potTok(v, x, k)}`; }).join(' · ');
   return `${sk} · ${x.co.kind === 'vt' ? `목소리 ${talentWord(x.tal.voice)}` : `외모 ${talentWord(x.tal.looks)}`} · 스타성 ${grade5(coViewer(s, 'cast', null), x.tal.star, 'pot')}`;
 }
 // 소속 연습생·아티스트: 특기 레벨은 정확히(매달 평가한다), 성장성은 계속 5단계
-function coMemberSub(s, x) { return coSkillsOf(x).map(k => `${SKILLS[k].n} ${lvi(x, k)} (성장성 ${potGrade(coViewer(s, 'cast', k, x.co.f || coFOfKind(x.co.kind)), x, k)})`).join(' · '); }
+function coMemberSub(s, x) { return coSkillsOf(x).map(k => `${SKILLS[k].n} ${lvi(x, k)}${potTok(coViewer(s, 'cast', k, x.co.f || coFOfKind(x.co.kind)), x, k)}`).join(' · '); }
 // ───── 표로 고르는 창 (v131, FM식) ─────
 // 칸 = [정렬에 쓰는 값, 보이는 글]. 정렬 값은 화면에 보이는 것(범위의 가운데 · 5단계 순서)만 쓴다 (숨은 값이 순서로 새지 않게)
 function coCellLv(v, x, k, exact) { if (!has(x, k)) return [-1, '-']; if (exact) return [lvi(x, k), String(lvi(x, k))]; const r = lvRange(v, x, k); return [(r[0] + r[1]) / 2, r[0] === r[1] ? String(r[0]) : `${r[0]}~${r[1]}`]; }
 function coCellG(word, kind) { return [GRADE_W[kind || 'pot'].indexOf(word), word || '-']; }
 function coCellTal(v) { return [v >= 85 ? 4 : v >= 70 ? 3 : v >= 50 ? 2 : v >= 30 ? 1 : 0, talentWord(v)]; }
 // 연습생 · 지원자 표: 이름 · 성별 · 나이 · (파트) · 특기마다 레벨과 성장성 · 외모(버츄얼은 목소리) · 스타성. exact: 소속 연습생은 레벨이 정확히 보인다
-// v132: 성장성은 따로 칸을 두지 않고 특기 칸에 같이 쓴다 ('보컬 (성장성)' 칸에 '1~27 (높음)'). 줄 세우기는 레벨로 한다
+// v132: 성장성은 따로 칸을 두지 않고 특기 칸에 같이 쓴다. v181: 글자 대신 레벨 옆에 다섯 칸 막대 (work.js potTok). 줄 세우기는 레벨로 한다
 // kind가 없으면(연습생을 내보낼 때처럼 아이돌 · 밴드가 섞인 표) 가진 특기를 모두 칸으로 두고 '종류' 칸을 더한다
 function coPplTbl(s, P, kind, exact, on) {
   const mix = !kind, hasPart = P.some(x => x.co.part), allVt = P.length > 0 && P.every(x => x.co.kind === 'vt');
   const ks = mix ? CO_TR_FIELDS.filter(k => P.some(x => coSkillsOf(x).includes(k))) : kind === 'band' ? [...new Set(P.map(x => x.co.part).concat(P.some(x => has(x, 'vocal')) ? ['vocal'] : []))] : kind === 'vt' ? ['variety', 'vocal', 'game', 'acting'] : ['vocal', 'rap', 'dance', 'variety'];
   const vt = kind === 'vt' || (mix && allVt);
-  const cols = [['n', '이름'], ['g', '성별'], ['a', '나이']].concat(mix ? [['kd', '종류']] : [], (mix ? hasPart : kind === 'band') ? [['part', '파트']] : [], ks.map(k => [k, `${SKILLS[k].n} (성장성)`]), [['lk', vt ? '목소리' : '외모'], ['st', '스타성']], exact ? [['mo', '연습']] : []);
+  const cols = [['n', '이름'], ['g', '성별'], ['a', '나이']].concat(mix ? [['kd', '종류']] : [], (mix ? hasPart : kind === 'band') ? [['part', '파트']] : [], ks.map(k => [k, SKILLS[k].n]), [['lk', vt ? '목소리' : '외모'], ['st', '스타성']], exact ? [['mo', '연습']] : []);
   const rows = P.map(x => {
     const c = { n: [x.name, x.name + soulTag(x)], g: [gNn(x), gNn(x)], a: [pAge(s, x), `${pAge(s, x)}세`], lk: coCellTal(vt ? x.tal.voice : x.tal.looks), st: coCellG(grade5(coViewer(s, 'cast', null), x.tal.star, 'pot')) };
     if (mix) c.kd = [coKindN(x.co.kind), coKindN(x.co.kind)];
     c.part = x.co.part ? [partN(x.co.part), partN(x.co.part)] : ['', '-'];
-    for (const k of ks) { const v = coViewer(s, 'cast', k, x.co.f || coFOfKind(x.co.kind)), l = coCellLv(v, x, k, exact); c[k] = has(x, k) ? [l[0], `${l[1]} (${potGrade(v, x, k)})`] : [-1, '-']; }
+    for (const k of ks) { const v = coViewer(s, 'cast', k, x.co.f || coFOfKind(x.co.kind)), l = coCellLv(v, x, k, exact); c[k] = has(x, k) ? [l[0], `${l[1]}${potTok(v, x, k)}`] : [-1, '-']; }
     if (exact) c.mo = [s.t - x.co.since, `${s.t - x.co.since}개월`];
     return { k: x.id, on: (on || []).includes(x.id), cells: c };
   });
@@ -623,13 +625,14 @@ function coTrRecs(s, kind) {
   const L = coTrainees(s, kind), ks = CO_REC_KS[kind] || CO_REC_KS.idol, out = {};
   if (L.length < 2) return out;
   const g = (x, k) => has(x, k) ? lv(x, k) : 0;
-  for (const tr of coStaff(s, 'trainer', coFOfKind(kind)).filter(tr => ks.includes(tr.co.k))) {
+  // v181: 트레이너마다 다른 사람을 추천한다 (겹치지 않게). 가르치는 실력이 좋은 트레이너부터 차례로 꼽는다
+  for (const tr of coStaff(s, 'trainer', coFOfKind(kind)).filter(tr => ks.includes(tr.co.k)).sort((a, b) => teachLv(b, b.co.k) - teachLv(a, a.co.k))) {
     const k = tr.co.k, w = 3 + 14 * (1 - U.clamp(teachLv(tr, k), 0, 100) / 100), noise = x => (hashN(tr.id + x.id + calY(s)) % 1001 / 500 - 1) * w;
     const val = kind === 'band' ? x => (x.co.part === k ? g(x, k) + 20 : g(x, x.co.part) * 0.6) + noise(x)
       : kind === 'vt' ? x => g(x, k) * 0.6 + (g(x, 'variety') + g(x, 'vocal')) * 0.15 + (x.tal.voice - 50) * 0.1 + (x.tal.star - 50) * 0.08 + noise(x)
       : x => g(x, k) * 0.6 + (g(x, 'vocal') + g(x, 'dance')) * 0.15 + (x.tal.looks - 50) * 0.1 + (x.tal.star - 50) * 0.08 + noise(x);
-    const best = L.slice().sort((a, b) => val(b) - val(a))[0];
-    if (best && !(out[best.id] || []).includes(k)) (out[best.id] = out[best.id] || []).push(k); // 같은 분야 트레이너 둘이 같은 사람을 꼽으면 한 번만
+    const best = L.filter(x => !out[x.id]).sort((a, b) => val(b) - val(a))[0];
+    if (best) out[best.id] = [k];
   }
   return out;
 }
@@ -689,6 +692,9 @@ function coTrainer(s, k, f) { return coStaff(s, 'trainer', f).filter(x => x.co.k
 function coTrainMonth(s, t, teach) {
   const p = me(s), left = [];
   for (const x of coTrainees(s)) {
+    // v181: 특기가 없던 연습생도 그 분야 트레이너가 있으면(또는 대표가 직접 가르치면) 배우기 시작한다 (달마다 35%)
+    const fx0 = x.co.f || coFOfKind(x.co.kind);
+    for (const k of coSkillsAll(x)) if (!has(x, k) && (coTrainer(s, k, fx0) || (teach && !coCeo(t, fx0) && has(p, k))) && U.chance(0.35)) learnSkill(s, x, k, 1);
     for (const k of coSkillsOf(x)) {
       const tr = coTrainer(s, k, x.co.f || coFOfKind(x.co.kind));
       // v117 밸런스 B: 기본을 조금 올리고, 트레이너 · 대표가 직접 가르치는 효과를 크게 (연습생 1~2년이면 데뷔를 생각해 볼 만큼)
@@ -1959,8 +1965,8 @@ CAREERS.agency = {
     if (coFields(t).every(f => coCeo(t, f))) R.push(['회사 경영 칸', '모든 회사를 CEO가 맡고 있어 비워 둬도 된다']);
     if (coTrFields(t).length) R.push(['연습생', `${coTrainees(s).length}명`], { h: coGrpWord(t), items: t.groups.map(coGrpLine) });
     if (t.f.mcn) R.push({ h: '크리에이터', items: coCrs(s).map(x => `${mcnCrName(x)} · 구독자 ${fmtFans(x.yt.subs)}`) });
-    if (t.f.anime) R.push({ h: '애니', items: (t.aw || []).map(pj => `「${pj.title}」 ${aKindN(pj.kind)} · ${A_STAGE[pj.stage]}`).concat((t.adone || []).slice(-4).reverse().map(w => `${w.y} 「${w.title}」 ${aKindN(w.kind)} · ${w.res}`)) });
-    if (t.f.video) R.push({ h: '작품', items: (t.vw || []).map(pj => `「${pj.title}」 ${vKindN(pj.kind)} · ${V_STAGE[pj.stage]}`).concat((t.vdone || []).slice(-4).reverse().map(w => `${w.y} 「${w.title}」 ${vKindN(w.kind)} · ${w.res}`)) });
+    if (t.f.anime) R.push({ h: '애니', items: (t.aw || []).map(pj => `「${pj.title}」 ${aKindN(pj.kind)} · ${A_STAGE[pj.stage]} · ${coRelYM(s, pj, A_KIND)} 공개 예정`).concat((t.adone || []).slice(-4).reverse().map(w => `${w.y} 「${w.title}」 ${aKindN(w.kind)} · ${w.res}`)) });
+    if (t.f.video) R.push({ h: '작품', items: (t.vw || []).map(pj => `「${pj.title}」 ${vKindN(pj.kind)} · ${V_STAGE[pj.stage]} · ${coRelYM(s, pj, V_KIND)} 공개 예정`).concat((t.vdone || []).slice(-4).reverse().map(w => `${w.y} 「${w.title}」 ${vKindN(w.kind)} · ${w.res}`)) });
     return R;
   },
   actions(s, t) { return []; },
@@ -1987,7 +1993,7 @@ function coTabs(t, f) {
 function panel_company() {
   const s = S;
   if (!coOn(s)) return '<div class="empty">운영 중인 회사가 없다.</div>';
-  const t = coT(s); coFix(s, t);
+  const t = coT(s); coFix(s, t); coAutoPrune(s);
   const f = coCurF(t), main = f === coMainF(t);
   const CO_TABS = coTabs(t, f), tab = CO_TABS.some(x => x[0] === UI.coTab) ? UI.coTab : 'home';
   const GS = t.groups.filter(g => coFOfKind(g.kind) === f);
@@ -2212,9 +2218,20 @@ function coAutoNF(t, f) { const A = coAuto(t); return (f === 'music' ? coGAutoN(
 function coAutoN(t) { const A = coAuto(t); return coGAutoN(coGActGrps(t)) + Object.keys(A.on).filter(k => A.on[k] && t.f[k]).length + coVAutoGens(t).reduce((a, g) => a + (g.auto && g.auto.goods ? 1 : 0) + (g.auto && g.auto.live ? 1 : 0), 0) + Object.keys(CO_AUTO_KF).filter(k => A.on[k] && t.f[CO_AUTO_KF[k]]).length; }
 // 자동으로 연 창은 내가 답한 달부터 3개월을 센다 (다른 창이 먼저 떠서 늦게 열려도 곧바로 또 열리지 않게)
 function coTrAutoOn(A, f) { const v = A.on['trainer_' + f]; return v == null ? !!A.on.trainer : !!v; }
-function coAutoQ(s, A, f, id, d) { A.q[f] = id; A.nx[f] = s.t + 3; queueEv(s, id, 0, d, true); }
+function coAutoQ(s, A, f, id, d) { A.q[f] = id; A.nx[f] = s.t + 3; queueEv(s, id, 0, Object.assign({}, d, { au: f }), true); }
+// v181: 자동으로 열어 둔 창(d.au = 자동 스위치)이 아직 뜨기 전에 그 자동을 끄면 띄우지 않고 버린다
+// 예전엔 자동이 미리 줄 세워 둔 '영입 후보' 창이, 자동을 끈 다음 달에도 그대로 떴다
+function coAutoLive(s, k) { if (!coOn(s)) return false; const A = coAuto(coT(s)); return /^trainer_/.test(k) ? coTrAutoOn(A, k.slice(8)) : !!A.on[k]; }
+function coAutoStale(s, q) { return !!(q && q.d && q.d.au && !coAutoLive(s, q.d.au)); }
+function coAutoPrune(s) {
+  if (!coOn(s)) return;
+  const A = coAuto(coT(s)), n0 = s.queue.length;
+  s.queue = s.queue.filter(q => { if (!coAutoStale(s, q)) return true; if (A.q[q.d.au] === q.id) delete A.q[q.d.au]; return false; });
+  return s.queue.length !== n0;
+}
 function coAutoMonth(s, t) {
   const A = coAuto(t);
+  coAutoPrune(s);
   for (const f in A.q) { if (A.q[f] === 'co_aud_pick' ? coAudBusy(s, f) : hasQ(s, A.q[f])) A.nx[f] = s.t + 3; else delete A.q[f]; }
   if (coShortF(t)) return;
   // 자리가 꽉 찼으면 자동을 끌지 한 번 묻는다 (v131). 자리가 다시 나면 다음에 꽉 찰 때 또 묻는다
