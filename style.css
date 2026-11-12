@@ -1362,6 +1362,8 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
   .nw-wide .nw-top, .nw-wide .nw-h, .nw-wide .nw-by, .nw-wide .nw-cm { grid-column: 1 / -1; }
   .nw-wide .nw-h { font-size: 22px; }
   .nw-wide .nw-ph { margin: 0; }
+  /* 사진이 없는 기사 (단편영화 등, v174): 본문이 두 칸을 다 쓴다 */
+  .nw-wide .nw-by + .nw-b { grid-column: 1 / -1; }
   .nw-wide .nw-b p { margin-bottom: var(--sp-2); line-height: 1.7; }
   .nw-wide .nw-cm { margin-top: var(--sp-2); }
   .nw-wide .nw-cl { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--sp-2); }

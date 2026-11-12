@@ -319,7 +319,7 @@ E({
     // 등급: 좋은 평과 성적이 쌓이면 한 칸씩 오른다. 위로 갈수록 팬과 배역 크기도 따라와야 한다 (ACT_UP)
     const k = t.tier, AU = ACT_UP, fameOK = k < 6 && totalFans(s) >= AU.fans[k] && (k < 5 || p.tal.star >= AU.star);
     d.up = !T.mv && fameOK && pj.ri >= AU.ri[k] && big >= 0 && (sc >= AU.b[k] || (d.good && sc >= AU.a[k]));
-    if (d.up) t.tier++;
+    if (d.up) { t.tier++; d.upN = ACTOR_TIERS[t.tier]; }
     // 대호평·대혹평: 작품이 잘될수록(많이 볼수록) 팬과 배우로서의 인기가 크게 움직이고, 이름도 알려진다
     const hot = U.clamp((sc - 30) / 50, 0.1, 1.4) * [0.5, 0.8, 1][pj.ri] * (T.mv ? 0.4 : 1);
     if (big > 0) {
@@ -350,6 +350,26 @@ E({
     + (d.review === '연기 대혹평' ? `\n\n연기 장면만 모은 영상이 조롱거리가 됐다. 작품을 본 사람이 많을수록 비웃음도 커졌다.` : d.bad ? '\n\n연기력 논란 기사가 났다.' : '')
     + (d.oldSchool && d.bad ? '\n\n교복 입은 모습이 어색해서 몰입이 안 된다는 말이 많았다.' : '')
     + (d.up ? `\n\n이 작품으로 '${ACTOR_TIERS[s.tracks.actor.tier]}' 소리를 듣게 됐다. 더 큰 배역이 들어올 것이다.` : ''),
+  // v174: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 기사는 사실만, 반응은 댓글(영상 댓글), 얻은 것은 토스트로
+  html: (s, d) => d.sc != null && d.res && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.actor_res.news(s, d)) : '',
+  news(s, d) {
+    const pj = d.pj, T = PJ_TYPES[pj.tk], A = `배우 ${actName(s, 'actor')}`, Q = newsQ(pj.title), rv = d.review, f = (d.gain || 0) + (d.boom || 0), film = pj.tk === 'film';
+    const dir = s.people[pj.dir], cast = (pj.cast || []).map(id => s.people[id]).filter(Boolean).slice(0, 2).map(c => c.name), role = ROLE_N[pj.ri];
+    const heads = T.mv ? [`${A}, 뮤직비디오 ${Q} 출연…${d.res}`, `뮤직비디오 ${Q} 공개…${A} 출연`]
+      : rv === '연기 대호평' ? [`${A}, ${Q}에서 인생 연기…${d.res}`, `${Q} ${A}, 연기로 존재감 입증`]
+      : rv === '연기 호평' ? [`${Q} ${A}, 안정적인 연기로 눈길`, `${A}, ${Q} ${josa(role, '으로')} 호평…${d.res}`]
+      : rv === '연기 대혹평' ? [`${A}, ${Q} 연기력 논란 확산`, `${Q} ${A} 연기 도마 위에`]
+      : rv === '연기 혹평' ? [`${Q} ${A}, 연기력 논란`, `${A}, ${Q}에서 아쉬운 연기`]
+      : [`${T.n} ${Q} 공개…${d.res}`, `${A} 출연 ${Q} 공개…${d.res}`];
+    const body = [
+      `${!T.mv && pj.genre ? pj.genre + ' ' : ''}${T.n} ${josa(Q, '이가')} ${film ? '개봉했다' : '공개됐다'}. ${josa(A, '은는')} 이 작품에서 ${josa(roleTxt(pj), '을를')} 맡았다. ${T.mv ? '뮤직비디오는' : '작품은'} ${newsOut(d.res)}.`,
+      [dir ? `연출은 ${dir.name} 감독이 맡았다.` : '', cast.length ? `${josa(cast.join(', '), '이가')} 함께 출연했다.` : ''].filter(Boolean).join(' '),
+      rv === '연기 대호평' ? `${A}의 명장면을 모은 영상이 온라인에서 퍼지고 있다.` : rv === '연기 대혹평' ? `${A}의 연기 장면을 모은 영상이 온라인에 돌고 있다.` : '',
+    ];
+    const ts = [[film ? '🎬' : '📺', d.res, newsTone(d.sc)], ['🎭', rv, d.good ? 'g' : d.bad ? 'b' : ''], ['⭐', `내 팬 ${sgnFans(f)} → ${fmtFans(totalFans(s))}`, f >= 0 ? 'g' : 'b'], d.fee ? ['💰', `출연료 +${fmtWon(d.fee)}`, 'g'] : null].filter(Boolean);
+    if (d.up) ts.push(newsUp('배우', d.upN || ACTOR_TIERS[s.tracks.actor.tier]));
+    return { who: A, heads, body, sec: film ? '영화' : T.mv ? '가요' : '방송', t: pj.title, sc: d.sc, pl: d.plio, cap: `${Q} ${T.mv ? '뮤직비디오' : film ? '예고편' : '하이라이트'} 속 ${A}`, ts };
+  },
   plio: (s, d) => d.plio,
   ch: (s, d) => [{ t: '확인', f: () => `「${d.pj.title}」 공개. ${d.res}, ${d.review}.` }],
 });

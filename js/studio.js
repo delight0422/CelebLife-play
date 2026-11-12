@@ -313,7 +313,7 @@ E({
     for (const [n, v] of R.L) coIn(t, v, n, 'video');
     if (pj.dir === 'me') d.review = dirReview(dirPerf(p, V.demand));
     // 평판: 점수가 52보다 높으면 오르고 낮으면 떨어진다 (작품이 클수록 크게)
-    const dr = U.clamp((sc - 52) / 3, -5, 8) * V.w;
+    const dr = d.rd = U.clamp((sc - 52) / 3, -5, 8) * V.w;
     t.f.video.rep = U.clamp(t.f.video.rep + dr, 0, 100);
     // 대표 등급에 세는 흥행 크기: 대형 제작사의 드라마·영화가 점수 80이면 50만, 88이면 126만 (소형은 절반, 중형은 3/4)
     const hit = Math.round(Math.pow(10, 1.7 + sc / 20) * V.hit * [0, 0.5, 0.75, 1][coVTier(t)]);
@@ -328,9 +328,29 @@ E({
     if (!t.vfirst) { t.vfirst = true; milestone(s, `${age(s)}세에 「${t.name}」의 첫 작품 ${V.n} ${josa(`「${pj.title}」`, '을를')} 공개했다.`); }
     if (pj.kind === 'film' && sc >= 80 && !t.vhit) { t.vhit = true; milestone(s, `${age(s)}세에 우리 회사 영화 ${josa(`「${pj.title}」`, '이가')} ${d.res}을 모았다.`); }
   },
-  text: (s, d) => { const pj = d.pj, D = DIST[pj.dist]; return `${vKindN(pj.kind)} ${josa(`「${pj.title}」`, '이가')} ${D.ch === 'film' ? `${D.n} 배급으로 개봉했다` : D.ch === 'tv' ? `${D.n}에서 방영됐다` : `${D.n}에서 공개됐다`}.\n\n${d.res}${d.review ? ` · ${d.review}` : ''}\n\n${d.L.map(([n, v]) => `· ${n} ${fmtWon(v)}`).join('\n')}\n들어온 돈 ${fmtWon(d.rev)} · 쓴 돈 ${fmtWon(d.cost)} (제작비 ${fmtWon(pj.bud)} + 각본·연출·출연료 ${fmtWon(pj.up)})\n${d.profit >= 0 ? `남은 돈 ${fmtWon(d.profit)}` : `손해 ${fmtWon(-d.profit)}`}` + wupText(s, d); },
+  text: (s, d) => { const pj = d.pj, D = DIST[pj.dist]; return `${vKindN(pj.kind)} ${josa(`「${pj.title}」`, '이가')} ${D.ch === 'film' ? `${D.n.replace(/ ?배급$/, '')} 배급으로 개봉했다` : D.ch === 'tv' ? `${D.n}에서 방영됐다` : `${D.n}에서 공개됐다`}.\n\n${d.res}${d.review ? ` · ${d.review}` : ''}\n\n${d.L.map(([n, v]) => `· ${n} ${fmtWon(v)}`).join('\n')}\n들어온 돈 ${fmtWon(d.rev)} · 쓴 돈 ${fmtWon(d.cost)} (제작비 ${fmtWon(pj.bud)} + 각본·연출·출연료 ${fmtWon(pj.up)})\n${d.profit >= 0 ? `남은 돈 ${fmtWon(d.profit)}` : `손해 ${fmtWon(-d.profit)}`}` + wupText(s, d); },
+  // v174: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 들어온 돈 · 쓴 돈은 정산서로
+  html: (s, d) => d.sc != null && d.L && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, coWorkNews(s, d, 'video')) : '',
+  news: (s, d) => coWorkNews(s, d, 'video'),
   ch: (s, d) => [{ t: '확인', f: () => `「${d.pj.title}」 공개. ${d.res} · ${d.profit >= 0 ? `남은 돈 ${fmtWon(d.profit)}` : `손해 ${fmtWon(-d.profit)}`}.` }],
 });
+// 우리 회사 작품(드라마 · 영화 · 애니) 기사 (v174): f 'video' 또는 'anime'
+function coWorkNews(s, d, f) {
+  const t = coT(s), pj = d.pj, an = f === 'anime', D = DIST[pj.dist] || { n: '', ch: 'web' }, K = an ? aKindN(pj.kind) : vKindN(pj.kind), co = coFName(t, f), Q = newsQ(pj.title), R = d.res;
+  const dn = pj.dir === 'me' ? '' : (s.people[pj.dir] || {}).name, lead = coVCastN(s, pj, 'lead'), hit = d.sc >= 75, low = d.sc < 45, film = D.ch === 'film';
+  const heads = hit ? [`${co} 제작 ${Q}, ${R}`, `${Q} ${R}…${co} 웃었다`] : low ? [`${co} 제작 ${Q}, ${R}에 그쳐`, `${co}의 ${Q}…아쉬운 성적`] : [`${co} 제작 ${K} ${Q} 공개…${R}`, `${K} ${Q}, ${R}`];
+  const body = [
+    `${josa(co, '이가')} 제작한 ${pj.genre ? pj.genre + ' ' : ''}${K} ${josa(Q, '이가')} ${film ? `${D.n.replace(/ ?배급$/, '')} 배급으로 개봉했다` : D.ch === 'tv' ? `${D.n}에서 방영됐다` : `${D.n}에서 공개됐다`}. 작품은 ${newsOut(R)}.`,
+    [pj.dir === 'me' ? `연출은 ${me(s).name} 대표가 직접 맡았다.` : dn ? `연출은 ${dn} 감독이 맡았다.` : '', pj.writer === 'me' ? `각본도 ${me(s).name} 대표가 썼다.` : '', lead && lead !== '-' ? `${an ? '주인공 목소리는' : '주연은'} ${josa(lead, '이가')} 맡았다.` : '', pj.seq && pj.seq.n > 1 ? `${josa(Q, '은는')} ${pj.seq.base ? `'${pj.seq.base}'의 ` : ''}${pj.seq.n}번째 이야기다.` : ''].filter(Boolean).join(' '),
+  ];
+  const ts = [[an ? '🎨' : '🎬', R, newsTone(d.sc)]];
+  if (d.review) ts.push(['🎥', d.review, /호평/.test(d.review) ? 'g' : /혹평/.test(d.review) ? 'b' : '']);
+  ts.push(['💰', d.profit >= 0 ? `회사에 남은 돈 +${fmtWon(d.profit)}` : `손해 −${fmtWon(-d.profit)}`, d.profit >= 0 ? 'g' : 'b']);
+  if (d.rd != null) ts.push(['🏢', `회사 평판 ${d.rd >= 0 ? '+' : ''}${Math.round(d.rd * 10) / 10} → ${Math.round(t.f[f].rep)}`, d.rd >= 0 ? 'g' : 'b']);
+  if (d.wup && s.tracks.writer) ts.push(newsUp('작가', WRITER_TIERS[s.tracks.writer.tier]));
+  const bill = { t: `${pj.title} 정산`, rows: d.L.map(([n, v]) => [n, v]).concat(['-', ['제작비', -pj.bud], [an ? '원작·연출·작화팀·성우' : '각본·연출·출연료', -pj.up], '-', [d.profit >= 0 ? '남은 돈' : '손해', d.profit, true]]) };
+  return { who: co, heads, body, sec: an ? '애니' : film ? '영화' : '방송', t: pj.title, sc: d.sc, pl: EVENTS[an ? 'co_ares' : 'co_vres'].plio(s, d), cap: `${Q}의 한 장면`, bill, ts };
+}
 // 연말: 올해 공개한 작품 중 가장 잘된 작품이 시상식 작품상을 받으면 회사 평판이 오른다
 function coVidYear(s, t) {
   const b = t.vyBest; t.vyBest = null;
@@ -622,7 +642,8 @@ E({
     for (const [n, v] of R.L) coIn(t, v, n, 'anime');
     if (pj.dir === 'me') d.review = dirReview(dirPerf(p, A.demand));
     // 평판: 점수가 52보다 높으면 오르고 낮으면 떨어진다 (작품이 클수록 크게)
-    t.f.anime.rep = U.clamp(t.f.anime.rep + U.clamp((sc - 52) / 3, -5, 8) * A.w, 0, 100);
+    d.rd = U.clamp((sc - 52) / 3, -5, 8) * A.w;
+    t.f.anime.rep = U.clamp(t.f.anime.rep + d.rd, 0, 100);
     // 대표 등급에 세는 흥행 크기 (소형은 절반, 중형은 3/4): 대형 제작사의 극장판이 점수 88이면 75만, 94면 150만 (드라마·영화보다 작게 센다)
     t.peakF = Math.max(t.peakF || 0, Math.round(Math.pow(10, 1.6 + sc / 20) * A.hit * [0, 0.5, 0.75, 1][coATier(t)]));
     if (pj.kind !== 'web' && sc > ((t.ayBest || {}).sc || 0)) t.ayBest = { sc, title: pj.title };
@@ -635,7 +656,10 @@ E({
     if (!t.afirst) { t.afirst = true; milestone(s, `${age(s)}세에 「${t.name}」의 첫 애니 ${josa(`「${pj.title}」`, '을를')} 공개했다.`); }
     if (pj.kind === 'film' && sc >= 80 && !t.ahit) { t.ahit = true; milestone(s, `${age(s)}세에 우리 회사 극장판 애니 ${josa(`「${pj.title}」`, '이가')} ${d.res}을 모았다.`); }
   },
-  text: (s, d) => { const pj = d.pj, D = DIST[pj.dist]; return `${aKindN(pj.kind)} ${josa(`「${pj.title}」`, '이가')} ${D.ch === 'film' ? `${D.n} 배급으로 개봉했다` : D.ch === 'tv' ? `${D.n}에서 방영됐다` : `${D.n}에서 공개됐다`}.\n\n${d.res}${d.review ? ` · ${d.review}` : ''}\n\n${d.L.map(([n, v]) => `· ${n} ${fmtWon(v)}`).join('\n')}\n들어온 돈 ${fmtWon(d.rev)} · 쓴 돈 ${fmtWon(d.cost)} (제작비 ${fmtWon(pj.bud)} + 원작·연출·작화팀·성우 ${fmtWon(pj.up)})\n${d.profit >= 0 ? `남은 돈 ${fmtWon(d.profit)}` : `손해 ${fmtWon(-d.profit)}`}` + wupText(s, d); },
+  text: (s, d) => { const pj = d.pj, D = DIST[pj.dist]; return `${aKindN(pj.kind)} ${josa(`「${pj.title}」`, '이가')} ${D.ch === 'film' ? `${D.n.replace(/ ?배급$/, '')} 배급으로 개봉했다` : D.ch === 'tv' ? `${D.n}에서 방영됐다` : `${D.n}에서 공개됐다`}.\n\n${d.res}${d.review ? ` · ${d.review}` : ''}\n\n${d.L.map(([n, v]) => `· ${n} ${fmtWon(v)}`).join('\n')}\n들어온 돈 ${fmtWon(d.rev)} · 쓴 돈 ${fmtWon(d.cost)} (제작비 ${fmtWon(pj.bud)} + 원작·연출·작화팀·성우 ${fmtWon(pj.up)})\n${d.profit >= 0 ? `남은 돈 ${fmtWon(d.profit)}` : `손해 ${fmtWon(-d.profit)}`}` + wupText(s, d); },
+  // v174: 결과 창을 인터넷 기사로 (studio.js coWorkNews)
+  html: (s, d) => d.sc != null && d.L && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, coWorkNews(s, d, 'anime')) : '',
+  news: (s, d) => coWorkNews(s, d, 'anime'),
   ch: (s, d) => [{ t: '확인', f: () => `「${d.pj.title}」 공개. ${d.res} · ${d.profit >= 0 ? `남은 돈 ${fmtWon(d.profit)}` : `손해 ${fmtWon(-d.profit)}`}.` }],
 });
 // 연말: 올해 공개한 애니(웹 애니 빼고) 중 가장 잘된 작품이 애니메이션 대상을 받으면 회사 평판이 오른다

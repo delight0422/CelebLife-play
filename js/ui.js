@@ -234,7 +234,10 @@ function render() {
   for (const f of [renderTop, renderSchedule, renderSide]) { try { f(); } catch (e) { console.error('화면 그리기 오류', f.name, e); } }
   $('#ended-bar').classList.toggle('hidden', !S.ended);
   goBtnSync();
+  rtDrain(S);
 }
+// 달마다 생긴 성과 토스트(기업 등급 · 그룹 등급 오름 등, s.rtq)를 화면에 띄우고 비운다 (v174). 곧 뜰 사건 창이 있으면 그 창이 뜬 뒤에 (기사 토스트 뒤에 붙는다)
+function rtDrain(s) { if (!s.rtq || !s.rtq.length || (s.pending && $('#modal').classList.contains('hidden'))) return; const L = s.rtq; s.rtq = []; try { resToast(L, true); } catch (e) { console.error('토스트 오류', e); } }
 function renderTop() {
   const s = S, p = me(s);
   $('#t-name').textContent = p.name;
@@ -506,7 +509,7 @@ function coBannerHTML(s, t, f, main) {
     // 돈 줄: 자본금(그룹 전체) · 지난달 순수익 · (적자면) 버틸 수 있는 기간
     const R = [[coFields(t).length > 1 ? '그룹 자본금' : '자본금', fmtWon(t.money), t.money < 0 ? 'neg' : ''], ['지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg']];
     if (net < 0 && out > 0) R.push(['버틸 수 있는 기간', t.money > 0 ? `약 ${Math.floor(t.money / out)}개월` : '바닥났다', 'neg']);
-    rows = facts(R) + facts([['등급', coRankName(t, coRank(t))]].concat(coFieldFacts(s, t, f), [['직원', `${coStaff(s, null, f).length}명`]].concat(typeof coCeo === 'function' && coCeo(t, f) ? [['CEO', ceoName(s, t, f)]] : t.hire ? [['내 자리', 'CEO']] : [])));
+    rows = facts(R) + facts([['그룹 등급', coRankName(t, coRank(t))]].concat(coFieldFacts(s, t, f), [['직원', `${coStaff(s, null, f).length}명`]].concat(typeof coCeo === 'function' && coCeo(t, f) ? [['CEO', ceoName(s, t, f)]] : t.hire ? [['내 자리', 'CEO']] : [])));
   } else rows = facts([['모회사', t.name], ['자본금', fmtWon(coM(t, f)), coM(t, f) < 0 ? 'neg' : '']].concat(coFieldFacts(s, t, f), [['직원', `${coStaff(s, null, f).length}명`]].concat(typeof coCeo === 'function' && coCeo(t, f) ? [['CEO', ceoName(s, t, f)]] : [])));
   return `<button class="job-bn co-bn" data-cof="${f}"><span class="jb-top"><span class="sb-ic">${CO_FIELDS[f].ic}</span><span class="sb-t">${U.esc(coFName(t, f))}</span><span class="jb-auto">${TIER_N[t.f[f].tier]} ${CO_TYPE_N[f] || CO_FIELDS[f].n}</span><span class="sb-n">›</span></span>${rows}</button>`;
 }
@@ -529,7 +532,7 @@ function renderCoCard() {
     return;
   }
   const fs = coFields(t), main = coMainF(t);
-  let h = `<div class="card-h">🏢 회사${fs.length > 1 ? `<span class="sub">「${U.esc(t.name)}」 그룹 · 회사 ${fs.length}곳</span>` : ''}</div>`;
+  let h = `<div class="card-h">🏢 회사${fs.length > 1 ? `<span class="sub">${U.esc(coGrpName(t))} · 회사 ${fs.length}곳</span>` : ''}</div>`;
   h += coBannerHTML(s, t, main, true) + fs.filter(f => f !== main).map(f => coBannerHTML(s, t, f, false)).join('');
   if (coSubLeft(t).length && !t.hire) h += coNewBannerHTML(true, coSubWhy(s, t));
   el.className = 'card co-card'; el.innerHTML = h;
@@ -687,13 +690,14 @@ function showEventRaw() {
   const myProf = !kid && !ev.form && isSkillEv(ev) && evChoices(s).length >= 2;
   h += `<div class="m-foot"><div class="m-stats">${statLine(s)}</div>${kid ? `<button class="btn sm" data-kid="${kid.id}">👶 ${U.esc(kid.name)} 재능</button>` : myProf ? `<button class="btn sm" data-myprof>👤 내 프로필</button>` : ''}</div>`;
   // v173: 결과 기사는 넓은 창 (사진 옆에 본문, 댓글은 옆으로 늘어선다). 창 오른쪽에 토스트 자리를 비워 둔다 (nw-ov)
-  const nw = !!(ev.news && d.card);
+  const nw = !!ev.news && h.includes('<article class="news">');
   $('#mcard').className = 'mcard' + (T || ev.wide ? ' wide' : '') + (nw ? ' nw-wide' : '');
   $('#mcard').innerHTML = h;
   $('#modal').classList.toggle('nw-ov', nw);
   $('#modal').classList.remove('hidden');
   // 결과 기사 (v172 시안): 창이 처음 뜰 때 성과를 토스트로. 기사 사진 속 캐릭터를 칠한다
-  if (ev.news && d.card && !d.tsSeen) { d.tsSeen = 1; try { resToast(newsToasts(ev.news(s, d))); } catch (e) { console.error('성과 토스트 오류', e); } }
+  if (nw && !d.tsSeen) { d.tsSeen = 1; try { resToast(newsToasts(ev.news(s, d))); } catch (e) { console.error('성과 토스트 오류', e); } }
+  rtDrain(s);
   if (typeof chLoad === 'function' && $('#mcard canvas.lv-chc')) { chLoad(); chPaintAll(); }
 
   // 글자를 적는 창은 바로 적을 수 있게 첫 칸에 커서를 둔다 (Enter로 확인)
@@ -1696,10 +1700,17 @@ function songCardHTML(c) {
 // 사건이 news(s, d)로 재료를 준다: { who 기사 속 이름('그룹 ○○'), what 무엇이 나왔나('새 앨범 타이틀곡'), kind 'debut'면 신인 기사, t 제목, c 컨셉, peak, wins,
 //   show 음악방송에 나가는 직업인지, albums 앨범 판매량, by 곡을 쓴 사람 한 문장, ag 소속사(관계자 한마디), end 마지막 문단, pl 사진(무대 장면), mk 제작 과정, ts 토스트 [[아이콘, 글, 'g'|'b'|'']], after 기사 아래 html }
 // v173: 기사는 사실만 적는다 (반응 · 전작 비교는 댓글로). 댓글은 따옴표 없이 커뮤니티 말투
+// v174 작품 기사 (드라마 · 영화 · 애니 · 남의 무대): heads 제목 후보, body(pick) 문단, sec 분류('방송' · '영화' · '애니'), cap 사진 설명, live · bill 버튼.
+//   heads가 있으면 차트 토스트 없이 ts만 띄우고, 카드 반응 줄이 없으면 영상 댓글(plioComments)을 댓글로 쓴다
 // 매체 · 기자 이름은 임시로 붙였다 (사용자가 정하면 여기만 바꾸면 된다)
 const NEWS_OUT = ['팝콘일보', '스테이지K', '엔터픽', '데일리스타랩'];
 const NEWS_SUR = ['김', '이', '박', '최', '정', '강', '조', '윤', '장', '한'], NEWS_GIV = ['수진', '민호', '지은', '현우', '서연', '도윤', '하늘', '태희', '유진', '성민', '예린', '준서'];
 function newsQ(t, p) { return p ? josa(`'${t}'`, p) : `'${t}'`; }
+// 작품 기사 (v174): 성적 글('최고 시청률 12.3%' · '관객 120만 명' · 'OTT 주간 순위 20위 밖')을 문장으로, 점수로 토스트 색
+function newsOut(res) { return /밖$/.test(res) ? `${res.replace(/\s*\S+ 밖$/, '')} 20위 안에는 들지 못했다` : `${josa(res, '을를')} 기록했다`; }
+function newsTone(sc) { return sc >= 65 ? 'g' : sc < 45 ? 'b' : ''; }
+// 작품 기사의 등급 오름 토스트
+function newsUp(what, n) { return ['🏅', `${what} 등급 ↑ · ${n}`, 'g']; }
 function newsHead(N, pick) {
   const A = N.who, T = N.t, pk = N.peak, w = N.wins;
   if (N.kind === 'debut') return pick(pk && (pk <= 20 || w) ? [`신인 ${A}, 데뷔곡 ${newsQ(T, '으로')} 차트 ${pk}위${w ? '…음악방송 1위까지' : ''}`, `'괴물 신인' ${A} 떴다…데뷔곡 ${newsQ(T)} 차트 ${pk}위`]
@@ -1708,7 +1719,7 @@ function newsHead(N, pick) {
   if (pk && (pk <= 20 || w)) return pick([`${A} ${newsQ(T, '이가')} 차트 ${pk}위로 순항${w ? `…음방 1위 ${w}회` : ''}`, `${A}, ${newsQ(T, '으로')} 차트 ${pk}위${w ? ` · 음방 1위 ${w}회` : ''}`]);
   if (pk && pk <= 60) return pick([`${A} ${newsQ(T)}, 차트 ${pk}위로 출발`, `${A} ${newsQ(T)} 차트 ${pk}위…무난한 성적`]);
   if (pk) return pick([`${A} ${newsQ(T)} 차트 ${pk}위…아쉬운 성적`, `${A}, ${newsQ(T, '으로')} 차트 ${pk}위에 그쳐`]);
-  return pick([`${A} ${newsQ(T)}, 차트 100위 진입 실패`, `${A} 새 곡 ${newsQ(T)}…차트에선 안 보여`]);
+  return pick([`${A} ${newsQ(T)}, 차트 100위 진입 실패`, `${A} 새 ${N.unit || '곡'} ${newsQ(T)}…차트에선 안 보여`]);
 }
 // 소속사 관계자 한마디 (성적에 따라)
 function newsAgQ(N, pick) {
@@ -1843,32 +1854,35 @@ function newsHTML(s, d, N) {
   const ht = (s.queue || []).some(q => q.id === 'trend_hit' && q.d && q.d.title === N.t) || (s.pending && s.pending.id === 'trend_hit');
   const out = pick(NEWS_OUT), rep = pick(NEWS_SUR) + pick(NEWS_GIV);
   const date = `${calY(s)}.${pad(calM(s) + 1)}.${pad(1 + Math.floor(R() * 28))} ${pad(7 + Math.floor(R() * 15))}:${pad(Math.floor(R() * 60))}`;
-  N.tr0 = s.trend; const head = newsHead(N, pick), body = newsBody(N, pick, ht);
+  N.tr0 = s.trend; const head = N.heads ? pick(N.heads) : newsHead(N, pick), body = N.body ? (typeof N.body === 'function' ? N.body(pick) : N.body).filter(Boolean) : newsBody(N, pick, ht);
   const sc = N.sc != null ? N.sc : N.peak ? U.clamp(92 - N.peak * 0.3, 55, 92) : 45;
-  const ph = N.pl && typeof plioThumbHTML === 'function' ? `<figure class="nw-ph">${plioThumbHTML(N.pl, hashN('pl' + N.pl.t) % 360)}<figcaption>${U.esc(`${N.who}의 ${newsQ(N.t)} 무대`)}</figcaption></figure>` : '';
+  const ph = N.pl && typeof plioThumbHTML === 'function' ? `<figure class="nw-ph">${plioThumbHTML(N.pl, hashN('pl' + N.pl.t) % 360)}<figcaption>${U.esc(N.cap || `${N.who}의 ${newsQ(N.t)} 무대`)}</figcaption></figure>` : '';
   // 댓글: 카드의 반응 줄 + 지난 곡과 비교. 분위기(성적이 좋았나)와 맞는 말이 위(베스트)로 가고, 분위기와 다른 말에는 싫어요가 많이 붙는다
   const tot = Math.round(Math.pow(10, 1.2 + sc / 30) * (0.7 + 0.6 * R())), mood = (N.peak && N.peak <= 30) || N.wins > 0 ? '\u0005' : '\u0006', used = {};
   const nick = () => { for (let i = 0; i < 12; i++) { const x = pick(PL_NICK); if (!used[x]) { used[x] = 1; return x; } } return '익명'; };
   const L = ((c && c.lines) || []).map(x => [cmSay(evPlain(x).replace(/^"|"$/g, ''), R), x[0] === '\u0005' || x[0] === '\u0006' ? x[0] : '']);
   if (c && c.cmp) L.push(cmCmp(c.cmp, R));
+  // 작품(드라마 · 영화 · 애니 · 남의 무대, v174): 카드 반응 줄이 없으면 영상 댓글(plioComments)을 그대로 쓴다. 분위기와 다른 의견(\u0007)에 싫어요가 붙는다
+  if (!L.length && N.pl && typeof plioComments === 'function') plioComments(N.pl).slice(0, 5).forEach(x => L.push([x.x, x.dn > x.up * 0.3 ? '\u0007' : '']));
   const rk = m => m === mood ? 0 : m ? 2 : 1;
   let up = tot * (0.25 + 0.3 * R());
   const cm = L.sort((a, b) => rk(a[1]) - rk(b[1])).map(([x, m], i) => { const u = Math.max(1, Math.round(up)), dn = Math.round(u * (m && m !== mood ? 0.3 + 0.5 * R() : 0.02 + 0.08 * R())); up *= 0.3 + 0.4 * R(); return `<div class="nw-c"><div class="nw-c-top"><b>${U.esc(nick())}</b>${i === 0 ? '<span class="nw-best">BEST</span>' : ''}<em>${1 + Math.floor(R() * 23)}시간 전</em></div><div class="nw-c-x${m === '\u0005' ? ' ev-g' : m === '\u0006' ? ' ev-b' : ''}">${U.esc(x)}</div><div class="nw-c-up">👍 ${plN(u)}<span>👎 ${plN(dn)}</span></div></div>`; }).join('');
-  return `<article class="news"><div class="nw-top"><span class="nw-logo">${U.esc(out)}</span><span class="nw-sec">연예 › 가요</span></div>`
+  return `<article class="news"><div class="nw-top"><span class="nw-logo">${U.esc(out)}</span><span class="nw-sec">연예 › ${U.esc(N.sec || '가요')}</span></div>`
     + `<h3 class="nw-h">${U.esc(head)}</h3><div class="nw-by">${U.esc(rep)} 기자 · 입력 ${date}</div>${ph}`
     + `<div class="nw-b">${body.map(p => `<p>${U.esc(p)}</p>`).join('')}</div>`
     + (cm ? `<div class="nw-cm"><div class="nw-cm-h">댓글 <b>${plN(tot)}</b></div><div class="nw-cl">${cm}</div></div>` : '') + `</article>`;
 }
 // 토스트로 띄울 성과: 순위 · 음악방송 1위, 그다음 사건이 준 것 (팬 · 정산 · 수익)
 function newsToasts(N) {
-  const T = [N.peak ? ['🎵', `음원 차트 최고 ${N.peak}위`, N.peak <= 20 ? 'g' : ''] : ['🎵', '음원 차트 100위 밖', 'b']];
+  if (N.heads) return (N.ts || []).filter(Boolean); // 작품 기사(v174): 사건이 준 것만
+  const T = [N.peak ?['🎵', `음원 차트 최고 ${N.peak}위`, N.peak <= 20 ? 'g' : ''] : ['🎵', '음원 차트 100위 밖', 'b']];
   if (N.wins) T.push(['🏆', `음악방송 1위 ${N.wins}회`, 'g']);
   return T.concat((N.ts || []).filter(Boolean));
 }
 // 결과 창 본문: 기사 + 그 아래 버튼 한 줄 (제작 과정 · 무대 다시 보기 · 성과 다시 보기 · 정산서) + 덧붙이는 글
 function newsEvHTML(s, d, N) {
-  const c = d.card || {}, mk = N.mk || c.mk;
-  const bns = [mk && typeof albStepsHTML === 'function' ? popBtnHTML('🎼 제작 과정', albStepsHTML(mk)) : '', c.live ? liveBtnHTML(c.live) : '', `<button class="lv-re" data-rtoast="${rtKey(newsToasts(N))}">📊 성과 다시 보기</button>`, c.bill ? billBtnHTML(c.bill) : ''].filter(Boolean).join('');
+  const c = d.card || {}, mk = N.mk || c.mk, lv = N.live || c.live, bl = N.bill || c.bill;
+  const bns = [mk && typeof albStepsHTML === 'function' ? popBtnHTML('🎼 제작 과정', albStepsHTML(mk)) : '', lv ? liveBtnHTML(lv) : '', `<button class="lv-re" data-rtoast="${rtKey(newsToasts(N))}">📊 성과 다시 보기</button>`, bl ? billBtnHTML(bl) : ''].filter(Boolean).join('');
   return newsHTML(s, d, N) + `<div class="co-last nw-bns">${bns}</div>` + (N.after || '');
 }
 // ───── 성과 토스트 (v172 · v173): 한 줄씩 차례로 쌓였다가 몇 초 뒤 사라진다 ─────
@@ -1882,14 +1896,16 @@ function rtPlace(box) {
   if (room < 200) return;
   box.style.left = Math.round(r.right + 12) + 'px'; box.style.top = Math.round(Math.max(16, r.top + 56)) + 'px'; box.style.right = 'auto'; box.style.width = Math.min(300, room) + 'px';
 }
-function resToast(L) {
+// add: 이미 떠 있는 토스트를 지우지 않고 뒤에 붙인다 (달마다 생긴 소식)
+function resToast(L, add) {
   let box = $('#rtoast');
   if (!box) { box = document.createElement('div'); box.id = 'rtoast'; box.className = 'rtoast'; document.body.appendChild(box); }
-  (UI.rtT || []).forEach(clearTimeout); UI.rtT = []; box.innerHTML = ''; rtPlace(box);
+  if (!add || !UI.rtT) { (UI.rtT || []).forEach(clearTimeout); UI.rtT = []; box.innerHTML = ''; UI.rtEnd = 0; }
+  rtPlace(box); const t0 = Math.max(0, (UI.rtEnd || 0) - Date.now()); UI.rtEnd = Date.now() + t0 + L.length * 450;
   L.forEach(([ic, x, tn], i) => UI.rtT.push(setTimeout(() => {
     const e = document.createElement('div'); e.className = 'rt-i' + (tn ? ' ' + tn : ''); e.innerHTML = `<i>${ic}</i><span>${U.esc(x)}</span>`; box.appendChild(e);
     UI.rtT.push(setTimeout(() => { e.classList.add('out'); UI.rtT.push(setTimeout(() => e.remove(), 400)); }, 5200));
-  }, 300 + i * 450)));
+  }, t0 + 300 + i * 450)));
 }
 function billKey(b) { UI.billMap = UI.billMap || {}; const k = UI.billN = (UI.billN || 0) + 1; UI.billMap[k] = b; delete UI.billMap[k - 400]; return k; }
 function billBtnHTML(b) { return `<button class="bill-bn" data-bill="${billKey(b)}">🧾 정산서<span class="bb-t">${U.esc(b.t || '')}</span></button>`; }

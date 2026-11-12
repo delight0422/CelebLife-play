@@ -357,7 +357,9 @@ function liveStreamHTML(sp) {
 const PL_KIND = { drama: '본편 클립', mv: '뮤직비디오', show: '예능 클립', anime: '애니 클립', cover: '커버 영상', clip: '강의 영상', collab: '합작 영상', film: '본편 클립', animk: '애니 클립', stage: '무대 영상', vlog: '새 영상' };
 // stagew: 내가 쓰거나 고른 곡의 무대 영상 (남의 무대)
 PL_KIND.stagew = '무대 영상';
-const PL_WORK_OF = { film: 'drama', animk: 'anime', vlog: 'video', cover: 'video', clip: 'video', collab: 'video', stagew: 'stage' };
+// solo: 혼자 서는 무대 (솔로 가수 · 연주가, v174). 무대 영상과 같은 댓글, 사진에는 한 사람만
+PL_KIND.solo = '무대 영상';
+const PL_WORK_OF = { film: 'drama', animk: 'anime', vlog: 'video', cover: 'video', clip: 'video', collab: 'video', stagew: 'stage', solo: 'stage' };
 const PL_NICK = LV_NICK.concat(['정주행중', '밤고구마', '퇴근길', '치즈김밥', '주말내내', '리모컨주인', '보리차', '참새방앗간', '소파지박령', '삼각김밥', '새우깡', '귤한박스']);
 // 작품에 대한 댓글 (종류마다 · 반응마다). v163: 커뮤니티 · 댓글창 말투 (~음 · ~함 · ~듯이 6~7할)
 const PL_WORK = {
@@ -378,8 +380,8 @@ const PL_ME = {
 };
 PL_ME.stage = { 2: ['{n} 직캠 떴음', '{n} 무대 체질임', '{n}만 보임', '{n} 누구임? 이름 외워 감'], 1: ['{n} 잘함', '{n} 눈에 띔'], 0: ['{n} 화이팅', '{n} 응원함'] };
 // 만든 사람(감독 · 작가)에 대한 댓글. {n}에는 '○○ 감독' · '○○ 작가'가 들어간다
-PL_ME.make = { 2: ['{n} 이름 기억해 둠', '{n} 다음 작품 무조건 봄', '만든 사람이 {n}이라던데 역시'], 1: ['{n} 잘 만드네', '{n} 다음 작품 기대됨'], 0: ['{n} 작품이구나', '{n} 무난하게 뽑았네'], '-1': ['{n} 이번엔 좀 아쉬움', '{n} 감 떨어졌나'], '-2': ['{n} 작품은 이제 거름', '{n} 왜 이렇게 만들었지'] };
-const PL_ME_OF = { drama: 'act', mv: 'act', show: 'show', anime: 'voice', stage: 'stage', film: 'make', animk: 'make', stagew: 'make' };
+PL_ME.make = { 2: ['{n} 이름 기억해 둠', '{n} 다음 작품 무조건 봄', '{n} 작품이라던데 역시'], 1: ['{n} 잘 만드네', '{n} 다음 작품 기대됨'], 0: ['{n} 작품이구나', '{n} 무난하게 뽑았네'], '-1': ['{n} 이번엔 좀 아쉬움', '{n} 감 떨어졌나'], '-2': ['{n} 작품은 이제 거름', '{n} 왜 이렇게 만들었지'] };
+const PL_ME_OF = { drama: 'act', mv: 'act', show: 'show', anime: 'voice', stage: 'stage', solo: 'stage', film: 'make', animk: 'make', stagew: 'make' };
 // v159: 조회수가 너무 커서 10분의 1로 (사용자 결정). 댓글 좋아요 · 싫어요는 조회수를 따라 같이 10분의 1, 영상 좋아요 · 싫어요는 100분의 1 (plioHTML)
 const PL_VW = 0.1;
 function plioSpec(o) {
@@ -388,6 +390,8 @@ function plioSpec(o) {
   // 썸네일 캐릭터 (v154 보탬): 성별 · 의상 (무대 영상은 그 무대의 것을 그대로)
   if (o.sx) sp.sx = o.sx;
   if (o.cos) sp.cos = o.cos;
+  // one: 무대에 한 사람만 (남의 솔로 가수 무대, v174)
+  if (o.one) sp.one = 1;
   // ln: 맨 위에 올릴 댓글 (곡 결과 카드에 이미 나온 반응 한두 줄)
   if (o.ln && o.ln.length) sp.ln = o.ln.slice(0, 2);
   return sp;
@@ -401,7 +405,7 @@ function plioSong(s, d, job) {
   if (!c || !c.t) return d.pl = null;
   const sc = d.sc != null ? d.sc : d.r && d.r.sc != null ? d.r.sc : c.peak ? U.clamp(92 - c.peak * 0.3, 55, 92) : 45;
   const lv = c.live || {}, lsx = lv.sx || '';
-  return d.pl = plioSpec({ k: 'stage', t: `${c.by ? c.by + ' ' : ''}「${c.t}」 무대`, ch: `${PF.video.n} 뮤직`, me: job && job !== 'co' ? actName(s, job) : '', sc, rv: sc >= 80 ? 2 : sc >= 65 ? 1 : 0, vw: Math.pow(10, 3.8 + sc / 22), ln: (c.lines || []).slice(0, 2).map(x => evPlain(x).replace(/^"|"$/g, '')), sx: lsx.length > 1 ? lsx[0] : lsx || (lv.mi === 0 ? lv.ms : ''), cos: lv.cos });
+  return d.pl = plioSpec({ k: job === 'solo' || job === 'player' ? 'solo' : 'stage', t: `${c.by ? c.by + ' ' : ''}「${c.t}」 무대`, ch: `${PF.video.n} 뮤직`, me: job && job !== 'co' ? actName(s, job) : '', sc, rv: sc >= 80 ? 2 : sc >= 65 ? 1 : 0, vw: Math.pow(10, 3.8 + sc / 22), ln: (c.lines || []).slice(0, 2).map(x => evPlain(x).replace(/^"|"$/g, '')), sx: lsx.length > 1 ? lsx[0] : lsx || (lv.mi === 0 ? lv.ms : ''), cos: lv.cos });
 }
 function plN(n) { n = Math.round(n); return n >= 1e8 ? (Math.round(n / 1e7) / 10) + '억' : n >= 1e5 ? Math.round(n / 1e4) + '만' : n >= 1e4 ? (Math.round(n / 1e3) / 10) + '만' : n.toLocaleString(); }
 // 댓글 목록: 작품 이야기 네 개 + 내 이야기 세 개를 섞는다. 반응은 대체로 한쪽이지만 다른 의견도 하나쯤 낀다
@@ -426,14 +430,14 @@ function plioComments(sp) {
 function plioDislike(sp, like) { const R = liveRng(sp.seed + 12); return Math.round(like * (0.02 + Math.max(0, 80 - sp.sc) * 0.004) * (0.7 + 0.6 * R())); }
 // 영상 화면(썸네일): 종류마다 배경을 그리고 캐릭터를 세운다. 그림 파일 없이 CSS와 지금 있는 캐릭터 그림으로 만든다
 // [배경, 사람 수]. 배경: stage 무대 · room 실내(드라마) · studio 예능 · sky 애니 · booth 방송 방 · board 칠판
-const PL_SCENE = { stage: ['stage', 5], stagew: ['stage', 5], mv: ['stage', 1], drama: ['room', 2], film: ['room', 2], show: ['studio', 3], anime: ['sky', 2], animk: ['sky', 2], cover: ['booth', 1], collab: ['booth', 2], vlog: ['booth', 1], clip: ['board', 1] };
+const PL_SCENE = { stage: ['stage', 5], solo: ['stage', 1], stagew: ['stage', 5], mv: ['stage', 1], drama: ['room', 2], film: ['room', 2], show: ['studio', 3], anime: ['sky', 2], animk: ['sky', 2], cover: ['booth', 1], collab: ['booth', 2], vlog: ['booth', 1], clip: ['board', 1] };
 
 function plioThumbHTML(sp, hue) {
-  const R = liveRng(sp.seed + 3), K = PL_SCENE[sp.k] || ['booth', 1], n = K[1];
+  const R = liveRng(sp.seed + 3), K = PL_SCENE[sp.k] || ['booth', 1], n = sp.one ? 1 : K[1];
   const chars = Array.from({ length: n }, (_, i) => liveChar(`pl${sp.seed}/${i}`, (hue + (K[0] === 'stage' ? 0 : i * 71)) % 360, `pl${sp.seed}/${K[0] === 'stage' ? 0 : i}`, { sx: (sp.sx || '').length > 1 ? sp.sx[i] : sp.sx, cos: sp.cos })).join('');
 
   // 사진 배경 (v154 보탬): 무대 영상은 직캠, 뮤직비디오는 세트장 (그림이 없으면 아래 그린 배경이 보인다)
-  const ph = sp.k === 'stage' || sp.k === 'stagew' ? 'fancam' : sp.k === 'mv' ? 'mv' : '';
+  const ph = sp.k === 'stage' || sp.k === 'stagew' || sp.k === 'solo' ? 'fancam' : sp.k === 'mv' ? 'mv' : '';
   return `<div class="pl-video sc-${K[0]}" style="--hue:${hue}"><div class="pl-bg"></div>${ph ? `<div class="pl-ph" style="background-image:url('img/pl/${ph}.webp')"></div>` : ''}<div class="pl-chars n${n}">${chars}</div><span class="pl-kind">${U.esc(PL_KIND[sp.k] || '영상')}</span><span class="pl-dur">${1 + Math.floor(R() * 14)}:${String(Math.floor(R() * 60)).padStart(2, '0')}</span><i class="pl-prog"><b style="width:${Math.round(15 + R() * 70)}%"></b></i></div>`;
 }
 // 배너: 누르면 팝업이 열리고, 다시 누르면 닫힌다

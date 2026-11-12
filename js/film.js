@@ -407,7 +407,7 @@ E({
     const k = t.tier;
     d.up = k < 6 && d.review !== '연출 대혹평' && (k === 5 ? big && (t.bigHits || 0) >= U2.hits && t.rep >= U2.rep && me(s).tal[U2.tal] >= U2.min
       :(!U2.big[k] || big) && (sc >= U2.sc[k] || (U2.rv[k] > 0 && good && sc >= U2.sc[k] - U2.rv[k])));
-    if (d.up) t.tier++;
+    if (d.up) { t.tier++; d.upN = DIR_TIERS[t.tier]; }
     for (const id of (pj.cast || [])) { const c = s.people[id]; if (c) bond(s, c, sc >= 60 ? U.int(3, 8) : U.int(-4, 2)); }
     d.sc = sc;
     addWork(s, { type: `${T.n} 연출`, title: pj.title, by: pj.writer === 'me' ? '각본·연출' : '연출', sc, note: `${d.res} · ${d.review}`, pay: d.fee + (d.bonus || 0) + (d.sale || 0) });
@@ -419,6 +419,31 @@ E({
     if (big && d.fee && sc >= 76) queueEv(s, 'dir_ip', U.int(3, 8), { t: pj.title, fee: d.fee, sc }, true);
   },
   text: (s, d) => `${DIR_PJ[d.pj.tk].n} ${josa(`「${d.pj.title}」`, "이가")} 공개됐다.\n\n${d.res} · ${d.review}\n팬 ${sgnFans(d.gain + (d.boom || 0))}${d.fee ? ` · 연출료 ${fmtWon(d.fee)}` : d.pj.tk === 'short' ? ' · 연출료 없음 (내 돈으로 찍은 단편영화)' : ''}${d.bonus ? ` · ${d.fest ? '상금' : '흥행 인센티브'} ${fmtWon(d.bonus)}` : ''}${d.sale ? ` · ${d.buyer}에 상영권 판매 ${fmtWon(d.sale)}` : ''}` + dirReviewText(d) + (d.up ? `\n\n이 작품으로 '${DIR_TIERS[s.tracks.director.tier]}' 소리를 듣게 됐다.` : '') + wupText(s, d),
+  // v174: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 기사는 사실만, 반응은 댓글(영상 댓글), 얻은 것은 토스트로
+  html: (s, d) => d.sc != null && d.res && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.dir_res.news(s, d)) : '',
+  news(s, d) {
+    const pj = d.pj, T = DIR_PJ[pj.tk], A = `${me(s).name} 감독`, Q = newsQ(pj.title), rv = d.review, sh = pj.tk === 'short', f = (d.gain || 0) + (d.boom || 0), R = d.res;
+    const cast = (pj.cast || []).map(id => s.people[id]).filter(Boolean).slice(0, 2).map(c => c.name), pass = /본선/.test(R);
+    const heads = sh ? (d.prizeN ? [`${A}의 단편 ${Q}, ${d.fest} ${d.prizeN}`, `${d.fest} ${josa(d.prizeN, '은는')} ${A}의 ${Q}`] : pass ? [`${A}의 단편 ${Q}, ${d.fest} 본선 진출`] : [`${A}의 단편 ${Q}, ${d.fest} 예선에서 고배`])
+      : rv === '연출 대호평' ? [`${A}, ${josa(Q, '으로')} 연출력 입증…${R}`, `${Q} ${R}…${A} 연출 빛났다`]
+      : rv === '연출 호평' ? [`${A}의 ${Q}, ${R}`, `${A} 신작 ${Q} 공개…${R}`]
+      : rv === '연출 대혹평' ? [`${A} 신작 ${Q}, 연출 혹평 쏟아져`, `${Q} ${A}, 연출 도마 위에`]
+      : rv === '연출 혹평' ? [`${A} 신작 ${Q}, 연출 아쉬움 남겨`, `${A}의 ${Q}…${R}`]
+      : [`${A} 신작 ${Q} 공개…${R}`, `${T.n} ${Q}, ${R}`];
+    const body = [
+      sh ? `${josa(A, '이가')} 연출한 단편영화 ${josa(Q, '이가')} ${d.fest}${d.prizeN ? `에서 ${josa(d.prizeN, '을를')} 받았다` : pass ? ' 본선에 올랐다' : ' 예선에서 떨어졌다'}.`
+        : `${josa(A, '이가')} 연출한 ${pj.genre ? pj.genre + ' ' : ''}${T.n} ${josa(Q, '이가')} ${pj.tk === 'film' ? '개봉했다' : '공개됐다'}. 작품은 ${newsOut(R)}.`,
+      [pj.writer === 'me' ? `각본도 ${josa(A, '이가')} 직접 썼다.` : '', cast.length ? `${josa(cast.join(', '), '이가')} 출연했다.` : '', d.buyer ? `${d.buyer}에 상영권이 팔렸다.` : ''].filter(Boolean).join(' '),
+      rv === '연출 대호평' && !sh ? '명장면을 풀이하는 영상이 온라인에서 퍼지고 있다.' : rv === '연출 대혹평' && !sh ? `${A}의 이름을 붙인 패러디 영상이 온라인에 돌고 있다.` : '',
+    ];
+    const ts = [['🎬', R, sh ? (d.prizeN ? 'g' : pass ? '' : 'b') : newsTone(d.sc)], ['🎥', rv, /호평/.test(rv) ? 'g' : /혹평/.test(rv) ? 'b' : ''], ['⭐', `내 팬 ${sgnFans(f)} → ${fmtFans(totalFans(s))}`, f >= 0 ? 'g' : 'b']];
+    if (d.fee) ts.push(['💰', `연출료 +${fmtWon(d.fee)}`, 'g']);
+    if (d.bonus) ts.push(['💰', `${d.fest ? '영화제 상금' : '흥행 인센티브'} +${fmtWon(d.bonus)}`, 'g']);
+    if (d.sale) ts.push(['💰', `${d.buyer}에 상영권 판매 +${fmtWon(d.sale)}`, 'g']);
+    if (d.up) ts.push(newsUp('감독', d.upN || DIR_TIERS[s.tracks.director.tier]));
+    if (d.wup && s.tracks.writer) ts.push(newsUp('작가', WRITER_TIERS[s.tracks.writer.tier]));
+    return { who: A, heads, body, sec: pj.tk === 'film' || sh ? '영화' : '방송', t: pj.title, sc: d.sc, pl: EVENTS.dir_res.plio(s, d), cap: `${Q}의 한 장면`, ts };
+  },
   ch: (s, d) => [{ t: '확인', f: () => `「${d.pj.title}」 공개. ${d.res}, ${d.review}.` }],
 });
 E({
@@ -749,6 +774,22 @@ E({
   },
   title: (s, d) => d.fix ? '손본 원고가 작품으로' : '내 원고가 작품으로',
   text: (s, d) => (d.fix ? `내가 손본 ${DIR_PJ[d.tk].n} ${josa(`「${d.t}」`, "이가")} 공개됐다. 원작 ${d.by} 작가, 연출 ${d.dir} 감독.` : `내가 쓴 ${DIR_PJ[d.tk].n} ${josa(`「${d.t}」`, "이가")} 공개됐다. 연출은 ${d.dir} 감독.`) + `\n\n${d.res}${d.bonus ? ` · 흥행 인센티브 ${fmtWon(d.bonus)}` : ''}` + (d.up ? `\n\n이 작품으로 '${WRITER_TIERS[s.tracks.writer.tier]}' 소리를 듣게 됐다.` : ''),
+  // v174: 결과 창을 인터넷 기사로 (ui.js newsEvHTML)
+  html: (s, d) => d.sc != null && d.t && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.script_res.news(s, d)) : '',
+  news(s, d) {
+    const T = DIR_PJ[d.tk], A = `${me(s).name} 작가`, Q = newsQ(d.t), R = d.res, sc = (myScripts(s) || []).find(x => x.id === d.id) || {}, hit = d.sc >= 70, low = d.sc < 45;
+    const heads = d.fix ? [`${T.n} ${Q} 공개…${R}`, `${d.dir} 감독의 ${Q}, ${R}`]
+      : hit ? [`${A}의 ${Q}, ${R}`, `${A} 각본 ${Q} 흥행…${R}`] : low ? [`${A}의 ${Q}, ${R}에 그쳐`, `${A} 각본 ${Q}…아쉬운 성적`] : [`${A} 각본 ${Q} 공개…${R}`, `${T.n} ${Q}, ${R}`];
+    const body = [
+      d.fix ? `${T.n} ${josa(Q, '이가')} ${d.tk === 'film' ? '개봉했다' : '공개됐다'}. 원작은 ${d.by} 작가가 썼고, 각본 수정은 ${josa(A, '이가')} 맡았다. 작품은 ${newsOut(R)}.`
+        : `${josa(A, '이가')} 쓴 ${sc.genre ? sc.genre + ' ' : ''}${T.n} ${josa(Q, '이가')} ${d.tk === 'film' ? '개봉했다' : '공개됐다'}. 작품은 ${newsOut(R)}.`,
+      d.dir ? `연출은 ${d.dir} 감독이 맡았다.` : '',
+    ];
+    const ts = [['🎬', R, newsTone(d.sc)]];
+    if (d.bonus) ts.push(['💰', `흥행 인센티브 +${fmtWon(d.bonus)}`, 'g']);
+    if (d.up && s.tracks.writer) ts.push(newsUp('작가', WRITER_TIERS[s.tracks.writer.tier]));
+    return { who: A, heads, body, sec: d.tk === 'film' ? '영화' : '방송', t: d.t, sc: d.sc, pl: EVENTS.script_res.plio(s, d), cap: `${Q}의 한 장면`, ts };
+  },
   ch: (s, d) => [{ t: '확인', f: () => `「${d.t}」 공개. ${d.res}.` }],
 });
 // 2차 판권: 크게 잘된 내 원고로 웹툰·웹소설·OST·굿즈·해외 리메이크 등이 나와 원작자 몫이 들어온다

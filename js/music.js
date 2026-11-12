@@ -2550,10 +2550,17 @@ INBOX.recital = {
     { t: '거절한다', f: () => '독주회 제안을 거절했다.' },
   ],
 };
+// 연주 앨범의 무대 사진 (v174): 곡 카드가 없어서 발매 기념 연주회(d.live)의 모습으로 만든다. 한 번 만들면 사건에 붙여 둔다
+function plioPlayer(s, d) {
+  if (d.pl !== undefined) return d.pl;
+  if (d.sc == null || typeof plioSpec !== 'function') return d.pl = null;
+  const L = d.live || {}, lsx = L.sx || '';
+  return d.pl = plioSpec({ k: 'solo', t: `${actName(s, 'player')} 「${d.title}」 연주`, ch: `${PF.video.n} 뮤직`, me: actName(s, 'player'), sc: d.sc, rv: d.sc >= 80 ? 2 : d.sc >= 65 ? 1 : 0, vw: Math.pow(10, 3.4 + d.sc / 22), sx: lsx.length > 1 ? lsx[0] : lsx || (L.mi === 0 ? L.ms : ''), cos: L.cos });
+}
 E({
   // 중요한 연주회(첫 앨범 · 반응이 좋았을 때)는 요약에만 남기지 않고 창으로 (무대 창이 먼저 뜬다)
   id: 'player_relres', cat: '음원 성적', title: '연주 앨범 성적', tag: 'career', keepPop: (s, d) => !!(d.live && d.live.key),
-  plio: (s, d) => typeof plioSong === 'function' ? plioSong(s, d, 'player') : null,
+  plio: (s, d) => plioPlayer(s, d),
   live: (s, d) => d.live,
   init(s, d) {
     const t = s.tracks.player;
@@ -2575,6 +2582,14 @@ E({
       z: { perf: (lv(p, t.inst) - 45) / 18, me: (lv(p, t.inst) - 45) / 18, q: (lv(p, 'compose') * 0.6 + lv(p, t.inst) * 0.4 - 45) / 15, fans: (Math.log10(1 + s.fans.kr) - 3.6) / 0.9 } });
   },
   text: (s, d) => `연주 앨범 ${josa(`「${d.title}」`, '이가')} 나왔다.\n\n${d.peak ? chartText(d.peak) : d.sc >= 60 ? '차트에는 못 올랐지만 평론가들이 좋게 봤다.' : '크게 알려지지는 않았다.'}\n팬 +${fmtFans(d.gain)} · 매달 들어올 음원 수익 약 ${fmtWon(d.roy)}`,
+  // v174: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 곡 기사와 같은 틀, 사진은 혼자 선 무대 (plioPlayer)
+  html: (s, d) => d.sc != null && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.player_relres.news(s, d)) : '',
+  news(s, d) {
+    const t = s.tracks.player, A = `${SKILLS[t.inst] ? SKILLS[t.inst].n + ' ' : ''}연주가 ${actName(s, 'player')}`, ts = d.gain > 0 ? [['⭐', `내 팬 ${sgnFans(d.gain)} → ${fmtFans(totalFans(s))}`, 'g']] : [];
+    if (d.roy >= 1e4) ts.push(['🎧', `매달 들어올 음원 수익 약 ${fmtWon(d.roy)}`, 'g']);
+    return { who: A, solo: true, what: '연주 앨범', unit: '앨범', t: d.title, peak: d.peak, wins: 0, show: false, by: '수록곡은 모두 직접 쓰고 연주했다.', sc: d.sc,
+      end: d.live ? '발매를 기념해 연주회도 연다.' : '', pl: plioPlayer(s, d), live: d.live, ts };
+  },
   ch: (s, d) => [{ t: '확인', f: () => `연주 앨범 ${josa(`「${d.title}」`, '을를')} 냈다.` }],
 });
 

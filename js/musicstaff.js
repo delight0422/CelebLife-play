@@ -194,9 +194,18 @@ E({
     const anr = s.people[d.anr]; if (anr) bond(s, anr, sc >= 60 ? 5 : 0);
     d.sc = sc;
     if (typeof liveWatch === 'function') d.live = liveWatch(s, { name: d.a.name, kind: d.a.kind, tier: d.a.tier, title: d.title, c: d.c, sc, peak: d.peak, trend: !!d.c && d.c === s.trend, key: t.songs === 1 || (d.peak && d.peak <= 10) || !!d.up });
-    if (typeof plioSpec === 'function') d.pl = plioSpec({ k: 'stagew', t: `${d.a.name} 「${d.title}」 무대`, ch: `${PF.video.n} 뮤직`, me: `${actName(s, d.kind)} ${wN(d.kind)}`, sc, rv: sc >= 80 ? 2 : sc >= 65 ? 1 : 0, vw: Math.pow(10, 3.6 + sc / 22) });
+    if (typeof plioSpec === 'function') d.pl = plioSpec({ k: 'stagew', t: `${d.a.name} 「${d.title}」 무대`, ch: `${PF.video.n} 뮤직`, me: `${actName(s, d.kind)} ${wN(d.kind)}`, sc, rv: sc >= 80 ? 2 : sc >= 65 ? 1 : 0, vw: Math.pow(10, 3.6 + sc / 22), one: d.a.kind === '솔로 가수' });
   },
   text: (s, d) => `${d.a.name}의 ${josa(`「${d.title}」`, '이가')} 나왔다. (내가 ${wJob(d.kind)})\n\n${chartText(d.peak)}\n매달 들어올 저작권료 약 ${fmtWon(d.roy)} (조금씩 줄어든다)\n업계 평판 ${Math.round(s.tracks[d.kind].rep)}` + (d.up ? `\n\n🎉 ${wN(d.kind)} 단계가 ${qro(W_TIERS[d.up])} 올랐다!` : ''),
+  // v174: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 그 가수의 곡 기사 속에 내 이름이 한 줄 나온다
+  html: (s, d) => d.sc != null && d.a && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.w_res.news(s, d)) : '',
+  news(s, d) {
+    const k = d.a.kind, A = `${k === '솔로 가수' ? '가수' : k} ${d.a.name}`, t = s.tracks[d.kind] || {};
+    const ts = [['🎧', `매달 들어올 저작권료 약 ${fmtWon(d.roy)}`, 'g'], ['📈', `업계 평판 → ${Math.round(t.rep || 0)}`, newsTone(d.sc)]];
+    if (d.up) ts.push(['🏅', `${wN(d.kind)} 단계 ↑ · ${W_TIERS[d.up]}`, 'g']);
+    return { who: A, solo: k === '솔로 가수', what: d.main ? '새 타이틀곡' : '새 앨범 수록곡', t: d.title, c: d.c, peak: d.peak, wins: 0, show: k !== '밴드', sc: d.sc,
+      by: `${josa(wJob(d.kind), '은는')} ${actName(s, d.kind)} ${josa(wN(d.kind), '이가')} 맡았다.`, pl: d.pl || null, live: d.live, ts };
+  },
   ch: (s, d) => [{ t: '확인', f: () => `${wJob(d.kind)} 참여곡 「${d.title}」 (${d.a.name}) ${chartText(d.peak)}.` + (d.up ? ` ${wN(d.kind)} 단계가 ${qro(W_TIERS[d.up])} 올랐다.` : '') }],
 });
 INBOX.w_team = {
