@@ -1354,9 +1354,8 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .nw-bns { margin-bottom: var(--sp-1); }
 .nw-bns .bill-bn { width: auto; margin-top: 0; padding: var(--sp-1) var(--sp-3); }
 /* 넓은 화면 (v173): 창을 가로로 키워 한 화면에 다 보이게. 제목 아래 사진 | 본문 두 칸, 댓글은 옆으로 늘어서고, 고르는 버튼은 한 줄
-   창 오른쪽에 토스트 자리(nw-ov)를 비워 두고, 창과 토스트를 함께 가운데에 둔다 */
+   토스트는 창이 닫힌 뒤에 뜨므로 창 옆에 자리를 비우지 않는다 (v175) */
 @media (min-width: 1000px) {
-  .overlay.nw-ov { padding-right: calc(var(--sp-4) + 290px); }
   .mcard.nw-wide { max-width: 1000px; }
   .nw-wide .news { display: grid; grid-template-columns: minmax(0, 44fr) minmax(0, 56fr); column-gap: var(--sp-4); }
   .nw-wide .nw-top, .nw-wide .nw-h, .nw-wide .nw-by, .nw-wide .nw-cm { grid-column: 1 / -1; }
@@ -1387,12 +1386,19 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
   .nw-wide .choice { padding: var(--sp-2) var(--sp-3); }
 }
 
-/* 성과 토스트 (v172 · v173): 한 줄씩 쌓였다가 사라진다. 넓은 화면은 기사 창 바로 오른쪽(자리를 JS가 잡는다, 없으면 화면 오른쪽 위), 휴대폰은 아래쪽 */
-.rtoast { position: fixed; top: 72px; right: 16px; display: flex; flex-direction: column; gap: 6px; z-index: 90; pointer-events: none; width: min(300px, calc(100vw - 32px)); }
-.rt-i { display: flex; align-items: center; gap: var(--sp-2); background: rgba(35, 27, 53, .94); color: #fff; border-radius: 12px; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-3); font-weight: 700; box-shadow: 0 6px 18px rgba(20, 10, 50, .25); border-left: 4px solid var(--violet); animation: rtIn .28s ease-out; transition: opacity .35s, transform .35s; }
-.rt-i i { font-style: normal; }
+/* 성과 토스트 (v172 · v175): 결과 창이 닫힌 뒤 큰 알림이 한 줄씩 차례로 쌓였다가 사라진다. 넓은 화면은 오른쪽 위, 휴대폰은 아래쪽 */
+.rtoast { position: fixed; top: 76px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 90; pointer-events: none; width: min(440px, calc(100vw - 32px)); }
+.rt-i { display: flex; align-items: center; gap: 14px; background: rgba(35, 27, 53, .96); color: #fff; border-radius: 16px; padding: 14px 20px 14px 16px; font-size: 19px; line-height: 1.35; font-weight: 700; box-shadow: 0 12px 30px rgba(20, 10, 50, .35); border-left: 7px solid var(--violet); animation: rtIn .32s ease-out; transition: opacity .4s, transform .4s; }
+.rt-i i { font-style: normal; font-size: 26px; line-height: 1; flex: none; }
 .rt-i.g { border-left-color: var(--mint); }
 .rt-i.b { border-left-color: var(--red); }
-.rt-i.out { opacity: 0; transform: translateX(24px); }
-@keyframes rtIn { from { opacity: 0; transform: translateX(-16px); } to { opacity: 1; transform: none; } }
-@media (max-width: 760px) { .rtoast { top: auto; bottom: 16px; right: auto; left: 50%; transform: translateX(-50%); } }
+/* 첫 줄: 어떤 결과의 알림인지 (「제목」 결과) */
+.rt-i.h { background: var(--violet); border-left-color: #fff; font-size: 20px; }
+.rt-i.out { opacity: 0; transform: translateX(28px); }
+@keyframes rtIn { from { opacity: 0; transform: translateX(-20px) scale(.96); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) {
+  .rtoast { top: auto; bottom: 14px; right: auto; left: 50%; transform: translateX(-50%); width: calc(100vw - 24px); gap: 8px; }
+  .rt-i { font-size: 17px; padding: 12px 16px 12px 14px; gap: 12px; }
+  .rt-i i { font-size: 22px; }
+  .rt-i.h { font-size: 18px; }
+}

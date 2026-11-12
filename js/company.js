@@ -1702,7 +1702,7 @@ E({
 const CO_KIND_W = ['엔터테인먼트', '엔터', '뮤직', '레이블', '컴퍼니', '버츄얼', 'MCN', '픽처스', '애니메이션', '스튜디오', '미디어', '프로덕션', '네트워크', '크리에이티브', 'ENT'];
 function coGrpName(t) { const w = String(t.name || '').trim().split(/\s+/); if (w.length > 1 && CO_KIND_W.includes(w[w.length - 1])) w.pop(); return w.join(' ') + ' 그룹'; }
 function coRankWho(t) { return coFields(t).length > 1 ? coGrpName(t) : `「${t.name}」`; }
-function rtPush(s, x) { s.rtq = (s.rtq || []).concat([x]).slice(-8); }
+function rtPush(s, x) { s.rtq = (s.rtq || []).concat([x]).slice(-24); }
 // 토스트 한 줄: [아이콘, 글, 'g'|'b']
 function coTierToast(msg) { return ['🏢', `기업 등급 ${/커졌다/.test(msg) ? '↑' : '↓'} · ${msg.replace(/!$/, '')}`, /커졌다/.test(msg) ? 'g' : 'b']; }
 function coRankToast(msg) { return ['🏆', `그룹 등급 ↑ · ${msg.replace(/\.$/, '')}`, 'g']; }

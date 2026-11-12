@@ -236,8 +236,13 @@ function render() {
   goBtnSync();
   rtDrain(S);
 }
-// 달마다 생긴 성과 토스트(기업 등급 · 그룹 등급 오름 등, s.rtq)를 화면에 띄우고 비운다 (v174). 곧 뜰 사건 창이 있으면 그 창이 뜬 뒤에 (기사 토스트 뒤에 붙는다)
-function rtDrain(s) { if (!s.rtq || !s.rtq.length || (s.pending && $('#modal').classList.contains('hidden'))) return; const L = s.rtq; s.rtq = []; try { resToast(L, true); } catch (e) { console.error('토스트 오류', e); } }
+// 성과 토스트 줄 (v174 · v175): 결과 기사의 성과 · 기업 등급 · 그룹 등급 오름을 s.rtq에 모아 두었다가,
+// 창(사건 창 · 무대 창 · 요약 창)이 모두 닫히고 게임 화면으로 돌아오면 들어온 차례대로 띄운다 (사건이 이어서 뜨면 그 창까지 닫힌 뒤에)
+function rtQueue(s, L) { s.rtq = (s.rtq || []).concat(L).slice(-24); }
+function rtDrain(s) {
+  if (!s || !s.rtq || !s.rtq.length || s.pending || ['#modal', '#live', '#turn'].some(q => !$(q).classList.contains('hidden'))) return;
+  const L = s.rtq; s.rtq = []; try { resToast(L, true); } catch (e) { console.error('토스트 오류', e); }
+}
 function renderTop() {
   const s = S, p = me(s);
   $('#t-name').textContent = p.name;
@@ -689,15 +694,13 @@ function showEventRaw() {
   // 특기를 고르거나 처음 배우는 사건: 내 프로필(재능·타고난 것)을 바로 볼 수 있는 버튼 (고를 게 하나뿐인 사건에는 없다)
   const myProf = !kid && !ev.form && isSkillEv(ev) && evChoices(s).length >= 2;
   h += `<div class="m-foot"><div class="m-stats">${statLine(s)}</div>${kid ? `<button class="btn sm" data-kid="${kid.id}">👶 ${U.esc(kid.name)} 재능</button>` : myProf ? `<button class="btn sm" data-myprof>👤 내 프로필</button>` : ''}</div>`;
-  // v173: 결과 기사는 넓은 창 (사진 옆에 본문, 댓글은 옆으로 늘어선다). 창 오른쪽에 토스트 자리를 비워 둔다 (nw-ov)
+  // v173: 결과 기사는 넓은 창 (사진 옆에 본문, 댓글은 옆으로 늘어선다)
   const nw = !!ev.news && h.includes('<article class="news">');
   $('#mcard').className = 'mcard' + (T || ev.wide ? ' wide' : '') + (nw ? ' nw-wide' : '');
   $('#mcard').innerHTML = h;
-  $('#modal').classList.toggle('nw-ov', nw);
   $('#modal').classList.remove('hidden');
-  // 결과 기사 (v172 시안): 창이 처음 뜰 때 성과를 토스트로. 기사 사진 속 캐릭터를 칠한다
-  if (nw && !d.tsSeen) { d.tsSeen = 1; try { resToast(newsToasts(ev.news(s, d))); } catch (e) { console.error('성과 토스트 오류', e); } }
-  rtDrain(s);
+  // 결과 기사: 처음 뜰 때 성과를 토스트 줄에 넣어 둔다. 창이 닫힌 뒤에 '「제목」 결과' 줄부터 차례로 뜬다 (v175). 기사 사진 속 캐릭터를 칠한다
+  if (nw && !d.tsSeen) { d.tsSeen = 1; try { const N = ev.news(s, d); rtQueue(s, [['📰', N.t ? `「${N.t}」 결과` : '결과', 'h']].concat(newsToasts(N))); } catch (e) { console.error('성과 토스트 오류', e); } }
   if (typeof chLoad === 'function' && $('#mcard canvas.lv-chc')) { chLoad(); chPaintAll(); }
 
   // 글자를 적는 창은 바로 적을 수 있게 첫 칸에 커서를 둔다 (Enter로 확인)
@@ -811,7 +814,7 @@ function resShow(o) {
   h += `<div class="res-box">${resItems(o.L)}</div>`;
   h += `<div class="choices"><button class="btn primary" data-resok>${more ? '다음 ▶' : '확인'} <kbd>Space</kbd></button></div>`;
   h += `<div class="m-foot"><div class="m-stats">${statLine(s)}</div></div>`;
-  $('#mcard').className = 'mcard res-card'; $('#modal').classList.remove('nw-ov');
+  $('#mcard').className = 'mcard res-card'
   $('#mcard').innerHTML = h;
   $('#modal').classList.remove('hidden');
   
@@ -921,7 +924,7 @@ function showEnding(preview) {
   h += `</div>`;
   h += pv ? `<div class="choices end-btns"><button class="btn primary" data-endclose>닫기</button></div>`
     : `<div class="choices end-btns"><button class="btn primary" id="end-new">다시 태어나기</button><button class="btn" id="end-title">첫 화면으로</button><button class="btn ghost" data-endclose>기록 더 보기</button></div>`;
-  $('#mcard').className = 'mcard ending'; $('#modal').classList.remove('nw-ov');
+  $('#mcard').className = 'mcard ending'
   $('#mcard').innerHTML = h;
   $('#modal').classList.remove('hidden');
   $('#modal').scrollTop = 0;
@@ -1885,27 +1888,23 @@ function newsEvHTML(s, d, N) {
   const bns = [mk && typeof albStepsHTML === 'function' ? popBtnHTML('🎼 제작 과정', albStepsHTML(mk)) : '', lv ? liveBtnHTML(lv) : '', `<button class="lv-re" data-rtoast="${rtKey(newsToasts(N))}">📊 성과 다시 보기</button>`, bl ? billBtnHTML(bl) : ''].filter(Boolean).join('');
   return newsHTML(s, d, N) + `<div class="co-last nw-bns">${bns}</div>` + (N.after || '');
 }
-// ───── 성과 토스트 (v172 · v173): 한 줄씩 차례로 쌓였다가 몇 초 뒤 사라진다 ─────
-// 넓은 화면은 기사 창 바로 오른쪽 (창 오른쪽에 자리가 모자라면 화면 오른쪽 위), 휴대폰은 아래쪽
+// ───── 성과 토스트 (v172 · v175): 큰 알림이 한 줄씩 차례로 쌓였다가 몇 초 뒤 사라진다 ─────
+// 넓은 화면은 오른쪽 위, 휴대폰은 아래쪽. 한꺼번에 RT_MAX개까지만 보이고, 넘치면 오래된 것부터 먼저 사라진다
+const RT_GAP = 700, RT_STAY = 6500, RT_MAX = () => window.innerWidth <= 760 ? 4 : 6;
 function rtKey(L) { UI.rtMap = UI.rtMap || {}; const k = UI.rtN = (UI.rtN || 0) + 1; UI.rtMap[k] = L; delete UI.rtMap[k - 200]; return k; }
-function rtPlace(box) {
-  const m = $('#mcard'), W = window.innerWidth;
-  box.style.left = box.style.top = box.style.right = '';
-  if (W <= 760 || !m || $('#modal').classList.contains('hidden')) return;
-  const r = m.getBoundingClientRect(), room = W - r.right - 24;
-  if (room < 200) return;
-  box.style.left = Math.round(r.right + 12) + 'px'; box.style.top = Math.round(Math.max(16, r.top + 56)) + 'px'; box.style.right = 'auto'; box.style.width = Math.min(300, room) + 'px';
-}
-// add: 이미 떠 있는 토스트를 지우지 않고 뒤에 붙인다 (달마다 생긴 소식)
+function rtOut(e) { if (e.classList.contains('out')) return; e.classList.add('out'); UI.rtT.push(setTimeout(() => e.remove(), 400)); }
+// add: 이미 떠 있는 토스트를 지우지 않고 뒤에 이어 붙인다 (모아 둔 토스트 줄). 없으면 지우고 새로 (성과 다시 보기)
 function resToast(L, add) {
   let box = $('#rtoast');
   if (!box) { box = document.createElement('div'); box.id = 'rtoast'; box.className = 'rtoast'; document.body.appendChild(box); }
   if (!add || !UI.rtT) { (UI.rtT || []).forEach(clearTimeout); UI.rtT = []; box.innerHTML = ''; UI.rtEnd = 0; }
-  rtPlace(box); const t0 = Math.max(0, (UI.rtEnd || 0) - Date.now()); UI.rtEnd = Date.now() + t0 + L.length * 450;
+  const t0 = Math.max(0, (UI.rtEnd || 0) - Date.now()); UI.rtEnd = Date.now() + t0 + L.length * RT_GAP;
   L.forEach(([ic, x, tn], i) => UI.rtT.push(setTimeout(() => {
+    const live = [...box.children].filter(c => !c.classList.contains('out'));
+    live.slice(0, Math.max(0, live.length - RT_MAX() + 1)).forEach(rtOut);
     const e = document.createElement('div'); e.className = 'rt-i' + (tn ? ' ' + tn : ''); e.innerHTML = `<i>${ic}</i><span>${U.esc(x)}</span>`; box.appendChild(e);
-    UI.rtT.push(setTimeout(() => { e.classList.add('out'); UI.rtT.push(setTimeout(() => e.remove(), 400)); }, 5200));
-  }, t0 + 300 + i * 450)));
+    UI.rtT.push(setTimeout(() => rtOut(e), RT_STAY));
+  }, t0 + 300 + i * RT_GAP)));
 }
 function billKey(b) { UI.billMap = UI.billMap || {}; const k = UI.billN = (UI.billN || 0) + 1; UI.billMap[k] = b; delete UI.billMap[k - 400]; return k; }
 function billBtnHTML(b) { return `<button class="bill-bn" data-bill="${billKey(b)}">🧾 정산서<span class="bb-t">${U.esc(b.t || '')}</span></button>`; }
