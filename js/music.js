@@ -2351,7 +2351,7 @@ E({
     if (d.sale) ts.push(['💰', `음반·음원 정산 +${fmtWon(d.sale)}`, 'g']);
     if (d.roy >= 1e4) ts.push(['🎧', `매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)}`, 'g']);
     const by = d.self ? `${josa(A, '이가')} 직접 쓴 곡이다.` : d.w ? `작곡은 ${josa(d.w, '이가')} 맡았다.` : '';
-    return { who: A, what: first ? '데뷔곡' : '신곡', kind: first ? 'debut' : '', t: d.title, c: d.c, peak: d.peak, wins: d.wins, show: true, by, ag: t.st === 'signed' ? t.agN : '', sc: d.sc,
+    return { who: A, solo: true, what: first ? '데뷔곡' : '신곡', kind: first ? 'debut' : '', t: d.title, c: d.c, peak: d.peak, wins: d.wins, show: true, by, ag: t.st === 'signed' ? t.agN : '', sc: d.sc,
       end: `${josa(A, '은는')} 음악방송과 라디오로 활동을 이어 간다.`, pl: typeof plioSong === 'function' ? plioSong(s, d, 'solo') : null, ts };
   },
   text: (s, d) => `「${d.title}」${d.self ? ` (자작곡${d.c ? ` · '${d.c}' 컨셉` : ''})` : d.w && d.c ? ` (작곡 ${d.w} · '${d.c}' 컨셉)` : ''} 성적이 나왔다.${d.side ? ` ${d.side}` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}${d.wins ? ` · 음악방송 1위 ${d.wins}회` : ''}\n팬 ${sgnFans(d.gain)}`}${d.sale ? `\n\n음반·음원 정산 ${fmtWon(d.sale)}` : ''}\n매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.card ? '' : `\n\n반응: ${d.cm}`}`,
@@ -2648,8 +2648,8 @@ function myPickCost(s, x, ti, pol) { return (ti ? ti.price || 0 : 0) + albPolPay
 function myPolC(s, k) { const t = s.tracks[k]; return t.alb.polC || (t.alb.polC = albPolCands(s, t.lastPol)); }
 function myPolFields(s, k) {
   const p = me(s), co = ownCo(s, k) && typeof coPolBase === 'function', v = co && typeof coViewer === 'function' ? sk => coViewer(s, 'anr', sk, 'music') : () => p;
-  // v166: 내 회사 소속이면 사내 프로듀서에게 맡기거나 '회사에서'(사내 프로듀서들이 같이) 할 수 있다
-  const B = co ? coPolBase(s) : { arr: [{ v: '', label: '따로 맡기지 않는다', sub: '돈 안 듦 · 조금만 다듬어진다' }], lyr: [{ v: '', label: '따로 맡기지 않는다', sub: '돈 안 듦 · 조금만 다듬어진다' }] };
+  // v166: 내 회사 소속이면 사내 프로듀서에게 맡길 수 있다 (v173: 돈이 안 드는 칸에는 돈 이야기를 하지 않는다)
+  const B = co ? coPolBase(s) : { arr: [{ v: '', label: '따로 맡기지 않는다', sub: '조금만 다듬어진다' }], lyr: [{ v: '', label: '따로 맡기지 않는다', sub: '조금만 다듬어진다' }] };
   if (has(p, 'lyric')) B.lyr.splice(1, 0, { v: 'me', label: '타이틀곡 가사는 내가 쓴다', sub: `작사 ${lvi(p, 'lyric')}레벨 · 실력만큼 곡이 달라지고, 작사 저작권료 몫이 생긴다` });
   return albPolFields(s, myAlbX(s, k), myPolC(s, k), s.tracks[k].lastPol, B, v);
 }
@@ -2671,8 +2671,7 @@ function myAlbGo(s, k) {
   jobPay(s, cost, k === 'band' ? '밴드 새 곡 제작비' : '신곡 제작비', k);
   for (const d of picks) { const c = d.cid && s.people[d.cid]; if (c && c.ind) { meetAt(s, c, `「${d.title}」`, k); bond(s, c, d === ti ? 3 : 1); const cm = coCm(c); cm[d.c] = Math.min(100, cm[d.c] + (100 - cm[d.c]) * (d === ti ? 0.06 : 0.02)); } }
   x.cs = a.cs; x.src = a.src;
-  const sp = a.sel.pol, T = sp && typeof sp === 'object' && ownCo(s, k) && typeof coProdTeam === 'function' ? coProdTeam(s) : null;
-  const pol = albPolish(s, x, T ? Object.assign({}, sp, { arrLv: sp.arr ? 0 : T.arr, lyrLv: sp.lyr ? 0 : T.lyr }) : sp);
+  const pol = albPolish(s, x, a.sel.pol); // v173: '회사에서 편곡 · 작사'가 없어져 맡기지 않은 쪽은 조금만 다듬어진다
   // 타이틀곡 가사를 내가 쓰면: 내 작사 실력만큼 곡이 달라지고, 작사 저작권료 몫이 생긴다
   if (a.sel.ly) { pol.dq += U.clamp((lv(p, 'lyric') - 35) * 0.05, -2, 2.5); useSkill(s, p, 'lyric', 2); pol.lyr = '나'; }
   const mk = albMk(s, a, picks, ti, pol, '나');

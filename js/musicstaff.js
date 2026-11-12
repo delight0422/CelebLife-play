@@ -391,7 +391,7 @@ E({
     if (!w.alb || !w.alb.five) prodCollect(s, w, [w.c || w.a.sig], ['open'].concat(has(me(s), 'compose') ? ['me'] : []), 0);
   },
   text: (s, d) => { const w = prodW(s, d), a = w.alb, j = s.people[a.by], need = Math.min(ALB_PICK, a.five.length); return `${w.a.name} 앨범 「${w.title}」에 실을 곡을 정할 차례다.\n\n모인 데모곡 ${a.n}곡 가운데 ${j ? `A&R 팀장 ${josa(j.name, '이가')}` : 'A&R팀이'} ${a.five.length}곡을 추려 왔다. 실을 ${need}곡을 체크하고, 그중 타이틀곡을 하나 찍자. 내 곡을 타이틀로 하면 저작권료를 더 받는다.\n\n남은 앨범 예산 ${fmtWon(prodLeft(w))} · 타이틀곡 값과 편곡 · 작사를 맡길 때 드는 돈이 여기서 나간다. 맡기지 않으면 내가 직접 다듬는다 (내 편곡 실력 ${Math.round(prodArr(me(s)))}).`; },
-  form: (s, d) => { const w = prodW(s, d), p = me(s); return w.alb.five.map((x, i) => ({ k: 'p' + i, type: 'check', label: x.title })).concat(albPolFields(s, prodX(s, w), prodPolC(s, w), s.prodPol, { arr: [{ v: '', label: '내가 직접 편곡한다', sub: '돈 안 듦 · 악기 · 작곡 실력만큼 다듬어진다' }], lyr: [{ v: '', label: '내가 직접 다듬는다', sub: `돈 안 듦${has(p, 'lyric') ? ` · 작사 ${lvi(p, 'lyric')}레벨` : ' · 작사를 못 해서 조금만 다듬어진다'}` }] }, () => p)); },
+  form: (s, d) => { const w = prodW(s, d), p = me(s); return w.alb.five.map((x, i) => ({ k: 'p' + i, type: 'check', label: x.title })).concat(albPolFields(s, prodX(s, w), prodPolC(s, w), s.prodPol, { arr: [{ v: '', label: '내가 직접 편곡한다', sub: '악기 · 작곡 실력만큼 다듬어진다' }], lyr: [{ v: '', label: '내가 직접 다듬는다', sub: has(p, 'lyric') ? `작사 ${lvi(p, 'lyric')}레벨` : '작사를 못 해서 조금만 다듬어진다' }] }, () => p)); },
   tbl: (s, d) => {
     const w = prodW(s, d), v = me(s);
     const rows = w.alb.five.map((x, i) => { const c = x.mine ? v : x.cid && s.people[x.cid], tag = cTag(s, x.c, w.a.sig); return { k: 'p' + i, tr: x.c === s.trend, sig: x.c === w.a.sig, cells: {

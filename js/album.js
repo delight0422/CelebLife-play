@@ -13,7 +13,7 @@ const ALB_SRC = [
   { k: 'open', n: '외부 공모', h: '작곡가들에게 두루 곡을 받는다 · 곡은 많지만 수준이 들쭉날쭉', cnt: [5, 9, 13, 17], cost: [0, 0, 0, 0] },
   { k: 'name', n: '지명 의뢰', h: '이름난 작곡가 몇 명에게 따로 부탁한다 · 곡은 적지만 믿을 만하다', cnt: [2, 3, 3, 4], cost: [400e4, 1500e4, 3000e4, 5000e4] },
   { k: 'camp', n: '송캠프', h: '작곡가들을 한데 모아 고른 컨셉으로 곡을 쓰게 한다', cnt: [3, 4, 5, 6], cost: [900e4, 2500e4, 5000e4, 9000e4] },
-  { k: 'in', n: '사내 제작', h: '회사 사내 프로듀서들이 곡을 쓴다 · 곡값은 월급에 들어 있다', cnt: [0, 0, 0, 0], cost: [0, 0, 0, 0] },
+  { k: 'in', n: '사내 제작', h: '회사 사내 프로듀서들이 곡을 쓴다', cnt: [0, 0, 0, 0], cost: [0, 0, 0, 0] },
   { k: 'mem', n: '멤버 자작곡', h: '작곡할 줄 아는 멤버에게 곡을 받는다', cnt: [0, 0, 0, 0], cost: [0, 0, 0, 0] },
   { k: 'me', n: '내가 쓴 곡', h: '내가 직접 한 곡 쓴다 · 심사 없이 후보에 오른다', cnt: [1, 1, 1, 1], cost: [0, 0, 0, 0] },
 ];
@@ -108,7 +108,7 @@ function albScreen(s, x, demos, judge) {
 // ⑤ 편곡 · 작사: 이름난 사람에게 맡기면 그 실력만큼 곡이 다듬어진다
 // v165: out이 { arr, lyr }(사람 id)면 고른 사람에게만 맡긴다. 맡기지 않은 쪽은 조금만 다듬어진다 ('me'는 내가 직접 · 쓰는 쪽에서 따로 셈한다)
 // 편곡은 작곡 특기, 작사는 작사 특기로 본다 (편곡 특기는 따로 없다)
-// v166: 'in:사람 id'는 사내 프로듀서 (돈 안 듦). arrLv · lyrLv가 있으면 맡기지 않은 쪽도 그 실력만큼 (회사에서 = 사내 프로듀서들이 같이)
+// v166: 'in:사람 id'는 사내 프로듀서 (곡값이 따로 안 든다). arrLv · lyrLv가 있으면 맡기지 않은 쪽도 그 실력만큼 (v173부터 회사 쪽은 쓰지 않는다: '회사에서 편곡 · 작사'를 없앰)
 function albPolWho(s, v) { if (!v || v === 'me') return null; return s.people[String(v).replace(/^in:/, '')] || null; }
 function albPolDa(L) { return U.clamp(0.25 + L * 0.02 + U.normal(0, 0.35), 0.5, 2.5); }
 function albPolDl(L) { return U.clamp(0.25 + L * 0.015 + U.normal(0, 0.35), 0.5, 2); }
@@ -181,7 +181,7 @@ function albPlanForm(s, x, fit) {
   const L = x.last && x.last.cs && x.last.cs.length ? x.last : null, SL = albSrcList(s, x), srcOn = L && L.src && L.src.some(k => SL.some(z => z.k === k)) ? k => L.src.includes(k) : k => k === 'open';
   for (const c of TRENDS) F.push({ k: 'c_' + c, type: 'check', on: L ? L.cs.includes(c) : c === (x.def || x.sig), label: c, tr: c === s.trend, sub: [c === x.sig ? '대표 컨셉' : '', fit ? fit(c) : ''].filter(Boolean).join(' · ') });
   F.push({ type: 'head', label: '곡을 모으는 곳' });
-  for (const z of SL) { const n = albSrcCnt(x, z, 1), w = z.k === 'mem' ? albWriters(x).map(p => p.name).join(' · ') : z.k === 'in' ? x.inh.map(p => p.name).join(' · ') : ''; F.push({ k: 's_' + z.k, type: 'check', on: srcOn(z.k), label: z.n, sub: `${z.h}${w ? ` (${w})` : ''} · ${n}곡${z.k === 'open' ? '쯤' : ''} · ${z.cost[x.tier] ? fmtWon(z.cost[x.tier]) : '돈 안 듦'}` }); }
+  for (const z of SL) { const n = albSrcCnt(x, z, 1), w = z.k === 'mem' ? albWriters(x).map(p => p.name).join(' · ') : z.k === 'in' ? x.inh.map(p => p.name).join(' · ') : ''; F.push({ k: 's_' + z.k, type: 'check', on: srcOn(z.k), label: z.n, sub: `${z.h}${w ? ` (${w})` : ''} · ${n}곡${z.k === 'open' ? '쯤' : ''}${z.cost[x.tier] ? ` · ${fmtWon(z.cost[x.tier])}` : ''}` }); } // v173: 돈이 안 드는 곳은 돈 이야기를 하지 않는다
   return F;
 }
 function albOn(v, k) { return !!v[k] && v[k] !== 'false'; }

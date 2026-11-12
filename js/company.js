@@ -1089,15 +1089,15 @@ function coCm(x) {
 function coPickCost(s, g, picks, ti, pol) { const x = coAlbX(s, g); return albSongCost(picks, ti) + albPolPay(s, x, pol); }
 // 편곡자 · 작사가 후보 (앨범마다 한 번 정해 둔다)
 function coPolC(s, g) { return g.alb.polC || (g.alb.polC = albPolCands(s, g.lastPol)); }
-// 사내 프로듀서에게 편곡 · 작사 시키기 (v166): 그룹 전담이 아닌 사내 프로듀서(일 없는 사람)는 이름을 찍어 맡길 수 있다 (돈 안 듦)
-// '회사에서'를 고르면 일 없는 사내 프로듀서들이 같이 한다: 그 사람들 실력 평균의 85%만큼 (없으면 조금만 다듬어진다)
+// 사내 프로듀서에게 편곡 · 작사 시키기 (v166): 그룹 전담이 아닌 사내 프로듀서(일 없는 사람)는 이름을 찍어 맡길 수 있다 (곡값이 따로 안 든다)
+// v173: '회사에서 편곡한다 · 작사한다'(일 없는 사내 프로듀서들이 같이, 평균의 85%)는 없앴다. 사내 프로듀서를 직접 찍는 것보다 나은 점이 없어서. 대신 '따로 맡기지 않는다'
+// 돈이 안 드는 칸에는 돈 이야기를 하지 않는다 (오른쪽에 값이 없으면 안 드는 것)
 function coProdIdle(s) { const t = coT(s); return coStaff(s, 'prod', 'music').filter(P => !coProdDed(t, P)); }
-function coProdTeam(s) { const L = coProdIdle(s), avg = k => { const H = L.filter(P => has(P, k)); return H.length ? H.reduce((a, P) => a + lv(P, k), 0) / H.length * 0.85 : 0; }; return { arr: avg('compose'), lyr: avg('lyric') }; }
 function coPolBase(s) {
-  const L = coProdIdle(s), T = coProdTeam(s), out = { arr: [], lyr: [] };
+  const L = coProdIdle(s), out = { arr: [], lyr: [] };
   for (const [k, n, sk] of [['arr', '편곡', 'compose'], ['lyr', '작사', 'lyric']]) {
-    out[k].push({ v: '', label: `회사에서 ${n}한다`, sub: T[k] ? `돈 안 듦 · 일 없는 사내 프로듀서들이 같이 한다 (${SKILLS[sk].n} 평균의 85% · ${Math.round(T[k])}레벨쯤)` : '돈 안 듦 · 일 없는 사내 프로듀서가 없어 조금만 다듬어진다' });
-    for (const P of L.filter(P => has(P, sk))) out[k].push({ v: 'in:' + P.id, label: `사내 프로듀서 ${P.name}`, sub: `${SKILLS[sk].n} ${lvi(P, sk)}레벨 · 돈 안 듦 (월급에 들어 있다)` });
+    out[k].push({ v: '', label: '따로 맡기지 않는다', sub: '조금만 다듬어진다' });
+    for (const P of L.filter(P => has(P, sk))) out[k].push({ v: 'in:' + P.id, label: `사내 프로듀서 ${P.name}`, sub: `${SKILLS[sk].n} ${lvi(P, sk)}레벨` });
   }
   return out;
 }
@@ -1147,8 +1147,7 @@ function coAlbGo(s, g, boss) {
   coOut(t, songs, '곡값', 'music'); coOut(t, polC, '편곡 · 작사', 'music');
   g.debt += songs + polC;
   for (const d of picks) { const c = d.cid && s.people[d.cid]; if (c && c.ind) { meetAt(s, c, `「${g.name}」 「${d.title}」`, 'agency'); bond(s, c, d === ti ? 3 : 1); const cm = coCm(c); cm[d.c] = Math.min(100, cm[d.c] + (100 - cm[d.c]) * (d === ti ? 0.06 : 0.02)); } }
-  const sp = a.sel.pol, T = sp && typeof sp === 'object' ? coProdTeam(s) : null;
-  const pol = albPolish(s, x, T ? Object.assign({}, sp, { arrLv: sp.arr ? 0 : T.arr, lyrLv: sp.lyr ? 0 : T.lyr }) : sp), side = picks.filter(d => d !== ti);
+  const pol = albPolish(s, x, a.sel.pol), side = picks.filter(d => d !== ti); // v173: '회사에서 편곡 · 작사'가 없어져 맡기지 않은 쪽은 조금만 다듬어진다
   for (const id of [pol.aid, pol.lid]) { const c = id && s.people[id]; if (c) { meetAt(s, c, `「${g.name}」 「${ti.title}」`, 'agency'); bond(s, c, 2); } }
   const o = { gid: g.id, mine: !!ti.mine, c: ti.c, title: ti.title, q: ti.q + pol.dq, price: songs, cid: ti.cid || null, side: side.length ? side.reduce((n, d) => n + d.q, 0) / side.length : null, due: x.prod, sub: side.filter(d => d.mine).map(d => d.title), mk: albMk(s, a, picks, ti, pol, boss || '대표') };
   if (a.lost && U.chance(0.6)) { const j = a.by && s.people[a.by]; queueEv(s, 'co_lost', U.int(4, 8), { title: a.lost.title, by: albBy(s, a.lost), q: a.lost.q, who: j ? j.name : '' }, true); }
@@ -2451,7 +2450,17 @@ function ceoChoose(s, t, f, C) {
       P = [ti].concat(I.filter(i => i !== ti).sort((a, b) => qv(b) - qv(a)).slice(0, need - 1));
     } else { const pool = ok.length ? ok : byP(I).slice(0, 2), ti = U.pick(pool); P = [ti].concat(U.shuffle(I.filter(i => i !== ti && F[i].price <= cap * 2)).slice(0, need - 1)); for (const i of byP(I)) if (P.length < need && !P.includes(i)) P.push(i); }
     const v = { ti: 'p' + P[0] }; P.forEach(i => v['p' + i] = true);
-    if (sm) { const PC = coPolC(s, g); for (const [k, sk] of [['arr', 'compose'], ['lyr', 'lyric']]) { let b = '', bl = 0; for (const pid of PC[k] || []) { const p = s.people[pid]; if (!p) continue; const fee = albPolFee(coAlbX(s, g), p, k), r = lvRange(coViewer(s, 'anr', sk, 'music'), p, sk), L = (r[0] + r[1]) / 2; if (fee <= mo * 0.03 && L > bl && L >= 45) { b = pid; bl = L; } } v[k] = b; } }
+    // v173: '회사에서 편곡 · 작사'가 없어져, 일 없는 사내 프로듀서를 직접 찍는다 (꼼꼼한 CEO는 그 사람과 밖의 편곡자 · 작사가 중 나은 쪽, 덜 꼼꼼하면 아무나 한 명)
+    const IN = coProdIdle(s);
+    for (const [k, sk] of [['arr', 'compose'], ['lyr', 'lyric']]) {
+      const H = IN.filter(P => has(P, sk));
+      if (!sm) { v[k] = H.length ? 'in:' + U.pick(H).id : ''; continue; }
+      const PC = coPolC(s, g), vw = coViewer(s, 'anr', sk, 'music'), lvAt = p => { const r = lvRange(vw, p, sk); return (r[0] + r[1]) / 2; };
+      let b = '', bl = 0;
+      for (const P of H) { const L = lvAt(P); if (L > bl) { b = 'in:' + P.id; bl = L; } }
+      for (const pid of PC[k] || []) { const p = s.people[pid]; if (!p) continue; const fee = albPolFee(coAlbX(s, g), p, k), L = lvAt(p); if (fee <= mo * 0.03 && L > bl + 5 && L >= 45) { b = pid; bl = L; } }
+      v[k] = b;
+    }
     if (submitForm(s, v) && s.pending) { const C2 = byP(I).slice(0, need), v2 = { ti: 'p' + C2[0] }; C2.forEach(i => v2['p' + i] = true); ceoSubmit(s, v2); }
     return;
 

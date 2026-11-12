@@ -686,8 +686,11 @@ function showEventRaw() {
   // 특기를 고르거나 처음 배우는 사건: 내 프로필(재능·타고난 것)을 바로 볼 수 있는 버튼 (고를 게 하나뿐인 사건에는 없다)
   const myProf = !kid && !ev.form && isSkillEv(ev) && evChoices(s).length >= 2;
   h += `<div class="m-foot"><div class="m-stats">${statLine(s)}</div>${kid ? `<button class="btn sm" data-kid="${kid.id}">👶 ${U.esc(kid.name)} 재능</button>` : myProf ? `<button class="btn sm" data-myprof>👤 내 프로필</button>` : ''}</div>`;
-  $('#mcard').className = 'mcard' + (T || ev.wide ? ' wide' : '');
+  // v173: 결과 기사는 넓은 창 (사진 옆에 본문, 댓글은 옆으로 늘어선다). 창 오른쪽에 토스트 자리를 비워 둔다 (nw-ov)
+  const nw = !!(ev.news && d.card);
+  $('#mcard').className = 'mcard' + (T || ev.wide ? ' wide' : '') + (nw ? ' nw-wide' : '');
   $('#mcard').innerHTML = h;
+  $('#modal').classList.toggle('nw-ov', nw);
   $('#modal').classList.remove('hidden');
   // 결과 기사 (v172 시안): 창이 처음 뜰 때 성과를 토스트로. 기사 사진 속 캐릭터를 칠한다
   if (ev.news && d.card && !d.tsSeen) { d.tsSeen = 1; try { resToast(newsToasts(ev.news(s, d))); } catch (e) { console.error('성과 토스트 오류', e); } }
@@ -804,7 +807,7 @@ function resShow(o) {
   h += `<div class="res-box">${resItems(o.L)}</div>`;
   h += `<div class="choices"><button class="btn primary" data-resok>${more ? '다음 ▶' : '확인'} <kbd>Space</kbd></button></div>`;
   h += `<div class="m-foot"><div class="m-stats">${statLine(s)}</div></div>`;
-  $('#mcard').className = 'mcard res-card';
+  $('#mcard').className = 'mcard res-card'; $('#modal').classList.remove('nw-ov');
   $('#mcard').innerHTML = h;
   $('#modal').classList.remove('hidden');
   
@@ -914,7 +917,7 @@ function showEnding(preview) {
   h += `</div>`;
   h += pv ? `<div class="choices end-btns"><button class="btn primary" data-endclose>닫기</button></div>`
     : `<div class="choices end-btns"><button class="btn primary" id="end-new">다시 태어나기</button><button class="btn" id="end-title">첫 화면으로</button><button class="btn ghost" data-endclose>기록 더 보기</button></div>`;
-  $('#mcard').className = 'mcard ending';
+  $('#mcard').className = 'mcard ending'; $('#modal').classList.remove('nw-ov');
   $('#mcard').innerHTML = h;
   $('#modal').classList.remove('hidden');
   $('#modal').scrollTop = 0;
@@ -1688,74 +1691,173 @@ function songCardHTML(c) {
     + (c.lines && c.lines.length ? `<div class="sc-h">${U.esc(c.lh || '듣는 사람 반응')}</div>${c.lines.map(x => `<div class="sc-l">${evCol(U.esc(x))}</div>`).join('')}` : '')
     + (c.cmp ? `<div class="sc-cmp${/낫다/.test(c.cmp) ? ' ev-g' : /아쉽다/.test(c.cmp) ? ' ev-b' : ''}">${U.esc(c.cmp)}</div>` : '') + (c.bill ? billBtnHTML(c.bill) : '') + (c.live ? liveBtnHTML(c.live) : '') + `</div>`;
 }
-// ───── 결과 기사 (v172 시안) ─────
+// ───── 결과 기사 (v172 시안 · v173 손봄) ─────
 // 곡 · 앨범 결과 창을 인터넷 기사처럼 보여 준다. 실제로 얻은 것(팬 · 정산 · 수익)은 창이 뜰 때 토스트로 하나씩 띄운다
 // 사건이 news(s, d)로 재료를 준다: { who 기사 속 이름('그룹 ○○'), what 무엇이 나왔나('새 앨범 타이틀곡'), kind 'debut'면 신인 기사, t 제목, c 컨셉, peak, wins,
 //   show 음악방송에 나가는 직업인지, albums 앨범 판매량, by 곡을 쓴 사람 한 문장, ag 소속사(관계자 한마디), end 마지막 문단, pl 사진(무대 장면), mk 제작 과정, ts 토스트 [[아이콘, 글, 'g'|'b'|'']], after 기사 아래 html }
+// v173: 기사는 사실만 적는다 (반응 · 전작 비교는 댓글로). 댓글은 따옴표 없이 커뮤니티 말투
 // 매체 · 기자 이름은 임시로 붙였다 (사용자가 정하면 여기만 바꾸면 된다)
 const NEWS_OUT = ['팝콘일보', '스테이지K', '엔터픽', '데일리스타랩'];
 const NEWS_SUR = ['김', '이', '박', '최', '정', '강', '조', '윤', '장', '한'], NEWS_GIV = ['수진', '민호', '지은', '현우', '서연', '도윤', '하늘', '태희', '유진', '성민', '예린', '준서'];
 function newsQ(t, p) { return p ? josa(`'${t}'`, p) : `'${t}'`; }
-// 카드의 반응 줄을 좋은 말(g) · 아쉬운 말(b) · 그 밖(n)으로 나눈다 (따옴표를 뗀 말)
-function newsLines(c) {
-  const o = { g: [], b: [], n: [] };
-  for (const x of (c && c.lines) || []) { const p = evPlain(x).replace(/^"|"$/g, ''); (x[0] === '\u0005' ? o.g : x[0] === '\u0006' ? o.b : o.n).push(p); }
-  return o;
-}
-function newsHead(N, L, pick) {
-  const A = N.who, T = N.t, pk = N.peak, w = N.wins, g = L.g[0], b = L.b[0];
+function newsHead(N, pick) {
+  const A = N.who, T = N.t, pk = N.peak, w = N.wins;
   if (N.kind === 'debut') return pick(pk && (pk <= 20 || w) ? [`신인 ${A}, 데뷔곡 ${newsQ(T, '으로')} 차트 ${pk}위${w ? '…음악방송 1위까지' : ''}`, `'괴물 신인' ${A} 떴다…데뷔곡 ${newsQ(T)} 차트 ${pk}위`]
     : pk ? [`신인 ${A} 데뷔…${newsQ(T)} 차트 ${pk}위로 첫발`, `${A}, 데뷔곡 ${newsQ(T, '으로')} 첫인사…차트 ${pk}위`] : [`신인 ${A} 데뷔…${newsQ(T)} 차트 진입은 다음 기회로`, `${A}, 데뷔곡 ${newsQ(T)} 발표…아직은 조용한 출발`]);
-  if (pk && (pk <= 3 || w >= 3)) return pick([`${A}, ${newsQ(T, '으로')} 음원 차트 ${pk === 1 ? '정상' : `${pk}위`}${w ? `…음악방송 ${w}관왕` : ''}`, `${A} ${newsQ(T)} 돌풍…차트 ${pk}위${w ? ` · 음방 ${w}관왕` : ''}`]);
-  if (pk && (pk <= 20 || w)) return pick([`${A} ${newsQ(T, '이가')} 차트 ${pk}위로 순항${w ? `…음방 1위 ${w}회` : ''}`, g ? `${A}, ${newsQ(T, '으로')} 차트 ${pk}위…"${g}"` : `${A}, ${newsQ(T, '으로')} 차트 ${pk}위`]);
-  if (pk && pk <= 60) return pick([`${A} ${newsQ(T)}, 차트 ${pk}위로 출발`, g && b ? `${A} ${newsQ(T)} 차트 ${pk}위…반응은 엇갈려` : `${A} ${newsQ(T)} 차트 ${pk}위…무난한 성적`]);
+  if (pk && (pk <= 3 || w >= 3)) return pick([`${A}, ${newsQ(T, '으로')} 음원 차트 ${pk === 1 ? '정상' : `${pk}위`}${w >= 2 ? `…음악방송 ${w}관왕` : w ? '…음악방송 1위' : ''}`, `${A} ${newsQ(T)} 돌풍…차트 ${pk}위${w >= 2 ? ` · 음방 ${w}관왕` : w ? ' · 음방 1위' : ''}`]);
+  if (pk && (pk <= 20 || w)) return pick([`${A} ${newsQ(T, '이가')} 차트 ${pk}위로 순항${w ? `…음방 1위 ${w}회` : ''}`, `${A}, ${newsQ(T, '으로')} 차트 ${pk}위${w ? ` · 음방 1위 ${w}회` : ''}`]);
+  if (pk && pk <= 60) return pick([`${A} ${newsQ(T)}, 차트 ${pk}위로 출발`, `${A} ${newsQ(T)} 차트 ${pk}위…무난한 성적`]);
   if (pk) return pick([`${A} ${newsQ(T)} 차트 ${pk}위…아쉬운 성적`, `${A}, ${newsQ(T, '으로')} 차트 ${pk}위에 그쳐`]);
-  return pick([`${A} ${newsQ(T)}, 차트 100위 진입 실패`, b ? `${A} ${newsQ(T)} 차트서 안 보여…"${b}"` : `${A} 새 곡 ${newsQ(T)}…차트에선 안 보여`]);
+  return pick([`${A} ${newsQ(T)}, 차트 100위 진입 실패`, `${A} 새 곡 ${newsQ(T)}…차트에선 안 보여`]);
 }
 // 소속사 관계자 한마디 (성적에 따라)
 function newsAgQ(N, pick) {
-  const pk = N.peak, x = pk && (pk <= 10 || N.wins) ? pick(['팬분들의 사랑 덕분이다. 더 좋은 무대로 보답하겠다', '기대 이상의 반응에 멤버들도 놀라고 있다']) : pk && pk <= 50 ? pick(['좋게 들어 주셔서 감사하다. 남은 활동도 열심히 하겠다', '조금씩 더 많은 분들께 닿고 있다']) : pick(['아쉽지만 다음 앨범을 더 단단히 준비하겠다', '숫자보다 음악을 봐 주셨으면 한다']);
+  const pk = N.peak, x = pk && (pk <= 10 || N.wins) ? pick(['팬분들의 사랑 덕분이다. 더 좋은 무대로 보답하겠다', `기대 이상의 반응에 ${N.solo ? '본인도' : '멤버들도'} 놀라고 있다`]) : pk && pk <= 50 ? pick(['좋게 들어 주셔서 감사하다. 남은 활동도 열심히 하겠다', '조금씩 더 많은 분들께 닿고 있다']) : pick(['아쉽지만 다음 앨범을 더 단단히 준비하겠다', '숫자보다 음악을 봐 주셨으면 한다']);
   return `소속사 ${N.ag} 관계자는 "${x}"라고 전했다.`;
 }
-function newsBody(N, L, pick, c, ht) {
+// 본문: 성적 → 곡 소개(컨셉 · 작곡 · 유행) → 앞으로의 활동 · 소속사 한마디. 사실만
+function newsBody(N, pick, ht) {
   const A = N.who, T = N.t, pk = N.peak, w = N.wins, P = [];
   let p = pk ? `${A}의 ${N.what} ${newsQ(T, '이가')} 발매 첫 주 음원 차트 최고 ${pk}위에 올랐다.` : `${A}의 ${N.what} ${newsQ(T, '이가')} 나왔지만 음원 차트 100위 안에는 들지 못했다.`;
   if (w) p += ` 음악방송에서는 ${w}번 1위에 올랐다.`; else if (N.show && pk && pk <= 20) p += ' 음악방송 1위는 아쉽게 놓쳤다.';
   if (N.albums) p += ` 앨범은 ${N.albums.toLocaleString()}장이 팔렸다.`;
   P.push(p);
   p = [N.c ? `이번 곡은 '${N.c}' 컨셉으로 꾸몄다.` : '', N.by || '', ht && N.c ? `이 곡이 크게 뜨면서 '${N.c}' 컨셉이 새 유행으로 떠올랐다.` : N.c && N.c === N.tr0 ? '요즘 유행하는 컨셉을 발 빠르게 택했다.' : ''].filter(Boolean).join(' ');
-  if (c && c.cmp) p += (p ? ' ' : '') + (/낫다/.test(c.cmp) ? '전작보다 반응이 좋다는 평가다.' : /아쉽다/.test(c.cmp) ? '전작보다는 반응이 덜하다는 평가다.' : '반응은 전작과 비슷한 수준이다.');
-  if (p) P.push(p);
-  const G = L.g, B = L.b;
-  p = G.length && B.length ? `음악 팬들 사이에서는 "${G[0]}"는 반응이 나왔다. 반면 "${B[0]}"는 아쉬운 목소리도 있었다.`
-    : G.length ? `음악 팬들 사이에서는 "${G[0]}"는 반응이 이어졌다.${G[1] ? ` "${G[1]}"는 말도 나왔다.` : ''}`
-    : B.length ? `반응은 차가운 편이다. "${B[0]}"는 평이 많았다.${B[1] ? ` "${B[1]}"는 말도 나왔다.` : ''}` : '';
-  if (L.n.length) p += (p ? ' ' : '') + `"${L.n[0]}"는 평도 있었다.`;
   if (p) P.push(p);
   const e = [N.end || '', N.ag ? newsAgQ(N, pick) : ''].filter(Boolean).join(' ');
   if (e) P.push(e);
   return P;
 }
+// ───── 기사 댓글 말투 (v173): 반응 줄을 커뮤니티 말투로 (~음 · ~함 · ~듯). 따옴표는 쓰지 않는다 ─────
+// 아는 말은 손으로 쓴 말 중 하나, 모르는 말(파트 이름이 들어간 밴드 반응 등)은 끝을 바꿔 쓴다 (cmEnd)
+const CM_TONE = {
+  '각 그룹 에이스가 모인 무대답다': ['각 그룹 에이스만 모아 놓은 거 티 남', '에이스끼리 모이니까 다르긴 하네'],
+  '각자 따로 노는 느낌이다': ['다들 각자 따로 노는 느낌임', '합이 하나도 안 맞는 듯'],
+  '고음에서 자꾸 흔들린다': ['고음에서 자꾸 흔들림', '고음 불안한 거 나만 들림?'],
+  '곡이 조금 밋밋하다': ['곡이 좀 밋밋함', '노래가 너무 무난한 듯'],
+  '그래도 남은 팬들은 끝까지 들어 준다': ['그래도 남은 팬들은 끝까지 들어 줌', '난 끝까지 들을 거임'],
+  '급하게 모인 티가 난다': ['급하게 모은 티 남', '연습 기간 짧았던 거 티 나는 듯'],
+  '기다리던 팬들이 바로 반응했다': ['기다린 보람 있음ㅠㅠ', '나오자마자 바로 달려옴'],
+  '기존 팬들도 고개를 갸웃한다': ['팬인데도 이번 건 좀 갸웃함', '기존 팬들도 반응 애매한 듯'],
+  '기타 솔로에서 환호가 터졌다': ['기타 솔로에서 소름 돋음', '기타 솔로 파트 무한 반복 중'],
+  '기타 톤이 아직 거칠다': ['기타 톤 아직 좀 거침', '기타 소리 좀만 다듬었으면'],
+  '나오자마자 팬들이 여기저기 퍼 날랐다': ['나오자마자 여기저기 다 퍼짐', '타임라인이 이 노래로 도배됨 ㅋㅋ'],
+  '노래 실력이 확실하다': ['노래는 진짜 잘함', '라이브 들어 보면 실력 확실함'],
+  '노래가 곡을 다 못 받쳐 준다': ['곡은 좋은데 노래가 못 받쳐 주는 듯', '노래가 곡을 못 따라감'],
+  '노래가 귀에 쏙 들어온다': ['노래 귀에 쏙쏙 들어옴', '한 번 듣고 바로 저장함'],
+  '눈에 확 들어오는 멤버가 없다': ['눈에 확 들어오는 멤버가 없음', '누가 누군지 모르겠음'],
+  '눈에 확 띄는 멤버가 없다': ['딱 눈에 띄는 멤버가 없음', '멤버 구분이 잘 안 됨'],
+  '눈을 뗄 수 없는 멤버가 있다': ['한 명 눈을 못 떼겠음', '센터 누구임? 입덕함'],
+  '늘 하던 컨셉이라 뻔하다': ['맨날 하던 컨셉이라 뻔함', '또 이 컨셉임?'],
+  '다들 비슷한 노래만 낼 때 혼자 튄다': ['다들 비슷한 노래 낼 때 혼자 튐', '요즘 노래들이랑 확실히 다름'],
+  '동선이 자꾸 엉킨다': ['동선 자꾸 엉킴', '무대에서 서로 부딪힐 뻔한 거 봄?'],
+  '드럼 템포가 흔들린다': ['드럼 템포 흔들림', '드럼 박자 좀 불안한 듯'],
+  '드럼이 무대를 끌고 간다': ['드럼이 무대 다 끌고 감', '드럼 치는 사람 누구임 미쳤음'],
+  '들어 볼 사람한테까지 닿지를 않는다': ['팬 말고는 아무도 모르는 듯', '노래 나온 줄도 몰랐음'],
+  '라이브가 아직 불안하다': ['라이브 아직 불안함', '라이브는 좀 더 연습해야 할 듯'],
+  '라이브가 안정적이다': ['라이브 안정적임', '라이브 듣고 놀람 음원인 줄'],
+  '라이브가 조금 불안하다': ['라이브가 좀 불안함', '음방 라이브 조마조마했음'],
+  '랩이 귀에 꽂힌다': ['랩 귀에 꽂힘', '랩 파트만 계속 돌려 봄'],
+  '랩이 박자를 못 탄다': ['랩이 박자를 못 탐', '랩 파트 좀 어색한 듯'],
+  '랩이 조금 어설프다': ['랩이 좀 어설픔', '랩은 아직 아닌 듯'],
+  '메인보컬 목소리가 시원하게 뻗는다': ['메보 고음 시원하게 뻗음', '메보 목소리 미쳤음'],
+  '멘트 치는 게 자연스럽다': ['멘트 자연스러움', '말도 잘하네 호감임'],
+  '멘트할 때 얼어 있다': ['멘트할 때 완전 얼어 있음 ㅋㅋ', '긴장한 거 다 보임'],
+  '멜로디가 귀에 착 감긴다': ['멜로디 귀에 착 감김', '멜로디 미쳤음 계속 생각남'],
+  '멤버끼리 아직 어색하다': ['멤버끼리 아직 어색함', '서로 아직 서먹한 듯'],
+  '멤버들 얼굴이 화면을 꽉 채운다': ['멤버들 얼굴이 화면을 꽉 채움', '비주얼 그룹 맞네'],
+  '목소리가 곡을 꽉 채운다': ['목소리가 곡을 꽉 채움', '목소리 하나로 끝남'],
+  '무대 장악력이 대단하다': ['무대 장악력 미쳤음', '무대 위에서 사람이 달라짐'],
+  '무대가 아직 덜 여물었다': ['무대가 아직 덜 여문 듯', '무대는 좀 더 다듬어야 할 듯'],
+  '무대에 서니 얼굴이 산다': ['무대에 서니까 얼굴이 삶', '무대 체질인 듯'],
+  '무대에서 존재감이 약하다': ['무대에서 존재감이 약함', '무대에서 잘 안 보임'],
+  '베이스가 바닥을 단단히 받친다': ['베이스가 바닥 단단히 받쳐 줌', '베이스 소리 좋음'],
+  '베이스가 자꾸 박자를 놓친다': ['베이스 자꾸 박자 놓침', '베이스 박자 왜 저럼'],
+  '보컬이 시원하게 뻗는다': ['보컬 시원하게 뻗음', '보컬 목소리 좋음'],
+  '보컬이 연주에 묻힌다': ['보컬이 연주에 묻힘', '노래가 잘 안 들림'],
+  '보컬이 곡을 꽉 채운다': ['보컬이 곡을 꽉 채움', '보컬 하나로 끝남'],
+  '보컬 목소리가 귀에 확 들어온다': ['보컬 목소리 귀에 확 들어옴', '보컬 목소리 좋음'],
+  '보컬을 살린 편곡이 귀에 쏙 들어온다': ['보컬 살린 편곡 좋음', '편곡이 보컬을 잘 살림'],
+  '요즘 감성으로 잘 다듬었다': ['요즘 감성으로 잘 뽑았음', '편곡 세련됨'],
+  '역시 이 밴드다운 소리다': ['역시 이 밴드다운 소리임', '이 밴드는 이 소리지'],
+  '보컬만 덩그러니 남은 느낌이다': ['보컬만 덩그러니 남은 느낌임', '편곡이 너무 비어 있음'],
+  '유행 따라가다 이 밴드 색이 흐려졌다': ['유행 따라가다 밴드 색 다 흐려진 듯', '이 밴드 원래 이런 느낌 아니었는데'],
+  '늘 듣던 그 소리라 좀 지루하다': ['늘 듣던 소리라 좀 지루함', '또 그 소리네'],
+  '비슷한 컨셉이 이어져 조금 익숙하다': ['비슷한 컨셉 계속해서 좀 익숙함', '저번이랑 비슷한 느낌임'],
+  '비주얼 멤버한테 눈이 간다': ['비주얼 멤버한테 자꾸 눈이 감', '얼굴 천재 한 명 있음'],
+  '빠지는 파트 없이 고르다': ['빠지는 파트 없이 고름', '다 잘함 구멍이 없음'],
+  '서로 숨소리까지 맞춘 느낌이다': ['숨소리까지 맞춘 느낌임', '합 미쳤음'],
+  '아직 아는 사람이 적다': ['아직 아는 사람이 별로 없음', '이 노래 아는 사람?'],
+  '어디서 나왔는지 모르는 사람이 많다': ['나온 줄도 모르는 사람 많음', '홍보 좀 해 주지'],
+  '어디서 들어 본 듯한 곡이다': ['어디서 들어 본 노래 같음', '이거 그 노래랑 비슷하지 않음?'],
+  '역시 이 그룹다운 컨셉이다': ['역시 이 그룹다운 컨셉임', '이 그룹은 이 컨셉이지'],
+  '연주가 아직 덜 여물었다': ['연주가 아직 덜 여문 듯', '연주는 좀 더 맞춰야 할 듯'],
+  '연주가 전체적으로 아직 서툴다': ['연주가 전체적으로 아직 서툰 듯', '연주 좀 아쉬움'],
+  '연주가 탄탄하다': ['연주 탄탄함', '라이브로 들으니까 더 좋음'],
+  '오래 봐도 질리지 않는다': ['계속 봐도 안 질림', '무한 반복 중'],
+  '요즘 듣는 노래랑 결이 맞는다': ['요즘 듣는 노래랑 결이 맞음', '딱 요즘 노래임'],
+  '요즘 듣는 노래랑은 결이 다르다': ['요즘 노래랑은 결이 다름', '요즘 이런 노래 잘 안 듣는 듯'],
+  '요즘 이런 노래가 없었는데 신선하다': ['요즘 이런 노래 없었는데 신선함', '신선해서 좋음'],
+  '처음 듣는 느낌인데 자꾸 생각난다': ['처음 듣는 느낌인데 자꾸 생각남', '중독성 미쳤음'],
+  '처음 모인 멤버들인데 합이 좋다': ['처음 모였는데 합이 좋음', '프로젝트 그룹 치고 합 괜찮음'],
+  '춤선이 시원하다': ['춤선 시원함', '춤 진짜 잘 춤'],
+  '춤이 아직 따로 논다': ['춤이 아직 따로 노는 듯', '안무 합이 안 맞음'],
+  '칼군무가 딱딱 맞는다': ['칼군무 딱딱 맞음', '군무 소름 돋음'],
+  '컨셉이 안 맞는 것 같다': ['컨셉이 안 맞는 듯', '이 컨셉은 좀 아닌 듯'],
+  '컨셉이 잘 어울린다': ['컨셉 찰떡임', '컨셉 진짜 잘 어울림'],
+  '팬들 반응도 예전 같지 않다': ['팬들 반응도 예전 같지 않음', '요즘 좀 식은 듯'],
+  '퍼포먼스가 눈을 못 떼게 한다': ['퍼포먼스 눈을 못 떼겠음', '무대 미쳤음 직캠 계속 봄'],
+  '플로우가 살아 있다': ['플로우 살아 있음', '랩 플로우 좋음'],
+  '합이 조금 어긋난다': ['합이 좀 어긋남', '합이 아직 덜 맞는 듯'],
+  '합이 착착 맞는다': ['합이 착착 맞음', '합 좋음'],
+  '합주가 귀에 착 붙는다': ['합주가 귀에 착 붙음', '밴드 사운드 좋음'],
+  '홍보가 제대로 됐다': ['홍보 제대로 함', '요즘 어딜 가나 이 노래 나옴'],
+  '후렴이 하루 종일 맴돈다': ['후렴이 하루 종일 맴돎', '후렴 중독됨 ㅋㅋ'],
+};
+// 모르는 말: 끝의 '~다'를 커뮤니티 말투 끝(~음 · ~함 · ~임)으로 바꾼다
+function cmEnd(x) {
+  x = String(x).trim().replace(/\.$/, '').replace(/조금/g, '좀');
+  if (!/다$/.test(x)) return x;
+  const b = x.slice(0, -1), last = b.slice(-1), c = last.charCodeAt(0) - 0xAC00;
+  if (last === '는') return b.slice(0, -1) + '음';
+  if (last === '하') return b.slice(0, -1) + '함';
+  if (last === '이') return b.slice(0, -1) + '임';
+  if (c < 0 || c >= 11172) return x;
+  const jong = c % 28;
+  if (jong === 4 || jong === 0) return b.slice(0, -1) + String.fromCharCode(0xAC00 + c - jong + 16); // ㄴ다 · 받침 없음 → ㅁ 받침 (감긴다 → 감김, 다르다 → 다름)
+  return b + '음';
+}
+function cmSay(x, R) {
+  // 쓴소리(반응 + '솔직히 실망이다')처럼 두 문장이면 문장마다 바꾼다
+  return String(x).split(/\.\s+/).map(y => { const L = CM_TONE[y]; return L ? L[Math.floor(R() * L.length)] : cmEnd(y); }).join(' ');
+}
+// 지난 곡과 비교 (예전 기사 본문에 있던 말 · v173부터 댓글로)
+function cmCmp(c, R) {
+  const pk = a => a[Math.floor(R() * a.length)];
+  return /낫다/.test(c) ? [pk(['지난 곡보다 이번 게 나음', '전작보다 훨씬 좋아진 듯']), '\u0005'] : /아쉽다/.test(c) ? [pk(['전 곡이 더 나았던 듯', '저번 노래가 더 좋았음']), '\u0006'] : [pk(['저번이랑 비슷한 느낌임', '전작이랑 크게 다르진 않은 듯']), ''];
+}
 function newsHTML(s, d, N) {
   if (!d.nseed) d.nseed = U.int(1, 2e9);
-  const R = liveRng(d.nseed), pick = a => a[Math.floor(R() * a.length)], c = d.card, L = newsLines(c), pad = n => String(n).padStart(2, '0');
+  const R = liveRng(d.nseed), pick = a => a[Math.floor(R() * a.length)], c = d.card, pad = n => String(n).padStart(2, '0');
   // 이 곡이 유행을 바꿨으면 '유행을 바꾼 곡' 소식이 뒤에 줄 서 있다 (그때는 이미 유행이 이 컨셉으로 바뀌어 있다)
   const ht = (s.queue || []).some(q => q.id === 'trend_hit' && q.d && q.d.title === N.t) || (s.pending && s.pending.id === 'trend_hit');
   const out = pick(NEWS_OUT), rep = pick(NEWS_SUR) + pick(NEWS_GIV);
   const date = `${calY(s)}.${pad(calM(s) + 1)}.${pad(1 + Math.floor(R() * 28))} ${pad(7 + Math.floor(R() * 15))}:${pad(Math.floor(R() * 60))}`;
-  N.tr0 = s.trend; const head = newsHead(N, L, pick), body = newsBody(N, L, pick, c, ht);
+  N.tr0 = s.trend; const head = newsHead(N, pick), body = newsBody(N, pick, ht);
   const sc = N.sc != null ? N.sc : N.peak ? U.clamp(92 - N.peak * 0.3, 55, 92) : 45;
   const ph = N.pl && typeof plioThumbHTML === 'function' ? `<figure class="nw-ph">${plioThumbHTML(N.pl, hashN('pl' + N.pl.t) % 360)}<figcaption>${U.esc(`${N.who}의 ${newsQ(N.t)} 무대`)}</figcaption></figure>` : '';
-  // 댓글: 카드의 반응 줄. 분위기(성적이 좋았나)와 맞는 말이 위(베스트)로 가고, 분위기와 다른 말에는 싫어요가 많이 붙는다
+  // 댓글: 카드의 반응 줄 + 지난 곡과 비교. 분위기(성적이 좋았나)와 맞는 말이 위(베스트)로 가고, 분위기와 다른 말에는 싫어요가 많이 붙는다
   const tot = Math.round(Math.pow(10, 1.2 + sc / 30) * (0.7 + 0.6 * R())), mood = (N.peak && N.peak <= 30) || N.wins > 0 ? '\u0005' : '\u0006', used = {};
   const nick = () => { for (let i = 0; i < 12; i++) { const x = pick(PL_NICK); if (!used[x]) { used[x] = 1; return x; } } return '익명'; };
-  const rk = x => x[0] === mood ? 0 : x[0] === '"' ? 1 : 2;
+  const L = ((c && c.lines) || []).map(x => [cmSay(evPlain(x).replace(/^"|"$/g, ''), R), x[0] === '\u0005' || x[0] === '\u0006' ? x[0] : '']);
+  if (c && c.cmp) L.push(cmCmp(c.cmp, R));
+  const rk = m => m === mood ? 0 : m ? 2 : 1;
   let up = tot * (0.25 + 0.3 * R());
-  const cm = ((c && c.lines) || []).slice().sort((a, b) => rk(a) - rk(b)).map((x, i) => { const u = Math.max(1, Math.round(up)), dn = Math.round(u * ((x[0] === '\u0005' || x[0] === '\u0006') && x[0] !== mood ? 0.3 + 0.5 * R() : 0.02 + 0.08 * R())); up *= 0.3 + 0.4 * R(); return `<div class="nw-c"><div class="nw-c-top"><b>${U.esc(nick())}</b>${i === 0 ? '<span class="nw-best">BEST</span>' : ''}<em>${1 + Math.floor(R() * 23)}시간 전</em></div><div class="nw-c-x">${evCol(U.esc(x))}</div><div class="nw-c-up">👍 ${plN(u)}<span>👎 ${plN(dn)}</span></div></div>`; }).join('');
+  const cm = L.sort((a, b) => rk(a[1]) - rk(b[1])).map(([x, m], i) => { const u = Math.max(1, Math.round(up)), dn = Math.round(u * (m && m !== mood ? 0.3 + 0.5 * R() : 0.02 + 0.08 * R())); up *= 0.3 + 0.4 * R(); return `<div class="nw-c"><div class="nw-c-top"><b>${U.esc(nick())}</b>${i === 0 ? '<span class="nw-best">BEST</span>' : ''}<em>${1 + Math.floor(R() * 23)}시간 전</em></div><div class="nw-c-x${m === '\u0005' ? ' ev-g' : m === '\u0006' ? ' ev-b' : ''}">${U.esc(x)}</div><div class="nw-c-up">👍 ${plN(u)}<span>👎 ${plN(dn)}</span></div></div>`; }).join('');
   return `<article class="news"><div class="nw-top"><span class="nw-logo">${U.esc(out)}</span><span class="nw-sec">연예 › 가요</span></div>`
     + `<h3 class="nw-h">${U.esc(head)}</h3><div class="nw-by">${U.esc(rep)} 기자 · 입력 ${date}</div>${ph}`
     + `<div class="nw-b">${body.map(p => `<p>${U.esc(p)}</p>`).join('')}</div>`
-    + (cm ? `<div class="nw-cm"><div class="nw-cm-h">댓글 <b>${plN(tot)}</b></div>${cm}</div>` : '') + `</article>`;
+    + (cm ? `<div class="nw-cm"><div class="nw-cm-h">댓글 <b>${plN(tot)}</b></div><div class="nw-cl">${cm}</div></div>` : '') + `</article>`;
 }
 // 토스트로 띄울 성과: 순위 · 음악방송 1위, 그다음 사건이 준 것 (팬 · 정산 · 수익)
 function newsToasts(N) {
@@ -1763,18 +1865,27 @@ function newsToasts(N) {
   if (N.wins) T.push(['🏆', `음악방송 1위 ${N.wins}회`, 'g']);
   return T.concat((N.ts || []).filter(Boolean));
 }
-// 결과 창 본문: 기사 + 그 아래 버튼 (제작 과정 · 무대 다시 보기 · 성과 다시 보기) + 정산서 + 덧붙이는 글
+// 결과 창 본문: 기사 + 그 아래 버튼 한 줄 (제작 과정 · 무대 다시 보기 · 성과 다시 보기 · 정산서) + 덧붙이는 글
 function newsEvHTML(s, d, N) {
   const c = d.card || {}, mk = N.mk || c.mk;
-  const bns = [mk && typeof albStepsHTML === 'function' ? popBtnHTML('🎼 제작 과정', albStepsHTML(mk)) : '', c.live ? liveBtnHTML(c.live) : '', `<button class="lv-re" data-rtoast="${rtKey(newsToasts(N))}">📊 성과 다시 보기</button>`].filter(Boolean).join('');
-  return newsHTML(s, d, N) + `<div class="co-last nw-bns">${bns}</div>` + (c.bill ? billBtnHTML(c.bill) : '') + (N.after || '');
+  const bns = [mk && typeof albStepsHTML === 'function' ? popBtnHTML('🎼 제작 과정', albStepsHTML(mk)) : '', c.live ? liveBtnHTML(c.live) : '', `<button class="lv-re" data-rtoast="${rtKey(newsToasts(N))}">📊 성과 다시 보기</button>`, c.bill ? billBtnHTML(c.bill) : ''].filter(Boolean).join('');
+  return newsHTML(s, d, N) + `<div class="co-last nw-bns">${bns}</div>` + (N.after || '');
 }
-// ───── 성과 토스트 (v172): 한 줄씩 차례로 쌓였다가 몇 초 뒤 사라진다. 넓은 화면은 오른쪽 위, 휴대폰은 아래쪽 ─────
+// ───── 성과 토스트 (v172 · v173): 한 줄씩 차례로 쌓였다가 몇 초 뒤 사라진다 ─────
+// 넓은 화면은 기사 창 바로 오른쪽 (창 오른쪽에 자리가 모자라면 화면 오른쪽 위), 휴대폰은 아래쪽
 function rtKey(L) { UI.rtMap = UI.rtMap || {}; const k = UI.rtN = (UI.rtN || 0) + 1; UI.rtMap[k] = L; delete UI.rtMap[k - 200]; return k; }
+function rtPlace(box) {
+  const m = $('#mcard'), W = window.innerWidth;
+  box.style.left = box.style.top = box.style.right = '';
+  if (W <= 760 || !m || $('#modal').classList.contains('hidden')) return;
+  const r = m.getBoundingClientRect(), room = W - r.right - 24;
+  if (room < 200) return;
+  box.style.left = Math.round(r.right + 12) + 'px'; box.style.top = Math.round(Math.max(16, r.top + 56)) + 'px'; box.style.right = 'auto'; box.style.width = Math.min(300, room) + 'px';
+}
 function resToast(L) {
   let box = $('#rtoast');
   if (!box) { box = document.createElement('div'); box.id = 'rtoast'; box.className = 'rtoast'; document.body.appendChild(box); }
-  (UI.rtT || []).forEach(clearTimeout); UI.rtT = []; box.innerHTML = '';
+  (UI.rtT || []).forEach(clearTimeout); UI.rtT = []; box.innerHTML = ''; rtPlace(box);
   L.forEach(([ic, x, tn], i) => UI.rtT.push(setTimeout(() => {
     const e = document.createElement('div'); e.className = 'rt-i' + (tn ? ' ' + tn : ''); e.innerHTML = `<i>${ic}</i><span>${U.esc(x)}</span>`; box.appendChild(e);
     UI.rtT.push(setTimeout(() => { e.classList.add('out'); UI.rtT.push(setTimeout(() => e.remove(), 400)); }, 5200));
