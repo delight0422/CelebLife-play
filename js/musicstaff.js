@@ -369,8 +369,17 @@ E({
   },
 });
 // ④ 실을 곡 · 타이틀곡: A&R 팀장이 추린 다섯 곡에서 세 곡을 체크하고 타이틀곡을 하나 찍는다. 곡 정보는 내 듣는 귀만큼 보인다
-function prodPickRead(w, v) { const F = w.alb.five, idx = F.map((x, i) => i).filter(i => albOn(v, 'p' + i)), ti = v.ti ? +String(v.ti).slice(1) : -1; return { idx, ti: idx.includes(ti) ? ti : -1, pol: albOn(v, 'pol') }; }
-function prodPickCost(s, w, r) { const F = w.alb.five; return (r.ti >= 0 ? albSongCost(null, F[r.ti]) : 0) + (r.pol ? albPolCost(prodX(s, w)) : 0); }
+function prodPickRead(w, v) { const F = w.alb.five, idx = F.map((x, i) => i).filter(i => albOn(v, 'p' + i)), ti = v.ti ? +String(v.ti).slice(1) : -1; return { idx, ti: idx.includes(ti) ? ti : -1, pol: albPolRead(v) }; }
+function prodPickCost(s, w, r) { const F = w.alb.five; return (r.ti >= 0 ? albSongCost(null, F[r.ti]) : 0) + albPolPay(s, prodX(s, w), r.pol); }
+// 편곡자 · 작사가 후보 (v165): 앨범마다 한 번 정해 둔다. 지난번 맡긴 사람은 늘 후보에 (s.prodPol)
+function prodPolC(s, w) { return w.alb.polC || (w.alb.polC = albPolCands(s, s.prodPol)); }
+// 맡긴 쪽은 그 사람 실력, 안 맡긴 쪽은 내가 직접 (편곡은 악기 · 작곡, 작사는 작사 실력)
+function prodPol(s, p, sel) {
+  const a = sel.arr && s.people[sel.arr], l = sel.lyr && s.people[sel.lyr];
+  const da = a ? U.clamp(0.25 + lv(a, 'compose') * 0.02 + U.normal(0, 0.35), 0.5, 2.5) : U.clamp(0.3 + prodArr(p) * 0.03 + U.normal(0, 0.4), 0, 2.8);
+  const dl = l ? U.clamp(0.25 + lv(l, 'lyric') * 0.015 + U.normal(0, 0.35), 0.5, 2) : U.clamp(0.1 + (has(p, 'lyric') ? lv(p, 'lyric') * 0.006 : 0) + U.normal(0, 0.2), 0, 0.8);
+  return { dq: da + dl, arr: a ? a.name : '나', lyr: l ? l.name : '나', aid: a ? a.id : null, lid: l ? l.id : null };
+}
 // 내가 직접 편곡 · 작사로 다듬을 때 (악기 · 작곡 실력)
 function prodSelfDq(p) { return U.clamp(0.4 + prodArr(p) * 0.03 + (has(p, 'lyric') ? lv(p, 'lyric') * 0.006 : 0) + U.normal(0, 0.5), 0, 3.5); }
 E({
@@ -382,7 +391,7 @@ E({
     if (!w.alb || !w.alb.five) prodCollect(s, w, [w.c || w.a.sig], ['open'].concat(has(me(s), 'compose') ? ['me'] : []), 0);
   },
   text: (s, d) => { const w = prodW(s, d), a = w.alb, j = s.people[a.by], need = Math.min(ALB_PICK, a.five.length); return `${w.a.name} 앨범 「${w.title}」에 실을 곡을 정할 차례다.\n\n모인 데모곡 ${a.n}곡 가운데 ${j ? `A&R 팀장 ${josa(j.name, '이가')}` : 'A&R팀이'} ${a.five.length}곡을 추려 왔다. 실을 ${need}곡을 체크하고, 그중 타이틀곡을 하나 찍자. 내 곡을 타이틀로 하면 저작권료를 더 받는다.\n\n남은 앨범 예산 ${fmtWon(prodLeft(w))} · 타이틀곡 값과 편곡 · 작사를 맡길 때 드는 돈이 여기서 나간다. 맡기지 않으면 내가 직접 다듬는다 (내 편곡 실력 ${Math.round(prodArr(me(s)))}).`; },
-  form: (s, d) => { const w = prodW(s, d); return w.alb.five.map((x, i) => ({ k: 'p' + i, type: 'check', label: x.title })).concat([{ k: 'pol', type: 'opt', after: true, label: '편곡 · 작사를 이름난 사람에게 맡긴다', sub: `${fmtWon(albPolCost(prodX(s, w)))} · 안 맡기면 내가 직접 다듬는다` }]); },
+  form: (s, d) => { const w = prodW(s, d), p = me(s); return w.alb.five.map((x, i) => ({ k: 'p' + i, type: 'check', label: x.title })).concat(albPolFields(s, prodX(s, w), prodPolC(s, w), s.prodPol, { arr: [{ v: '', label: '내가 직접 편곡한다', sub: '돈 안 듦 · 악기 · 작곡 실력만큼 다듬어진다' }], lyr: [{ v: '', label: '내가 직접 다듬는다', sub: `돈 안 듦${has(p, 'lyric') ? ` · 작사 ${lvi(p, 'lyric')}레벨` : ' · 작사를 못 해서 조금만 다듬어진다'}` }] }, () => p)); },
   tbl: (s, d) => {
     const w = prodW(s, d), v = me(s);
     const rows = w.alb.five.map((x, i) => { const c = x.mine ? v : x.cid && s.people[x.cid], tag = cTag(s, x.c, w.a.sig); return { k: 'p' + i, tr: x.c === s.trend, sig: x.c === w.a.sig, cells: {
@@ -396,7 +405,7 @@ E({
     const w = prodW(s, d), F = w.alb.five, need = Math.min(ALB_PICK, F.length), g = i => GRADE_W.q.indexOf(grade5(me(s), F[i].q, 'q', 'compose')) + (F[i].c === w.a.sig ? 0.5 : 0) + U.fl(0, 0.8);
     const I = F.map((x, i) => i).sort((a, b) => g(b) - g(a)), ti = I.find(i => F[i].price <= prodLeft(w)) ?? I.slice().sort((a, b) => F[a].price - F[b].price)[0];
     const v = { ti: 'p' + ti }; [ti].concat(I.filter(i => i !== ti)).slice(0, need).forEach(i => v['p' + i] = true);
-    if (prodLeft(w) - F[ti].price > albPolCost(prodX(s, w)) * 1.5 && prodArr(me(s)) < 45) v.pol = true;
+    if (prodLeft(w) - F[ti].price > albPolCost(prodX(s, w)) * 1.5 && prodArr(me(s)) < 45) v.arr = prodPolC(s, w).arr[0] || '';
     return v;
   },
   submit(s, d, v) {
@@ -406,9 +415,10 @@ E({
     const cost = prodPickCost(s, w, r);
     if (cost > prodLeft(w)) return { err: `앨범 예산이 ${fmtWon(cost - prodLeft(w))} 모자라요` };
     const picks = r.idx.map(i => a.five[i]), ti = a.five[r.ti], x = prodX(s, w);
-    const pol = r.pol ? albPolish(s, x, true) : { dq: prodSelfDq(p), arr: '나', lyr: '나' };
-    if (!r.pol) { for (const k of ['piano', 'keyboard', 'guitar']) if (has(p, k)) useSkill(s, p, k, 1); if (has(p, 'lyric')) useSkill(s, p, 'lyric', 1); }
-    a.spent += cost; a.sel = { p: r.idx, ti: r.ti, pol: r.pol };
+    const pol = r.pol.arr || r.pol.lyr ? prodPol(s, p, r.pol) : { dq: prodSelfDq(p), arr: '나', lyr: '나' };
+    if (!r.pol.arr) for (const k of ['piano', 'keyboard', 'guitar']) if (has(p, k)) useSkill(s, p, k, 1);
+    if (!r.pol.lyr && has(p, 'lyric')) useSkill(s, p, 'lyric', 1);
+    a.spent += cost; a.sel = { p: r.idx, ti: r.ti, pol: r.pol }; s.prodPol = Object.assign({}, r.pol);
     for (const y of picks) { const c = y.cid && s.people[y.cid]; if (c && c.ind) { meetAt(s, c, `${w.a.name} 「${y.title}」`, 'producer'); bond(s, c, y === ti ? 3 : 1); } }
     for (const id of [pol.aid, pol.lid]) { const c = id && s.people[id]; if (c) { meetAt(s, c, `${w.a.name} 「${ti.title}」`, 'producer'); bond(s, c, 2); } }
     if (ti.mine) { cmGain(s, ti.c, 6); useSkill(s, p, 'compose', 2); } else useSkill(s, p, 'scout', 2);
@@ -417,7 +427,7 @@ E({
     w.sub = side.filter(y => y.mine).map(y => y.title);
     w.mk = albMk(s, a, picks, ti, pol, '나');
     if (a.lost && U.chance(0.5)) queueEv(s, 'prod_lost', U.int(3, 6), { title: a.lost.title, by: a.lost.by, q: a.lost.q, a: w.a.name }, true);
-    return { log: `${w.a.name} 앨범 「${w.title}」에 실을 곡을 정했다. 타이틀곡은 ${ti.mine ? '내가 쓴' : `${albBy(s, ti)}의`} 「${ti.title}」 ('${ti.c}' 컨셉). ${r.pol ? `편곡 ${pol.arr} · 작사 ${pol.lyr}에게 맡겼다.` : '편곡 · 작사는 내가 직접 다듬는다.'}` };
+    return { log: `${w.a.name} 앨범 「${w.title}」에 실을 곡을 정했다. 타이틀곡은 ${ti.mine ? '내가 쓴' : `${albBy(s, ti)}의`} 「${ti.title}」 ('${ti.c}' 컨셉). ${r.pol.arr || r.pol.lyr ? `${pol.arr === '나' ? '편곡은 내가 직접 한다' : `편곡은 ${pol.arr}에게 맡겼다`}. ${pol.lyr === '나' ? '작사는 내가 다듬는다' : `작사는 ${pol.lyr}에게 맡겼다`}.` : '편곡 · 작사는 내가 직접 다듬는다.'}` };
   },
 });
 // 심사에서 떨어진 곡이 다른 가수 곡으로 나와 잘됐다 (내 탓은 아니지만 아쉽다)

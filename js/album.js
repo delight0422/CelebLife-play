@@ -106,11 +106,46 @@ function albScreen(s, x, demos, judge) {
   return { five, lost: out && out.q >= 55 && out.q > top + 4 && !over(out) ? out : null };
 }
 // ⑤ 편곡 · 작사: 이름난 사람에게 맡기면 그 실력만큼 곡이 다듬어진다
+// v165: out이 { arr, lyr }(사람 id)면 고른 사람에게만 맡긴다. 맡기지 않은 쪽은 조금만 다듬어진다 ('me'는 내가 직접 · 쓰는 쪽에서 따로 셈한다)
 function albPolish(s, x, out) {
+  if (out && typeof out === 'object') {
+    const a = out.arr && s.people[out.arr], l = out.lyr && s.people[out.lyr];
+    const da = a ? U.clamp(0.25 + lv(a, 'compose') * 0.02 + U.normal(0, 0.35), 0.5, 2.5) : U.fl(0, 0.75);
+    const dl = l ? U.clamp(0.25 + lv(l, 'lyric') * 0.015 + U.normal(0, 0.35), 0.5, 2) : U.fl(0, 0.75);
+    return { dq: da + dl, arr: a ? a.name : '', lyr: l ? l.name : '', aid: a ? a.id : null, lid: l ? l.id : null };
+  }
   if (!out) return { dq: U.fl(0, 1.5), arr: '', lyr: '' };
   const a = pickIndustry(s, '프로듀서'), l = pickIndustry(s, '작사가');
   return { dq: U.clamp(0.5 + lv(a, 'compose') * 0.02 + lv(l, 'lyric') * 0.015 + U.normal(0, 0.7), 1, 4.5), arr: a.name, lyr: l.name, aid: a.id, lid: l.id };
 }
+// ⑤ 편곡 · 작사 의뢰 (v165): 편곡자와 작사가를 따로 고른다. 후보는 앨범마다 세 명씩이고, 지난번에 맡긴 사람은 늘 후보에 든다
+const ALB_POL_N = 3;
+// 한 사람에게 맡기는 값: 실력 · 이름값 · 회사 크기 (예전 '둘 다 맡기기' 값의 절반쯤이 보통)
+function albPolFee(x, p, k) { const L = lv(p, k === 'arr' ? 'compose' : 'lyric'); return Math.max(50e4, Math.round(albPolCost(x) * 0.5 * (0.4 + L / 100 * 1.2) * (1 + Math.log10(1 + (p.fame || 0)) / 15) / 1e5) * 1e5); }
+function albPolCands(s, last) {
+  const pick = (job, keep) => {
+    const out = [], k = keep && s.people[keep];
+    if (k && k.alive) out.push(k.id);
+    for (let i = 0; i < 15 && out.length < ALB_POL_N; i++) { const p = pickIndustry(s, job, y => !out.includes(y.id), 0.6); if (p && !out.includes(p.id)) out.push(p.id); }
+    return out;
+  };
+  return { arr: pick('프로듀서', last && last.arr), lyr: pick('작사가', last && last.lyr) };
+}
+// 표 아래에 놓는 고르는 줄. base: 맡기지 않을 때의 줄 { arr: [{ v, label, sub }], lyr: [...] }, vf(특기): 실력을 보는 눈
+// 처음 찍혀 있는 줄은 지난번 고른 것 (그 사람이 후보에 있으면)
+function albPolFields(s, x, C, last, base, vf) {
+  const F = [];
+  for (const [k, n, sk] of [['arr', '편곡', 'compose'], ['lyr', '작사', 'lyric']]) {
+    const L = (base[k] || []).map(o => o.v).concat(C[k] || []), cur = last && L.includes(last[k]) ? last[k] : '';
+    F.push({ type: 'head', label: `${n} 맡기기`, after: true });
+    for (const o of base[k] || []) F.push({ k, type: 'radio', after: true, v: o.v, on: cur === o.v, label: o.label, sub: o.sub || '' });
+    for (const id of C[k] || []) { const p = s.people[id]; if (!p) continue; F.push({ k, type: 'radio', after: true, v: id, on: cur === id, label: `${p.name}${last && last[k] === id ? ' · 지난번에 맡김' : ''}`, sub: `${n} 실력 ${typeof coCellLv === 'function' ? coCellLv(vf(sk), p, sk, false)[1] : lvi(p, sk)}레벨 · ${fmtWon(albPolFee(x, p, k))}` }); }
+  }
+  return F;
+}
+function albPolRead(v) { return { arr: v.arr || '', lyr: v.lyr || '' }; }
+// 편곡 · 작사에 드는 돈: 예전 방식(참 · 거짓)도 그대로 받는다
+function albPolPay(s, x, pol) { if (!pol) return 0; if (typeof pol !== 'object') return albPolCost(x); return ['arr', 'lyr'].reduce((a, k) => { const p = pol[k] && s.people[pol[k]]; return a + (p ? albPolFee(x, p, k) : 0); }, 0); }
 function albBy(s, d) { const c = d.cid && s.people[d.cid]; return d.mine || d.me ? '나' : c ? c.name : '작곡가'; }
 // 성적표에 남기는 제작 기록 (작게): 누가 무엇을 했는지
 function albMk(s, a, picks, ti, pol, boss) {
@@ -127,7 +162,7 @@ function albStepsHTML(mk) {
     ['데모곡', `${mk.n}곡 · ${src}`],
     ['심사', mk.by ? `${/A&R/.test(mk.by) ? mk.by : `A&R 팀장 ${mk.by}`}${mk.n > mk.k ? ` · ${mk.k}곡으로 추림` : ''}` : mk.boss === '나' ? '내가 직접 들음' : `${josa(mk.boss, '이가')} 직접 들음`],
     ['선정', `${mk.boss} · ${mk.pk.length}곡`],
-    ['편곡 · 작사', mk.arr ? `편곡 ${mk.arr} · 작사 ${mk.lyr}` : mk.boss === '나' ? '직접' : '회사에서'],
+    ['편곡 · 작사', mk.arr || mk.lyr ? `편곡 ${mk.arr || (mk.boss === '나' ? '직접' : '회사')} · 작사 ${mk.lyr || (mk.boss === '나' ? '직접' : '회사')}` : mk.boss === '나' ? '직접' : '회사에서'],
     ['녹음', '한 달'],
   ];
   // 내가 낸 곡이 어디까지 갔는지 (v154: 가수가 '자작곡 쓰기'를 켜 뒀을 때)
@@ -137,9 +172,11 @@ function albStepsHTML(mk) {
 // 기획 창의 체크 줄: 컨셉 여덟 개 + 곡을 모으는 곳. fit(c) = 그 컨셉이 가수에게 어울리는 정도를 말해 주는 글 (쓰는 쪽에서 준다)
 function albPlanForm(s, x, fit) {
   const F = [{ type: 'head', label: '컨셉', grid: true }];
-  for (const c of TRENDS) F.push({ k: 'c_' + c, type: 'check', on: c === (x.def || x.sig), label: c, tr: c === s.trend, sub: [c === x.sig ? '대표 컨셉' : '', fit ? fit(c) : ''].filter(Boolean).join(' · ') });
+  // v165: 지난번 기획 설정(x.last)이 있으면 그대로 체크해 둔다
+  const L = x.last && x.last.cs && x.last.cs.length ? x.last : null, SL = albSrcList(s, x), srcOn = L && L.src && L.src.some(k => SL.some(z => z.k === k)) ? k => L.src.includes(k) : k => k === 'open';
+  for (const c of TRENDS) F.push({ k: 'c_' + c, type: 'check', on: L ? L.cs.includes(c) : c === (x.def || x.sig), label: c, tr: c === s.trend, sub: [c === x.sig ? '대표 컨셉' : '', fit ? fit(c) : ''].filter(Boolean).join(' · ') });
   F.push({ type: 'head', label: '곡을 모으는 곳' });
-  for (const z of albSrcList(s, x)) { const n = albSrcCnt(x, z, 1), w = z.k === 'mem' ? albWriters(x).map(p => p.name).join(' · ') : z.k === 'in' ? x.inh.map(p => p.name).join(' · ') : ''; F.push({ k: 's_' + z.k, type: 'check', on: z.k === 'open', label: z.n, sub: `${z.h}${w ? ` (${w})` : ''} · ${n}곡${z.k === 'open' ? '쯤' : ''} · ${z.cost[x.tier] ? fmtWon(z.cost[x.tier]) : '돈 안 듦'}` }); }
+  for (const z of SL) { const n = albSrcCnt(x, z, 1), w = z.k === 'mem' ? albWriters(x).map(p => p.name).join(' · ') : z.k === 'in' ? x.inh.map(p => p.name).join(' · ') : ''; F.push({ k: 's_' + z.k, type: 'check', on: srcOn(z.k), label: z.n, sub: `${z.h}${w ? ` (${w})` : ''} · ${n}곡${z.k === 'open' ? '쯤' : ''} · ${z.cost[x.tier] ? fmtWon(z.cost[x.tier]) : '돈 안 듦'}` }); }
   return F;
 }
 function albOn(v, k) { return !!v[k] && v[k] !== 'false'; }

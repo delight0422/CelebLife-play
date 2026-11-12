@@ -973,7 +973,8 @@ function ytTrendCheck(s, flip) {
 function onNewYear(s) {
   // 인생 결산 그래프(12-5): 해마다 [지난해, 그해 끝의 팬, 그때까지 번 돈]을 남긴다. 예전 세이브는 이때부터 쌓인다
   (s.yr = s.yr || []).push([calY(s) - 1, Math.round(totalFans(s)), Math.round(s.earned || 0)]);
-  if (U.chance(0.6)) s.trend = U.pick(TRENDS.filter(x => x !== s.trend));
+  // v165: 내 곡이 바꾼 유행은 한동안 그대로 간다 (music.js hitTrendGo)
+  if (U.chance(0.6) && !(s.trendLock > s.t)) s.trend = U.pick(TRENDS.filter(x => x !== s.trend));
   if (!s.trendTV) rollTV(s);
   if (U.chance(0.5)) s.trendTV.drama = U.pick(DRAMA_TRENDS.filter(x => x !== s.trendTV.drama));
   if (U.chance(0.5)) s.trendTV.show = U.pick(SHOW_TRENDS.filter(x => x !== s.trendTV.show));

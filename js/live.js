@@ -527,7 +527,9 @@ function commHTML(sp) {
 }
 function commBtnHTML(sp, label) { return sp && sp.v === 'comm' ? `<button class="pf-bn comm" data-plio="${plioKey(sp)}"><b>💬 ${PF.comm.en}</b><span>${U.esc(label || `${PF.comm.n}에서 반응 보기`)}</span></button>` : ''; }
 // 요즘 한 활동의 장면 (기록에 남긴 예전 라이브온 장면, 최근 12개월)
-function commRecentAct(s) { for (let i = s.log.length - 1; i >= 0; i--) { const it = s.log[i]; if (s.t - it.t > 12) break; if (it.pl && it.pl.v === 'plio') return it.pl; } return null; }
+// v165: 내가 무대에 선 장면만 (me가 있는 것). 내 회사 그룹 무대 · 내가 쓴 곡의 남의 무대는 내 이야기가 아니다
+// (예전에는 아이돌 그룹을 그만두고 회사를 하면, 회사 그룹 무대가 '내 활동'으로 잡혀 내 이름으로 아이돌 무대 글이 올라왔다)
+function commRecentAct(s) { for (let i = s.log.length - 1; i >= 0; i--) { const it = s.log[i]; if (s.t - it.t > 12) break; if (it.pl && it.pl.v === 'plio' && it.pl.me && it.pl.k !== 'stagew') return it.pl; } return null; }
 // 에고서치: 지금 내 이름으로 올라오는 글. 논란이 있으면 그 이야기, 아니면 인지도와 이미지에 따라. 같은 달에는 같은 글이 나온다
 function commNow(s) {
   if (UI.cmNow && UI.cmNow.t === s.t && UI.cmNow.id === me(s).id) return UI.cmNow.sp;

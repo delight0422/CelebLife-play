@@ -70,26 +70,27 @@ function careLooksMonth(s) {
 
 // 한 번 들여놓는 장비 (설치비 + 매달 유지비). k: 상승률이 오르는 특기 (그 특기를 배워야 보인다)
 // 단계: 1단계 +25%, 업그레이드할 때마다 효과 2배(+50%, +100%), 업그레이드 값과 유지비는 단계마다 3배
+// ic (v165): 장비 창에서 이름 앞에 붙이는 그림 글자
 const EQUIP = {
-  acting: { n: '셀프테이프 촬영·연기 연습 세트', c: 250, up: 5, k: ['acting'], d: '카메라·조명·전신 거울. 연기 연습' },
-  booth: { n: '집 방음 보컬 부스', c: 800, up: 10, k: ['vocal', 'rap'], d: '보컬·랩 연습' },
-  studio: { n: '홈 레코딩 작업실', c: 1500, up: 20, k: ['compose', 'lyric'], d: '작곡·작사 연습' },
-  room: { n: '합주실 장기 대여', c: 200, up: 40, k: ['guitar', 'bass', 'piano', 'keyboard', 'drum'], d: '악기 연습', out: true },
-  dance: { n: '댄스 연습실 장기 대여', c: 300, up: 60, k: ['dance'], d: '댄스 연습', out: true },
-  gaming: { n: '게이밍 장비 세트', c: 400, up: 5, k: ['game'], d: '게임 연습' },
-  editpc: { n: '영상 작업용 PC', c: 350, up: 3, k: ['edit', 'direct'], d: '영상 편집·연출 연습' },
-  tablet: { n: '드로잉 태블릿', c: 150, up: 2, k: ['art'], d: '그림 연습' },
-  teachkit: { n: '강의 녹화 장비·교재 세트', c: 200, up: 4, k: ['edu'], d: '카메라·마이크·교재. 교육 연습' },
-  scoutmon: { n: '오디션 영상 분석 모니터', c: 300, up: 4, k: ['scout'], d: '여러 화면에 영상을 띄워 비교한다. 스카우트 연습' },
-  writing: { n: '집필 작업실', c: 250, up: 8, k: ['script'], d: '조용한 작업 공간, 집필용 노트북과 작법 프로그램. 작문 연습' },
-  talk: { n: '토크·MC 연습 세트', c: 150, up: 3, k: ['variety'], d: '카메라·마이크·프롬프터. 예능 연습' },
-  lang: { n: '어학 인강 이용권·전자사전', c: 100, up: 3, k: ['jp', 'en'], d: '원어민 화상 수업과 인강. 일본어·영어 연습', out: true },
-  desk: { n: '공부방 꾸미기', c: 80, up: 2, k: ['study'], d: '책상·조명·인강 이용권. 학업 연습' },
-  bizkit: { n: '경영 분석 프로그램·경제지 구독', c: 200, up: 4, k: ['biz'], d: '재무 분석 프로그램과 경제지 · 경영 강의 이용권. 사업 연습' },
+  acting: { ic: '🎬', n: '셀프테이프 촬영·연기 연습 세트', c: 250, up: 5, k: ['acting'], d: '카메라·조명·전신 거울. 연기 연습' },
+  booth: { ic: '🎙️', n: '집 방음 보컬 부스', c: 800, up: 10, k: ['vocal', 'rap'], d: '보컬·랩 연습' },
+  studio: { ic: '🎧', n: '홈 레코딩 작업실', c: 1500, up: 20, k: ['compose', 'lyric'], d: '작곡·작사 연습' },
+  room: { ic: '🎸', n: '합주실 장기 대여', c: 200, up: 40, k: ['guitar', 'bass', 'piano', 'keyboard', 'drum'], d: '악기 연습', out: true },
+  dance: { ic: '💃', n: '댄스 연습실 장기 대여', c: 300, up: 60, k: ['dance'], d: '댄스 연습', out: true },
+  gaming: { ic: '🎮', n: '게이밍 장비 세트', c: 400, up: 5, k: ['game'], d: '게임 연습' },
+  editpc: { ic: '🖥️', n: '영상 작업용 PC', c: 350, up: 3, k: ['edit', 'direct'], d: '영상 편집·연출 연습' },
+  tablet: { ic: '🎨', n: '드로잉 태블릿', c: 150, up: 2, k: ['art'], d: '그림 연습' },
+  teachkit: { ic: '📹', n: '강의 녹화 장비·교재 세트', c: 200, up: 4, k: ['edu'], d: '카메라·마이크·교재. 교육 연습' },
+  scoutmon: { ic: '📺', n: '오디션 영상 분석 모니터', c: 300, up: 4, k: ['scout'], d: '여러 화면에 영상을 띄워 비교한다. 스카우트 연습' },
+  writing: { ic: '✍️', n: '집필 작업실', c: 250, up: 8, k: ['script'], d: '조용한 작업 공간, 집필용 노트북과 작법 프로그램. 작문 연습' },
+  talk: { ic: '🗣️', n: '토크·MC 연습 세트', c: 150, up: 3, k: ['variety'], d: '카메라·마이크·프롬프터. 예능 연습' },
+  lang: { ic: '🌐', n: '어학 인강 이용권·전자사전', c: 100, up: 3, k: ['jp', 'en'], d: '원어민 화상 수업과 인강. 일본어·영어 연습', out: true },
+  desk: { ic: '📚', n: '공부방 꾸미기', c: 80, up: 2, k: ['study'], d: '책상·조명·인강 이용권. 학업 연습' },
+  bizkit: { ic: '📊', n: '경영 분석 프로그램·경제지 구독', c: 200, up: 4, k: ['biz'], d: '재무 분석 프로그램과 경제지 · 경영 강의 이용권. 사업 연습' },
 };
 // 전용 밴과 운전기사: 이동 시간이 줄어 일정 칸이 하나 늘어난다. 단계가 없고, 값은 가장 비싼 장비를 처음부터 끝 단계까지 올리는 값보다 비싸다
 const VAN_ID = 'van';
-EQUIP[VAN_ID] = { n: '전용 밴과 운전기사', slot: true, k: [], up: 300, min: 19, d: '넓은 승합차와 전담 운전기사. 이동하며 쉬고 준비할 수 있다', c: Math.ceil(Math.max(...Object.values(EQUIP).map(x => x.c * (1 + 3 + 9))) * 1.08 / 1000) * 1000 };
+EQUIP[VAN_ID] = { ic: '🚐', n: '전용 밴과 운전기사', slot: true, k: [], up: 300, min: 19, d: '넓은 승합차와 전담 운전기사. 이동하며 쉬고 준비할 수 있다', c: Math.ceil(Math.max(...Object.values(EQUIP).map(x => x.c * (1 + 3 + 9))) * 1.08 / 1000) * 1000 };
 function vanOn(s) { return !!eqLv(s, VAN_ID) && age(s) >= 19; }
 // rest: 쉬어야 하는 달 (0이면 바로 일상), risk: 부작용 확률 (0이면 없음)
 const SURGERY = {
@@ -347,8 +348,8 @@ function lifeActs(s) {
     const l = eqLv(s, id);
     // 일정 칸을 늘리는 장비: 단계 없이 들여놓기·처분하기만 있다
     if (x.slot) {
-      if (l) A.push({ sec: 'equip', lv: 0.5, t: x.n, tag: '이용 중', price: '일정 한 칸 더', eff: `유지비 월 ${x.up}만 원`, note: x.d, ok: true, btn: '처분하기', danger: true, confirm: `${josa(x.n, '을를')} 처분할까요?\n일정 칸이 하나 줄고, 들인 돈은 돌려받지 못해요.`, run: s => { s.equip[id] = 0; refreshSlots(s); return `${josa(x.n, '을를')} 처분했다. 일정 칸이 하나 줄었다.`; } });
-      else if (a >= x.min) A.push({ sec: 'equip', t: x.n, price: `설치 ${fmtWon(x.c * 1e4)}`, eff: '일정 한 칸 더', note: `${x.d} · 유지비 월 ${x.up}만 원`, ok: !eqBuyWhy(s) && a >= x.min && s.money >= x.c * 1e4, why: eqBuyWhy(s) || (a < x.min ? `${x.min}세부터` : '돈이 모자라다'), btn: '들여놓기', run: s => { addMoney(s, -x.c * 1e4, x.n); s.equip[id] = 1; refreshSlots(s); return `${josa(x.n, '을를')} 들여놓았다. 이제 한 달에 일정을 하나 더 할 수 있다.`; } });
+      if (l) A.push({ sec: 'equip', emo: x.ic, lv: 0.5, t: x.n, tag: '이용 중', price: '일정 한 칸 더', eff: `유지비 월 ${x.up}만 원`, note: x.d, ok: true, btn: '처분하기', danger: true, confirm: `${josa(x.n, '을를')} 처분할까요?\n일정 칸이 하나 줄고, 들인 돈은 돌려받지 못해요.`, run: s => { s.equip[id] = 0; refreshSlots(s); return `${josa(x.n, '을를')} 처분했다. 일정 칸이 하나 줄었다.`; } });
+      else if (a >= x.min) A.push({ sec: 'equip', emo: x.ic, t: x.n, price: `설치 ${fmtWon(x.c * 1e4)}`, eff: '일정 한 칸 더', note: `${x.d} · 유지비 월 ${x.up}만 원`, ok: !eqBuyWhy(s) && a >= x.min && s.money >= x.c * 1e4, why: eqBuyWhy(s) || (a < x.min ? `${x.min}세부터` : '돈이 모자라다'), btn: '들여놓기', run: s => { addMoney(s, -x.c * 1e4, x.n); s.equip[id] = 1; refreshSlots(s); return `${josa(x.n, '을를')} 들여놓았다. 이제 한 달에 일정을 하나 더 할 수 있다.`; } });
       continue;
     }
     // 내가 배운 특기이거나, 같이 사는 자녀가 배운 특기면 보인다
@@ -362,10 +363,10 @@ function lifeActs(s) {
       const lines = [par ? { price: `${what} 상승률 +${eqPct(l)}%`, eff: '부모님이 지원해 주셨다 · 유지비도 부모님이 낸다' } : { price: `${what} 상승률 +${eqPct(l)}%`, eff: `유지비 월 ${eqUp(id, l)}만 원`, ok: true, btn: '처분하기', danger: true, confirm: `${josa(x.n, '을를')} 처분할까요?\n들인 돈은 돌려받지 못해요.`, run: s => { s.equip[id] = 0; if (s.eqPar) delete s.eqPar[id]; return `${josa(x.n, '을를')} 처분했다.`; } }];
       if (l < EQ_MAX) { const c = eqCost(id, l) * 1e4; lines.push({ price: `업그레이드 ${fmtWon(c)}`, eff: `상승률 +${eqPct(l)}% → +${eqPct(l + 1)}% · 유지비 월 ${eqUp(id, l)}만 → ${eqUp(id, l + 1)}만 원`, ok: !eqBuyWhy(s) && s.money >= c, why: eqBuyWhy(s) || '돈이 모자라다', btn: '업그레이드', run: s => { addMoney(s, -c, `${x.n} 업그레이드`); s.equip[id] = l + 1; return `${josa(x.n, '을를')} ${l + 1}단계로 업그레이드했다. (상승률 +${eqPct(l + 1)}%)`; } }); }
       else lines.push({ eff: '가장 높은 단계다' });
-      A.push({ sec: 'equip', lv: l, t: x.n, tag: `${l}단계${par ? ' · 부모님이 지원해 주심' : ''}`, lines });
+      A.push({ sec: 'equip', emo: x.ic, lv: l, t: x.n, tag: `${l}단계${par ? ' · 부모님이 지원해 주심' : ''}`, lines });
       continue;
     }
-    A.push({ sec: 'equip', t: x.n, price: `설치 ${fmtWon(x.c * 1e4)}`, eff: `${what} 상승률 +${eqPct(1)}%`, note: `${gear ? gear + ' · ' : ''}유지비 월 ${x.up}만 원`, ok: !eqBuyWhy(s) && s.money >= x.c * 1e4 && (x.out || eqHomeIds(s).length < eqCap(s)), why: eqBuyWhy(s) ? eqBuyWhy(s) : !x.out && eqHomeIds(s).length >= eqCap(s) ? `집에 자리가 없다 (지금 집은 ${eqCap(s)}개까지)` : '돈이 모자라다', btn: '들여놓기', run: s => { addMoney(s, -x.c * 1e4, x.n); s.equip[id] = 1; return `${josa(x.n, '을를')} 들여놓았다.`; } });
+    A.push({ sec: 'equip', emo: x.ic, t: x.n, price: `설치 ${fmtWon(x.c * 1e4)}`, eff: `${what} 상승률 +${eqPct(1)}%`, note: `${gear ? gear + ' · ' : ''}유지비 월 ${x.up}만 원`, ok: !eqBuyWhy(s) && s.money >= x.c * 1e4 && (x.out || eqHomeIds(s).length < eqCap(s)), why: eqBuyWhy(s) ? eqBuyWhy(s) : !x.out && eqHomeIds(s).length >= eqCap(s) ? `집에 자리가 없다 (지금 집은 ${eqCap(s)}개까지)` : '돈이 모자라다', btn: '들여놓기', run: s => { addMoney(s, -x.c * 1e4, x.n); s.equip[id] = 1; return `${josa(x.n, '을를')} 들여놓았다.`; } });
   }
   for (const [id, x] of Object.entries(SURGERY)) {
     if (s.flags[id] || a < x.min) continue;

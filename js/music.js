@@ -176,6 +176,24 @@ E({
   ch: (s, d) => [{ t: '드디어!', f: () => `${d.fromTr ? '연습생 시절 비용과 ' : ''}앨범 제작비를 다 갚았다. 이제부터 정산이 들어온다!` }],
 });
 
+// ───── 유행을 바꾼 곡 (v165) ─────
+// 유행이 아닌 컨셉으로 낸 내 곡 · 내 그룹 곡(내 회사 그룹 포함)이 차트 3위 안에 들면, 그 컨셉이 새 유행이 된다 (1위면 60%, 2~3위면 35%)
+// 한 번 바뀌면 2년 동안은 다시 일어나지 않고, 그 해 · 이듬해 첫 달에는 유행이 저절로 바뀌지 않는다 (s.trendLock)
+function hitTrend(s, c, sc, peak) {
+  if (!c || c === s.trend || !TRENDS.includes(c) || !peak || peak > 3 || (s.cd.hitTr || 0) > s.t) return false;
+  return U.chance(peak === 1 ? 0.6 : 0.35);
+}
+function hitTrendGo(s, c, title, by) {
+  const old = s.trend;
+  s.trend = c; s.trendLock = s.t + 12; s.cd.hitTr = s.t + 24;
+  queueEv(s, 'trend_hit', 0, { c, old, title, by }, true);
+}
+E({
+  id: 'trend_hit', cat: '음원 성적', title: '유행을 바꾼 곡', tag: 'career', keepPop: true,
+  text: (s, d) => `${d.by}의 ${josa(`「${d.title}」`, '이가')} 크게 히트하면서 차트 판도가 바뀌었다.\n\n요즘 차트에는 '${d.c}' 컨셉 곡이 쏟아지고, 다른 기획사들도 앞다투어 '${d.c}' 컨셉 앨범을 준비한다고 한다. 얼마 전까지 유행이던 '${d.old}' 컨셉은 한물간 분위기다.\n\n'${d.c}' 유행을 연 사람들로 이름이 오르내린다.`,
+  ch: (s, d) => [{ t: '확인', f: s => { cmGain(s, d.c, 6); return `${josa(`「${d.title}」`, '이가')} 유행을 바꿨다. 요즘 유행은 '${d.c}' 컨셉이다.` + fx(s, { fame: 3, rep: 1 }); } }],
+});
+
 // ───── 곡 발매 결과 카드 (v118 UI C1) ─────
 // 결과 창 맨 위 카드: 제목 · 최고 순위 · 팬 변화 · 듣는 사람 반응 3줄 · 지난 곡과 비교 · 정산서. s.works의 card로 남아 작품 탭 · 요약 창에서 다시 본다
 // 반응 3줄: 점수에 들어간 것 중 가장 좋은 것, 가장 아쉬운 것, 그 밖 하나를 사람 말로. 숫자 · 강점 / 약점 표시는 없고 순서도 섞는다
@@ -184,7 +202,8 @@ const RX = {
   q: q => ({ z: (q - 40) / 15, g: ['멜로디가 귀에 착 감긴다', '후렴이 하루 종일 맴돈다'], b: ['곡이 조금 밋밋하다', '어디서 들어 본 듯한 곡이다'] }),
   // 팬: 팬이 많을수록 좋게 보지만, 이번에 팬이 오히려 줄었으면 늘 아쉬운 쪽
   fans: (f, gain) => gain < 0 ? { z: -0.6, g: ['그래도 남은 팬들은 끝까지 들어 준다'], b: ['팬들 반응도 예전 같지 않다', '기존 팬들도 고개를 갸웃한다'] } : { z: (Math.log10(1 + f) - 4) / 1.2, g: ['기다리던 팬들이 바로 반응했다', '나오자마자 팬들이 여기저기 퍼 날랐다'], b: ['아직 아는 사람이 적다', '들어 볼 사람한테까지 닿지를 않는다'] },
-  trend: on => ({ z: on ? 0.7 : -0.5, g: ['요즘 듣는 노래랑 결이 맞는다'], b: ['요즘 듣는 노래랑은 결이 다르다'] }),
+  // v165: fresh면 유행이 아니던 곡이 크게 떠서 유행을 바꾼 것. '결이 다르다' 대신 신선하다는 말
+  trend: (on, fresh) => fresh ? { z: 0.8, g: ['요즘 이런 노래가 없었는데 신선하다', '다들 비슷한 노래만 낼 때 혼자 튄다', '처음 듣는 느낌인데 자꾸 생각난다'], b: ['요즘 이런 노래가 없었는데 신선하다'] } : { z: on ? 0.7 : -0.5, g: ['요즘 듣는 노래랑 결이 맞는다'], b: ['요즘 듣는 노래랑은 결이 다르다'] },
   tw: tw => ({ z: (tw - 50) / 40, g: ['합이 착착 맞는다', '서로 숨소리까지 맞춘 느낌이다'], b: ['합이 조금 어긋난다', '각자 따로 노는 느낌이다'] }),
   cf: b => ({ z: b / 4, g: ['컨셉이 잘 어울린다'], b: ['컨셉이 안 맞는 것 같다'] }),
   promo: tier => ({ z: (tier - 1.2) / 1.2, g: ['홍보가 제대로 됐다'], b: ['어디서 나왔는지 모르는 사람이 많다'] }),
@@ -1062,7 +1081,7 @@ function idolRelease(s, t, c, debut, a) {
   const ob = typeof idolTakeB === 'function' ? idolTakeB(t) : { st: 0, part: 0 };
   const sc = songScore(s, { perf: cPerf(groupPower(s, g), cf), q, fans: gf, tier: 0, trend: c === s.trend, bonus: IDOL_TIER_B[t.tier] + (g.star - 50) * 0.12 + (c === g.sig ? 3 : 0) + Math.min(t.cbCount, 6) * 0.6 + buzz + g.mo - tired + rookie + cScoreB(cf) + ob.st });
   g.mo = g.mo * 0.6 + U.normal(0, 4.5);
-  const peak = chartFromScore(sc);
+  const peak = chartFromScore(sc), ht = hitTrend(s, c, sc, peak);
   jpopWork(s, 'idol', sc);
   const main = t.mkt === 'jp' ? 'jp' : 'kr';
   const gain = { kr: 0, jp: 0, us: 0 };
@@ -1100,11 +1119,12 @@ function idolRelease(s, t, c, debut, a) {
   t.yearBest = Math.max(t.yearBest || 0, sc);
   // 발매 결과 카드 (v118 UI C1): 무대 실력 · 곡 · 팬 · 유행 · 팀워크 · 컨셉 궁합 · 스타성 · 피로도 · 대표 컨셉
   if (t.lastBill) t.lastBill.t = `「${title}」 앨범 · 음원 정산`;
-  const F = [{ z: (groupPower(s, g) - 45) / 18, g: ['퍼포먼스가 눈을 못 떼게 한다', '라이브가 안정적이다'], b: ['라이브가 조금 불안하다', '무대가 아직 덜 여물었다'] }, RX.q(q), RX.fans(gf, gain.kr + gain.jp + gain.us), RX.trend(c === s.trend), RX.tw(twOf(g)), RX.cf(cScoreB(cf)), { z: (g.star - 50) / 25, g: ['멤버들 얼굴이 화면을 꽉 채운다'], b: ['눈에 확 띄는 멤버가 없다'] }];
+  const F = [{ z: (groupPower(s, g) - 45) / 18, g: ['퍼포먼스가 눈을 못 떼게 한다', '라이브가 안정적이다'], b: ['라이브가 조금 불안하다', '무대가 아직 덜 여물었다'] }, RX.q(q), RX.fans(gf, gain.kr + gain.jp + gain.us), RX.trend(c === s.trend, ht), RX.tw(twOf(g)), RX.cf(cScoreB(cf)), { z: (g.star - 50) / 25, g: ['멤버들 얼굴이 화면을 꽉 채운다'], b: ['눈에 확 띄는 멤버가 없다'] }];
   if (tired > 1) F.push({ z: -tired / 4, g: ['오래 봐도 질리지 않는다'], b: ['비슷한 컨셉이 이어져 조금 익숙하다'] });
   if (c === g.sig) F.push({ z: 0.5, g: ['역시 이 그룹다운 컨셉이다'], b: ['늘 하던 컨셉이라 뻔하다'] });
   const card = songCardMake({ t: title, by: g.name, peak, wins, fans: [['그룹 팬', gain.kr + gain.jp + gain.us], ['내 팬', my.kr + my.jp + my.us]], pay, bill: pay > 0 || t.debt > 0 ? t.lastBill : null }, F, sc, g);
   if (a && a.mk) card.mk = a.mk; // 제작 과정 (v154): 성적표 · 작품 탭에서 본다
+  if (ht) hitTrendGo(s, c, title, g.name);
   // 실시간 창 (12-1): 데뷔 무대 · 컴백 첫 음악방송. 카드와 같은 요인으로 장면을 만든다 (내 몫: 내 실력 · 스타성)
   card.live = liveStage({ k: 'idol', place: debut ? '데뷔 무대' : '음악방송', t: title, g: g.name, fd: g.fandom, c, sx: liveSx(idolPpl(s, g)), mem: idolPpl(s, g).map(x => [x.id === s.me ? actCall(s, 'idol') : callName(x.name), (g.pos[x.id] || '').split(' · ')[0]]), mi: 0,
     z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, tw: F[4].z, cf: F[5].z, star: F[6].z, me: (Math.max(lv(p, 'vocal'), lv(p, 'rap'), lv(p, 'dance')) * 0.6 + p.tal.star * 0.4 - 45) / 18 }, sc, wins, cand: sc >= 66, debut, key: !!debut || wins > 0 || sc >= 66, rv: sc >= 66 && !wins ? npcStageRival(s, g.name) : '' });
@@ -1930,7 +1950,7 @@ E({
     if (cf.rap != null) cf.rap = bv ? lv(bv, 'rap') : 0;
     const sc = songScore(s, { perf: cPerf(bandPower(s, t), cf), q: d.q, fans: t.b.f, tier: t.tier, trend: !!d.c && d.c === s.trend, bonus: (d.self ? 3 : 0) + cScoreB(cf) + bandArrB(s, t, d) });
     cNote(s, cf, d.title);
-    d.peak = chartFromScore(sc);
+    d.peak = chartFromScore(sc); d.ht = hitTrend(s, d.c, sc, d.peak);
     jpopWork(s, 'band', sc);
     d.gain = fanGainRaw(sc, t.b.f, t.st === 'signed' ? 1 : 0.6, starCap(60, 'kr'));
     t.b.f = Math.max(0, t.b.f + d.gain);
@@ -1954,6 +1974,7 @@ E({
     if (d.peak && (!t.bestPeak || d.peak < t.bestPeak)) t.bestPeak = d.peak;
     // 발매 결과 카드 (v118 UI C1)
     d.card = songCardMake({ t: d.title, by: `밴드 「${t.b.name}」`, peak: d.peak, fans: [['밴드 팬', d.gain], ['내 팬', my]], pay: d.pay, bill: d.bill }, bandReactF(s, t, d, cf), sc, t);
+    if (d.ht) hitTrendGo(s, d.c, d.title, `밴드 「${t.b.name}」`);
     if (d.mk) d.card.mk = d.mk;
     // 무대 창 (12-3): 인디는 클럽 공연, 소속사가 있으면 쇼케이스. 첫 곡이거나 차트에 든 곡이 '중요할 때'
     d.card.live = bandLive(s, t, { vn: t.st === 'signed' ? 'hall' : 'club', place: t.st === 'signed' ? '쇼케이스' : '클럽 공연', t: d.title, sc, key: t.rel === 1 || !!d.peak, z: { q: (d.q - 45) / 15, trend: d.c && d.c === s.trend ? 0.7 : -0.5 } });
@@ -2005,7 +2026,7 @@ function bandReactF(s, t, d, cf) {
   const F = [
     { z: (hi.v - 45) / 18, g: hi.k === 'vocal' ? ['보컬이 곡을 꽉 채운다', '보컬 목소리가 귀에 확 들어온다'] : [`${partN(hi.k)} 사운드가 꽉 찼다`, `${partN(hi.k)} 연주가 귀에 확 들어온다`], b: ['연주가 전체적으로 아직 서툴다'] },
     { z: (lo.v - 32) / 15, g: ['빠지는 파트 없이 고르다'], b: [`${josa(partN(lo.k), '이가')} 조금 힘에 부친다`, `${josa(partN(lo.k), '이가')} 다른 파트를 못 따라간다`] },
-    RX.q(d.q), RX.fans(t.b.f, d.gain), RX.trend(!!d.c && d.c === s.trend), RX.tw(twOf(t.b)), RX.promo(t.tier || 0), cf ? RX.cf(cScoreB(cf)) : null,
+    RX.q(d.q), RX.fans(t.b.f, d.gain), RX.trend(!!d.c && d.c === s.trend, d.ht), RX.tw(twOf(t.b)), RX.promo(t.tier || 0), cf ? RX.cf(cScoreB(cf)) : null,
   ];
   const ab = bandArrB(s, t, d), mp = partN(t.b.my);
   if (d.arr) F.push({ z: ab / 3, g: { me: [`${josa(mp, '이가')} 앞에 나온 편곡이 시원하다`], voc: ['보컬을 살린 편곡이 귀에 쏙 들어온다'], trend: ['요즘 감성으로 잘 다듬었다'], own: ['역시 이 밴드다운 소리다'] }[d.arr], b: { me: [`${josa(mp, '이가')} 너무 앞에 나와 노래가 묻힌다`], voc: ['보컬만 덩그러니 남은 느낌이다'], trend: ['유행 따라가다 이 밴드 색이 흐려졌다'], own: ['늘 듣던 그 소리라 좀 지루하다'] }[d.arr] });
@@ -2261,7 +2282,7 @@ E({
     const cf = cFit(s, d.c, [p], stageYrs(s));
     const sc = songScore(s, { perf: cPerf(soloScore(s, t.type), cf), q: d.q, fans: totalFans(s), tier: signed ? t.tier : 0, trend: (d.tr = d.c ? d.c === s.trend : U.chance(0.3)), bonus: (d.self ? 3 : 0) + (p.tal.star - 50) * 0.12 + cScoreB(cf) });
     cNote(s, cf, d.title);
-    d.peak = chartFromScore(sc);
+    d.peak = chartFromScore(sc); d.ht = hitTrend(s, d.c, sc, d.peak);
     jpopWork(s, 'solo', sc);
     d.gain = Math.round(fanGain(s, sc, mk, signed ? 1.1 : 0.7) * myRoom(s, mk));
     s.fans[mk] = Math.max(0, s.fans[mk] + d.gain);
@@ -2280,9 +2301,10 @@ E({
     // 발매 결과 카드 (v118 UI C1): 내 노래 · 랩 · 무대, 곡, 팬, 유행, 컨셉 궁합, 홍보
     const sp = soloScore(s, t.type), ty = t.type === 'rap' ? 'rap' : t.type === 'perf' ? 'perf' : 'vocal';
     const F = [{ z: (sp - 45) / 18, g: { vocal: ['목소리가 곡을 꽉 채운다', '노래 실력이 확실하다'], rap: ['랩이 귀에 꽂힌다', '플로우가 살아 있다'], perf: ['퍼포먼스가 눈을 못 떼게 한다', '무대 장악력이 대단하다'] }[ty], b: { vocal: ['노래가 곡을 다 못 받쳐 준다'], rap: ['랩이 조금 어설프다'], perf: ['무대가 아직 덜 여물었다'] }[ty] },
-      RX.q(d.q), RX.fans(totalFans(s), d.gain), RX.trend(!!d.tr), RX.cf(cScoreB(cf)), RX.promo(signed ? t.tier : 0)];
+      RX.q(d.q), RX.fans(totalFans(s), d.gain), RX.trend(!!d.tr, d.ht), RX.cf(cScoreB(cf)), RX.promo(signed ? t.tier : 0)];
     d.card = songCardMake({ t: d.title, by: actName(s, 'solo'), peak: d.peak, fans: [['내 팬', d.gain]], pay: gross > 0 ? d.sale : null, bill: d.bill }, F, sc, t);
     if (d.mk) d.card.mk = d.mk;
+    if (d.ht) hitTrendGo(s, d.c, d.title, actName(s, 'solo'));
     // 실시간 창 (12-1): 솔로는 음악방송 1위가 없어서 1위 발표 장면도 없다
     d.card.live = liveStage({ k: 'solo', c: d.c, mic: 1, key: t.rel === 1, place: t.rel === 1 ? '데뷔 무대' : '음악방송', t: d.title, g: actName(s, 'solo'), cn: actCall(s, 'solo'), mem: [[actCall(s, 'solo'), '']], mi: 0,
       z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, cf: F[4].z, star: (p.tal.star - 50) / 25, me: F[0].z }, sc, debut: t.rel === 1 });
@@ -2580,8 +2602,15 @@ function myAlbX(s, k) {
 function myAlbJudge(s, k) { return ownCo(s, k) && typeof coAnrLead === 'function' ? coAnrLead(s) : null; }
 function myMoneyN(s, k) { return ownCo(s, k) ? '자본금' : '내 돈'; }
 function myAlbFit(s, k, c) { return albFit(s, musPpl(s, k), c) + (has(me(s), 'compose') ? ` · 내 숙련도 ${gauge(cmGet(s, c))}` : ''); }
-function myPickRead(a, v) { const idx = a.five.map((x, i) => i).filter(i => albOn(v, 'p' + i)), ti = v.ti ? +String(v.ti).slice(1) : -1; return { idx, ti: idx.includes(ti) ? ti : -1, pol: albOn(v, 'pol'), ly: albOn(v, 'ly') }; }
-function myPickCost(x, ti, pol) { return (ti ? ti.price || 0 : 0) + (pol ? albPolCost(x) : 0) + x.prod; }
+function myPickRead(a, v) { const idx = a.five.map((x, i) => i).filter(i => albOn(v, 'p' + i)), ti = v.ti ? +String(v.ti).slice(1) : -1, pol = albPolRead(v); return { idx, ti: idx.includes(ti) ? ti : -1, pol, ly: pol.lyr === 'me' }; }
+function myPickCost(s, x, ti, pol) { return (ti ? ti.price || 0 : 0) + albPolPay(s, x, pol) + x.prod; }
+// 편곡자 · 작사가 후보 (v165, 앨범마다 한 번 정해 둔다). 작사는 내가 직접 쓸 수도 있다 (작사 특기)
+function myPolC(s, k) { const t = s.tracks[k]; return t.alb.polC || (t.alb.polC = albPolCands(s, t.lastPol)); }
+function myPolFields(s, k) {
+  const p = me(s), v = ownCo(s, k) && typeof coViewer === 'function' ? sk => coViewer(s, 'anr', sk, 'music') : () => p, lyr = [{ v: '', label: '따로 맡기지 않는다', sub: '돈 안 듦 · 조금만 다듬어진다' }];
+  if (has(p, 'lyric')) lyr.push({ v: 'me', label: '타이틀곡 가사는 내가 쓴다', sub: `작사 ${lvi(p, 'lyric')}레벨 · 실력만큼 곡이 달라지고, 작사 저작권료 몫이 생긴다` });
+  return albPolFields(s, myAlbX(s, k), myPolC(s, k), s.tracks[k].lastPol, { arr: [{ v: '', label: '따로 맡기지 않는다', sub: '돈 안 듦 · 조금만 다듬어진다' }], lyr }, v);
+}
 function myAlbTbl(s, k) {
   const a = s.tracks[k].alb, v = ownCo(s, k) && typeof coViewer === 'function' ? coViewer(s, 'anr', 'compose', 'music') : me(s);
   const rows = a.five.map((x, i) => { const c = x.mine ? me(s) : x.cid && s.people[x.cid]; return { k: 'p' + i, tr: x.c === s.trend, cells: {
@@ -2596,13 +2625,13 @@ function myAlbHead(s, k) {
 // 곡을 정하면: 돈을 치르고, 작곡가들을 만나고, 편곡 · 작사를 거쳐 두 달 뒤에 나온다 (밴드는 편곡 회의를 먼저)
 function myAlbGo(s, k) {
   const t = s.tracks[k], a = t.alb, x = myAlbX(s, k), p = me(s), picks = a.sel.p.map(i => a.five[i]), ti = a.five[a.sel.ti];
-  const cost = myPickCost(x, ti, a.sel.pol);
+  const cost = myPickCost(s, x, ti, a.sel.pol);
   jobPay(s, cost, k === 'band' ? '밴드 새 곡 제작비' : '신곡 제작비', k);
   for (const d of picks) { const c = d.cid && s.people[d.cid]; if (c && c.ind) { meetAt(s, c, `「${d.title}」`, k); bond(s, c, d === ti ? 3 : 1); const cm = coCm(c); cm[d.c] = Math.min(100, cm[d.c] + (100 - cm[d.c]) * (d === ti ? 0.06 : 0.02)); } }
   x.cs = a.cs; x.src = a.src;
   const pol = albPolish(s, x, a.sel.pol);
   // 타이틀곡 가사를 내가 쓰면: 내 작사 실력만큼 곡이 달라지고, 작사 저작권료 몫이 생긴다
-  if (a.sel.ly) { pol.dq += U.clamp((lv(p, 'lyric') - 35) * 0.05, -2, 2.5); useSkill(s, p, 'lyric', 2); if (pol.lyr) pol.lyr = '나'; }
+  if (a.sel.ly) { pol.dq += U.clamp((lv(p, 'lyric') - 35) * 0.05, -2, 2.5); useSkill(s, p, 'lyric', 2); pol.lyr = '나'; }
   const mk = albMk(s, a, picks, ti, pol, '나');
   if (a.sel.ly) { const z = mk.pk.find(q => q.ti); if (z) z.ly = '나'; }
   const side = picks.filter(d => d !== ti);
@@ -2623,7 +2652,7 @@ for (const k of ['solo', 'band']) {
     cond: live,
     init(s, d) { if (!live(s)) d.skip = true; },
     text: (s, d) => { const j = myAlbJudge(s, k); return myAlbHead(s, k) + `\n\n컨셉과 곡을 모을 곳을 정하자. 여러 개를 같이 고를 수 있고, 고른 만큼 돈이 든다. ${j ? `모인 곡은 A&R 팀장 ${josa(j.name, '이가')} 다섯 곡으로 추려 오고,` : '회사가 없어 A&R 팀도 없다. 모인 곡은 내가 전부 들어 보고,'} 한 달 뒤에 실을 곡을 정한다.`; },
-    form: (s, d) => albPlanForm(s, myAlbX(s, k), c => myAlbFit(s, k, c)),
+    form: (s, d) => { const x = myAlbX(s, k); x.last = s.tracks[k].lastPlan; return albPlanForm(s, x, c => myAlbFit(s, k, c)); },
     sum: (s, d, v) => { const x = myAlbX(s, k), r = albPlanRead(s, x, v), n = ALB_SRC.filter(z => r.src.includes(z.k)).reduce((a, z) => a + albSrcCnt(x, z, r.cs.length), 0); return `컨셉 ${r.cs.length}개 · 데모곡 ${n}곡쯤 · 드는 돈 ${fmtWon(albPlanCost(x, r.cs, r.src))} · ${myMoneyN(s, k)} ${fmtWon(jobMoney(s, k))}`; },
     cancel: (s, d) => { s.tracks[k].nextRel = 3; return `${nm}은 석 달 뒤로 미뤘다.`; },
     cancelT: () => '이번엔 넘긴다',
@@ -2636,6 +2665,7 @@ for (const k of ['solo', 'band']) {
       const cost = albPlanCost(x, r.cs, r.src);
       if (cost > 0 && jobMoney(s, k) < cost) return { err: `${myMoneyN(s, k)}이 ${fmtWon(cost - jobMoney(s, k))} 모자라요` };
       if (cost > 0) jobPay(s, cost, '기획 · 데모곡', k);
+      t.lastPlan = { cs: r.cs.slice(), src: r.src.slice() }; // v165: 다음 기획에 그대로 체크해 둔다
       x.cs = r.cs; x.src = r.src;
       const demos = albDemos(s, x), j = myAlbJudge(s, k), sc = albScreen(s, x, demos, j), my = demos.find(z => z.mine);
       if (my) { useSkill(s, me(s), 'compose', 2); cmGain(s, my.c, 10); }
@@ -2648,26 +2678,26 @@ for (const k of ['solo', 'band']) {
   E({
     id: k + '_sel', cat, tag: 'career', title: k === 'band' ? '밴드 새 곡 · 실을 곡 정하기' : '솔로 신곡 · 실을 곡 정하기',
     cond: live,
-    init(s, d) { const a = s.tracks[k].alb; if (!live(s) || !a || !a.five || !a.five.length || a.at != null) d.skip = true; },
+    init(s, d) { const a = s.tracks[k].alb; if (!live(s) || !a || !a.five || !a.five.length || a.at != null) { d.skip = true; return; } myPolC(s, k); },
     text: (s, d) => {
       const a = s.tracks[k].alb, j = a.by && s.people[a.by], need = Math.min(ALB_PICK, a.five.length), x = myAlbX(s, k);
       return `${nm}에 실을 곡을 정할 차례다.\n\n${j && a.n > a.five.length ? `모인 데모곡 ${a.n}곡 가운데 A&R 팀장 ${josa(j.name, '이가')} ${a.five.length}곡을 추려 왔다.` : `모인 데모곡 ${a.n}곡을 직접 들어 봤다.`} 실을 ${need}곡을 체크하고, 그중 타이틀곡을 하나 찍자.\n\n타이틀곡 값과 제작비(${fmtWon(x.prod)})가 든다 · ${myMoneyN(s, k)} ${fmtWon(jobMoney(s, k))}`;
     },
-    form: (s, d) => { const a = s.tracks[k].alb, x = myAlbX(s, k), p = me(s); return a.five.map((z, i) => ({ k: 'p' + i, type: 'check', label: z.title })).concat([{ k: 'pol', type: 'opt', after: true, label: '편곡 · 작사를 이름난 사람에게 맡긴다', sub: `${fmtWon(albPolCost(x))} · 곡이 더 다듬어진다` }]).concat(has(p, 'lyric') ? [{ k: 'ly', type: 'opt', after: true, label: '타이틀곡 가사는 내가 쓴다', sub: `작사 ${lvi(p, 'lyric')}레벨 · 실력만큼 곡이 달라지고, 작사 저작권료 몫이 생긴다` }] : []); },
+    form: (s, d) => s.tracks[k].alb.five.map((z, i) => ({ k: 'p' + i, type: 'check', label: z.title })).concat(myPolFields(s, k)),
     tbl: (s, d) => myAlbTbl(s, k),
-    sum: (s, d, v) => { const a = s.tracks[k].alb, r = myPickRead(a, v), x = myAlbX(s, k); return `체크 ${r.idx.length}곡${r.ti >= 0 ? ` · 타이틀 「${a.five[r.ti].title}」` : ''} · 드는 돈 ${fmtWon(myPickCost(x, r.ti >= 0 ? a.five[r.ti] : null, r.pol))} · ${myMoneyN(s, k)} ${fmtWon(jobMoney(s, k))}`; },
+    sum: (s, d, v) => { const a = s.tracks[k].alb, r = myPickRead(a, v), x = myAlbX(s, k); return `체크 ${r.idx.length}곡${r.ti >= 0 ? ` · 타이틀 「${a.five[r.ti].title}」` : ''} · 드는 돈 ${fmtWon(myPickCost(s, x, r.ti >= 0 ? a.five[r.ti] : null, r.pol))} · ${myMoneyN(s, k)} ${fmtWon(jobMoney(s, k))}`; },
     // 두 번 미루면 모아 둔 곡들은 다른 가수에게 넘어가고, 다음에는 기획부터 다시 한다
     cancel: (s, d) => { const t = s.tracks[k], a = t.alb; t.nextRel = 3; if (a) { a.wait = (a.wait || 0) + 1; if (a.wait >= 2) t.alb = null; } return `${nm}은 석 달 뒤로 미뤘다.` + (a && !t.alb ? ' 모아 둔 곡들은 다른 가수에게 넘어갔다.' : ''); },
     cancelT: () => '이번엔 넘긴다',
     // 자동 플레이: 내 곡 · 싼 곡부터 세 곡, 맨 앞 곡을 타이틀로
-    sim: (s, d) => { const F = s.tracks[k].alb.five, I = F.map((x, i) => i).sort((p, q) => (F[q].mine ? 1 : 0) - (F[p].mine ? 1 : 0) || F[p].price - F[q].price).slice(0, ALB_PICK), v = {}; I.forEach(i => v['p' + i] = true); v.ti = 'p' + I[0]; if (lv(me(s), 'lyric') >= 30) v.ly = true; return v; },
+    sim: (s, d) => { const F = s.tracks[k].alb.five, I = F.map((x, i) => i).sort((p, q) => (F[q].mine ? 1 : 0) - (F[p].mine ? 1 : 0) || F[p].price - F[q].price).slice(0, ALB_PICK), v = {}; I.forEach(i => v['p' + i] = true); v.ti = 'p' + I[0]; if (lv(me(s), 'lyric') >= 30) v.lyr = 'me'; return v; },
     submit(s, d, v) {
       const t = s.tracks[k], a = t.alb, need = Math.min(ALB_PICK, a.five.length), r = myPickRead(a, v), x = myAlbX(s, k);
       if (r.idx.length !== need) return { err: `실을 곡을 ${need}곡 체크해 주세요 (지금 ${r.idx.length}곡)` };
       if (r.ti < 0) return { err: '체크한 곡 가운데 타이틀곡을 하나 찍어 주세요' };
-      const cost = myPickCost(x, a.five[r.ti], r.pol);
+      const cost = myPickCost(s, x, a.five[r.ti], r.pol);
       if (jobMoney(s, k) < cost) return { err: `${myMoneyN(s, k)}이 ${fmtWon(cost - jobMoney(s, k))} 모자라요` };
-      a.sel = { p: r.idx, ti: r.ti, pol: r.pol, ly: r.ly };
+      a.sel = { p: r.idx, ti: r.ti, pol: r.pol, ly: r.ly }; t.lastPol = Object.assign({}, r.pol);
       // 내가 쓴 곡이 타이틀이면 제목을 직접 짓는다
       if (a.five[r.ti].mine) { askTitle(s, 'myAlb', { title: a.five[r.ti].title, what: `${nm} 타이틀곡의`, k }); return { log: '' }; }
       return { log: myAlbGo(s, k) };
