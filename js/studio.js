@@ -54,7 +54,7 @@ function coVSeqTitle(w) { return w.kind === 'drama' ? `${w.base} 시즌${w.n + 1
 E({
   id: 'co_vplan', cat: '작품 기획', title: '무엇을 만들까?', tag: 'career',
   cond: s => coOn(s) && !!coT(s).f.video,
-  text: s => { const t = coT(s); return `다음 작품을 기획한다. 새 작품을 만들거나, 우리 회사가 만든 작품의 후속작을 만든다.\n\n${coSizeN(t, 'video')} · 자본금 ${fmtWon(t.money)} · 고를 수 있는 제작비 ${V_BUD_N.slice(0, coVTier(t) + 1).join('·')}`; },
+  text: s => { const t = coT(s); return `다음 작품을 기획한다. 새 작품을 만들거나, 우리 회사가 만든 작품의 후속작을 만든다.\n\n${coSizeN(t, 'video')} · 자본금 ${fmtWon(coM(t, 'video'))} · 고를 수 있는 제작비 ${V_BUD_N.slice(0, coVTier(t) + 1).join('·')}`; },
   ch: s => {
     const t = coT(s), C = [];
     for (const k in V_KIND) { const V = V_KIND[k]; C.push({ t: `새 ${V.n}`, h: `제작비 ${fmtWon(V.bud[0])}~${fmtWon(V.bud[coVTier(t)])} · 준비·촬영 ${V.prep + V.shoot}개월 · ${V_CH_N[V.ch]}에 건다`, f: s => { fireEvent(s, 'co_vscript', { P: { kind: k } }); return ''; } }); }
@@ -151,7 +151,7 @@ E({
   ch: (s, d) => {
     const P = d.P, t = coT(s), v = coVView(s, 'acting', d.P.f), role = d.role, roleN = role === 'lead' ? '주연' : '조연', ani = P.f === 'anime', nn = ani ? '성우' : '배우', n = P.cast.length, leads = P.cast.filter(c => c.role === 'lead').length;
     // 4명을 넘겨 더 쓰려면 자본금이 지금까지의 각본료·연출료·출연료와 이 배우의 출연료를 감당해야 한다
-    const afford = fee => n < CO_V_CAST.min || t.money >= coVUpfront(P) + fee;
+    const afford = fee => n < CO_V_CAST.min || coM(t, coPF(P)) >= coVUpfront(P) + fee;
     const set = (x, fee) => {
       P.cast.push({ id: x.id, role, fee });
       if (role === 'lead' && !P.lead) P.lead = x.id;
@@ -182,8 +182,8 @@ E({
   id: 'co_vbud', cat: '작품 기획', title: '제작비 정하기', tag: 'career',
   cond: s => coOn(s),
   text: (s, d) => { const t = coT(s), P = d.P; return P.f === 'anime'
-    ? `「${P.title}」에 제작비를 얼마나 쓸까? 동화·채색·배경·CG, 음악과 녹음에 쓰는 돈이다. 많이 쓸수록 작화가 좋아지지만, 본전을 찾으려면 더 많이 벌어야 한다.\n\n시작할 때 낼 돈: 원작·연출·작화팀·성우 ${fmtWon(coVUpfront(P))} · 자본금 ${fmtWon(t.money)}`
-    : `「${P.title}」에 제작비를 얼마나 쓸까? 세트·장소·의상, 촬영 장비와 스태프, CG·음악·편집에 쓰는 돈이다. 많이 쓸수록 볼거리가 좋아지지만, 본전을 찾으려면 더 많이 벌어야 한다.\n\n시작할 때 낼 돈: 각본료·연출료·출연료 ${fmtWon(coVUpfront(P))} · 자본금 ${fmtWon(t.money)}`; },
+    ? `「${P.title}」에 제작비를 얼마나 쓸까? 동화·채색·배경·CG, 음악과 녹음에 쓰는 돈이다. 많이 쓸수록 작화가 좋아지지만, 본전을 찾으려면 더 많이 벌어야 한다.\n\n시작할 때 낼 돈: 원작·연출·작화팀·성우 ${fmtWon(coVUpfront(P))} · 자본금 ${fmtWon(coM(t, coPF(P)))}`
+    : `「${P.title}」에 제작비를 얼마나 쓸까? 세트·장소·의상, 촬영 장비와 스태프, CG·음악·편집에 쓰는 돈이다. 많이 쓸수록 볼거리가 좋아지지만, 본전을 찾으려면 더 많이 벌어야 한다.\n\n시작할 때 낼 돈: 각본료·연출료·출연료 ${fmtWon(coVUpfront(P))} · 자본금 ${fmtWon(coM(t, coPF(P)))}`; },
   ch: (s, d) => {
     const t = coT(s), P = d.P, V = coPK(P), ani = P.f === 'anime', C = [];
     for (let l = 0; l <= coTier(t, coPF(P)); l++) { const m = V.prep + coPShoot(P, l); C.push({ t: `${(ani ? A_BUD_N : V_BUD_N)[l]} · 제작비 ${fmtWon(V.bud[l])}`, h: `${ani ? '기획·작화' : '준비·촬영'} ${m}개월 동안 달마다 ${fmtWon(Math.round(V.bud[l] / m / 1e4) * 1e4)}`, f: s => { Object.assign(P, { lvl: l, bud: V.bud[l] }); fireEvent(s, 'co_vdist', { P }); return ''; } }); }
@@ -218,7 +218,7 @@ E({
 function coVStart(s, t, P) {
   const V = V_KIND[P.kind], up = coVUpfront(P);
   coAuto(t).want.video = false;
-  coOut(t, P.price || 0, '각본료'); coOut(t, P.dirFee || 0, '연출료'); coOut(t, coVCastFees(P), '출연료');
+  coOut(t, P.price || 0, '각본료', 'video'); coOut(t, P.dirFee || 0, '연출료', 'video'); coOut(t, coVCastFees(P), '출연료', 'video');
   if (P.scId) { const sc = myScripts(s).find(x => x.id === P.scId); if (sc) sc.st = 'mine'; }
   if (P.wbId) wbMark(s, P.wbId, 'video');
   const where = `${V.n} 「${P.title}」`;
@@ -235,7 +235,7 @@ function coVDrop(s, t, pj) { t.vw = t.vw.filter(x => x !== pj); coVRepF(t, 'vide
 function coVidMonth(s, t, sales) {
   const p = me(s);
   for (const pj of t.vw.slice()) {
-    if (pj.stage === 'prep' || pj.stage === 'shoot') { const m = Math.min(pj.perM, pj.bud - pj.paidB); if (m > 0) { coOut(t, m, '제작비'); pj.paidB += m; } }
+    if (pj.stage === 'prep' || pj.stage === 'shoot') { const m = Math.min(pj.perM, pj.bud - pj.paidB); if (m > 0) { coOut(t, m, '제작비', 'video'); pj.paidB += m; } }
     if (pj.stage === 'shoot' && pj.dir === 'me') { practice(s, p, 'direct', 1.2); addStress(s, 2); }
     if (--pj.left > 0) continue;
     if (pj.stage === 'prep') { pj.stage = 'shoot'; pj.left = pj.shootN; addLog(s, `🎬 「${pj.title}」 촬영을 시작했다. ${pj.left}개월 동안 찍는다.`, 'career'); }
@@ -253,7 +253,7 @@ INBOX.co_vad = {
   ic: '🎬',
   text: (s, m) => `${m.from}에서 ${m.d.what} 제작을 맡아 달라고 한다.\n\n제작 금액 ${fmtWon(m.d.fee)} · 찍는 데 드는 돈은 그중 65%쯤이다.`,
   ch: (s, m) => [
-    { t: '맡는다', ok: s => coOn(s) && !!coT(s).f.video, h: coOn(s) && coT(s).f.video ? '' : '영상 제작사를 운영하고 있어야 한다', f: s => { const t = coT(s), cost = Math.round(m.d.fee * U.fl(0.55, 0.75) / 1e5) * 1e5; coIn(t, m.d.fee, '광고·뮤직비디오 제작'); coOut(t, cost, '광고·뮤직비디오 제작비'); coVRepF(t, 'video', 0.3); return `「${t.name}」에서 ${m.from} ${josa(m.d.what, '을를')} 만들었다. 남은 돈 ${fmtWon(m.d.fee - cost)}.`; } },
+    { t: '맡는다', ok: s => coOn(s) && !!coT(s).f.video, h: coOn(s) && coT(s).f.video ? '' : '영상 제작사를 운영하고 있어야 한다', f: s => { const t = coT(s), cost = Math.round(m.d.fee * U.fl(0.55, 0.75) / 1e5) * 1e5; coIn(t, m.d.fee, '광고·뮤직비디오 제작', 'video'); coOut(t, cost, '광고·뮤직비디오 제작비', 'video'); coVRepF(t, 'video', 0.3); return `「${t.name}」에서 ${m.from} ${josa(m.d.what, '을를')} 만들었다. 남은 돈 ${fmtWon(m.d.fee - cost)}.`; } },
     { t: '거절한다', f: () => `${m.from}의 제작 의뢰를 거절했다.` },
   ],
 };
@@ -310,7 +310,7 @@ E({
     const t = coT(s), pj = d.pj, V = V_KIND[pj.kind], p = me(s);
     const sc = d.sc = coVScore(s, t, pj), R = coVRev(s, t, pj, sc);
     d.res = R.res; d.L = R.L; d.rev = R.total; d.cost = pj.bud + pj.up; d.profit = d.rev - d.cost;
-    for (const [n, v] of R.L) coIn(t, v, n);
+    for (const [n, v] of R.L) coIn(t, v, n, 'video');
     if (pj.dir === 'me') d.review = dirReview(dirPerf(p, V.demand));
     // 평판: 점수가 52보다 높으면 오르고 낮으면 떨어진다 (작품이 클수록 크게)
     const dr = U.clamp((sc - 52) / 3, -5, 8) * V.w;
@@ -342,7 +342,7 @@ function coVidYear(s, t) {
 
 // ───── 회사 창: 🎬 작품 탭 ─────
 function coTabVw(s, t) {
-  const w = coVWhy(s, t), A = [{ t: '새 작품 기획', h: `함께 만드는 작품 ${t.vw.length}/${CO_V_CAP[coVTier(t)]}편 · 자본금 ${fmtWon(t.money)}`, ok: !w, why: w, btn: '기획', run: s => { fireEvent(s, 'co_vplan', {}); return ''; } }];
+  const w = coVWhy(s, t), A = [{ t: '새 작품 기획', h: `함께 만드는 작품 ${t.vw.length}/${CO_V_CAP[coVTier(t)]}편 · 자본금 ${fmtWon(coM(t, 'video'))}`, ok: !w, why: w, btn: '기획', run: s => { fireEvent(s, 'co_vplan', {}); return ''; } }];
   let h = `<div class="sec-h">할 수 있는 일</div>` + A.map(actRow).join('');
   h += `<div class="sec-h">만드는 중 ${t.vw.length}편</div>`;
   if (!t.vw.length) h += `<div class="muted">지금 만드는 작품이 없다.</div>`;
@@ -401,7 +401,7 @@ function coAIps(t) {
 E({
   id: 'co_aplan', cat: '애니 기획', title: '무엇을 만들까?', tag: 'career',
   cond: s => coOn(s) && !!coT(s).f.anime,
-  text: s => { const t = coT(s); return `다음 애니를 기획한다. 새 작품을 만들거나, 우리 회사가 만든 애니의 다음 기나 극장판을 만든다.\n\n${coSizeN(t, 'anime')} · 자본금 ${fmtWon(t.money)} · 고를 수 있는 제작비 ${A_BUD_N.slice(0, coATier(t) + 1).join('·')}`; },
+  text: s => { const t = coT(s); return `다음 애니를 기획한다. 새 작품을 만들거나, 우리 회사가 만든 애니의 다음 기나 극장판을 만든다.\n\n${coSizeN(t, 'anime')} · 자본금 ${fmtWon(coM(t, 'anime'))} · 고를 수 있는 제작비 ${A_BUD_N.slice(0, coATier(t) + 1).join('·')}`; },
   ch: s => {
     const t = coT(s), C = [];
     for (const k in A_KIND) { const A = A_KIND[k]; C.push({ t: `새 ${A.n}`, h: `제작비 ${fmtWon(A.bud[0])}~${fmtWon(A.bud[coATier(t)])} · 만드는 데 ${A.prep + A.shoot + A.post}개월 · ${V_CH_N[A.ch]}에 건다`, f: s => { fireEvent(s, 'co_asrc', { P: { f: 'anime', kind: k } }); return ''; } }); }
@@ -514,14 +514,14 @@ E({
     while (L.length < 7) L.push(pickIndustry(s, '애니메이터', y => !L.includes(y) && y.id !== P.key, 0.4));
     d.c = L.map(x => ({ id: x.id, fee: coAAnimFee(P.kind, x) }));
   },
-  text: (s, d) => { const t = coT(s), v = coVView(s, 'art', d.P.f); return `「${d.P.title}」 원화를 그릴 애니메이터를 ${CO_A_TEAM.min}명 이상 체크하자 (${CO_A_TEAM.max}명까지). ${CO_A_TEAM.min}명을 넘기면 자본금이 계약금을 감당해야 한다.\n\n지금까지 낼 돈 ${fmtWon(coVUpfront(d.P))} · 자본금 ${fmtWon(t.money)}\n그림 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
+  text: (s, d) => { const t = coT(s), v = coVView(s, 'art', d.P.f); return `「${d.P.title}」 원화를 그릴 애니메이터를 ${CO_A_TEAM.min}명 이상 체크하자 (${CO_A_TEAM.max}명까지). ${CO_A_TEAM.min}명을 넘기면 자본금이 계약금을 감당해야 한다.\n\n지금까지 낼 돈 ${fmtWon(coVUpfront(d.P))} · 자본금 ${fmtWon(coM(t, 'anime'))}\n그림 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
   form: (s, d) => { const v = coVView(s, 'art', d.P.f); return d.c.filter(c => s.people[c.id]).map(c => { const x = s.people[c.id]; return { k: x.id, type: 'check', label: `${x.name} — 그림 ${coLvSee(v, x, 'art')}`, sub: `계약금 ${fmtWon(c.fee)} · ${relWord(x)}` }; }); },
   cancel: () => '애니 기획을 접었다.',
   submit(s, d, v) {
     const t = coT(s), P = d.P, pick = d.c.filter(c => v[c.id] && s.people[c.id]), fee = pick.reduce((a, c) => a + c.fee, 0);
     if (pick.length < CO_A_TEAM.min) return { err: `원화 애니메이터를 ${CO_A_TEAM.min}명 이상 체크해 주세요` };
     if (pick.length > CO_A_TEAM.max) return { err: `${CO_A_TEAM.max}명까지 뽑을 수 있어요` };
-    if (pick.length > CO_A_TEAM.min && t.money < coVUpfront(P) + fee) return { err: `자본금이 모자라요 (계약금 ${fmtWon(fee)} · 자본금 ${fmtWon(t.money)})` };
+    if (pick.length > CO_A_TEAM.min && coM(t, 'anime') < coVUpfront(P) + fee) return { err: `자본금이 모자라요 (계약금 ${fmtWon(fee)} · 자본금 ${fmtWon(coM(t, 'anime'))})` };
     Object.assign(P, { team: pick.map(c => c.id), teamFee: fee });
     fireEvent(s, 'co_vcast', { P });
     return { log: `「${P.title}」 원화 애니메이터 ${pick.length}명을 모았다. (계약금 ${fmtWon(fee)})` };
@@ -537,7 +537,7 @@ function coAEst(s, P) {
 function coAStart(s, t, P) {
   const A = A_KIND[P.kind], up = coVUpfront(P);
   coAuto(t).want.anime = false;
-  coOut(t, P.price || 0, P.lic ? '원작 판권' : '각본료'); coOut(t, P.dirFee || 0, '연출료'); coOut(t, (P.keyFee || 0) + (P.teamFee || 0), '작화팀 계약금'); coOut(t, coVCastFees(P), '성우 출연료');
+  coOut(t, P.price || 0, P.lic ? '원작 판권' : '각본료', 'anime'); coOut(t, P.dirFee || 0, '연출료', 'anime'); coOut(t, (P.keyFee || 0) + (P.teamFee || 0), '작화팀 계약금', 'anime'); coOut(t, coVCastFees(P), '성우 출연료', 'anime');
   if (P.scId) { const sc = myScripts(s).find(x => x.id === P.scId); if (sc) sc.st = 'mine'; }
   if (P.wbId) wbMark(s, P.wbId, 'anime');
   const where = `${A.n} 「${P.title}」`;
@@ -552,7 +552,7 @@ function coADrop(s, t, pj) { t.aw = t.aw.filter(x => x !== pj); coVRepF(t, 'anim
 function coAniMonth(s, t, sales) {
   const p = me(s);
   for (const pj of t.aw.slice()) {
-    if (pj.stage === 'prep' || pj.stage === 'shoot') { const m = Math.min(pj.perM, pj.bud - pj.paidB); if (m > 0) { coOut(t, m, '제작비'); pj.paidB += m; } }
+    if (pj.stage === 'prep' || pj.stage === 'shoot') { const m = Math.min(pj.perM, pj.bud - pj.paidB); if (m > 0) { coOut(t, m, '제작비', 'anime'); pj.paidB += m; } }
     if (pj.stage === 'shoot' && pj.dir === 'me') { practice(s, p, 'direct', 1); if (has(p, 'art')) practice(s, p, 'art', 0.6); addStress(s, 1.5); }
     if (--pj.left > 0) continue;
     if (pj.stage === 'prep') { pj.stage = 'shoot'; pj.left = pj.shootN; addLog(s, `🎨 「${pj.title}」 작화에 들어갔다. ${pj.left}개월 동안 그린다.`, 'career'); }
@@ -570,7 +570,7 @@ INBOX.co_aad = {
   ic: '🎨',
   text: (s, m) => `${m.from}에서 ${m.d.what} 제작을 맡아 달라고 한다.\n\n제작 금액 ${fmtWon(m.d.fee)} · 만드는 데 드는 돈은 그중 65%쯤이다.`,
   ch: (s, m) => [
-    { t: '맡는다', ok: s => coOn(s) && !!coT(s).f.anime, h: coOn(s) && coT(s).f.anime ? '' : '애니메이션 제작사를 운영하고 있어야 한다', f: s => { const t = coT(s), cost = Math.round(m.d.fee * U.fl(0.55, 0.75) / 1e5) * 1e5; coIn(t, m.d.fee, '광고·게임 애니메이션 제작'); coOut(t, cost, '광고·게임 애니메이션 제작비'); coVRepF(t, 'anime', 0.3); return `「${t.name}」에서 ${m.from} ${josa(m.d.what, '을를')} 만들었다. 남은 돈 ${fmtWon(m.d.fee - cost)}.`; } },
+    { t: '맡는다', ok: s => coOn(s) && !!coT(s).f.anime, h: coOn(s) && coT(s).f.anime ? '' : '애니메이션 제작사를 운영하고 있어야 한다', f: s => { const t = coT(s), cost = Math.round(m.d.fee * U.fl(0.55, 0.75) / 1e5) * 1e5; coIn(t, m.d.fee, '광고·게임 애니메이션 제작', 'anime'); coOut(t, cost, '광고·게임 애니메이션 제작비', 'anime'); coVRepF(t, 'anime', 0.3); return `「${t.name}」에서 ${m.from} ${josa(m.d.what, '을를')} 만들었다. 남은 돈 ${fmtWon(m.d.fee - cost)}.`; } },
     { t: '거절한다', f: () => `${m.from}의 제작 의뢰를 거절했다.` },
   ],
 };
@@ -619,7 +619,7 @@ E({
     const t = coT(s), pj = d.pj, A = A_KIND[pj.kind], p = me(s);
     const sc = d.sc = coAScore(s, t, pj), R = coARev(s, t, pj, sc);
     d.res = R.res; d.L = R.L; d.rev = R.total; d.cost = pj.bud + pj.up; d.profit = d.rev - d.cost;
-    for (const [n, v] of R.L) coIn(t, v, n);
+    for (const [n, v] of R.L) coIn(t, v, n, 'anime');
     if (pj.dir === 'me') d.review = dirReview(dirPerf(p, A.demand));
     // 평판: 점수가 52보다 높으면 오르고 낮으면 떨어진다 (작품이 클수록 크게)
     t.f.anime.rep = U.clamp(t.f.anime.rep + U.clamp((sc - 52) / 3, -5, 8) * A.w, 0, 100);
@@ -648,7 +648,7 @@ function coAniYear(s, t) {
 
 // ───── 회사 창: 🎨 애니 탭 ─────
 function coTabAw(s, t) {
-  const w = coAWhy(s, t), A = [{ t: '새 애니 기획', h: `함께 만드는 애니 ${t.aw.length}/${CO_V_CAP[coATier(t)]}편 · 자본금 ${fmtWon(t.money)}`, ok: !w, why: w, btn: '기획', run: s => { fireEvent(s, 'co_aplan', {}); return ''; } }];
+  const w = coAWhy(s, t), A = [{ t: '새 애니 기획', h: `함께 만드는 애니 ${t.aw.length}/${CO_V_CAP[coATier(t)]}편 · 자본금 ${fmtWon(coM(t, 'anime'))}`, ok: !w, why: w, btn: '기획', run: s => { fireEvent(s, 'co_aplan', {}); return ''; } }];
   let h = `<div class="sec-h">할 수 있는 일</div>` + A.map(actRow).join('');
   h += `<div class="sec-h">만드는 중 ${t.aw.length}편</div>`;
   if (!t.aw.length) h += `<div class="muted">지금 만드는 애니가 없다.</div>`;

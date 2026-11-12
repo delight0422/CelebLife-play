@@ -303,7 +303,7 @@ function earn(s, v, label, job) {
   if (!(v > 0)) return;
   const j = job || EARN_LABEL[label] || EARN_JOB, co = ownCo(s, j);
   // 내 회사 소속 활동이면 수익은 자본금으로 (회사에서 꺼낼 때 '업계에서 번 돈'이 된다)
-  if (co) { coIn(co, v, OWN_CO_N[j] + ' 수입'); return; }
+  if (co) { coIn(co, v, OWN_CO_N[j] + ' 수입', ownCoF(s, j)); return; }
   addMoney(s, v, label, true); jobEarnAdd(s, j, v);
 }
 // ───── 내 회사 소속 활동 (v105, 9-2) ─────
@@ -323,8 +323,10 @@ function ownCo(s, job) {
 function ownCoNew(s, job, vt) { return trackOn(s, 'agency') && ownCoFit(s.tracks.agency, job, vt) ? s.tracks.agency : null; }
 function ownCoTag(s, job) { const t = ownCo(s, job); return t ? `내 회사 「${t.name}」 소속` : ''; }
 // 그 일에 쓸 수 있는 돈 · 그 일의 비용 내기 (내 회사 소속이면 자본금에서)
-function jobMoney(s, job) { const t = ownCo(s, job); return t ? t.money : s.money; }
-function jobPay(s, v, label, job) { const t = ownCo(s, job); if (t) coOut(t, v, OWN_CO_N[job] + ' 비용'); else addMoney(s, -v, label); }
+// 내 회사 소속 활동은 그 분야 회사 돈으로 (v169: 회사마다 자본금): 솔로 · 밴드 · 연주는 기획사, 채널은 MCN (버튜버는 버츄얼 아이돌 기획사가 있으면 거기)
+function ownCoF(s, job) { const t = s.tracks.agency || {}, f = t.f || {}; return job === 'youtube' ? (f.vidol && (!f.mcn || (s.tracks.youtube || {}).mode === 'vt') ? 'vidol' : 'mcn') : 'music'; }
+function jobMoney(s, job) { const t = ownCo(s, job); return t ? coM(t, ownCoF(s, job)) : s.money; }
+function jobPay(s, v, label, job) { const t = ownCo(s, job); if (t) coOut(t, v, OWN_CO_N[job] + ' 비용', ownCoF(s, job)); else addMoney(s, -v, label); }
 function addStress(s, v) { if (v > 0) v *= pm(s, 'stressGain'); s.stress = U.clamp(s.stress + v, 0, 100); }
 function schoolBonus(s, k) {
   const a = age(s), e = s.edu;
@@ -656,6 +658,8 @@ function autoPick(s, ev, d, C) {
 }
 function autoEvs(s) {
   for (let n = 0; n < 5 && s.pending && !s.ended; n++) {
+    // CEO가 맡은 회사 일이면 창 없이 CEO가 고른다 (v169, company.js ceoTake)
+    if (typeof ceoTake === 'function' && ceoTake(s)) continue;
     const p = s.pending, ev = EVENTS[p.id], d = p.d;
     if (!ev) return;
     const C = evChoices(s), i = autoPick(s, ev, d, C), c = C[i];
@@ -1089,7 +1093,7 @@ function royalties(s) {
     else { sum += c.m; if (c.job) by[c.job] = (by[c.job] || 0) + c.m; }
     c.m = Math.max(c.floor, Math.round(c.m * 0.95));
   }
-  if (toCo > 0) coIn(co, toCo, '대표 음원 · 저작권 수익');
+  if (toCo > 0) coIn(co, toCo, '대표 음원 · 저작권 수익', 'music');
   if (sum > 0) { addMoney(s, sum, '저작권료·음원 수익', true); for (const j in by) jobEarnAdd(s, j, by[j]); }
 }
 function bodyMonth(s) {

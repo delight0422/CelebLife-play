@@ -890,7 +890,7 @@ VT_AV.forEach((av, i) => { if (!av) return; JOB_APPLY.push({
   h: s => `${av.c ? fmtWon(av.c) + (ownCoNew(s, 'youtube', true) ? ' (자본금)' : '') : '무료'} · 만드는 데 ${av.m}개월`,
   ok: s => !ytBlock(s) && (ownCoNew(s, 'youtube', true) || s).money >= av.c && (!av.art || lv(me(s), 'art') >= av.art) && !artistContract(s),
   why: s => ytBlock(s) || artistContractWhy(s) || (av.art && lv(me(s), 'art') < av.art ? '그림 실력이 더 필요하다' : `${ownCoNew(s, 'youtube', true) ? '회사 ' : ''}돈이 모자라다 (${fmtWon(av.c)} 필요)`),
-  run: s => { const co = ownCoNew(s, 'youtube', true); if (av.c) { if (co) coOut(co, av.c, OWN_CO_N.youtube + ' 비용'); else addMoney(s, -av.c, '아바타 제작비'); } const old = s.tracks.youtube; s.tracks.youtube = { st: 'prep', mode: 'vt', av: i, left: av.m, corp: null, corpN: '', cut: 0, subs: 0, months: 0, sn: old.sn, hist: old.hist || [] }; return `${josa(av.n, '을를')} 맡겼다. 버튜버 데뷔 준비를 시작했다.`; },
+  run: s => { const co = ownCoNew(s, 'youtube', true); if (av.c) { if (co) coOut(co, av.c, OWN_CO_N.youtube + ' 비용', co.f && co.f.vidol ? 'vidol' : 'mcn'); else addMoney(s, -av.c, '아바타 제작비'); } const old = s.tracks.youtube; s.tracks.youtube = { st: 'prep', mode: 'vt', av: i, left: av.m, corp: null, corpN: '', cut: 0, subs: 0, months: 0, sn: old.sn, hist: old.hist || [] }; return `${josa(av.n, '을를')} 맡겼다. 버튜버 데뷔 준비를 시작했다.`; },
 }); });
 // 회사 오디션: 아직 채널이 없거나, 개인세로 활동 중인 버튜버만 낼 수 있다 (회사 소속 버튜버는 못 낸다. 템퍼링으로 퇴출되면 버튜버 지원은 모두 사라진다)
 // 개인세 버튜버가 붙으면 회사가 만든 새 아바타로 다시 데뷔하고, 지금 채널 구독자 일부가 따라온다. 구독자가 많을수록 붙기 쉽다
