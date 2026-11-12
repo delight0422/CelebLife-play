@@ -904,7 +904,7 @@ CAREERS.trainer = {
   info(s, t) {
     const p = me(s), sts = t.students.map(id => s.people[id]).filter(Boolean);
     return [['회사', `${t.agN} (${TIER_N[t.tier]} 기획사) · ${trFieldN(t.k)}${t.lead ? ' 팀장' : ''}`], ['월급', fmtWon(t.sal)], ['내 실력', `${SKILLS[t.k].n} ${lvi(p, t.k)} · 교육 ${lvi(p, 'edu')}`], ['업무 평가', `${Math.round(t.rep)}`], ['길러 낸 연습생', `데뷔 ${t.debuts}명${t.cuts ? ` · 방출 ${t.cuts}명` : ''}`],
-      { h: `맡은 연습생 (${sts.length}명)`, items: sts.map(x => `${x.name} (${gN(x)} · ${pAge(s, x)}세) — ${SKILLS[t.k].n} ${lvi(x, t.k)}레벨${canScout(p, t.k) ? ` · 성장성 ${potGrade(p, x, t.k)}` : ''} · 맡은 지 ${Math.max(0, s.t - (x.trSince != null ? x.trSince : s.t))}개월 · ${relWord(x)}`) }].filter(Boolean);
+      { h: `맡은 연습생 (${sts.length}명)`, items: sts.map(x => ({ who: x.id, t: x.name, sub: `${gN(x)} · ${pAge(s, x)}세 · ${SKILLS[t.k].n} ${lvi(x, t.k)}레벨${canScout(p, t.k) ? ` · 성장성 ${potGrade(p, x, t.k)}` : ''} · 맡은 지 ${Math.max(0, s.t - (x.trSince != null ? x.trSince : s.t))}개월 · ${relWord(x)}` })) }].filter(Boolean);
   },
   actions(s, t) { return t.st === 'active' ? [{ t: '회사 그만두기', h: '직원 계약이라 위약금은 없다', ok: true, danger: true, confirm: '정말 회사를 그만둘까요?', run: s => { const n = t.agN; leaveEmp(s, 'trainer', '퇴사'); return `${josa(n, '을를')} 그만뒀다.`; } }] : []; },
   monthly(s, t) {

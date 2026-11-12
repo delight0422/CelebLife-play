@@ -185,13 +185,14 @@ function jobTeams(s, id) {
   return [];
 }
 // 팀 사람 목록 (직업 창): 내가 이 팀에 있으면 '나'도 넣는다. 내가 팀장이면 원래 팀장은 '선임'으로 적는다
+// v177: 사람마다 배너 ({ who, t, sub } → infoTable이 배너로 그린다)
 function coTeamItems(s, tk, meSk, meLead) {
   const c = coTeamRec(s, tk); if (!c) return [];
-  const line = (p, role) => `${role || p.job} ${p.name} (${SKILLS[p.coSk || 'edit'].n} ${lvSee(s, p, p.coSk || 'edit')})`;
+  const line = (p, role) => ({ who: p.id, t: `${role || p.job} ${p.name}`, sub: `${SKILLS[p.coSk || 'edit'].n} ${lvSee(s, p, p.coSk || 'edit')}` });
   const lead = s.people[c.lead], out = [], mine = meSk ? `${SKILLS[meSk].n} ${lvi(me(s), meSk)}` : '', d = coTeamDef(tk);
-  if (meSk && meLead) out.push(`팀장 나 (${mine})`);
+  if (meSk && meLead) out.push({ who: s.me, t: '팀장 나', sub: mine });
   if (lead) out.push(line(lead, meSk && meLead ? `선임 ${d.roles[1] ? d.roles[1][0] : d.ex || lead.job}` : ''));
-  if (meSk && !meLead) out.push(`나 (${mine})`);
+  if (meSk && !meLead) out.push({ who: s.me, t: '나', sub: mine });
   for (const p of coStaffSorted(s, c)) out.push(line(p));
   return out;
 }

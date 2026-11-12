@@ -228,7 +228,7 @@ function songReact(F) {
 // 위 반응에 이미 나온 말은 다시 쓰지 않는다 (남은 말이 없으면 쓴소리만)
 function songHarsh(F, used) { const f = F.filter(f => f && isFinite(f.z)).sort((a, b) => a.z - b.z)[0], tail = U.pick(['솔직히 실망이다', '이번 건 그냥 넘길게', '전 곡이 더 나았다', '이걸 왜 냈는지 모르겠다']); const seen = (used || []).map(evPlain), left = f ? f.b.filter(x => !seen.includes(`"${x}"`)) : []; return `"${left.length ? `${U.pick(left)}. ${tail}` : tail}"`; }
 // 지난 곡과 비교 (o.prevSc에 이번 점수를 남긴다)
-function songCmp(o, sc) { const p = o.prevSc; o.prevSc = sc; return p == null ? '' : sc - p >= 4 ? '지난 곡보다 반응이 낫다' : sc - p <= -4 ? '지난 곡보다 반응이 아쉽다' : '지난 곡과 반응이 비슷하다'; }
+function songCmp(o, sc) { const p = o.prevSc; o.prevSc = sc; return p == null ? '' : sc - p >= 4 ? '저번보다 반응이 낫다' : sc - p <= -4 ? '저번보다 반응이 아쉽다' : '저번과 반응이 비슷하다'; }
 function songCardMake(o, F, sc, prevHolder) { const L = songReact(F); return { t: o.t, by: o.by || '', peak: o.peak || 0, wins: o.wins || 0, fans: o.fans || [], lines: L, cmp: songCmp(prevHolder, sc), harsh: songHarsh(F, L), bill: o.bill || null, pay: o.pay != null ? Math.round(o.pay) : null }; }
 // 카드가 있는 결과 창 (v119): html이 있으면 창에 본문(text)이 안 나오므로 본문을 카드 위에 붙인다 (v118에서 본문이 빠져 있었다)
 function cardText(s, d) { const p = s.pending, ev = p && p.d === d ? EVENTS[p.id] : null; return ev && typeof rich === 'function' ? `<div class="m-text">${rich(ev.text(s, d))}</div>` : ''; }
@@ -653,7 +653,7 @@ CAREERS.idol = {
     if (t.st === 'trainee') {
       R.push(['최근 평가', `${t.rank || '-'}위 (${t.pool}명 중)${t.team ? ' · 데뷔조' : ''}`]);
       const mates = people(s, x => x.rel === '동기' && x.trainee === t.ag);
-      if (mates.length) R.push({ h: '연습생 동기', items: mates.map(x => `${x.name} (${x.g === '여' ? '여' : '남'} · ${pAge(s, x)}세) — ${relWord(x)}${soulTag(x)}`) });
+      if (mates.length) R.push({ h: '연습생 동기', items: mates.map(x => ({ who: x.id, t: x.name, sub: `${x.g === '여' ? '여' : '남'} · ${pAge(s, x)}세 · ${relWord(x)}${soulTag(x)}` })) });
     } else if (t.st === 'active') {
       const g = t.g;
       R.push(['그룹 팬', MK.map(m => `${MK_N[m]} ${fmtFans(g.f[m])}`).join(' · ')]);
@@ -662,7 +662,7 @@ CAREERS.idol = {
       // 이번 앨범 (v154): 어느 단계인지, 누가 맡았는지
       if (t.alb) R.push(['이번 앨범', `${albStageW(s, t.alb)} · ${t.alb.mk ? t.alb.mk.boss : ''}`]);
       { const pr = typeof projInfoRow === 'function' && projInfoRow(s, t); if (pr) R.push(pr); }
-      R.push({ h: '멤버', items: [`나 — ${t.pos}`].concat(g.members.map(id => s.people[id]).filter(Boolean).map(x => `${x.name} (${pAge(s, x)}세) ${g.pos[x.id] || ''} — ${relWord(x)}${soulTag(x)}`)) });
+      R.push({ h: '멤버', items: [{ who: s.me, t: `${me(s).name} (나)`, sub: t.pos }].concat(g.members.map(id => s.people[id]).filter(Boolean).map(x => ({ who: x.id, t: `${x.name}${g.pos[x.id] ? ` · ${g.pos[x.id]}` : ''}`, sub: `${pAge(s, x)}세 · ${relWord(x)}${soulTag(x)}` }))) });
     }
     return R;
   },
@@ -1828,7 +1828,7 @@ CAREERS.band = {
     R.push(['발표곡', `${t.rel}곡${t.bestPeak ? ` · 최고 ${t.bestPeak}위` : ''}`]);
     if (t.alb) R.push(['이번 새 곡', t.alb.at != null ? `${albStageW(s, t.alb)}${t.alb.mk ? ` · ${t.alb.mk.boss}` : ''}` : '실을 곡을 정할 차례']);
     const miss = bandMissing(t);
-    R.push({ h: '멤버', items: [`${partN(t.b.my)}: 나 (${lvi(me(s), t.b.my)}레벨)`].concat(bandMembers(s, t).map(x => `${partN(t.b.part[x.id])}: ${x.name} (${x.g === '여' ? '여' : '남'} · ${pAge(s, x)}세) — ${partN(t.b.part[x.id])} ${lvi(x, t.b.part[x.id])}레벨 · ${relWord(x)}`)).concat(miss.map(k => `${partN(k)}: 비어 있음`)) });
+    R.push({ h: '멤버', items: [{ who: s.me, t: `${me(s).name} (나)`, sub: `${partN(t.b.my)} ${lvi(me(s), t.b.my)}레벨` }].concat(bandMembers(s, t).map(x => ({ who: x.id, t: `${x.name} · ${partN(t.b.part[x.id])}`, sub: `${x.g === '여' ? '여' : '남'} · ${pAge(s, x)}세 · ${partN(t.b.part[x.id])} ${lvi(x, t.b.part[x.id])}레벨 · ${relWord(x)}` }))).concat(miss.map(k => `${partN(k)}: 비어 있음`)) });
     return R;
   },
   actions(s, t) {

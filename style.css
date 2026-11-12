@@ -1405,3 +1405,53 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
   .rt-i i { font-size: 22px; }
   .rt-i.h { font-size: 18px; }
 }
+
+/* 확인이 안 되는 까닭 (v177): 누른 버튼 바로 위에 잠깐 뜨는 알림 */
+.err-tip { position: fixed; z-index: 97; max-width: min(420px, calc(100vw - 16px)); background: #c62f3c; color: #fff; font-weight: 700; font-size: var(--fs-3); line-height: 1.4; padding: 10px 16px; border-radius: 12px; box-shadow: 0 10px 26px rgba(120, 10, 30, .35); pointer-events: none; animation: errIn .2s ease-out; transition: opacity .35s, transform .35s; }
+.err-tip::after { content: ''; position: absolute; left: 50%; bottom: -6px; width: 12px; height: 12px; background: #c62f3c; transform: translateX(-50%) rotate(45deg); }
+.err-tip.out { opacity: 0; transform: translateY(-6px); }
+@keyframes errIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* 표에서 고른 수 (v177): 표 위 왼쪽에 '고른 멤버 7/9명'. 모자라거나 넘치면 빨강 */
+.tbl-cnt { flex: none; font-weight: 700; font-size: var(--fs-3); padding: 4px 12px; border-radius: 999px; background: #efeafd; color: var(--violet-d, #5a3fc0); }
+.tbl-cnt b { font-size: 1.15em; }
+.tbl-cnt.bad { background: #fdecee; color: #c62f3c; }
+
+/* ───── 캐릭터 배너 · 정보 창 (v177) ───── */
+.pav { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; font-weight: 800; font-size: 15px; color: #fff; background: #6b8ee8; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .55); }
+.pav.f { background: #e46a9c; }
+.pav.big { width: 52px; height: 52px; font-size: 22px; }
+/* 배너: 테두리 · 왼쪽 색 띠 · 오른쪽 '정보 ›'로 누르는 곳임을 알 수 있게 */
+.pbn, .pbn-in { display: flex; align-items: center; gap: var(--sp-2); width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; background: linear-gradient(90deg, #f6f2ff, #fff 60%); border: 1px solid #d9cdfb; border-left: 5px solid var(--violet); border-radius: 12px; padding: 8px 12px 8px 10px; box-shadow: 0 2px 6px rgba(80, 50, 160, .08); transition: background .15s, box-shadow .15s, transform .1s; }
+.pbn:hover, .pbn-in:hover { background: linear-gradient(90deg, #ece4ff, #faf8ff 70%); box-shadow: 0 4px 12px rgba(80, 50, 160, .16); }
+.pbn:active, .pbn-in:active { transform: translateY(1px); }
+.pbn-b { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pbn-b b { font-size: var(--fs-3); }
+.pbn-s { font-size: var(--fs-1); color: var(--muted); line-height: 1.4; }
+.pbn-go { flex: none; font-size: var(--fs-1); font-weight: 700; color: var(--violet); background: #fff; border: 1px solid #d9cdfb; border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+.pbn-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--sp-2); margin: var(--sp-1) 0 var(--sp-2); }
+/* 할 일 줄 안의 배너 (연습생 · 직원 · 크리에이터): 왼쪽이 배너, 오른쪽이 버튼 */
+.act.act-who { align-items: center; gap: var(--sp-3); }
+.act.act-who > .pbn-in { flex: 1; min-width: 0; }
+.act.act-who .pbn-in .a-t { font-weight: 700; }
+.pchip { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: var(--fs-2); font-weight: 600; cursor: pointer; background: #f6f2ff; border: 1px solid #d9cdfb; border-radius: 999px; padding: 2px 10px 2px 3px; margin: 2px 4px 2px 0; color: inherit; }
+.pchip .pav { width: 22px; height: 22px; font-size: 11px; }
+.pchip:hover { background: #ece4ff; }
+.a-ppl { margin-top: 4px; }
+/* 표의 이름 칸: 정보 버튼 */
+.pi-btn { font: inherit; font-size: 11px; font-weight: 700; color: var(--violet); background: #fff; border: 1px solid #d9cdfb; border-radius: 999px; padding: 0 7px; margin-left: 6px; cursor: pointer; vertical-align: 1px; }
+.pi-btn:hover { background: #efeafd; }
+/* 정보 창 */
+.pinfo-card { max-width: 460px; }
+.pi-h { display: flex; align-items: center; gap: var(--sp-3); margin: 0 0 var(--sp-2); padding-right: 28px; }
+.pi-name { font-size: 20px; font-weight: 800; }
+.pi-sub { font-size: var(--fs-2); color: var(--muted); margin-top: 2px; }
+.pi-sks { display: flex; flex-direction: column; gap: 6px; }
+.pi-sk { display: grid; grid-template-columns: 72px 1fr 54px auto; align-items: center; gap: 8px; font-size: var(--fs-2); }
+.pi-n { font-weight: 700; }
+.pi-bar { position: relative; height: 8px; border-radius: 999px; background: #eee9f8; overflow: hidden; }
+.pi-bar i { position: absolute; top: 0; bottom: 0; border-radius: 999px; background: var(--violet); }
+.pi-lv { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.pi-pot { font-size: var(--fs-1); font-weight: 700; border-radius: 999px; padding: 1px 8px; background: #f1f0f5; color: #666; white-space: nowrap; }
+.pi-pot.g0 { background: #fdecee; color: #c62f3c; } .pi-pot.g1 { background: #fff2e6; color: #b5651d; } .pi-pot.g3 { background: #e7f7f0; color: #0b7a4f; } .pi-pot.g4 { background: #dff3ff; color: #1f6fb5; }
+.pi-bar i.rg { background: repeating-linear-gradient(45deg, #b9a6f3 0 4px, #d8cdfa 4px 8px); }

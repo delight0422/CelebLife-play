@@ -731,17 +731,19 @@ function formFieldsHTML(F) {
 // 지금 창에 적힌 값 (체크 칸은 참 · 거짓, 동그라미 칸은 찍힌 것만)
 function formVals() { const vals = {}; document.querySelectorAll('#mcard input[data-k]').forEach(i => { if (i.type === 'radio') { if (i.checked) vals[i.dataset.k] = i.value; } else vals[i.dataset.k] = i.type === 'checkbox' ? i.checked : i.value; }); return vals; }
 // 체크할 때마다 바뀌는 합계 줄 (사건의 sum)
-function formSum() { const el = $('#form-sum'), p = S && S.pending, ev = p && EVENTS[p.id]; if (!el || !ev || !ev.sum) return; let x = ''; try { x = ev.sum(S, p.d, formVals()) || ''; } catch (e) { } el.textContent = x; }
+function formSum() { tblCnt(); const el = $('#form-sum'), p = S && S.pending, ev = p && EVENTS[p.id]; if (!el || !ev || !ev.sum) return; let x = ''; try { x = ev.sum(S, p.d, formVals()) || ''; } catch (e) { } el.textContent = x; }
+// 표에서 고른 수 (v177): T.cnt = { n: 이름, min, max } → '고른 멤버 7/9명'. 모자라거나 넘치면 빨강
+function tblCnt() { const el = $('#tbl-cnt'), C = UI.tblT && UI.tblT.cnt; if (!el || !C) return; const n = document.querySelectorAll('#ev-tbl tbody input[type=checkbox]:checked').length; el.innerHTML = `${U.esc(C.n || '고른 사람')} <b>${n}</b>/${C.max}명`; el.classList.toggle('bad', n > C.max || n < (C.min || 0)); }
 function evTblHTML(T, form) {
   UI.tblT = T; UI.tblS = null;
   // 처음 정렬 (v134): 오디션은 나이, 타이틀곡은 완성도. 줄 번호(data-ti)는 그대로 두고 그리는 순서만 바꾼다
   const ord = T.rows.map((r, i) => i);
   if (T.sort) { const [sk, sd] = T.sort, val = i => { const c = T.rows[i].cells[sk]; return c ? c[0] : 0; }; ord.sort((a, b) => { const x = val(a), y = val(b); return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'ko')) * sd; }); UI.tblS = { k: sk, dir: sd }; }
   const th = T.cols.map(([k, n]) => `<th data-tsort="${k}"${T.sort && T.sort[0] === k ? ' class="on"' : ''}>${U.esc(n)}<i>${T.sort && T.sort[0] === k ? (T.sort[1] > 0 ? ' ▲' : ' ▼') : ''}</i></th>`).join('');
-  const tr = ord.map(i => [T.rows[i], i]).map(([r, i]) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>${form && T.radio ? `<td class="tc"><input type="radio" name="tbl-r" data-k="${T.radio.k}" value="${r.k}"></td>` : ''}` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${U.esc(String(c[1]))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}${j === 0 && r.rec ? `<span class="trb rec">${U.esc(r.rec)}</span>` : ''}</td>`; }).join('') + `</tr>`).join('');
+  const tr = ord.map(i => [T.rows[i], i]).map(([r, i]) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}${r.rec ? ' rec' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>${form && T.radio ? `<td class="tc"><input type="radio" name="tbl-r" data-k="${T.radio.k}" value="${r.k}"></td>` : ''}` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${U.esc(String(c[1]))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}${j === 0 && r.rec && !r.cells.rec ? `<span class="trb rec">${U.esc(r.rec)}</span>` : ''}${j === 0 && S && S.people[r.pid || r.k] ? `<button type="button" class="pi-btn" data-pinfo="${r.pid || r.k}">정보</button>` : ''}</td>`; }).join('') + `</tr>`).join('');
   // 추천 묶음 (v132): 버튼을 누르면 그 줄들만 체크된다 (트레이너가 권하는 데뷔 멤버 등)
   const pre = form && T.presets && T.presets.length ? `<div class="tbl-pre">${T.presets.map((p, i) => `<button type="button" class="btn sm rec" data-tpre="${i}">${U.esc(p.n)}</button>`).join('')}</div>` : '';
-  return pre + `<div class="tbl-tools"><input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc">${form ? T.ckN || (T.radio ? '실을 곡' : '') : ''}</th>${form && T.radio ? `<th class="tc">${U.esc(T.radio.n)}</th>` : ''}${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
+  return pre + `<div class="tbl-tools">${form && T.cnt ? `<span class="tbl-cnt" id="tbl-cnt"></span>` : ''}<input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc">${form ? T.ckN || (T.radio ? '실을 곡' : '') : ''}</th>${form && T.radio ? `<th class="tc">${U.esc(T.radio.n)}</th>` : ''}${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
 }
 function evTblSort(k) {
   const T = UI.tblT, tb = $('#ev-tbl tbody');
@@ -955,15 +957,19 @@ function actRow(a) {
   // 생활 창처럼 돈(price)·효과(eff)·덧붙임(note)을 나눠 둔 줄: 돈을 가장 크게, 효과는 보통, 덧붙임은 작게
   const body = o => o.price || o.eff || o.note ? `${o.price ? `<div class="lr-price">${U.esc(o.price)}</div>` : ''}${o.eff ? `<div class="lr-eff">${U.esc(o.eff)}</div>` : ''}${o.note ? `<div class="lr-note">${U.esc(o.note)}</div>` : ''}` : (o.h ? `<div class="a-h">${U.esc(o.h)}</div>` : '');
   const lr = a.price || a.eff ? ' lrow' : '';
+  // 사람 줄 (v177): a.who가 있으면 왼쪽을 배너로 (누르면 그 사람 정보 창), a.ppl은 줄 아래에 사람 칩
+  const wx = a.who && S.people[a.who], wc = wx ? ' act-who' : '';
+  const ppl = a.ppl && a.ppl.length ? `<div class="a-ppl">${a.ppl.map(p => S.people[p.id || p] ? pchipHTML(S.people[p.id || p], p.lab) : '').join('')}</div>` : '';
+  const left = why => wx ? `<button type="button" class="pbn-in" data-pinfo="${wx.id}">${pAvHTML(wx)}<span class="pbn-b">${head}${body(a)}${why}</span><span class="pbn-go">정보 ›</span></button>` : `<div>${head}${body(a)}${why}${ppl}</div>`;
   // 한 칸에 설명 줄마다 버튼 하나 (장비: 지금 효과 + 처분하기 / 업그레이드)
   if (a.lines) return `<div class="act act-lines${a.lines.some(o => o.price || o.eff) ? ' lrow' : ''}">${head}${a.lines.map(o => `<div class="act-line"><div class="al-txt">${body(o)}${o.run && !o.ok && o.why ? `<div class="a-why">${U.esc(o.why)}</div>` : ''}</div>${o.run ? btn(o, o.danger ? 'danger' : 'primary') : ''}</div>`).join('')}</div>`;
   // 여러 단계 중에서 고르는 줄 (자녀 교육비 없음·약간·보통·많이): 고른 단계가 진하게 보인다. 아이를 고르는 상자가 있으면 그 아래에 둔다
   if (a.opts) {
     const btns = a.opts.map(o => btn(o, o.on ? 'primary' : '')).join('');
     if (a.kidSel) return `<div class="act act-kid${lr}">${head}${body(a)}<div class="kid-sel"><select data-kidedu>${a.kidSel.ks.map(k => `<option value="${k.id}" ${k.id === a.kidSel.cur ? 'selected' : ''}>${U.esc(k.n)}</option>`).join('')}</select><div class="act-opts">${btns}</div></div></div>`;
-    return `<div class="act${lr}${a.cls ? ' ' + a.cls : ''}"><div>${head}${body(a)}${a.why ? `<div class="a-why">${U.esc(a.why)}</div>` : ''}</div><div class="act-opts">${btns}</div></div>`;
+    return `<div class="act${lr}${wc}${a.cls ? ' ' + a.cls : ''}">${left(a.why ? `<div class="a-why">${U.esc(a.why)}</div>` : '')}<div class="act-opts">${btns}</div></div>`;
   }
-  return `<div class="act${lr}"><div>${head}${body(a)}${!a.ok && a.why ? `<div class="a-why">${U.esc(a.why)}</div>` : ''}</div>${btn(a, a.danger ? 'danger' : 'primary')}</div>`;
+  return `<div class="act${lr}${wc}${a.cls ? ' ' + a.cls : ''}">${left(!a.ok && a.why ? `<div class="a-why">${U.esc(a.why)}</div>` : '')}${a.noBtn ? '' : btn(a, a.danger ? 'danger' : 'primary')}</div>`;
 }
 function renderPanel() {
   const k = UI.overlay;
@@ -1255,7 +1261,9 @@ function infoTable(rows) {
     if (r.bars) { h += `<div class="sec-h">${U.esc(r.h)}</div>` + mastBars(r.bars); continue; }
     // html: 미리 만든 조각을 그대로 (라이브온 배너 등)
     if (r.html != null) { h += (r.h ? `<div class="sec-h">${U.esc(r.h)}</div>` : '') + r.html; continue; }
-    h += `<div class="sec-h">${U.esc(r.h)}</div>` + (r.items.length ? r.items.map(x => `<div class="ms">· ${U.esc(x)}</div>`).join('') : '<div class="muted">없음</div>');
+    // 사람은 배너로 (v177): items에 { who: id, t: 글자, sub: 작은 글자 }를 넣으면 배너 묶음으로 그린다
+    const it = r.items.filter(x => !(x && x.who)), wh = r.items.filter(x => x && x.who && S.people[x.who]);
+    h += `<div class="sec-h">${U.esc(r.h)}</div>` + (wh.length ? `<div class="pbn-list">${wh.map(x => pbnHTML(S.people[x.who], x.t, x.sub)).join('')}</div>` : '') + (it.length ? it.map(x => `<div class="ms">· ${U.esc(x)}</div>`).join('') : wh.length ? '' : '<div class="muted">없음</div>');
   }
   flush();
   return h;
@@ -1278,7 +1286,7 @@ function panelTrk() {
     const rows = [['진행', T.status(s, w)], ['끝나는 때', `${ymLater(s, w.left)} (${w.left}개월 남음)`]];
     if (w.co) rows.push(['제작', w.co]);
     if (w.slot) rows.push(['일정', '끝날 때까지 일정 한 칸이 묶인다']);
-    if (cast.length) rows.push({ h: '함께하는 사람', items: cast.map(x => `${x.name} (${x.job}) · ${relWord(x)}`) });
+    if (cast.length) rows.push({ h: '함께하는 사람', items: cast.map(x => ({ who: x.id, t: x.name, sub: `${x.job} · ${relWord(x)}` })) });
     return `<h2>${T.ic} ${U.esc(T.n)}${w.title ? ` 「${U.esc(w.title)}」` : ''}</h2>` + infoTable(rows);
   }
   if (key === 'kidteach') {
@@ -1715,7 +1723,7 @@ function songCardHTML(c) {
 // 곡 · 앨범 결과 창을 인터넷 기사처럼 보여 준다. 실제로 얻은 것(팬 · 정산 · 수익)은 창이 뜰 때 토스트로 하나씩 띄운다
 // 사건이 news(s, d)로 재료를 준다: { who 기사 속 이름('그룹 ○○'), what 무엇이 나왔나('새 앨범 타이틀곡'), kind 'debut'면 신인 기사, t 제목, c 컨셉, peak, wins,
 //   show 음악방송에 나가는 직업인지, albums 앨범 판매량, by 곡을 쓴 사람 한 문장, ag 소속사(관계자 한마디), end 마지막 문단, pl 사진(무대 장면), mk 제작 과정, ts 토스트 [[아이콘, 글, 'g'|'b'|'']], after 기사 아래 html }
-// v173: 기사는 사실만 적는다 (반응 · 전작 비교는 댓글로). 댓글은 따옴표 없이 커뮤니티 말투
+// v173: 기사는 사실만 적는다 (반응 · 저번과 비교는 댓글로). 댓글은 따옴표 없이 커뮤니티 말투
 // v174 작품 기사 (드라마 · 영화 · 애니 · 남의 무대): heads 제목 후보, body(pick) 문단, sec 분류('방송' · '영화' · '애니'), cap 사진 설명, live · bill 버튼.
 //   heads가 있으면 차트 토스트 없이 ts만 띄우고, 카드 반응 줄이 없으면 영상 댓글(plioComments)을 댓글로 쓴다
 // 매체 · 기자 이름은 임시로 붙였다 (사용자가 정하면 여기만 바꾸면 된다)
@@ -1861,7 +1869,7 @@ function cmSay(x, R) {
 // 지난 곡과 비교 (예전 기사 본문에 있던 말 · v173부터 댓글로)
 function cmCmp(c, R) {
   const pk = a => a[Math.floor(R() * a.length)];
-  return /낫다/.test(c) ? [pk(['지난 곡보다 이번 게 나음', '전작보다 훨씬 좋아진 듯']), '\u0005'] : /아쉽다/.test(c) ? [pk(['전 곡이 더 나았던 듯', '저번 노래가 더 좋았음']), '\u0006'] : [pk(['저번이랑 비슷한 느낌임', '전작이랑 크게 다르진 않은 듯']), ''];
+  return /낫다/.test(c) ? [pk(['저번보다 이번 게 나음', '저번보다 훨씬 좋아진 듯']), '\u0005'] : /아쉽다/.test(c) ? [pk(['저번 게 더 나았던 듯', '저번 노래가 더 좋았음']), '\u0006'] : [pk(['저번이랑 비슷한 느낌임', '저번이랑 크게 다르진 않은 듯']), ''];
 }
 function newsHTML(s, d, N) {
   if (!d.nseed) d.nseed = U.int(1, 2e9);
@@ -2200,9 +2208,12 @@ function setLogSize(d) {
 
 // ───── 버튼 처리 ─────
 document.addEventListener('click', e => {
+  // 캐릭터 배너 · 정보 버튼 (v177): 누르면 그 사람 정보 창 (표 줄 고르기보다 먼저)
+  const pi = e.target.closest('[data-pinfo]');
+  if (pi) { e.preventDefault(); e.stopImmediatePropagation(); pinfoOpen(pi.dataset.pinfo); return; }
   // 표 (v131): 칸 이름을 누르면 정렬, 줄을 누르면 고르기 (체크 칸이 있으면 체크)
   const tp0 = e.target.closest('[data-tpre]');
-  if (tp0 && UI.tblT && UI.tblT.presets) { const ids = UI.tblT.presets[+tp0.dataset.tpre].ids; document.querySelectorAll('#ev-tbl tbody tr').forEach(tr => { const cb = tr.querySelector('input[type=checkbox]'); if (!cb) return; cb.checked = ids.includes(cb.dataset.k); tr.classList.toggle('sel', cb.checked); }); return; }
+  if (tp0 && UI.tblT && UI.tblT.presets) { const ids = UI.tblT.presets[+tp0.dataset.tpre].ids; document.querySelectorAll('#ev-tbl tbody tr').forEach(tr => { const cb = tr.querySelector('input[type=checkbox]'); if (!cb) return; cb.checked = ids.includes(cb.dataset.k); tr.classList.toggle('sel', cb.checked); }); formSum(); return; }
   const th0 = e.target.closest('#ev-tbl th[data-tsort]');
   if (th0) { evTblSort(th0.dataset.tsort); return; }
   const row0 = e.target.closest('#ev-tbl tbody tr');
@@ -2275,7 +2286,7 @@ document.addEventListener('click', e => {
     if (cc && cc.confirm && UI.cfOk !== S.pending) { const pd = S.pending; askConfirm(cc.confirm, () => { UI.cfOk = pd; t.click(); UI.cfOk = null; }); return; }
     const pre = resPre(S), ci = +t.dataset.choice; try { choose(S, ci); } catch (e) { console.error('선택 오류', S.pending && S.pending.id, e); S.pending = null; toast('선택을 처리하지 못해 건너뛰었어요'); } if (!resAfter(pre, ci)) afterChoice(); return; }
   if (t.dataset.resok != null) { resOk(); return; }
-  if (t.dataset.submit != null) { const vals = formVals(); const pre = resPre(S), err = submitForm(S, vals); if (err) { $('#form-err').textContent = err; return; } if (!resAfter(pre, -1)) afterChoice(); return; }
+  if (t.dataset.submit != null) { const vals = formVals(); const pre = resPre(S), err = submitForm(S, vals); if (err) { $('#form-err').textContent = err; errTip(t, err); return; } if (!resAfter(pre, -1)) afterChoice(); return; }
   if (t.dataset.cancel != null) { cancelForm(S); afterChoice(); return; }
   // 창을 내려 둔 채 패널 버튼으로 새 창(자본금 꺼내기 등)을 열면 그 창은 바로 보여 준다. 내려 둔 창은 대기열에 돌아가 있다가 새 창을 마치면 다시 뜬다 (v116 버그 1)
   if (t.dataset.act != null) { const a = UI.acts[+t.dataset.act]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, jf0 = totalFans(S), jfJ = UI.overlay === 'job' ? UI.jobId : null, r = a.run(S); jfAdd(S, jfJ, totalFans(S) - jf0); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t, () => { if (UI.overlay === 'company') S.uiOpen = 'company'; }); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
@@ -2322,7 +2333,7 @@ document.addEventListener('click', e => {
 document.addEventListener('input', e => { if (e.target.id === 'tbl-q') evTblFilter(e.target.value); if (e.target.id === 'pick-q') { UI.pickQ = e.target.value; renderPanel(); } if (e.target.dataset && e.target.dataset.won != null) wonEq(e.target); });
 document.addEventListener('compositionend', e => { if (UI.enterComp && e.target.matches && e.target.matches('#mcard input[data-k]')) { UI.enterComp = false; setTimeout(formEnter, 0); } });
 // 자녀 교육비: 고른 아이의 단계 버튼을 보여 준다
-document.addEventListener('change', e => { if (e.target.closest && e.target.closest('#mcard') && $('#form-sum')) formSum(); if (e.target.dataset && e.target.dataset.kidedu != null) { UI.kidEdu = e.target.value; UI.lifeHTML = null; renderLifeCard(); if (UI.overlay) renderPanel(); } });
+document.addEventListener('change', e => { if (e.target.closest && e.target.closest('#mcard')) formSum(); if (e.target.dataset && e.target.dataset.kidedu != null) { UI.kidEdu = e.target.value; UI.lifeHTML = null; renderLifeCard(); if (UI.overlay) renderPanel(); } });
 $('#file-input').addEventListener('change', e => { const f = e.target.files[0]; if (f) importSave(f); e.target.value = ''; });
 // ESC: 맨 위에 떠 있는 창부터 하나씩 닫는다 (확인 창 → 패널 → 사건 창은 잠시 내리기 → 인생 결산은 기록 보기로)
 function escClose() {
@@ -2391,3 +2402,60 @@ document.addEventListener('keydown', e => {
   }
 });
 (function init() { try { const v = localStorage.getItem('celebLife.logSize'); if (v) document.documentElement.style.setProperty('--log-size', v + 'px'); } catch (e) { } showTitle(); })();
+// 확인이 안 되는 까닭 (v177): 창 아래 작은 빨간 글씨만으로는 잘 안 보여서, 누른 버튼 바로 위에 잠깐 떴다가 사라지는 알림으로도 띄운다
+function errTip(btn, msg) {
+  document.querySelectorAll('.err-tip').forEach(e => e.remove());
+  const r = btn.getBoundingClientRect(), e = document.createElement('div');
+  e.className = 'err-tip'; e.textContent = msg; document.body.appendChild(e);
+  const w = e.offsetWidth, x = Math.min(window.innerWidth - w - 8, Math.max(8, r.left + r.width / 2 - w / 2));
+  e.style.left = x + 'px'; e.style.top = Math.max(8, r.top - e.offsetHeight - 10) + 'px';
+  setTimeout(() => e.classList.add('out'), 2400); setTimeout(() => e.remove(), 2800);
+}
+// ───── 캐릭터 배너 · 정보 창 (v177) ─────
+// 인간관계 창 밖(회사 창 · 직업 창 · 사건 창의 표 등)에 나오는 사람은 배너로 보여 주고, 누르면 그 사람의 프로필과 모든 특기(성장성)를 작은 창에 띄운다
+// 특기 레벨은 다른 창과 같은 눈으로 본다: 회사 사람 · 가까운 사람은 정확히, 그 밖의 사람은 범위로. 성장성은 회사 사람이면 회사 눈(스카우트 직원), 아니면 내가 볼 수 있을 때만
+function pAvHTML(x, big) { return `<span class="pav ${x.g === '여' ? 'f' : 'm'}${big ? ' big' : ''}">${U.esc(String(x.name || '?').trim().charAt(0))}</span>`; }
+function pbnHTML(x, txt, sub) { return `<button type="button" class="pbn" data-pinfo="${x.id}">${pAvHTML(x)}<span class="pbn-b"><b>${U.esc(txt || x.name)}</b>${sub ? `<span class="pbn-s">${U.esc(sub)}</span>` : ''}</span><span class="pbn-go">정보 ›</span></button>`; }
+function pchipHTML(x, lab) { return `<button type="button" class="pchip" data-pinfo="${x.id}">${pAvHTML(x)}<span>${U.esc(lab || x.name)}</span></button>`; }
+function piCo(s) { return typeof coOn === 'function' && coOn(s) ? coT(s) : null; }
+// 소속 · 하는 일
+function piOrg(s, x) {
+  const t = piCo(s);
+  if (t) {
+    for (const f of coFields(t)) { const C = coCeo(t, f); if (C && C.id === x.id) return `「${coFName(t, f)}」 CEO`; }
+    if (x.co && x.co.role && x.co.role !== 'cand') {
+      const f = x.co.f || (x.co.kind ? coFOfKind(x.co.kind) : coMainF(t)), cn = t.f[f] ? coFName(t, f) : t.name, g = t.groups.find(g => (g.members || []).includes(x.id));
+      if (g) return `「${cn}」 · ${g.kind === 'band' ? '밴드' : g.kind === 'vt' ? '기수' : '그룹'} 「${g.name}」${g.pos && g.pos[x.id] ? ` ${g.pos[x.id]}` : ''}`;
+      if (x.co.role === 'tr') return `「${cn}」 ${coKindN(x.co.kind)} 연습생`;
+      if (x.co.role === 'staff') return `「${cn}」 ${x.co.job === 'trainer' ? trFieldN(x.co.k) : CO_JOBS[x.co.job] || '직원'}`;
+      if (x.yt) return `「${cn}」 소속 크리에이터`;
+      return `「${cn}」 소속`;
+    }
+  }
+  if (x.co && x.co.role === 'cand') return x.co.job ? `${x.co.job === 'trainer' && x.co.k ? trFieldN(x.co.k) : CO_JOBS[x.co.job] || '직원'} 지원자` : `${coKindN(x.co.kind)} 오디션 지원자`;
+  const ig = (s.tracks.idol || {}).g; if (ig && (ig.members || []).includes(x.id)) return `그룹 「${ig.name}」 · 같은 그룹`;
+  const bd = (s.tracks.band || {}).b; if (bd && (bd.members || []).includes(x.id)) return `밴드 「${bd.name}」 · 같은 밴드`;
+  return x.metOrg || '';
+}
+// 특기 하나를 어떻게 보나: { t: 레벨 글자, lo, hi, pot: 성장성 글자 ('?' = 볼 눈이 없다, '' = 내 것이라 숨김) }
+function piSkView(s, x, k) {
+  const co = !!(x.co && piCo(s)), f = co ? x.co.f || (x.co.kind ? coFOfKind(x.co.kind) : undefined) : undefined;
+  const v = co ? coViewer(s, 'cast', k, f) : me(s), exact = x.id === s.me || seeExact(s, x) || (co && (x.co.role !== 'cand' || !!x.co.job));
+  const L = lvi(x, k), r = exact ? [L, L] : lvRange(v, x, k);
+  return { t: r[0] === r[1] ? String(r[0]) : `${r[0]}~${r[1]}`, lo: r[0], hi: r[1], pot: x.id === s.me ? '' : co || canScout(v, k) ? potGrade(v, x, k) : '?' };
+}
+function pinfoHTML(s, x) {
+  const t = piCo(s), co = !!(x.co && t && x.co.kind), org = piOrg(s, x);
+  const R = [['나이', `${pAge(s, x)}세${x.alive === false ? ' (세상을 떠남)' : ''}`], ['소속', org || '-']];
+  if (x.rel && x.rel !== '업계') R.push(['관계', x.rel]);
+  R.push(['성격', TRAIT_BY[x.trait] ? TRAIT_BY[x.trait].n : '-'], ['인상', x.look || '-']);
+  if (co) R.push([x.co.kind === 'vt' ? '목소리' : '외모', talentWord(x.co.kind === 'vt' ? x.tal.voice : x.tal.looks)], ['스타성', grade5(coViewer(s, 'cast', null), x.tal.star, 'pot')]);
+  if (x.yt) R.push(['채널', `「${x.yt.ch}」 · 구독자 ${fmtFans(x.yt.subs || 0)}`]);
+  else if ((x.fame || 0) >= 100) R.push(['팬', fmtFans(x.fame)]);
+  const ks = learnedSkills(x).map(k => [k, piSkView(s, x, k)]).sort((a, b) => (b[1].lo + b[1].hi) - (a[1].lo + a[1].hi));
+  const sk = ks.length ? ks.map(([k, v]) => `<div class="pi-sk"><span class="pi-n">${U.esc(SKILLS[k].n)}</span><span class="pi-bar"><i style="left:0;width:${v.lo}%"></i>${v.hi > v.lo ? `<i class="rg" style="left:${v.lo}%;width:${v.hi - v.lo}%"></i>` : ''}</span><span class="pi-lv">${v.t}</span>${v.pot ? `<span class="pi-pot g${GRADE_W.pot.indexOf(v.pot)}">성장성 ${U.esc(v.pot)}</span>` : ''}</div>`).join('') : '<div class="muted">특기 없음</div>';
+  return `<div class="pinfo"><div class="pi-h">${pAvHTML(x, true)}<div><div class="pi-name">${U.esc(x.name)} <span class="gchip ${x.g === '여' ? 'f' : 'm'}">${x.g === '여' ? '여성' : '남성'}</span></div><div class="pi-sub">${U.esc(x.job || '')}${x.soul ? ' · <span class="soul-hint">어딘가 낯익은 얼굴</span>' : ''}</div></div></div>`
+    + infoTable(R) + `<div class="sec-h">특기 <span class="n">${ks.length}개 · 레벨 높은 순</span></div><div class="pi-sks">${sk}</div>`
+    + (ks.some(([, v]) => v.pot === '?') ? `<p class="hint">성장성 ?: 스카우트 특기와 그 분야 특기가 있어야 보인다</p>` : '') + `</div>`;
+}
+function pinfoOpen(id) { const x = S && S.people[id]; if (!x) return; popOpen(pinfoHTML(S, x), 'pinfo-card'); }

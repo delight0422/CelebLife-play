@@ -201,7 +201,7 @@ CAREERS.director = {
     else if (t.mode === 'excl') R.unshift(['일하는 곳', `${t.co} 전속 감독 · 연출료 프리랜서의 ${pctN(t.feeR || DIR_EXCL_FEE)}`]);
     else R.unshift(['일하는 곳', '프리랜서']);
     R.push({ h: '장르 숙련도', bars: dmBars(s, 'g') }, { h: '매체 숙련도', bars: dmBars(s, 'f') });
-    if (t.proj) R.push({ h: `「${t.proj.title}」 촬영 중 (${t.proj.left}개월 남음)`, items: [`${dirLabel(t.proj)} · 각본 ${t.proj.writer === 'me' ? '나' : (s.people[t.proj.writer] || {}).name || '-'}`].concat(t.proj.cast.map(id => s.people[id]).filter(Boolean).map(x => `${x.name} — 연기 ${lvSee(s, x, 'acting')} · ${relWord(x)}`)) });
+    if (t.proj) R.push({ h: `「${t.proj.title}」 촬영 중 (${t.proj.left}개월 남음)`, items: [`${dirLabel(t.proj)} · 각본 ${t.proj.writer === 'me' ? '나' : (s.people[t.proj.writer] || {}).name || '-'}`].concat(t.proj.cast.map(id => s.people[id]).filter(Boolean).map(x => ({ who: x.id, t: x.name, sub: `연기 ${lvSee(s, x, 'acting')} · ${relWord(x)}` }))) });
     return R;
   },
   locks(s, t) { return t.proj ? Array(Math.min(s.slots.length, 2)).fill('c_director') : []; },

@@ -391,7 +391,7 @@ CAREERS.vidol = {
   mainSk(s, t) { return (YT_SK[t.cat] || ['variety'])[0]; },
   info(s, t) {
     if (t.st === 'prep') return [['소속', `${t.corpN} ${t.gen}기 · 회사 몫 ${pctN(t.cut)}`], ['준비', `${t.left > 0 ? `아바타 제작 중 (${t.left}개월 남음)` : '아바타 완성'} · 방송 연습 ${t.prepM || 0}개월째`], ['동기', `${t.mates.length + 1}/${VI_GEN_N}명 (다 모이면 데뷔)`], ['선배', `활동 중 ${t.seniorN || 0}명`],
-      t.mates.length ? { h: `${t.gen}기 동기`, items: viMates(s, t).map(x => `${x.name} (${gNn(x)} · ${pAge(s, x)}세)`) } : null];
+      t.mates.length ? { h: `${t.gen}기 동기`, items: viMates(s, t).map(x => ({ who: x.id, t: x.name, sub: `${gNn(x)} · ${pAge(s, x)}세` })) } : null];
     const p = me(s), ks = [...new Set((YT_SK[t.cat] || ['variety']).concat('vocal'))].filter(k => has(p, k)), r = viRank(s, t);
     return [['채널', `「${t.ch}」 · ${t.cat}`], ['소속', `${t.corpN} ${t.gen}기 · 회사 몫 ${pctN(t.cut)}`], ['구독자', `${fmtFans(t.subs)} (가장 많을 때 ${fmtFans(t.peak || t.subs)})`], ['기수 안 순위', `${r.n}명 중 ${r.r}위`], ['수입', t.subs < 1000 ? '구독자 1,000명부터 들어온다' : `지난달 ${fmtWon(t.lastInc || 0)} (최근 1년 평균 ${fmtWon(incAvg(t))})`], ['내 실력', ks.map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ') || '-'], ['아바타', t.d3 ? '3D 모델' : VT_AV[t.av].n], ['오리지널 곡 · 3D 라이브', `${t.songs || 0}곡 · ${t.lives || 0}번${t.alb ? ` · 새 곡 ${albStageW(s, t.alb)}` : ''}`],
       { h: `${t.gen}기 동기`, items: viMates(s, t).map(x => `${viName(x)} · 구독자 ${fmtFans(x.vi.subs)}${x.vi.d3 ? ' · 3D' : ''}${x.viCo ? ` · 합방 ${x.viCo}번` : ''}`) },

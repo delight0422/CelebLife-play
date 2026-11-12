@@ -147,7 +147,7 @@ CAREERS.actor = {
     R.push(['등급', ACTOR_TIERS[t.tier]]);
     R.push(['내 실력', ['acting', 'variety'].filter(k => has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ') || '-']);
     R.push(['출연작', `${t.works}편`]);
-    if (t.proj) R.push({ h: `「${t.proj.title}」 촬영 중 (${t.proj.left}개월 남음)`, items: [`${pjLabel(t.proj)} · 감독 ${(s.people[t.proj.dir] || {}).name || '-'}`].concat(t.proj.cast.map(id => s.people[id]).filter(Boolean).map(x => `${x.name} — 연기 ${lvSee(s, x, 'acting')} · ${relWord(x)}`)) });
+    if (t.proj) R.push({ h: `「${t.proj.title}」 촬영 중 (${t.proj.left}개월 남음)`, items: [`${pjLabel(t.proj)} · 감독 ${(s.people[t.proj.dir] || {}).name || '-'}`].concat(t.proj.cast.map(id => s.people[id]).filter(Boolean).map(x => ({ who: x.id, t: x.name, sub: `연기 ${lvSee(s, x, 'acting')} · ${relWord(x)}` }))) });
     if ((t.wait || []).length) R.push({ h: '공개를 기다리는 작품', items: t.wait.map(w => `「${w.title}」 ${PJ_TYPES[w.tk].n} · ${ROLE_N[w.ri]} · ${ymLater(s, Math.max(0, w.at - s.t))} 공개${w.promo ? ' · 예능에서 홍보함' : ''}`) });
     return R;
   },
@@ -476,7 +476,7 @@ CAREERS.acttrainer = {
   info(s, t) {
     const p = me(s), sts = t.students.map(id => s.people[id]).filter(Boolean);
     return [['회사', `${t.agN} (${TIER_N[t.tier]} 배우 소속사) · 연기 트레이너${t.lead ? ' 팀장' : ''}`], ['월급', fmtWon(t.sal)], ['내 실력', `연기 ${lvi(p, 'acting')} · 교육 ${lvi(p, 'edu')}`], ['업무 평가', `${Math.round(t.rep)}`], ['길러 낸 배우', `${t.debuts}명${t.cuts ? ` · 내보낸 신인 ${t.cuts}명` : ''}`],
-      { h: `맡은 신인 (${sts.length}명)`, items: sts.map(x => `${x.name} (${gN(x)} · ${pAge(s, x)}세) — 연기 ${lvi(x, 'acting')}레벨${canScout(p, 'acting') ? ` · 성장성 ${potGrade(p, x, 'acting')}` : ''} · ${relWord(x)}`) }];
+      { h: `맡은 신인 (${sts.length}명)`, items: sts.map(x => ({ who: x.id, t: x.name, sub: `${gN(x)} · ${pAge(s, x)}세 · 연기 ${lvi(x, 'acting')}레벨${canScout(p, 'acting') ? ` · 성장성 ${potGrade(p, x, 'acting')}` : ''} · ${relWord(x)}` })) }];
   },
   actions(s, t) { return t.st === 'active' ? [{ t: '회사 그만두기', h: '직원 계약이라 위약금은 없다', ok: true, danger: true, confirm: '정말 회사를 그만둘까요?', run: s => { const n = t.agN; leaveEmp(s, 'acttrainer', '퇴사'); return `${josa(n, '을를')} 그만뒀다.`; } }] : []; },
   monthly(s, t) {
