@@ -972,7 +972,7 @@ function showEnding(preview) {
 
 // ───── 패널 ─────
 function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people' && $('#panel').classList.contains('hidden')) UI.pplOpen = {}; if (kind === 'people' && S.pplSeenT !== S.t) { S.pplSeenT = S.t; renderPeopleCard(); } UI.overlay = kind; UI.pRes = null; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
-function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.skDrop = false; UI.pRes = null; UI.pickSlot = null; if (S) render(); }
+function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.apjFrom = null; UI.skDrop = false; UI.pRes = null; UI.pickSlot = null; if (S) render(); }
 // 행동 버튼 한 줄. 버튼이 누를 일은 UI.acts(창) 또는 UI.lacts(오른쪽 생활 카드)에 모아 둔다
 function actRow(a) {
   const reg = UI.rowReg || UI.acts, at = UI.rowReg ? 'lact' : 'act';
@@ -1085,7 +1085,7 @@ function apSorted(s, L) {
 }
 function panelApplyJob() {
   const s = S, list = jobApplies(s);
-  let h = `<h2>📝 구직활동</h2><p class="p-intro">분야를 누르면 직업이 나오고, 직업을 누르면 그 바로 아래에 지원할 수 있는 곳이 나온다. 직업 옆 숫자는 지금 바로 지원할 수 있는 곳의 수다.<br>직업은 ${JOB_CAP}개까지 같이 할 수 있다.</p>`;
+  let h = `${UI.apjFrom ? '<button class="btn sm ghost back-btn" data-dictback>← 백과사전</button>' : ''}<h2>📝 구직활동</h2><p class="p-intro">분야를 누르면 직업이 나오고, 직업을 누르면 그 바로 아래에 지원할 수 있는 곳이 나온다. 직업 옆 숫자는 지금 바로 지원할 수 있는 곳의 수다.<br>직업은 ${JOB_CAP}개까지 같이 할 수 있다.</p>`;
   UI.apjOpen = UI.apjOpen || {};
   if (!list.length) return h + `<div class="empty">지금 나이와 상황에서 지원할 수 있는 직업이 없다.</div>`;
   for (const [cid, cn] of APPLY_CATS) {
@@ -1384,8 +1384,27 @@ const CAREER_REQ = {
   adir: [['단편 애니메이션 만들기', '16세부터 · 연출 · 그림 20레벨 이상 · 제작비가 든다'], ['애니 제작사 연출부 (각 화 연출)', '20세부터 · 연출 25레벨 이상']],
   agency: [['회사 차리기 (메인 화면 회사 박스)', '20세부터 · 자본금 1억 원 · 다른 회사와 소속 계약이 없을 때']],
 };
-// 백과사전 한 칸: 제목 + [이름, 설명] 줄들
-function dxBox(title, rows) { return `<div class="dx-box">${title ? `<div class="dx-h">${title}</div>` : ''}${rows.map(([n, c]) => `<div class="dx-r"><b>${U.esc(n)}</b><span>${U.esc(c)}</span></div>`).join('')}</div>`; }
+// 백과사전 한 칸: 제목 + [이름, 설명] 줄들 (+ 맨 아래 덧붙일 것)
+function dxBox(title, rows, foot) { return `<div class="dx-box">${title ? `<div class="dx-h">${title}</div>` : ''}${rows.map(([n, c]) => `<div class="dx-r"><b>${U.esc(n)}</b><span>${U.esc(c)}</span></div>`).join('')}${foot || ''}</div>`; }
+// 백과사전 → 구직활동 (v185): '시작하는 법' 칸의 '(직업) 지원하러 가기'. 구직활동에 지금 그 직업이 있으면 그 직업 탭을 고른 채로 연다
+// 회사 대표는 구직활동이 아니라 메인 화면 회사 박스에서 차려서 버튼이 없다
+function apjFor(s, id) { return jobApplies(s).find(a => a.trk === id); }
+function dxGoHTML(s, id) {
+  if (!JOB_APPLY.some(a => a.trk === id)) return '';
+  const C = CAREERS[id], has = !!apjFor(s, id);
+  return `<div class="dx-go">${has ? '' : `<span class="hint">${trackOn(s, id) ? '지금 하고 있어서 새로 지원할 곳이 없다' : '아직 구직활동에 나오지 않는다'}</span>`}<button class="btn sm primary" data-gojob="${id}"${has ? '' : ' disabled'}>${C.ic || ''} ${U.esc(C.n.replace(/ \(.*\)$/, ''))} 지원하러 가기 ›</button></div>`;
+}
+function goApplyJob(id) {
+  const a = S && apjFor(S, id);
+  if (!a) return;
+  const cid = applyCatOf(a), y = $('#pcard').scrollTop;
+  UI.apTab[cid] = a.g || '기타'; UI.apjOpen = UI.apjOpen || {}; UI.apjOpen[cid] = true;
+  openPanel('applyjob');
+  UI.apjFrom = { y }; renderPanel();
+  requestAnimationFrame(() => requestAnimationFrame(() => { const b = $('#pcard .ap-tab.on'); if (b) b.scrollIntoView({ block: 'center' }); }));
+}
+// 구직활동 → 백과사전으로 돌아가기: 보던 자리로
+function dictBack() { const y = UI.apjFrom ? UI.apjFrom.y : 0; UI.apjFrom = null; openPanel('career'); requestAnimationFrame(() => requestAnimationFrame(() => { $('#pcard').scrollTop = y; })); }
 function panelCareer() {
   const tab = UI.dictTab === 'life' ? 'life' : 'career';
   return `<h2>📚 백과사전</h2><div class="ap-row pf-tabs">${DICT_TABS.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-dicttab="${k}">${n}</button>`).join('')}</div>` + (tab === 'life' ? dictLifeHTML(S) : dictCareerHTML(S));
@@ -1408,7 +1427,7 @@ function dictCareerHTML(s) {
         const note = t.endNote || (C.status && C.status(s, t)) || '';
         // 지금 하는 일은 현황 아래에 그 직업 설명도 함께 보여 준다
         h += `<div class="act" style="border:none;padding-bottom:0"><div><div class="a-t">${C.ic || ''} ${U.esc(C.n)}${trackOn(s, c.id) ? '<span class="tag">진행 중</span>' : ''}</div><div class="a-h">${U.esc(trackOn(s, c.id) && C.status ? careerStatus(s, c.id) : C.desc || '')}</div>${trackOn(s, c.id) && C.status && C.desc ? `<div class="hint">${U.esc(C.desc)}</div>` : ''}${trackOn(s, c.id) || !note ? '' : `<div class="hint">${U.esc(note)}</div>`}</div></div>`;
-        if (CAREER_REQ[c.id]) h += dxBox('📋 시작하는 법', CAREER_REQ[c.id]);
+        if (CAREER_REQ[c.id]) h += dxBox('📋 시작하는 법', CAREER_REQ[c.id], dxGoHTML(s, c.id));
         for (const a of (C.actions ? C.actions(s, t) : []).filter(a => !a.danger)) h += actRow(a);
         if (trackOn(s, c.id) && C.actions && C.actions(s, t).some(a => a.danger)) h += `<div class="hint" style="margin:0 0 var(--sp-2)">그만두기·탈퇴는 직업 활동 박스의 그 직업 창 '정보' 탭 맨 아래에서 할 수 있어요</div>`;
       }
@@ -2408,9 +2427,8 @@ document.addEventListener('click', e => {
   }
   if (t.id === 'btn-go') { turnGo(turnMax(S)); return; }
   if (t.id === 'btn-month') { turnGo(1); return; }
-  if (t.id === 'btn-year') { turnGo(12); return; }
   if (t.dataset.turnok != null) { turnClose(t.dataset.turnok); return; }
-  if (t.dataset.panel) { if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
+  if (t.dataset.panel) { UI.apjFrom = null; if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
   if (t.dataset.close != null) return closePanel();
   if (t.dataset.logsize) { setLogSize(+t.dataset.logsize); if (UI.overlay === 'menu') renderPanel(); return; }
   if (t.dataset.min != null) { UI.minimized = true; showEvent(); return; }
@@ -2445,6 +2463,8 @@ document.addEventListener('click', e => {
   if (t.dataset.leslv != null) { const i = +t.dataset.leslv, sl = S.slots[i]; sl.lesLv = +t.dataset.v; if (sl.payer === 'family' && !familyCanPay(S, i)) sl.payer = 'me'; save(S); renderSchedule(); return; }
   if (t.dataset.grp) { UI.openGroups[t.dataset.grp] = !UI.openGroups[t.dataset.grp]; renderPanel(); return; }
   if (t.dataset.rectab) { UI.recTab = t.dataset.rectab; renderPanel(); return; }
+  if (t.dataset.gojob) { goApplyJob(t.dataset.gojob); return; }
+  if (t.dataset.dictback != null) { dictBack(); return; }
   if (t.dataset.dicttab) { UI.dictTab = t.dataset.dicttab; renderPanel(); $('#pcard').scrollTop = 0; return; }
   if (t.dataset.pftab) { if (t.dataset.pftab === 'rec' && !UI.overlay) UI.recTab = 'career'; UI.pfTab = t.dataset.pftab; if (UI.overlay) { UI.overlay = 'profile'; renderPanel(); } else openPanel('profile'); return; }
   if (t.dataset.cotab) { UI.coTab = t.dataset.cotab; renderPanel(); return; }

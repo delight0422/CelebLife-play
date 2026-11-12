@@ -1517,6 +1517,7 @@ function endMain(s) {
   return best;
 }
 function endTitle(s) {
+  if (age(s) < 19) return '꿈을 좇던 아이'; // v185: 성인이 되기 전에 끝나면 (결산 미리 보기 포함)
   const M = endMain(s);
   if (!M) return lifeTitle(s);
   return M.k >= 6 ? (END_TOP[M.id] || `전설의 ${M.n}`) : M.k >= 4 ? `이름을 날린 ${M.n}` : M.k >= 2 ? `자리를 잡은 ${M.n}` : lifeTitle(s);

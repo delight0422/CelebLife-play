@@ -420,6 +420,8 @@ button.ap-tog { width: 100%; background: none; border: 0; padding: 0; color: inh
 .dx-r b { flex: 0 0 13em; font-weight: 600; color: var(--ink); }
 .dx-r span { flex: 1; color: var(--ink2); }
 @media (max-width: 760px) { .dx-r { display: block; } .dx-r b { display: block; } }
+.dx-go { display: flex; justify-content: flex-end; align-items: center; gap: var(--sp-2); margin-top: var(--sp-2); flex-wrap: wrap; }
+.dx-go .btn:disabled { background: #eceaf1; border-color: #e2dfe9; color: #9d98ad; opacity: 1; }
 
 /* 생활 카드 (오른쪽 아래): 집 · 지속 관리 · 장비 설치 · 기타 탭 */
 .life-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-1); margin: 0 0 var(--sp-2); }
@@ -593,7 +595,8 @@ button.ap-tog { width: 100%; background: none; border: 0; padding: 0; color: inh
 .turn-btns { display: flex; align-items: stretch; gap: 6px; margin-left: 4px; width: var(--sched-w); }
 .turn-go { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 18px; font-size: 15px; font-weight: 800; border-radius: 12px; box-shadow: 0 4px 14px rgba(123, 92, 255, .35); }
 .turn-jump { display: flex; flex-direction: column; gap: 4px; }
-.turn-jump .btn { flex: 1; display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; padding: 2px 8px; font-size: 12px; border-radius: 8px; white-space: nowrap; }
+/* v185: 1년 후 버튼을 빼고 1달 후 하나가 진행 버튼 높이를 다 채운다 */
+.turn-jump .btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 4px 14px; font-size: var(--fs-3); font-weight: 700; border-radius: 12px; white-space: nowrap; }
 .turn-jump kbd { padding: 0 5px; font-size: 11px; }
 kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; background: rgba(255, 255, 255, .22); border: 1px solid rgba(255, 255, 255, .35); }
 .turn-go.waiting { background: var(--pink); box-shadow: 0 4px 14px rgba(255, 92, 154, .35); }
