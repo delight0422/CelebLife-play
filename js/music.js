@@ -2575,7 +2575,7 @@ function myAlbX(s, k) {
   return { tier, rep: co ? co.f.music.rep : s.rep, sig: null, def, mem: P.slice(1), prod, budget: Math.max(100e4, (jobMoney(s, k) - prod) * 0.5) };
 }
 function myAlbJudge(s, k) { return ownCo(s, k) && typeof coAnrLead === 'function' ? coAnrLead(s) : null; }
-function myMoneyN(s, k) { return ownCo(s, k) ? '회사 돈' : '내 돈'; }
+function myMoneyN(s, k) { return ownCo(s, k) ? '자본금' : '내 돈'; }
 function myAlbFit(s, k, c) { return albFit(s, musPpl(s, k), c) + (has(me(s), 'compose') ? ` · 내 숙련도 ${gauge(cmGet(s, c))}` : ''); }
 function myPickRead(a, v) { const idx = a.five.map((x, i) => i).filter(i => albOn(v, 'p' + i)), ti = v.ti ? +String(v.ti).slice(1) : -1; return { idx, ti: idx.includes(ti) ? ti : -1, pol: albOn(v, 'pol'), ly: albOn(v, 'ly') }; }
 function myPickCost(x, ti, pol) { return (ti ? ti.price || 0 : 0) + (pol ? albPolCost(x) : 0) + x.prod; }

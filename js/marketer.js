@@ -256,7 +256,7 @@ E({
 E({
   id: 'mk_ad2', cat: '마케팅', title: '광고 예산', tag: 'career',
   init(s, d) { const t = s.tracks.marketer; if (!mkOn(s) || t.ad) d.skip = true; },
-  text: (s, d) => `${d.ch} 예산은 얼마로 발주할까? 회사 돈으로 낸다. 크게 쓸수록 회사의 기대도 커진다.`,
+  text: (s, d) => `${d.ch} 예산은 얼마로 발주할까? 자본금으로 낸다. 크게 쓸수록 회사의 기대도 커진다.`,
   ch: (s, d) => MK_BUD.map((b, i) => ({ t: `${b.n} (${fmtWon(b.won * 1e4)})`, f: s => {
     const t = s.tracks.marketer, g = t.groups[d.gi];
     t.ad = { gi: d.gi, ch: d.ch, bud: i, left: 3, q: mkScore(s) + (MK_AD[d.ch][g.tgt] || 0) + t.mi * 0.08 + U.normal(0, 6) };

@@ -213,14 +213,12 @@ function npcStageRival(s, not) {
   const n = U.pick(L); npcKnow(n);
   return n.n;
 }
-// ───── 화면: 인간관계 창 맨 아래 '⭐ 업계 인물' (내가 아는 인물만) ─────
-function npcPanelHTML(s) {
-  const L = npcList(s).filter(n => n.kn || n.fol).sort((a, b) => (b.fol || 0) - (a.fol || 0) || (b.rk ? 1 : 0) - (a.rk ? 1 : 0) || b.pop - a.pop);
-  if (!L.length) return '';
-  let h = `<div class="ap-cat"><div class="ap-cat-h">⭐ 업계 인물<span class="hint">${L.length}명 · 관심 인물의 근황만 소식에 나온다</span></div>`;
+// ───── 화면: 업계 인물 줄 (직업 창의 업계 인물 탭, 내가 아는 인물만). 인간관계 창에서는 뺐다 (UI 개편 시안) ─────
+function npcRowsHTML(s, L) {
+  let h = '';
   for (const n of L) {
     const F = NPC_F[n.f];
     h += `<div class="npc nx"><div class="nx-t"><b>${F.ic} ${U.esc(n.n)}</b><span class="hint">${F.n}${n.g ? '' : ''} · ${NPC_PH[n.ph]} · ${NPC_PS[n.ps]}</span></div><div class="nx-b"><span class="chip${n.rk === 'rival' ? ' bad' : ''}">${npcRelWord(n)}</span><button class="btn sm${n.fol ? ' primary' : ''}" data-npcfol="${n.id}">${n.fol ? '★ 관심 인물' : '☆ 관심 인물'}</button></div></div>`;
   }
-  return h + `</div>`;
+  return h;
 }

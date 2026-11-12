@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>연예인으로 살아가기</title>
-<link rel="stylesheet" href="style.css?v=1794414595">
+<link rel="stylesheet" href="style.css?v=1794456771">
 </head>
 <body>
 <div id="app">
@@ -48,45 +48,46 @@
       <!-- 날짜: 이름·나이와 메뉴 버튼 사이 한가운데, 위쪽 줄 높이에 맞춰 크게 -->
       <span id="t-date" class="date"></span>
       <nav class="top-btns">
-        <button class="btn sm" id="btn-inbox" data-panel="inbox">📨 메시지함</button>
-        <button class="btn sm hidden" id="btn-applyjob" data-panel="applyjob">📝 직업 지원</button>
-        <button class="btn sm hidden" id="btn-applyact" data-panel="applyact">🎭 활동 지원</button>
         <button class="btn sm" data-panel="career">🧭 진로 백과사전</button>
-        <button class="btn sm hidden" id="btn-company" data-panel="company">🏢 회사</button>
         <button class="btn sm mob-only" id="btn-life" data-panel="life">🏠 생활</button>
         <button class="btn sm ghost" data-panel="menu">메뉴</button>
       </nav>
-      <!-- 턴제 실험: 진행(창이 뜨거나 새 메시지가 오거나 6개월이 지날 때까지) · 한 달 -->
+      <!-- 진행(창이 뜨거나 새 메시지가 오거나 6개월이 지날 때까지) · 오른쪽에 작게 1달 후(위) · 1년 후(아래). 이 묶음 바로 아래가 일정 줄 (UI 개편 시안) -->
       <div class="turn-btns">
-        <button class="btn sm" id="btn-month">한 달</button>
         <button class="btn primary turn-go" id="btn-go">진행 ▶ <kbd>Space</kbd></button>
+        <div class="turn-jump">
+          <button class="btn sm" id="btn-month">1달 후 <kbd>1</kbd></button>
+          <button class="btn sm" id="btn-year">1년 후 <kbd>2</kbd></button>
+        </div>
       </div>
     </header>
+    <!-- 세 줄 (UI 개편 시안): 왼쪽 프로필 → 재정 · 상태 → 직업 활동 / 가운데 인간관계 → 메시지함 · 직업 지원 · 활동 지원 · 에고서칭 → 생활 → 회사 / 오른쪽 일정 (진행 버튼 바로 아래) -->
+    <!-- 왼쪽 줄과 가운데 줄은 따로 쌓는다. 맨 아래 박스(직업 활동 · 회사)가 남는 높이를 채운다 -->
     <main id="cols">
+      <div class="col-l">
+        <div id="profile-card" class="card"></div>
+        <div class="duo ms-duo">
+          <div id="money-card" class="card bn-card" data-moneycard></div>
+          <div id="status-card" class="card"></div>
+        </div>
+        <div id="jobs-card" class="card"></div>
+      </div>
+      <div class="col-m">
+        <div id="people-card" class="card bn-card" data-panel="people"></div>
+        <div class="hub-btns">
+          <button class="hub-bn" id="btn-inbox" data-panel="inbox">📨 메시지함</button>
+          <button class="hub-bn" id="btn-applyjob" data-panel="applyjob">📝 직업 지원</button>
+          <button class="hub-bn" id="btn-applyact" data-panel="applyact">🎭 활동 지원</button>
+          <button class="hub-bn hub-ego hidden" id="btn-ego" data-commnow>💬 에고서칭</button>
+        </div>
+        <div id="life-card" class="card">
+          <div class="card-h">🏠 생활</div>
+          <div id="life-grid" class="life-q"></div>
+        </div>
+        <div id="co-card" class="card"></div>
+      </div>
       <aside id="sched-col">
-        <!-- 일정이 길어져도 걸리는 것이 없게: 일정 아래에는 맨 아래 재정만 -->
         <div id="slots-card" class="card"></div>
-      </aside>
-      <aside id="side-col">
-        <!-- 왼쪽: 프로필(가로로 길게) → 특기 → 직업 활동(남는 높이를 끝까지) · 오른쪽: [인간관계 | 상태](남는 높이를 끝까지) → 생활 네 칸(집 · 지속 관리 / 장비 · 기타) -->
-        <div class="side-a">
-          <!-- 프로필: 박스를 누르면 프로필 창, 아래 다섯 배너(직업 · 재능 · 가족 정보 · 걸어온 길 · 작품)는 그 탭으로 바로 -->
-          <div id="profile-card" class="card bn-card" data-panel="profile"></div>
-          <div id="skills-card" class="card bn-card" data-panel="skills"></div>
-          <div id="jobs-card" class="card"></div>
-        </div>
-        <div class="side-b">
-          <div class="duo ps-duo">
-            <!-- 인간관계: 박스 자체를 누르면 인간관계 창, 안의 가족·연인 배너는 각자 창 -->
-            <div id="people-card" class="card bn-card" data-panel="people"></div>
-            <!-- 윗줄: 인간관계 · 상태 (같은 높이) / 아랫줄: 장비 · 회사 (남는 높이, v129) -->
-            <div id="status-card" class="card"></div>
-            <div id="eq-card" class="card"></div>
-            <div id="co-card" class="card"></div>
-          </div>
-          <!-- 오른쪽 아래 네 칸: 재정 · 지속 관리 / 집 · 기타 (v130. 재정은 왼쪽 일정 아래에서 옮겨 왔다) -->
-          <div id="life-grid"></div>
-        </div>
       </aside>
     </main>
     <div id="ended-bar" class="ended-bar hidden">이 인생은 끝났습니다. <button class="btn sm primary" id="btn-ending">인생 결산 보기</button> <button class="btn sm" id="btn-newlife2">다시 태어나기</button></div>
@@ -108,38 +109,38 @@
   <div id="toast" class="toast"></div>
   <input type="file" id="file-input" accept=".json,application/json" class="hidden">
 </div>
-<script src="js/util.js?v=1794414595"></script>
-<script src="js/data.js?v=1794414595"></script>
-<script src="js/skills.js?v=1794414595"></script>
-<script src="js/person.js?v=1794414595"></script>
-<script src="js/game.js?v=1794414595"></script>
-<script src="js/life.js?v=1794414595"></script>
-<script src="js/events.js?v=1794414595"></script>
-<script src="js/work.js?v=1794414595"></script>
-<script src="js/inbox.js?v=1794414595"></script>
-<script src="js/family.js?v=1794414595"></script>
-<script src="js/music.js?v=1794414595"></script>
-<script src="js/album.js?v=1794414595"></script>
-<script src="js/musicstaff.js?v=1794414595"></script>
-<script src="js/project.js?v=1794414595"></script>
-<script src="js/idolev.js?v=1794414595"></script>
-<script src="js/video.js?v=1794414595"></script>
-<script src="js/film.js?v=1794414595"></script>
-<script src="js/scandal.js?v=1794414595"></script>
-<script src="js/vidol.js?v=1794414595"></script>
-<script src="js/mcn.js?v=1794414595"></script>
-<script src="js/company.js?v=1794414595"></script>
-<script src="js/studio.js?v=1794414595"></script>
-<script src="js/dancer.js?v=1794414595"></script>
-<script src="js/anime.js?v=1794414595"></script>
-<script src="js/webnovel.js?v=1794414595"></script>
-<script src="js/illust.js?v=1794414595"></script>
-<script src="js/prof.js?v=1794414595"></script>
-<script src="js/tutor.js?v=1794414595"></script>
-<script src="js/marketer.js?v=1794414595"></script>
-<script src="js/npc.js?v=1794414595"></script>
-<script src="js/chparts.js?v=1794414595"></script>
-<script src="js/live.js?v=1794414595"></script>
-<script src="js/ui.js?v=1794414595"></script>
+<script src="js/util.js?v=1794456771"></script>
+<script src="js/data.js?v=1794456771"></script>
+<script src="js/skills.js?v=1794456771"></script>
+<script src="js/person.js?v=1794456771"></script>
+<script src="js/game.js?v=1794456771"></script>
+<script src="js/life.js?v=1794456771"></script>
+<script src="js/events.js?v=1794456771"></script>
+<script src="js/work.js?v=1794456771"></script>
+<script src="js/inbox.js?v=1794456771"></script>
+<script src="js/family.js?v=1794456771"></script>
+<script src="js/music.js?v=1794456771"></script>
+<script src="js/album.js?v=1794456771"></script>
+<script src="js/musicstaff.js?v=1794456771"></script>
+<script src="js/project.js?v=1794456771"></script>
+<script src="js/idolev.js?v=1794456771"></script>
+<script src="js/video.js?v=1794456771"></script>
+<script src="js/film.js?v=1794456771"></script>
+<script src="js/scandal.js?v=1794456771"></script>
+<script src="js/vidol.js?v=1794456771"></script>
+<script src="js/mcn.js?v=1794456771"></script>
+<script src="js/company.js?v=1794456771"></script>
+<script src="js/studio.js?v=1794456771"></script>
+<script src="js/dancer.js?v=1794456771"></script>
+<script src="js/anime.js?v=1794456771"></script>
+<script src="js/webnovel.js?v=1794456771"></script>
+<script src="js/illust.js?v=1794456771"></script>
+<script src="js/prof.js?v=1794456771"></script>
+<script src="js/tutor.js?v=1794456771"></script>
+<script src="js/marketer.js?v=1794456771"></script>
+<script src="js/npc.js?v=1794456771"></script>
+<script src="js/chparts.js?v=1794456771"></script>
+<script src="js/live.js?v=1794456771"></script>
+<script src="js/ui.js?v=1794456771"></script>
 </body>
 </html>

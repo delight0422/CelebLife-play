@@ -817,7 +817,7 @@ CAREERS.youtube = {
     const A = [];
     A.push({ t: '채널 컨셉 바꾸기', h: `지금 '${t.cat}' · 바꾸면 한동안 구독자가 조금 빠진다`, ok: !(t.catT > s.t), why: '얼마 전에 바꿨다', run: s => { fireEvent(s, 'yt_cat', { change: true }); return ''; } });
     A.push(t.editor ? { t: '편집자 내보내기', h: '매달 나가던 150만 원이 없어진다', ok: true, run: s => { t.editor = false; return '편집자와의 계약을 끝냈다. 이제 편집은 혼자 한다.'; } } : { t: '편집자 고용하기', h: t.mcn ? '월 150만 원' : '월 150만 원 · 편집 실력이 모자라도 영상 완성도가 오른다', ok: !t.mcn && s.money >= 150e4, why: t.mcn ? `${t.mcn.n} 편집팀이 무료로 편집해 준다` : '돈이 모자라다', run: s => { t.editor = true; return '영상 편집자를 고용했다.'; } });
-    if (t.mode === 'vt' && avQ(t) < 4) { const ni = avQ(t) + 1, nx = VT_AV[ni]; A.push({ t: `아바타 바꾸기: ${nx.n}`, h: fmtWon(nx.c) + (ownCo(s, 'youtube') ? ' (회사 돈)' : ''), ok: jobMoney(s, 'youtube') >= nx.c, why: `${ownCo(s, 'youtube') ? '회사 ' : ''}돈이 모자라다 (${fmtWon(nx.c)} 필요)`, run: s => { jobPay(s, nx.c, '아바타 교체', 'youtube'); t.av = ni; const b0 = t.subs; t.subs = Math.round(t.subs * 1.05); return streamShow(s, 'youtube', ytCut(t), '새 아바타 공개 방송', `${josa(nx.n, '으로')} 아바타를 바꿨다. 새 아바타 공개 방송에 시청자가 몰렸다.`, ytLive(s, t, 'avatar', { sc: 72 }), { gain: t.subs - b0 }); } }); }
+    if (t.mode === 'vt' && avQ(t) < 4) { const ni = avQ(t) + 1, nx = VT_AV[ni]; A.push({ t: `아바타 바꾸기: ${nx.n}`, h: fmtWon(nx.c) + (ownCo(s, 'youtube') ? ' (자본금)' : ''), ok: jobMoney(s, 'youtube') >= nx.c, why: `${ownCo(s, 'youtube') ? '회사 ' : ''}돈이 모자라다 (${fmtWon(nx.c)} 필요)`, run: s => { jobPay(s, nx.c, '아바타 교체', 'youtube'); t.av = ni; const b0 = t.subs; t.subs = Math.round(t.subs * 1.05); return streamShow(s, 'youtube', ytCut(t), '새 아바타 공개 방송', `${josa(nx.n, '으로')} 아바타를 바꿨다. 새 아바타 공개 방송에 시청자가 몰렸다.`, ytLive(s, t, 'avatar', { sc: 72 }), { gain: t.subs - b0 }); } }); }
     A.push({ t: t.mode === 'vt' ? '졸업 (버튜버 은퇴)' : '채널 접기', ok: true, danger: true, confirm: t.mode === 'vt' ? '정말 버튜버를 졸업할까요?' : '정말 채널 활동을 그만둘까요?', run: s => { const live = t.mode === 'vt' ? ytLive(s, t, 'grad', { sc: 75 }) : null; t.st = 'ended'; t.endNote = `${ytName(t)} 「${t.ch}」 · 가장 많을 때 구독자 ${fmtFans(t.peak || t.subs)}`; t.hist = (t.hist || []).concat(t.endNote); milestone(s, `${age(s)}세에 ${ytName(t)} 「${t.ch}」 활동을 마쳤다.`); if (t.mode === 'vt') return streamShow(s, 'youtube', ytCut(t), '졸업 방송', `버튜버 「${t.ch}」 졸업 방송을 했다.`, live); return `채널 「${t.ch}」 활동을 그만뒀다.`; } });
     return A;
   },
@@ -886,8 +886,8 @@ JOB_APPLY.push({
 VT_AV.forEach((av, i) => { if (!av) return; JOB_APPLY.push({
   id: 'youtube_vt' + i, trk: 'youtube', g: '▶️ 스트리머', n: `버튜버 개인세 준비: ${av.n}`,
   show: s => !s.flags.vtBan && !trackOn(s, 'youtube') && (!av.art || lv(me(s), 'art') >= av.art - 20),
-  // 버츄얼 아이돌 기획사 · MCN 대표면 내 회사 소속 버튜버라 아바타 값은 회사 돈으로 (v105)
-  h: s => `${av.c ? fmtWon(av.c) + (ownCoNew(s, 'youtube', true) ? ' (회사 돈)' : '') : '무료'} · 만드는 데 ${av.m}개월`,
+  // 버츄얼 아이돌 기획사 · MCN 대표면 내 회사 소속 버튜버라 아바타 값은 자본금으로 (v105)
+  h: s => `${av.c ? fmtWon(av.c) + (ownCoNew(s, 'youtube', true) ? ' (자본금)' : '') : '무료'} · 만드는 데 ${av.m}개월`,
   ok: s => !ytBlock(s) && (ownCoNew(s, 'youtube', true) || s).money >= av.c && (!av.art || lv(me(s), 'art') >= av.art) && !artistContract(s),
   why: s => ytBlock(s) || artistContractWhy(s) || (av.art && lv(me(s), 'art') < av.art ? '그림 실력이 더 필요하다' : `${ownCoNew(s, 'youtube', true) ? '회사 ' : ''}돈이 모자라다 (${fmtWon(av.c)} 필요)`),
   run: s => { const co = ownCoNew(s, 'youtube', true); if (av.c) { if (co) coOut(co, av.c, OWN_CO_N.youtube + ' 비용'); else addMoney(s, -av.c, '아바타 제작비'); } const old = s.tracks.youtube; s.tracks.youtube = { st: 'prep', mode: 'vt', av: i, left: av.m, corp: null, corpN: '', cut: 0, subs: 0, months: 0, sn: old.sn, hist: old.hist || [] }; return `${josa(av.n, '을를')} 맡겼다. 버튜버 데뷔 준비를 시작했다.`; },

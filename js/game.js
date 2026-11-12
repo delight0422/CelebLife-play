@@ -302,14 +302,14 @@ function jobEarnAdd(s, j, v) { if (!j || !(v > 0)) return; const E = s.jobEarn =
 function earn(s, v, label, job) {
   if (!(v > 0)) return;
   const j = job || EARN_LABEL[label] || EARN_JOB, co = ownCo(s, j);
-  // 내 회사 소속 활동이면 수익은 회사 돈으로 (회사에서 꺼낼 때 '업계에서 번 돈'이 된다)
+  // 내 회사 소속 활동이면 수익은 자본금으로 (회사에서 꺼낼 때 '업계에서 번 돈'이 된다)
   if (co) { coIn(co, v, OWN_CO_N[j] + ' 수입'); return; }
   addMoney(s, v, label, true); jobEarnAdd(s, j, v);
 }
 // ───── 내 회사 소속 활동 (v105, 9-2) ─────
 // 회사 대표가 회사 분야와 같은 아티스트 일을 하면 내 회사 소속으로 친다
 //  기획사 → 솔로 가수 · 밴드 · 연주가 / 버츄얼 아이돌 기획사 → 개인세 버튜버 / MCN → 스트리머 · 버튜버
-// 그 일의 비용과 수익은 모두 회사 돈에서 나가고 회사 돈으로 들어온다. 회사 그룹 · 기수 · 크리에이터 명단에 나를 넣지는 않는다
+// 그 일의 비용과 수익은 모두 자본금에서 나가고 자본금으로 들어온다. 회사 그룹 · 기수 · 크리에이터 명단에 나를 넣지는 않는다
 const OWN_CO_N = { solo: '대표 솔로 활동', band: '대표 밴드 활동', player: '대표 연주 활동', youtube: '대표 채널 활동' };
 function ownCoFit(t, job, vt) { const f = t.f || {}; return job === 'youtube' ? !!(f.mcn || (vt && f.vidol)) : !!OWN_CO_N[job] && !!f.music; }
 // 지금 그 일을 내 회사 소속으로 하고 있으면 회사(s.tracks.agency), 아니면 null
@@ -322,7 +322,7 @@ function ownCo(s, job) {
 // 아직 시작하지 않은 일을 시작할 때 (버튜버 아바타 맞추기)
 function ownCoNew(s, job, vt) { return trackOn(s, 'agency') && ownCoFit(s.tracks.agency, job, vt) ? s.tracks.agency : null; }
 function ownCoTag(s, job) { const t = ownCo(s, job); return t ? `내 회사 「${t.name}」 소속` : ''; }
-// 그 일에 쓸 수 있는 돈 · 그 일의 비용 내기 (내 회사 소속이면 회사 돈에서)
+// 그 일에 쓸 수 있는 돈 · 그 일의 비용 내기 (내 회사 소속이면 자본금에서)
 function jobMoney(s, job) { const t = ownCo(s, job); return t ? t.money : s.money; }
 function jobPay(s, v, label, job) { const t = ownCo(s, job); if (t) coOut(t, v, OWN_CO_N[job] + ' 비용'); else addMoney(s, -v, label); }
 function addStress(s, v) { if (v > 0) v *= pm(s, 'stressGain'); s.stress = U.clamp(s.stress + v, 0, 100); }
@@ -521,7 +521,7 @@ function fireEvent(s, id, d = {}) {
   if (tap0) { pre.tap = {}; for (const k in MONEY_TAP) if (MONEY_TAP[k].v !== (tap0[k] || 0)) pre.tap[k] = 1; }
   EV_E0 = { id, dv: evalDiff(e0, evalSnap(s)) };
   if (d.skip) return;
-  // 창을 내려 둔 채 다른 창을 열면(회사 돈 꺼내기 등), 기다리던 선택을 버리지 않고 대기열 맨 앞에 돌려 둔다 (v116 버그 1: 밴드 '새 곡 준비'가 사라져 곡이 영영 안 나왔다)
+  // 창을 내려 둔 채 다른 창을 열면(자본금 꺼내기 등), 기다리던 선택을 버리지 않고 대기열 맨 앞에 돌려 둔다 (v116 버그 1: 밴드 '새 곡 준비'가 사라져 곡이 영영 안 나왔다)
   // re: 이미 한 번 뜬 창이라 다시 띄울 때 init을 또 돌리지 않는다 (fireQ · pullBack)
   if (s.pending && s.pending.id !== id) s.queue.unshift({ id: s.pending.id, at: s.t, d: s.pending.d, re: 1 });
   s.pending = { id, d, tok, pre };
@@ -980,6 +980,8 @@ function onNewYear(s) {
   ytTrendCheck(s, true);
   if (!s.trendTV.anime || U.chance(0.5)) s.trendTV.anime = U.pick(ANIME_TRENDS.filter(x => x !== s.trendTV.anime));
   if (!s.trendTV.web || U.chance(0.5)) s.trendTV.web = U.pick(ANIME_TRENDS.filter(x => x !== s.trendTV.web));
+  // 해마다 순수익을 적어 둔다 (재정 창 연도별 탭, UI 개편 시안)
+  (s.yNet = s.yNet || {})[calY(s) - 1] = Object.values(s.yinc || {}).reduce((a, v) => a + v, 0);
   s.lastYinc = s.yinc || {}; s.lastYincY = calY(s) - 1; s.yinc = {};
   peopleYear(s);
   familyYear(s);
@@ -1077,7 +1079,7 @@ function livingMoney(s) {
 function royalties(s) {
   let sum = 0;
   const by = {};
-  // 내 회사 소속으로 낸 곡(c.co)은 회사가 있는 동안 회사 돈으로 들어간다 (v105)
+  // 내 회사 소속으로 낸 곡(c.co)은 회사가 있는 동안 자본금으로 들어간다 (v105)
   const co = trackOn(s, 'agency') ? s.tracks.agency : null;
   let toCo = 0;
   for (const c of s.catalog) {
