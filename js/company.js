@@ -2501,7 +2501,9 @@ function ceoBestSet(s, kind, f) {
 // CEO가 사건을 맡는 회사: 사건마다 어느 회사 일인지
 function coEvF(s, id, d) {
   const t = coT(s);
-  if (/^co_v(plan|script|cast|dir|bud|dist|res)$/.test(id)) return 'video';
+  // v180: 배우 섭외 · 제작비 · 거는 곳 · IP · 작품 고르기는 영상 · 애니가 같이 쓴다 (계획 P의 분야로)
+  if (/^co_[va]/.test(id) && d.P) return coPF(d.P);
+  if (/^co_v(plan|script|cast|dir|bud|dist|res|ip|pick)$/.test(id)) return 'video';
   if (/^co_a(plan|src|key|dir|team|res)$/.test(id)) return 'anime';
   if (/^co_m(scout|pick|renew|event)$/.test(id)) return 'mcn';
   if (id === 'co_proj' || id === 'co_lost') return 'music';
@@ -2623,28 +2625,41 @@ function ceoChoose(s, t, f, C) {
   if (id === 'co_vplan' || id === 'co_aplan') {
     const vid = id === 'co_vplan', KS = vid ? V_KIND : A_KIND, ks = Object.keys(KS), ips = vid ? coVIps(t) : coAIps(t);
     const need = K => vid ? K.bud[0] + K.cast * 1.5 + K.dir * 1.2 + K.script : K.bud[0] + K.cast * 2 + K.dir * 1.2 + K.key + K.anim * 3 + K.rights;
-    const okK = ks.map((k, i) => i).filter(i => mo > need(KS[ks[i]]) * (C.dir === 'profit' ? 1.5 : 1));
-    const sc = j => vid ? ips[j].sc : ips[j].from.sc, seq = ips.map((w, j) => j).filter(j => sc(j) >= 68 && okK.includes(ks.indexOf(ips[j].kind))).map(j => ks.length + j);
-    if (sm && seq.length && U.chance(0.6)) { if (ceoPickI(s, U.pick(seq))) return; }
-    if (!okK.length) { if (!ceoPickI(s, ch.length - 1)) ceoFirstOk(s); return; }
-    const i = sm ? (C.dir === 'profit' ? okK[0] : U.wpick(okK, i => i + 1)) : U.pick(okK);
-    if (!ceoPickI(s, i)) ceoFirstOk(s); return;
+    // v180: 종류 · 장르를 적는 창. 잘된 작품(68점 이상)이 있으면 반쯤 그 종류의 후속작 (ceoIp는 다음 'IP' 창에서 쓴다)
+    const okK = ks.filter(k => mo > need(KS[k]) * (C.dir === 'profit' ? 1.5 : 1));
+    if (!okK.length) { cancelForm(s); return; }
+    const good = ips.filter(w => (vid ? w.sc : w.from.sc) >= 68 && okK.includes(w.kind));
+    let k = sm ? (C.dir === 'profit' ? okK[0] : U.wpick(okK, k => ks.indexOf(k) + 1)) : U.pick(okK), ip = '';
+    if (sm && good.length && U.chance(0.6)) { k = U.pick(good).kind; ip = 'seq'; }
+    const tr = vid ? (s.trendTV || {}).drama : (s.trendTV || {}).anime;
+    ceoSubmit(s, { kind: k, gen: sm && !ip && tr && U.chance(0.5) ? tr : '', ceoIp: ip }); return;
   }
-  if (id === 'co_vscript' || id === 'co_asrc') {
-    const v = coVView(s, 'script'); let bi = 0, bs = -1e9;
-    (d.ms || []).forEach((m, i) => { const g = GRADE_W.q.indexOf(grade5(v, m.q, 'q', 'script')), x = (sm ? g * 10 : 0) + (id === 'co_asrc' && m.fans ? coASrcHype({ src: { fans: m.fans } }) * 5 : 0) - (m.price > mo * 0.15 ? 50 : 0) + U.fl(0, sm ? 3 : 30); if (x > bs) { bs = x; bi = i; } });
+  // IP: 후속작을 노렸으면 후속작, 아니면 대개 오리지널 (가끔 웹툰 · 웹소설 원작)
+  if (id === 'co_vip') { const okc = i => ch[i] && (!ch[i].ok || ch[i].ok(s)), i = d.P.ceoIp === 'seq' && okc(1) ? 1 : U.chance(sm ? 0.3 : 0.15) ? U.pick([2, 3]) : 0; if (!ceoPickI(s, i)) ceoFirstOk(s); return; }
+  if (id === 'co_vscript' || id === 'co_asrc' || id === 'co_vpick') {
+    const v = coVView(s, 'script', f); let bi = 0, bs = -1e9;
+    (d.ms || []).forEach((m, i) => { const g = GRADE_W.q.indexOf(grade5(v, m.q, 'q', 'script')), x = (sm ? g * 10 : 0) + (id !== 'co_vscript' && m.fans ? coASrcHype({ src: { fans: m.fans } }) * 5 : 0) - (m.price > mo * 0.15 ? 50 : 0) + U.fl(0, sm ? 3 : 30); if (x > bs) { bs = x; bi = i; } });
     if (!ceoPickI(s, bi)) ceoFirstOk(s); return;
   }
+  // v180: 주연 → 조연을 한꺼번에 제안하는 창. 성별 조건을 먼저 채우고(맞는 사람이 없으면 신인), 조연은 목표 인원까지 더 쓴다
   if (id === 'co_vcast') {
-    const v = coVView(s, 'acting'), P = d.P, n = P.cast.length, leads = P.cast.filter(c => c.role === 'lead').length, okc = i => i >= 0 && ch[i] && (!ch[i].ok || ch[i].ok(s));
-    const goal = P.ceoGoal || (P.ceoGoal = 4 + (U.chance(0.5) ? U.int(1, 3) : 0)), fin = idx('섭외를 마친다');
-    if (n >= goal && okc(fin)) { choose(s, fin); return; }
-    if (d.role === 'sup' && leads < 2 && n === 1 && U.chance(0.4)) { const i = idx('주연을 한 명 더 찾는다'); if (okc(i)) { choose(s, i); return; } }
-    const L = (d.c || []).filter(c => s.people[c.id]); let bi = -1, bs = -1e9;
-    L.forEach((c, i) => { if (!okc(i)) return; const x = s.people[c.id], r = lvRange(v, x, 'acting'), q = sm ? ((r[0] + r[1]) / 2 + Math.log10(1 + (x.fame || 0)) * 4) * c.p : U.fl(1, 50); const y = q - (c.fee > mo * 0.1 ? 60 : 0); if (y > bs) { bs = y; bi = i; } });
-    if (bi >= 0 && bs > 0) { choose(s, bi); return; }
-    const ni = ch.findIndex(c => c.t.startsWith('신인'));
-    if (okc(ni)) choose(s, ni); else if (okc(fin)) choose(s, fin); else ceoFirstOk(s); return;
+    const v = coVView(s, 'acting', f), P = d.P, role = d.role, n0 = coVCast(P).length, leads = coVCast(P).filter(c => c.role === 'lead').length;
+    const goal = P.ceoGoal || (P.ceoGoal = CO_V_CAST.min + (U.chance(0.5) ? U.int(1, 3) : 0));
+    P.ceoR = (P.ceoR || 0) + 1;
+    if (role === 'sup' && coCastMet(s, P) && (n0 >= goal || P.ceoR > 6)) { fbtnRun(s, 0); return; }
+    const lk = coCastLack(s, P, role), rk = { m: 0, f: 0 }, vals = {};
+    const L = (d.c || []).filter(c => s.people[c.id]).map(c => { const x = s.people[c.id], r = lvRange(v, x, 'acting'); return Object.assign({ g: gNn(x) === '여' ? 'f' : 'm', q: sm ? ((r[0] + r[1]) / 2 + Math.log10(1 + (x.fame || 0)) * 4) * c.p : U.fl(1, 50) }, c); }).filter(c => c.fee <= mo * 0.1).sort((a, b) => b.q - a.q);
+    let n = 0;
+    for (const g of ['m', 'f']) for (let i = 0; i < lk[g]; i++) { const c = L.find(c => c.g === g && !vals[c.id]); if (c) vals[c.id] = true; else vals[`new${g}${rk[g]++}`] = true; n++; }
+    const room = role === 'lead' ? Math.max(1, n) : Math.max(n, goal - n0);
+    for (const c of L) { if (n >= room || (role === 'lead' && leads + n >= CO_V_CAST.leads)) break; if (!vals[c.id]) { vals[c.id] = true; n++; } }
+    if (!n) { const g = U.pick(['m', 'f']); vals[`new${g}0`] = true; }
+    // 돈이 모자라 안 되면 꼭 필요한 만큼만 신인으로, 그것도 필요 없으면 섭외를 마친다
+    if (submitForm(s, vals) && s.pending) {
+      const v2 = {}, r2 = { m: 0, f: 0 }; for (const g of ['m', 'f']) for (let i = 0; i < lk[g]; i++) v2[`new${g}${r2[g]++}`] = true;
+      if (Object.keys(v2).length) ceoSubmit(s, v2); else if (role === 'sup' && coCastMet(s, P)) fbtnRun(s, 0); else cancelForm(s);
+    }
+    return;
   }
   if (id === 'co_vdir' || id === 'co_adir' || id === 'co_akey') {
     const k = id === 'co_akey' ? 'art' : 'direct', v = coVView(s, k), L = (d.c || []).filter(c => s.people[c.id]); let bi = -1, bs = -1e9;

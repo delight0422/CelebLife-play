@@ -14,7 +14,8 @@ function nl(t) { return U.esc(t).replace(/\n/g, '<br>'); }
 function evCol(html) { return html.replace(/\u0005([^\u0007]*)\u0007/g, '<span class="ev-g">$1</span>').replace(/\u0006([^\u0007]*)\u0007/g, '<span class="ev-b">$1</span>'); }
 function rich(t) { return evCol(nl(t).replace(/\u0001([^\u0002]*)\u0002/g, '<s class="was">$1</s>').replace(/\u0003([^\u0004]*)\u0004/g, '<b class="now">$1</b>')); }
 let toastTimer = null;
-function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2600); }
+// cls 'pt' (v180): 작품 기획처럼 창이 이어질 때 위쪽에 띄우는 여러 줄 토스트
+function toast(msg, cls) { const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (cls ? ' ' + cls : ''); void t.offsetWidth; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), cls ? 3600 : 2600); }
 function askConfirm(text, yes) {
   UI.onConfirm = yes;
   $('#ccard').innerHTML = `<div class="m-text">${nl(text)}</div><div class="choices"><button class="btn primary" data-confirm="1">네</button><button class="btn" data-confirm="0">아니요</button></div>`;
@@ -687,7 +688,9 @@ function showEventRaw() {
     if (T) h += evTblHTML(T, true);
     h += formFieldsHTML(ev.form(s, d).filter(f => f.after));
     if (ev.sum) h += `<div class="form-sum" id="form-sum"></div>`;
-    h += `<div class="choices"><button class="btn primary" data-submit>확인</button>${ev.cancel ? `<button class="btn" data-cancel>${U.esc(ev.cancelT ? ev.cancelT(s, d) : '그만두기')}</button>` : ''}</div><div class="why" id="form-err"></div>`;
+    // v180: 확인 버튼 글(submitT)과 따로 할 일 버튼(fbtn, 할 수 있으면 초록색)
+    const FB = ev.fbtn ? ev.fbtn(s, d) || [] : [];
+    h += `<div class="choices"><button class="btn primary" data-submit>${U.esc(ev.submitT ? ev.submitT(s, d) : '확인')}</button>${FB.map((b, i) => `<button class="btn fbtn${b.go && b.ok !== false ? ' go' : ''}${b.h ? ' rest-b' : ''}" data-fbtn="${i}" ${b.ok === false ? 'disabled' : ''}>${U.esc(b.t)}${b.h ? `<span class="rest-h">${U.esc(b.h)}</span>` : ''}</button>`).join('')}${ev.cancel ?`<button class="btn" data-cancel>${U.esc(ev.cancelT ? ev.cancelT(s, d) : '그만두기')}</button>` : ''}</div><div class="why" id="form-err"></div>`;
   } else if (T) {
     // 표에서 줄을 고르고 아래 보라색 버튼으로 정한다. 표에 없는 선택지(미루기 등)는 옆에 작은 버튼으로
     const C1 = evChoices(s);
@@ -705,7 +708,7 @@ function showEventRaw() {
   h += `<div class="m-foot"><div class="m-stats">${statLine(s)}</div>${kid ? `<button class="btn sm" data-kid="${kid.id}">👶 ${U.esc(kid.name)} 재능</button>` : myProf ? `<button class="btn sm" data-myprof>👤 내 프로필</button>` : ''}</div>`;
   // v173: 결과 기사는 넓은 창 (사진 옆에 본문, 댓글은 옆으로 늘어선다)
   const nw = !!ev.news && h.includes('<article class="news">');
-  $('#mcard').className = 'mcard' + (T || ev.wide ? ' wide' : '') + (nw ? ' nw-wide' : '');
+  $('#mcard').className = 'mcard' + (T || ev.wide ? ' wide' : '') + (nw ? ' nw-wide' : '') + (ev.card ? ' ' + ev.card : '');
   $('#mcard').innerHTML = h;
   $('#modal').classList.remove('hidden');
   // 결과 기사: 처음 뜰 때 성과를 토스트 줄에 넣어 둔다. 창이 닫힌 뒤에 '「제목」 결과' 줄부터 차례로 뜬다 (v175). 기사 사진 속 캐릭터를 칠한다
@@ -735,7 +738,7 @@ function formVals() { const vals = {}; document.querySelectorAll('#mcard input[d
 // 체크할 때마다 바뀌는 합계 줄 (사건의 sum)
 function formSum() { tblCnt(); const el = $('#form-sum'), p = S && S.pending, ev = p && EVENTS[p.id]; if (!el || !ev || !ev.sum) return; let x = ''; try { x = ev.sum(S, p.d, formVals()) || ''; } catch (e) { } el.textContent = x; }
 // 표에서 고른 수 (v177): T.cnt = { n: 이름, min, max } → '고른 멤버 7/9명'. 모자라거나 넘치면 빨강
-function tblCnt() { const el = $('#tbl-cnt'), C = UI.tblT && UI.tblT.cnt; if (!el || !C) return; const n = document.querySelectorAll('#ev-tbl tbody input[type=checkbox]:checked').length; el.innerHTML = `${U.esc(C.n || '고른 사람')} <b>${n}</b>/${C.max}명`; el.classList.toggle('bad', n > C.max || n < (C.min || 0)); }
+function tblCnt() { const el = $('#tbl-cnt'), C = UI.tblT && UI.tblT.cnt; if (!el || !C) return; const n = document.querySelectorAll('#ev-tbl tbody input[type=checkbox]:checked').length; el.innerHTML = `${U.esc(C.n || '고른 사람')} <b>${n}</b>${C.max ? `/${C.max}` : ''}명`; el.classList.toggle('bad', (C.max > 0 && n > C.max) || n < (C.min || 0)); }
 function evTblHTML(T, form) {
   UI.tblT = T; UI.tblS = null;
   // 처음 정렬 (v134): 오디션은 나이, 타이틀곡은 완성도. 줄 번호(data-ti)는 그대로 두고 그리는 순서만 바꾼다
@@ -789,6 +792,7 @@ function afterChoice() {
   // v176: 모아 둔 성과 토스트가 있으면 카드만 내린 어두운 화면 가운데에 먼저 띄우고, 다 뜨면(또는 눌러서 넘기면) 이어 간다
   const L = rtTake(S);
   render();
+  if (UI.ptoast) { toast(UI.ptoast, 'pt'); UI.ptoast = null; }
   if (L) { resToast(L, true, afterChoiceGo); return; }
   afterChoiceGo();
 }
@@ -808,9 +812,11 @@ function resPre(s) {
   if (!ev) return null;
   let title = '';
   try { title = typeof ev.title === 'function' ? ev.title(s, p.d) : ev.title; } catch (e) { }
-  return { L0: s.log[s.log.length - 1], cat: ev.cat || '', title, form: !!ev.form, noRes: !!ev.noRes, C: ev.form ? [] : evChoices(s) };
+  return { L0: s.log[s.log.length - 1], cat: ev.cat || '', title, form: !!ev.form, noRes: ev.noRes || false, C: ev.form ? [] : evChoices(s) };
 }
 function resAfter(pre, i) {
+  // v180: noRes 'toast' (작품 기획 중 고르는 창) — 결과 창 없이 다음 창으로 넘어가고, 생긴 기록은 위쪽 토스트로 (제작 시작 창처럼 따로 그리는 창이 뜨면 생략)
+  if (pre && pre.noRes === 'toast' && S && !S.ended) { const L = logsAfter(S, pre.L0), nx = S.pending && EVENTS[S.pending.id]; if (L.length && !(nx && nx.card)) UI.ptoast = L.map(x => String(x.x || '').replace(/<[^>]+>/g, '')).join('\n'); return false; }
   if (!pre || pre.noRes || !S || S.ended || (!pre.form && pre.C.length < 2)) return false;
   const L = logsAfter(S, pre.L0);
   if (!L.length) return false;
@@ -2315,6 +2321,7 @@ document.addEventListener('click', e => {
     const pre = resPre(S), ci = +t.dataset.choice; try { choose(S, ci); } catch (e) { console.error('선택 오류', S.pending && S.pending.id, e); S.pending = null; toast('선택을 처리하지 못해 건너뛰었어요'); } if (!resAfter(pre, ci)) afterChoice(); return; }
   if (t.dataset.resok != null) { resOk(); return; }
   if (t.dataset.submit != null) { const vals = formVals(); const pre = resPre(S), err = submitForm(S, vals); if (err) { $('#form-err').textContent = err; errTip(t, err); return; } if (!resAfter(pre, -1)) afterChoice(); return; }
+  if (t.dataset.fbtn != null) { if (t.disabled) return; const pre = resPre(S); fbtnRun(S, +t.dataset.fbtn); if (!resAfter(pre, -1)) afterChoice(); return; }
   if (t.dataset.cancel != null) { cancelForm(S); afterChoice(); return; }
   // 창을 내려 둔 채 패널 버튼으로 새 창(자본금 꺼내기 등)을 열면 그 창은 바로 보여 준다. 내려 둔 창은 대기열에 돌아가 있다가 새 창을 마치면 다시 뜬다 (v116 버그 1)
   if (t.dataset.act != null) { const a = UI.acts[+t.dataset.act]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, jf0 = totalFans(S), jfJ = UI.overlay === 'job' ? UI.jobId : null, r = a.run(S); jfAdd(S, jfJ, totalFans(S) - jf0); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t, () => { if (UI.overlay === 'company') S.uiOpen = 'company'; }); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }

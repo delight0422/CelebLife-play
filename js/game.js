@@ -595,6 +595,19 @@ function cancelForm(s) {
   pullBack(s);
   save(s);
 }
+// 적는 창 아래 다른 버튼 (v180, ev.fbtn): 확인 · 그만두기 말고 따로 할 일 (배우 섭외 창의 '섭외를 마친다' 등). b.ok === false면 못 누른다
+function fbtnRun(s, i) {
+  const p = s.pending;
+  if (!p) return;
+  const ev = EVENTS[p.id], b = (ev.fbtn ? ev.fbtn(s, p.d) || [] : [])[i];
+  if (!b || b.ok === false) return;
+  s.pending = null;
+  const r = b.f ? b.f(s, p.d) : '';
+  applyLocks(s);
+  if (r) addLog(s, r, ev.tag || 'ev');
+  autoEvs(s); pullNow(s); pullBack(s); autoEvs(s);
+  save(s);
+}
 function choose(s, i) {
   const p = s.pending;
   if (!p) return;
