@@ -166,10 +166,15 @@ function turnClose(next) {
   UI.turn = null;
   $('#turn').classList.add('hidden');
   if (!S.ended && next !== 'inbox') dreamNow(S);
+  // 모아 둔 성과 토스트(달마다 오른 등급 등)가 있으면 어두운 화면 가운데에 먼저 띄우고, 다 끝나면 이어 간다 (v176)
+  const L = rtTake(S);
   render();
-  if (S.ended) { showEnding(); return; }
-  if (S.pending) { UI.minimized = false; showEvent(); return; }
-  if (next === 'inbox') openPanel('inbox');
+  const go = () => {
+    if (S.ended) { showEnding(); return; }
+    if (S.pending) { UI.minimized = false; showEvent(); return; }
+    if (next === 'inbox') openPanel('inbox');
+  };
+  if (L) resToast(L, true, go); else go();
 }
 
 // ───── 첫 화면 ─────
@@ -236,9 +241,11 @@ function render() {
   goBtnSync();
   rtDrain(S);
 }
-// 성과 토스트 줄 (v174 · v175): 결과 기사의 성과 · 기업 등급 · 그룹 등급 오름을 s.rtq에 모아 두었다가,
-// 창(사건 창 · 무대 창 · 요약 창)이 모두 닫히고 게임 화면으로 돌아오면 들어온 차례대로 띄운다 (사건이 이어서 뜨면 그 창까지 닫힌 뒤에)
+// 성과 토스트 줄 (v174 · v176): 결과 기사의 성과 · 기업 등급 · 그룹 등급 오름을 s.rtq에 모아 두었다가,
+// 결과 창(afterChoice) · 요약 창(turnClose)을 넘기는 순간 어두운 화면 가운데에 들어온 차례대로 띄우고, 다 뜨면 다음 창으로 이어 간다.
+// rtDrain은 그 밖의 길로 쌓인 것(창 없이 지나간 달 등)을 아무 창도 없을 때 띄운다
 function rtQueue(s, L) { s.rtq = (s.rtq || []).concat(L).slice(-24); }
+function rtTake(s) { if (!s || s.ended || !s.rtq || !s.rtq.length) return null; const L = s.rtq; s.rtq = []; return L; }
 function rtDrain(s) {
   if (!s || !s.rtq || !s.rtq.length || s.pending || ['#modal', '#live', '#turn'].some(q => !$(q).classList.contains('hidden'))) return;
   const L = s.rtq; s.rtq = []; try { resToast(L, true); } catch (e) { console.error('토스트 오류', e); }
@@ -775,7 +782,13 @@ function formEnter() {
 }
 function afterChoice() {
   $('#modal').classList.add('hidden');
+  // v176: 모아 둔 성과 토스트가 있으면 카드만 내린 어두운 화면 가운데에 먼저 띄우고, 다 뜨면(또는 눌러서 넘기면) 이어 간다
+  const L = rtTake(S);
   render();
+  if (L) { resToast(L, true, afterChoiceGo); return; }
+  afterChoiceGo();
+}
+function afterChoiceGo() {
   if (S.ended) { showEnding(); return; }
   if (!S.uiOpen) dreamNow(S);
   if (S.pending) { showEvent(); return; }
@@ -1888,16 +1901,28 @@ function newsEvHTML(s, d, N) {
   const bns = [mk && typeof albStepsHTML === 'function' ? popBtnHTML('🎼 제작 과정', albStepsHTML(mk)) : '', lv ? liveBtnHTML(lv) : '', `<button class="lv-re" data-rtoast="${rtKey(newsToasts(N))}">📊 성과 다시 보기</button>`, bl ? billBtnHTML(bl) : ''].filter(Boolean).join('');
   return newsHTML(s, d, N) + `<div class="co-last nw-bns">${bns}</div>` + (N.after || '');
 }
-// ───── 성과 토스트 (v172 · v175): 큰 알림이 한 줄씩 차례로 쌓였다가 몇 초 뒤 사라진다 ─────
-// 넓은 화면은 오른쪽 위, 휴대폰은 아래쪽. 한꺼번에 RT_MAX개까지만 보이고, 넘치면 오래된 것부터 먼저 사라진다
+// ───── 성과 토스트 (v172 · v176): 큰 알림이 한 줄씩 차례로 쌓였다가 몇 초 뒤 사라진다 ─────
+// v176: 결과 창을 넘기면 카드만 내리고 어두운 배경(창이 떠 있을 때와 같은 밝기)은 그대로 둔 채, 화면 한가운데에 띄운다.
+//   마지막 알림이 사라지면 어두운 화면도 걷히고 다음 일(다음 사건 창 등, done)로 이어 간다. 화면을 누르거나 스페이스바 · 엔터 · Esc로 바로 넘길 수 있다
+// 한꺼번에 RT_MAX개까지만 보이고, 넘치면 오래된 것부터 먼저 사라진다
 const RT_GAP = 700, RT_STAY = 6500, RT_MAX = () => window.innerWidth <= 760 ? 4 : 6;
 function rtKey(L) { UI.rtMap = UI.rtMap || {}; const k = UI.rtN = (UI.rtN || 0) + 1; UI.rtMap[k] = L; delete UI.rtMap[k - 200]; return k; }
 function rtOut(e) { if (e.classList.contains('out')) return; e.classList.add('out'); UI.rtT.push(setTimeout(() => e.remove(), 400)); }
-// add: 이미 떠 있는 토스트를 지우지 않고 뒤에 이어 붙인다 (모아 둔 토스트 줄). 없으면 지우고 새로 (성과 다시 보기)
-function resToast(L, add) {
-  let box = $('#rtoast');
-  if (!box) { box = document.createElement('div'); box.id = 'rtoast'; box.className = 'rtoast'; document.body.appendChild(box); }
-  if (!add || !UI.rtT) { (UI.rtT || []).forEach(clearTimeout); UI.rtT = []; box.innerHTML = ''; UI.rtEnd = 0; }
+function rtOn() { const o = $('#rtov'); return !!o && !o.classList.contains('hidden'); }
+// add: 이미 떠 있는 토스트를 지우지 않고 뒤에 이어 붙인다 (모아 둔 토스트 줄). 없으면 지우고 새로 (성과 다시 보기). done: 다 끝나면 할 일
+function resToast(L, add, done) {
+  let ov = $('#rtov');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'rtov'; ov.className = 'overlay rt-ov hidden'; ov.innerHTML = '<div id="rtoast" class="rtoast"></div>';
+    ov.addEventListener('click', e => { e.stopPropagation(); rtSkip(); });
+    document.body.appendChild(ov);
+  }
+  const box = $('#rtoast');
+  if (!add || !UI.rtT || !rtOn()) { (UI.rtT || []).forEach(clearTimeout); UI.rtT = []; box.innerHTML = ''; UI.rtEnd = 0; UI.rtCnt = 0; UI.rt0 = Date.now(); }
+  if (done) (UI.rtDone = UI.rtDone || []).push(done);
+  ov.classList.remove('hidden');
+  // 상자 높이를 미리 잡아 둔다: 알림이 하나씩 늘어나도 위치가 흔들리지 않게 (한가운데 기준)
+  const n = Math.min(UI.rtCnt += L.length, RT_MAX()); box.style.minHeight = `calc(${n} * var(--rt-h) + ${n - 1} * 10px)`;
   const t0 = Math.max(0, (UI.rtEnd || 0) - Date.now()); UI.rtEnd = Date.now() + t0 + L.length * RT_GAP;
   L.forEach(([ic, x, tn], i) => UI.rtT.push(setTimeout(() => {
     const live = [...box.children].filter(c => !c.classList.contains('out'));
@@ -1905,7 +1930,17 @@ function resToast(L, add) {
     const e = document.createElement('div'); e.className = 'rt-i' + (tn ? ' ' + tn : ''); e.innerHTML = `<i>${ic}</i><span>${U.esc(x)}</span>`; box.appendChild(e);
     UI.rtT.push(setTimeout(() => rtOut(e), RT_STAY));
   }, t0 + 300 + i * RT_GAP)));
+  // 마지막 알림이 사라지면 어두운 화면을 걷는다
+  clearTimeout(UI.rtFin); UI.rtFin = setTimeout(rtFinish, UI.rtEnd - Date.now() - RT_GAP + 300 + RT_STAY + 450);
 }
+function rtFinish() {
+  clearTimeout(UI.rtFin); (UI.rtT || []).forEach(clearTimeout); UI.rtT = [];
+  const ov = $('#rtov'); if (ov) { ov.classList.add('hidden'); $('#rtoast').innerHTML = ''; }
+  const D = UI.rtDone || []; UI.rtDone = [];
+  D.forEach(f => { try { f(); } catch (e) { console.error('토스트 다음 일 오류', e); } });
+}
+// 눌러서 넘기기: 막 뜬 참(0.6초 안)에 누른 것은 결과 창을 넘기던 손이 한 번 더 누른 것으로 보고 넘기지 않는다
+function rtSkip() { if (Date.now() - (UI.rt0 || 0) > 600) rtFinish(); }
 function billKey(b) { UI.billMap = UI.billMap || {}; const k = UI.billN = (UI.billN || 0) + 1; UI.billMap[k] = b; delete UI.billMap[k - 400]; return k; }
 function billBtnHTML(b) { return `<button class="bill-bn" data-bill="${billKey(b)}">🧾 정산서<span class="bb-t">${U.esc(b.t || '')}</span></button>`; }
 function billHTML(b) {
@@ -2321,6 +2356,8 @@ document.addEventListener('click', e => {
   }
 });
 document.addEventListener('keydown', e => {
+  // 성과 토스트가 떠 있으면 (v176): 스페이스바 · 엔터 · Esc = 넘기기. 다른 키는 막는다 (뒤의 진행 버튼이 눌리지 않게)
+  if (rtOn()) { if (['Space', 'Enter', 'NumpadEnter', 'Escape'].includes(e.code)) { e.preventDefault(); if (!e.repeat) rtSkip(); } return; }
   if (e.key === 'Escape' || e.code === 'Escape') { if (escClose()) e.preventDefault(); return; }
   // 실시간 창이 떠 있으면 스페이스바 · 엔터 = 결과 바로 보기 (뒤의 창보다 먼저)
   if (liveOn() && (e.code === 'Space' || e.key === 'Enter')) { e.preventDefault(); if (!e.repeat) liveClose(); return; }
