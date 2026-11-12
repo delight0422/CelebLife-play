@@ -114,6 +114,7 @@ function jobTags(s, id, extra) {
   if (id === 'agency') T.add('ceo');
   for (const x of extra || []) T.add(x);
   if (t) {
+    if (id === 'agency' && t.hire) T.add('emp');
     if (id === 'idol') T.add(t.st === 'trainee' ? 'trainee' : 'artist');
     if ((id === 'band' || id === 'solo') && t.st === 'signed') T.add('artist');
     if (id === 'actor' && (t.via === 'agency' || t.via === 'music')) T.add('artist');
@@ -311,7 +312,7 @@ function earn(s, v, label, job) {
 //  기획사 → 솔로 가수 · 밴드 · 연주가 / 버츄얼 아이돌 기획사 → 개인세 버튜버 / MCN → 스트리머 · 버튜버
 // 그 일의 비용과 수익은 모두 자본금에서 나가고 자본금으로 들어온다. 회사 그룹 · 기수 · 크리에이터 명단에 나를 넣지는 않는다
 const OWN_CO_N = { solo: '대표 솔로 활동', band: '대표 밴드 활동', player: '대표 연주 활동', youtube: '대표 채널 활동' };
-function ownCoFit(t, job, vt) { const f = t.f || {}; return job === 'youtube' ? !!(f.mcn || (vt && f.vidol)) : !!OWN_CO_N[job] && !!f.music; }
+function ownCoFit(t, job, vt) { if (t.hire) return false; const f = t.f || {}; return job === 'youtube' ? !!(f.mcn || (vt && f.vidol)) : !!OWN_CO_N[job] && !!f.music; }
 // 지금 그 일을 내 회사 소속으로 하고 있으면 회사(s.tracks.agency), 아니면 null
 function ownCo(s, job) {
   if (!job || !OWN_CO_N[job] || !trackOn(s, 'agency') || !trackOn(s, job)) return null;
@@ -931,7 +932,7 @@ function tick(s) {
   // 내 집(월세·전세·자가)이 이미 있으면 묻지 않고 그 집에서 지낸다 (v89)
   dormCheck(s);
   parEquipMonth(s);
-  if (!s.army) { actAutoMonth(s); lifeAutoMonth(s); coMeetMonth(s); if (typeof pfInvMaybe === 'function') pfInvMaybe(s); }
+  if (!s.army) { actAutoMonth(s); lifeAutoMonth(s); coMeetMonth(s); if (typeof ceoOfferMonth === 'function') ceoOfferMonth(s); if (typeof pfInvMaybe === 'function') pfInvMaybe(s); }
   pickEvent(s);
   autoEvs(s); pullNow(s);
   s.lastMon = s.mon;

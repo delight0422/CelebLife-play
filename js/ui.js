@@ -356,7 +356,7 @@ function panelSoon() {
 }
 // 직업 이름: 진로 목록과 같은 이름 (연주가만 짧게)
 // 밴드 연습생(idol 트랙 kind 'band')은 직업 카드 · 창에서 '밴드 연습생' · 🎸로 보인다 (v116 버그 8). 진로 백과사전 설명은 그대로
-function jobName(id) { return id === 'player' ? '연주가' : id === 'idol' && idolIsBand(S) ? '밴드 연습생' : CAREERS[id].n; }
+function jobName(id) { return id === 'player' ? '연주가' : id === 'idol' && idolIsBand(S) ? '밴드 연습생' : id === 'agency' && S && (S.tracks.agency || {}).hire && trackOn(S, 'agency') ? 'CEO' : CAREERS[id].n; }
 function jobIc(id) { return id === 'idol' && idolIsBand(S) ? '🎸' : CAREERS[id].ic || '⭐'; }
 // 직업마다 관련 분야의 유행: 직업 창 맨 위에 그 분야 유행만 보인다 (모델은 없음)
 const JOB_FIELD = { idol: 'music', band: 'music', solo: 'music', player: 'music', composer: 'music', lyricist: 'music', producer: 'music', anr: 'music', trainer: 'music', dancer: 'music', animator: 'anime', adir: 'anime', voice: 'anime', webtoon: 'web', webnovel: 'web', actor: 'drama', director: 'drama', writer: 'drama', acttrainer: 'drama', variety: 'show', youtube: 'yt', vidol: 'yt', editor: 'yt', agency: 'music' };
@@ -506,7 +506,7 @@ function coBannerHTML(s, t, f, main) {
     // 돈 줄: 자본금(그룹 전체) · 지난달 순수익 · (적자면) 버틸 수 있는 기간
     const R = [[coFields(t).length > 1 ? '그룹 자본금' : '자본금', fmtWon(t.money), t.money < 0 ? 'neg' : ''], ['지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg']];
     if (net < 0 && out > 0) R.push(['버틸 수 있는 기간', t.money > 0 ? `약 ${Math.floor(t.money / out)}개월` : '바닥났다', 'neg']);
-    rows = facts(R) + facts([['등급', coRankName(t, coRank(t))]].concat(coFieldFacts(s, t, f), [['직원', `${coStaff(s, null, f).length}명`]].concat(typeof coCeo === 'function' && coCeo(t, f) ? [['CEO', ceoName(s, t, f)]] : [])));
+    rows = facts(R) + facts([['등급', coRankName(t, coRank(t))]].concat(coFieldFacts(s, t, f), [['직원', `${coStaff(s, null, f).length}명`]].concat(typeof coCeo === 'function' && coCeo(t, f) ? [['CEO', ceoName(s, t, f)]] : t.hire ? [['내 자리', 'CEO']] : [])));
   } else rows = facts([['모회사', t.name], ['자본금', fmtWon(coM(t, f)), coM(t, f) < 0 ? 'neg' : '']].concat(coFieldFacts(s, t, f), [['직원', `${coStaff(s, null, f).length}명`]].concat(typeof coCeo === 'function' && coCeo(t, f) ? [['CEO', ceoName(s, t, f)]] : [])));
   return `<button class="job-bn co-bn" data-cof="${f}"><span class="jb-top"><span class="sb-ic">${CO_FIELDS[f].ic}</span><span class="sb-t">${U.esc(coFName(t, f))}</span><span class="jb-auto">${TIER_N[t.f[f].tier]} ${CO_TYPE_N[f] || CO_FIELDS[f].n}</span><span class="sb-n">›</span></span>${rows}</button>`;
 }
@@ -531,7 +531,7 @@ function renderCoCard() {
   const fs = coFields(t), main = coMainF(t);
   let h = `<div class="card-h">🏢 회사${fs.length > 1 ? `<span class="sub">「${U.esc(t.name)}」 그룹 · 회사 ${fs.length}곳</span>` : ''}</div>`;
   h += coBannerHTML(s, t, main, true) + fs.filter(f => f !== main).map(f => coBannerHTML(s, t, f, false)).join('');
-  if (coSubLeft(t).length) h += coNewBannerHTML(true, coSubWhy(s, t));
+  if (coSubLeft(t).length && !t.hire) h += coNewBannerHTML(true, coSubWhy(s, t));
   el.className = 'card co-card'; el.innerHTML = h;
 }
 // 상태: 군 복무·병은 맨 위에 눈에 띄게 (누르면 자세히)
