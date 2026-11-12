@@ -1275,7 +1275,21 @@ E({
   live: (s, d) => d.card && d.card.live,
   init(s, d) { const t = s.tracks.idol; if (t.st !== 'active') { d.skip = true; return; } d.r = idolRelease(s, t, d.c, d.debut, d.a || null); d.card = d.r.card; teamRel(s, 'idol', t, d.r.peak, !d.r.peak || d.r.peak > 60); },
   // v154: 성적표 위에 '제작 과정' 배너
-  html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + albBannerHTML(d.card.mk) + songCardHTML(d.card) : '',
+  // v172 시안: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 순위 · 팬 · 정산 같은 숫자는 창이 뜰 때 토스트로
+  html: (s, d) => d.card && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.idol_cbres.news(s, d)) : '',
+  news(s, d) {
+    const r = d.r, t = s.tracks.idol, g = t.g, p = me(s), mk = d.card.mk, a = d.a, A = `그룹 ${g.name}`, gs = r.gain.kr + r.gain.jp + r.gain.us, my = r.my.kr + r.my.jp + r.my.us;
+    const ts = [['💜', `그룹 팬 ${sgnFans(gs)} → ${fmtFans(groupFans(g))}`, gs >= 0 ? 'g' : 'b']];
+    if (my) ts.push(['⭐', `내 팬 +${fmtFans(my)}`, 'g']);
+    if (t.jpDebut && t.mkt !== 'jp') ts.push(['🇯🇵', `일본 그룹 팬 ${sgnFans(r.gain.jp)} · 내 일본어 ${has(p, 'jp') ? lvi(p, 'jp') + '레벨' : '못 함'}`, r.gain.jp >= 0 ? '' : 'b']);
+    if (t.usDebut) ts.push(['🇺🇸', `미국 그룹 팬 ${sgnFans(r.gain.us)} · 내 영어 ${has(p, 'en') ? lvi(p, 'en') + '레벨' : '못 함'}`, r.gain.us >= 0 ? '' : 'b']);
+    if (r.wrote) ts.push(['✍️', r.wrote, 'g']);
+    if (r.pay > 0) ts.push(['💰', `정산금 +${fmtWon(r.pay)}`, 'g']);
+    if (r.debt > 0) ts.push(['💸', `${r.pay > 0 ? '' : '정산금 없음 · '}남은 연습생·제작 비용 ${fmtWon(r.debt)}`, 'b']);
+    const by = a && a.mine ? `타이틀곡은 멤버 ${josa(actName(s, 'idol'), '이가')} 직접 썼다.` : mk && mk.pk && mk.pk[0] && mk.pk[0].by ? `작곡은 ${josa(mk.pk[0].by, '이가')} 맡았다.` : '';
+    return { who: A, what: d.debut ? '데뷔 앨범 타이틀곡' : '새 앨범 타이틀곡', kind: d.debut ? 'debut' : '', t: r.title, c: d.c, peak: r.peak, wins: r.wins, show: true, albums: r.albums, by, ag: t.agN, sc: r.sc,
+      end: `${josa(A, '은는')} 앞으로 두 달 동안 음악방송과 예능에서 ${d.debut ? '데뷔 ' : ''}활동을 이어 간다.`, pl: typeof plioSong === 'function' ? plioSong(s, d, 'idol') : null, ts };
+  },
   text(s, d) {
     const r = d.r, g = s.tracks.idol.g;
     const my = MK.filter(m => r.my[m]).map(m => `${MK_N[m]} ${sgnFans(r.my[m])}`).join(' · ') || '변화 없음';
@@ -1987,7 +2001,19 @@ E({
     for (const m of bandMembers(s, t)) bond(s, m, sc >= 60 ? 4 : 0);
     d.sc = sc; d.cm = comments(sc, actNick(s, 'band'));
   },
-  html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + albBannerHTML(d.card.mk) + songCardHTML(d.card) : '',
+  // v172 시안: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 숫자는 토스트로
+  html: (s, d) => d.card && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.band_relres.news(s, d)) : '',
+  news(s, d) {
+    const t = s.tracks.band, A = `밴드 ${t.b.name}`, first = t.rel === 1, ts = [['🎸', `밴드 팬 ${sgnFans(d.gain)} → ${fmtFans(t.b.f)}`, d.gain >= 0 ? 'g' : 'b']];
+    if (d.my) ts.push(['⭐', `내 팬 +${fmtFans(d.my)}`, 'g']);
+    if (d.side) ts.push(['✍️', d.side, 'g']);
+    if (d.roy >= 1e4) ts.push(['🎧', `매달 들어올 음원 수익 약 ${fmtWon(d.roy)}`, 'g']);
+    if (d.signed && d.pay > 0) ts.push(['💰', `정산금 +${fmtWon(d.pay)}`, 'g']);
+    if (d.signed && d.debt > 0) ts.push(['💸', `${d.pay > 0 ? '' : '정산금 없음 · '}남은 ${d.fromTr ? '연습생·' : ''}제작 비용 ${fmtWon(d.debt)}`, 'b']);
+    const by = d.self ? `멤버 ${josa(actName(s, 'band'), '이가')} 직접 쓴 곡이다.` : d.w ? `작곡은 ${josa(d.w, '이가')} 맡았다.` : '';
+    return { who: A, what: first ? '첫 곡' : '새 곡', kind: first ? 'debut' : '', t: d.title, c: d.c, peak: d.peak, wins: 0, by, ag: d.signed ? t.agN : '', sc: d.sc,
+      end: d.signed ? `${josa(A, '은는')} 쇼케이스를 시작으로 공연을 이어 간다.` : `${josa(A, '은는')} 클럽 공연으로 팬들을 만날 예정이다.`, pl: typeof plioSong === 'function' ? plioSong(s, d, 'band') : null, ts };
+  },
   // 순위 · 팬 · 반응은 카드에 있다. 본문에는 곡 정보와 앞으로 들어올 돈만 (예전 세이브의 카드 없는 창은 예전처럼)
   text: (s, d) => `밴드 「${s.tracks.band.b.name}」의 ${josa(`「${d.title}」`, '이가')} 나왔다.${d.w || d.c ? ` (${[d.w ? `작곡 ${d.self ? '나' : d.w}` : '', d.c ? `'${d.c}' 컨셉` : ''].filter(Boolean).join(' · ')})` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}${d.side ? ` ${d.side}` : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n밴드 팬 ${sgnFans(d.gain)} · 내 팬 +${fmtFans(d.my)}`}${d.roy >= 1e4 ? `\n\n매달 들어올 음원 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)` : '\n'}${d.bill ? (d.bill.note ? `\n${d.bill.note}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}.`) : d.signed ? (d.debt > 0 ? `\n이번 앨범 정산금 ${fmtWon(d.gross)}은 ${d.fromTr ? '연습생·' : ''}제작 비용을 갚는 데 들어갔다. 남은 비용 ${fmtWon(d.debt)}` : `\n이번 앨범 정산금 ${fmtWon(d.pay)}`) : ''}${d.card ? '' : `\n\n반응: ${d.cm}`}`,
   // 댓글 모니터링 (v118 UI C1)
@@ -2317,7 +2343,17 @@ E({
     if (d.peak && d.peak <= 10 && !t.hitMs) { t.hitMs = true; milestone(s, `${age(s)}세에 ${josa(`「${d.title}」`, '으로')} 음원 차트 ${d.peak}위에 올랐다.`); }
     d.sc = sc; d.cm = comments(sc, actNick(s, 'solo'));
   },
-  html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + albBannerHTML(d.card.mk) + songCardHTML(d.card) : '',
+  // v172 시안: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 숫자는 토스트로
+  html: (s, d) => d.card && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.solo_relres.news(s, d)) : '',
+  news(s, d) {
+    const t = s.tracks.solo, A = `${t.type === 'rap' ? '래퍼' : '가수'} ${actName(s, 'solo')}`, first = t.rel === 1, ts = [['⭐', `내 팬 ${sgnFans(d.gain)} → ${fmtFans(totalFans(s))}`, d.gain >= 0 ? 'g' : 'b']];
+    if (d.side) ts.push(['✍️', d.side, 'g']);
+    if (d.sale) ts.push(['💰', `음반·음원 정산 +${fmtWon(d.sale)}`, 'g']);
+    if (d.roy >= 1e4) ts.push(['🎧', `매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)}`, 'g']);
+    const by = d.self ? `${josa(A, '이가')} 직접 쓴 곡이다.` : d.w ? `작곡은 ${josa(d.w, '이가')} 맡았다.` : '';
+    return { who: A, what: first ? '데뷔곡' : '신곡', kind: first ? 'debut' : '', t: d.title, c: d.c, peak: d.peak, wins: d.wins, show: true, by, ag: t.st === 'signed' ? t.agN : '', sc: d.sc,
+      end: `${josa(A, '은는')} 음악방송과 라디오로 활동을 이어 간다.`, pl: typeof plioSong === 'function' ? plioSong(s, d, 'solo') : null, ts };
+  },
   text: (s, d) => `「${d.title}」${d.self ? ` (자작곡${d.c ? ` · '${d.c}' 컨셉` : ''})` : d.w && d.c ? ` (작곡 ${d.w} · '${d.c}' 컨셉)` : ''} 성적이 나왔다.${d.side ? ` ${d.side}` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}${d.wins ? ` · 음악방송 1위 ${d.wins}회` : ''}\n팬 ${sgnFans(d.gain)}`}${d.sale ? `\n\n음반·음원 정산 ${fmtWon(d.sale)}` : ''}\n매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.card ? '' : `\n\n반응: ${d.cm}`}`,
   ch: (s, d) => songCommentCh(s, d, `${josa(`「${d.title}」`, '을를')} 발표했다. ${chartText(d.peak)}${d.wins ? `, 음악방송 1위 ${d.wins}회` : ''}.`, 'solo'),
 });

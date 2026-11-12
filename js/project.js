@@ -104,7 +104,18 @@ E({
   plio: (s, d) => typeof plioSong === 'function' ? plioSong(s, d, d.k) : null,
   live: (s, d) => d.card && d.card.live,
   init(s, d) { const t = s.tracks[d.k], P = t && t.proj; if (!P || !P.a || P.rel) { d.skip = true; return; } d.r = projRelease(s, t, P); d.card = d.r.card; d.name = P.name; d.title = P.a.title; d.c = P.c; d.mates = P.mates.slice(); },
-  html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + albBannerHTML(d.card.mk) + songCardHTML(d.card) : '',
+  // v172 시안: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 숫자는 토스트로
+  html: (s, d) => d.card && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.proj_res.news(s, d)) : '',
+  news(s, d) {
+    const r = d.r, M = d.mates.map(id => s.people[id]).filter(Boolean), A = `프로젝트 그룹 ${d.name}`, ts = [];
+    if (r.my) ts.push(['⭐', `내 팬 ${sgnFans(r.my)}`, r.my >= 0 ? 'g' : 'b']);
+    if (r.spill && s.tracks.idol && s.tracks.idol.g) ts.push(['💜', `${s.tracks.idol.g.name} 팬 ${sgnFans(r.spill)}`, 'g']);
+    if (r.wrote) ts.push(['✍️', r.wrote, 'g']);
+    if (r.pay > 0) ts.push(['💰', `정산금 +${fmtWon(r.pay)}`, 'g']);
+    if (M.length) ts.push(['🤝', `${josa(M.map(x => x.name).join(' · '), '과와')} 많이 가까워졌다`, 'g']);
+    return { who: A, what: '앨범 타이틀곡', t: d.title, c: d.c, peak: r.peak, wins: r.wins, show: true, albums: r.albums, sc: r.sc,
+      end: `${josa(A, '은는')} 두 달 동안 활동한 뒤 흩어진다.`, pl: typeof plioSong === 'function' ? plioSong(s, d, d.k) : null, ts };
+  },
   text: (s, d) => { const M = d.mates.map(id => s.people[id]).filter(Boolean); return `프로젝트 그룹 「${d.name}」 「${d.title}」 ('${d.c}' 컨셉)\n\n앨범 ${d.r.albums.toLocaleString()}장 · 내 팬 ${sgnFans(d.r.my)}${d.r.spill ? ` · 「${s.tracks.idol.g.name}」 팬 ${sgnFans(d.r.spill)}` : ''}${d.r.wrote ? `\n\n${d.r.wrote}` : ''}\n\n두 달 활동한 뒤 흩어진다. ${M.length ? `${josa(M.map(x => x.name).join(' · '), '과와')} 많이 가까워졌다.` : ''}`; },
   ch: (s, d) => [{ t: '확인', f: () => `프로젝트 그룹 「${d.name}」 「${d.title}」 ${chartText(d.r.peak)}.` }],
 });

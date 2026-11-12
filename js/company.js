@@ -1320,7 +1320,16 @@ E({
   title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 앨범 성적표`,
   init(s, d) { const g = coGroup(s, d.gid); if (!g || !coOn(s)) { d.skip = true; return; } d.r = coAlbum(s, g, d); d.card = d.r.card; d.up = coTierCheck(s, coT(s)); d.rank = coRankCheck(s, coT(s)); },
   // v119: 순위 · 팬 변화 · 반응 · 정산은 카드에 (예전 세이브의 카드 없는 창은 예전처럼)
-  html: (s, d) => d.card && typeof songCardHTML === 'function' ? `<div class="m-text">${rich(EVENTS.co_res.text(s, d))}</div>` + (d.mk ? `<div class="co-last">${popBtnHTML('🎼 제작 과정', albStepsHTML(d.mk))}</div>` : '') + songCardHTML(d.card) + (d.up || d.rank ? `<div class="m-text">${rich([d.up, d.rank].filter(Boolean).join('\n\n'))}</div>` : '') : '',
+  // v172 시안: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 숫자는 토스트로, 회사 등급 · 순위 소식은 기사 아래에
+  html: (s, d) => d.card && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.co_res.news(s, d)) : '',
+  news(s, d) {
+    const g = coGroup(s, d.gid) || { name: '', kind: '', f: { kr: 0, jp: 0, us: 0 } }, r = d.r, t = coT(s), band = g.kind === 'band', A = `${band ? '밴드' : '그룹'} ${g.name}`, gs = r.gain.kr + r.gain.jp + r.gain.us;
+    const ts = [[band ? '🎸' : '💜', `그룹 팬 ${sgnFans(gs)} → ${fmtFans(coGFans(g))}`, gs >= 0 ? 'g' : 'b'], ['🏢', `회사 평판 ${r.repD >= 0 ? '+' : ''}${Math.round(r.repD * 10) / 10} → ${Math.round(t.f.music.rep)}`, r.repD >= 0 ? 'g' : 'b']];
+    if (r.rev > r.pay) ts.push(['💰', `회사에 남는 돈 +${fmtWon(r.rev - r.pay)}`, 'g']);
+    const by = d.mine ? `타이틀곡은 ${t.name} 대표 ${josa(me(s).name, '이가')} 직접 썼다.` : d.mk && d.mk.pk && d.mk.pk[0] && d.mk.pk[0].by ? `작곡은 ${josa(d.mk.pk[0].by, '이가')} 맡았다.` : '';
+    return { who: A, what: g.proj ? '프로젝트 앨범 타이틀곡' : r.debut ? '데뷔 앨범 타이틀곡' : '새 앨범 타이틀곡', kind: r.debut ? 'debut' : '', t: d.title, c: d.c, peak: r.peak, wins: r.wins, show: !band, albums: r.albums, by, ag: t.name, sc: r.sc, mk: d.mk,
+      pl: typeof plioSong === 'function' ? plioSong(s, d, 'co') : null, after: d.up || d.rank ? `<div class="m-text">${rich([d.up, d.rank].filter(Boolean).join('\n\n'))}</div>` : '', ts };
+  },
   text: (s, d) => {
     const g = coGroup(s, d.gid) || { name: '', f: { kr: 0, jp: 0, us: 0 }, debt: 0 }, r = d.r, gs = r.gain.kr + r.gain.jp + r.gain.us;
     if (d.card) return `${g.proj ? '프로젝트' : r.debut ? '데뷔' : '컴백'} 앨범 「${d.title}」 ('${d.c}' 컨셉 · ${d.mine ? '내가 쓴 곡' : d.mk ? `작곡 ${d.mk.pk[0].by}` : '외부 곡'})\n\n앨범 ${r.albums.toLocaleString()}장 · 그룹 팬 ${fmtFans(coGFans(g))}\n회사 평판 ${r.repD >= 0 ? '+' : ''}${Math.round(r.repD * 10) / 10} → ${Math.round(coT(s).f.music.rep)}`;

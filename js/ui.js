@@ -689,7 +689,10 @@ function showEventRaw() {
   $('#mcard').className = 'mcard' + (T || ev.wide ? ' wide' : '');
   $('#mcard').innerHTML = h;
   $('#modal').classList.remove('hidden');
-  
+  // 결과 기사 (v172 시안): 창이 처음 뜰 때 성과를 토스트로. 기사 사진 속 캐릭터를 칠한다
+  if (ev.news && d.card && !d.tsSeen) { d.tsSeen = 1; try { resToast(newsToasts(ev.news(s, d))); } catch (e) { console.error('성과 토스트 오류', e); } }
+  if (typeof chLoad === 'function' && $('#mcard canvas.lv-chc')) { chLoad(); chPaintAll(); }
+
   // 글자를 적는 창은 바로 적을 수 있게 첫 칸에 커서를 둔다 (Enter로 확인)
   if (ev.form) { const i = $('#mcard input[data-k]:not([type=checkbox]):not([type=radio])'); if (i && FINE_POINTER) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } formSum(); }
   if (ev.onShow) ev.onShow(s, d, $('#mcard'));
@@ -1685,6 +1688,98 @@ function songCardHTML(c) {
     + (c.lines && c.lines.length ? `<div class="sc-h">${U.esc(c.lh || '듣는 사람 반응')}</div>${c.lines.map(x => `<div class="sc-l">${evCol(U.esc(x))}</div>`).join('')}` : '')
     + (c.cmp ? `<div class="sc-cmp${/낫다/.test(c.cmp) ? ' ev-g' : /아쉽다/.test(c.cmp) ? ' ev-b' : ''}">${U.esc(c.cmp)}</div>` : '') + (c.bill ? billBtnHTML(c.bill) : '') + (c.live ? liveBtnHTML(c.live) : '') + `</div>`;
 }
+// ───── 결과 기사 (v172 시안) ─────
+// 곡 · 앨범 결과 창을 인터넷 기사처럼 보여 준다. 실제로 얻은 것(팬 · 정산 · 수익)은 창이 뜰 때 토스트로 하나씩 띄운다
+// 사건이 news(s, d)로 재료를 준다: { who 기사 속 이름('그룹 ○○'), what 무엇이 나왔나('새 앨범 타이틀곡'), kind 'debut'면 신인 기사, t 제목, c 컨셉, peak, wins,
+//   show 음악방송에 나가는 직업인지, albums 앨범 판매량, by 곡을 쓴 사람 한 문장, ag 소속사(관계자 한마디), end 마지막 문단, pl 사진(무대 장면), mk 제작 과정, ts 토스트 [[아이콘, 글, 'g'|'b'|'']], after 기사 아래 html }
+// 매체 · 기자 이름은 임시로 붙였다 (사용자가 정하면 여기만 바꾸면 된다)
+const NEWS_OUT = ['팝콘일보', '스테이지K', '엔터픽', '데일리스타랩'];
+const NEWS_SUR = ['김', '이', '박', '최', '정', '강', '조', '윤', '장', '한'], NEWS_GIV = ['수진', '민호', '지은', '현우', '서연', '도윤', '하늘', '태희', '유진', '성민', '예린', '준서'];
+function newsQ(t, p) { return p ? josa(`'${t}'`, p) : `'${t}'`; }
+// 카드의 반응 줄을 좋은 말(g) · 아쉬운 말(b) · 그 밖(n)으로 나눈다 (따옴표를 뗀 말)
+function newsLines(c) {
+  const o = { g: [], b: [], n: [] };
+  for (const x of (c && c.lines) || []) { const p = evPlain(x).replace(/^"|"$/g, ''); (x[0] === '\u0005' ? o.g : x[0] === '\u0006' ? o.b : o.n).push(p); }
+  return o;
+}
+function newsHead(N, L, pick) {
+  const A = N.who, T = N.t, pk = N.peak, w = N.wins, g = L.g[0], b = L.b[0];
+  if (N.kind === 'debut') return pick(pk && (pk <= 20 || w) ? [`신인 ${A}, 데뷔곡 ${newsQ(T, '으로')} 차트 ${pk}위${w ? '…음악방송 1위까지' : ''}`, `'괴물 신인' ${A} 떴다…데뷔곡 ${newsQ(T)} 차트 ${pk}위`]
+    : pk ? [`신인 ${A} 데뷔…${newsQ(T)} 차트 ${pk}위로 첫발`, `${A}, 데뷔곡 ${newsQ(T, '으로')} 첫인사…차트 ${pk}위`] : [`신인 ${A} 데뷔…${newsQ(T)} 차트 진입은 다음 기회로`, `${A}, 데뷔곡 ${newsQ(T)} 발표…아직은 조용한 출발`]);
+  if (pk && (pk <= 3 || w >= 3)) return pick([`${A}, ${newsQ(T, '으로')} 음원 차트 ${pk === 1 ? '정상' : `${pk}위`}${w ? `…음악방송 ${w}관왕` : ''}`, `${A} ${newsQ(T)} 돌풍…차트 ${pk}위${w ? ` · 음방 ${w}관왕` : ''}`]);
+  if (pk && (pk <= 20 || w)) return pick([`${A} ${newsQ(T, '이가')} 차트 ${pk}위로 순항${w ? `…음방 1위 ${w}회` : ''}`, g ? `${A}, ${newsQ(T, '으로')} 차트 ${pk}위…"${g}"` : `${A}, ${newsQ(T, '으로')} 차트 ${pk}위`]);
+  if (pk && pk <= 60) return pick([`${A} ${newsQ(T)}, 차트 ${pk}위로 출발`, g && b ? `${A} ${newsQ(T)} 차트 ${pk}위…반응은 엇갈려` : `${A} ${newsQ(T)} 차트 ${pk}위…무난한 성적`]);
+  if (pk) return pick([`${A} ${newsQ(T)} 차트 ${pk}위…아쉬운 성적`, `${A}, ${newsQ(T, '으로')} 차트 ${pk}위에 그쳐`]);
+  return pick([`${A} ${newsQ(T)}, 차트 100위 진입 실패`, b ? `${A} ${newsQ(T)} 차트서 안 보여…"${b}"` : `${A} 새 곡 ${newsQ(T)}…차트에선 안 보여`]);
+}
+// 소속사 관계자 한마디 (성적에 따라)
+function newsAgQ(N, pick) {
+  const pk = N.peak, x = pk && (pk <= 10 || N.wins) ? pick(['팬분들의 사랑 덕분이다. 더 좋은 무대로 보답하겠다', '기대 이상의 반응에 멤버들도 놀라고 있다']) : pk && pk <= 50 ? pick(['좋게 들어 주셔서 감사하다. 남은 활동도 열심히 하겠다', '조금씩 더 많은 분들께 닿고 있다']) : pick(['아쉽지만 다음 앨범을 더 단단히 준비하겠다', '숫자보다 음악을 봐 주셨으면 한다']);
+  return `소속사 ${N.ag} 관계자는 "${x}"라고 전했다.`;
+}
+function newsBody(N, L, pick, c, ht) {
+  const A = N.who, T = N.t, pk = N.peak, w = N.wins, P = [];
+  let p = pk ? `${A}의 ${N.what} ${newsQ(T, '이가')} 발매 첫 주 음원 차트 최고 ${pk}위에 올랐다.` : `${A}의 ${N.what} ${newsQ(T, '이가')} 나왔지만 음원 차트 100위 안에는 들지 못했다.`;
+  if (w) p += ` 음악방송에서는 ${w}번 1위에 올랐다.`; else if (N.show && pk && pk <= 20) p += ' 음악방송 1위는 아쉽게 놓쳤다.';
+  if (N.albums) p += ` 앨범은 ${N.albums.toLocaleString()}장이 팔렸다.`;
+  P.push(p);
+  p = [N.c ? `이번 곡은 '${N.c}' 컨셉으로 꾸몄다.` : '', N.by || '', ht && N.c ? `이 곡이 크게 뜨면서 '${N.c}' 컨셉이 새 유행으로 떠올랐다.` : N.c && N.c === N.tr0 ? '요즘 유행하는 컨셉을 발 빠르게 택했다.' : ''].filter(Boolean).join(' ');
+  if (c && c.cmp) p += (p ? ' ' : '') + (/낫다/.test(c.cmp) ? '전작보다 반응이 좋다는 평가다.' : /아쉽다/.test(c.cmp) ? '전작보다는 반응이 덜하다는 평가다.' : '반응은 전작과 비슷한 수준이다.');
+  if (p) P.push(p);
+  const G = L.g, B = L.b;
+  p = G.length && B.length ? `음악 팬들 사이에서는 "${G[0]}"는 반응이 나왔다. 반면 "${B[0]}"는 아쉬운 목소리도 있었다.`
+    : G.length ? `음악 팬들 사이에서는 "${G[0]}"는 반응이 이어졌다.${G[1] ? ` "${G[1]}"는 말도 나왔다.` : ''}`
+    : B.length ? `반응은 차가운 편이다. "${B[0]}"는 평이 많았다.${B[1] ? ` "${B[1]}"는 말도 나왔다.` : ''}` : '';
+  if (L.n.length) p += (p ? ' ' : '') + `"${L.n[0]}"는 평도 있었다.`;
+  if (p) P.push(p);
+  const e = [N.end || '', N.ag ? newsAgQ(N, pick) : ''].filter(Boolean).join(' ');
+  if (e) P.push(e);
+  return P;
+}
+function newsHTML(s, d, N) {
+  if (!d.nseed) d.nseed = U.int(1, 2e9);
+  const R = liveRng(d.nseed), pick = a => a[Math.floor(R() * a.length)], c = d.card, L = newsLines(c), pad = n => String(n).padStart(2, '0');
+  // 이 곡이 유행을 바꿨으면 '유행을 바꾼 곡' 소식이 뒤에 줄 서 있다 (그때는 이미 유행이 이 컨셉으로 바뀌어 있다)
+  const ht = (s.queue || []).some(q => q.id === 'trend_hit' && q.d && q.d.title === N.t) || (s.pending && s.pending.id === 'trend_hit');
+  const out = pick(NEWS_OUT), rep = pick(NEWS_SUR) + pick(NEWS_GIV);
+  const date = `${calY(s)}.${pad(calM(s) + 1)}.${pad(1 + Math.floor(R() * 28))} ${pad(7 + Math.floor(R() * 15))}:${pad(Math.floor(R() * 60))}`;
+  N.tr0 = s.trend; const head = newsHead(N, L, pick), body = newsBody(N, L, pick, c, ht);
+  const sc = N.sc != null ? N.sc : N.peak ? U.clamp(92 - N.peak * 0.3, 55, 92) : 45;
+  const ph = N.pl && typeof plioThumbHTML === 'function' ? `<figure class="nw-ph">${plioThumbHTML(N.pl, hashN('pl' + N.pl.t) % 360)}<figcaption>${U.esc(`${N.who}의 ${newsQ(N.t)} 무대`)}</figcaption></figure>` : '';
+  // 댓글: 카드의 반응 줄. 분위기(성적이 좋았나)와 맞는 말이 위(베스트)로 가고, 분위기와 다른 말에는 싫어요가 많이 붙는다
+  const tot = Math.round(Math.pow(10, 1.2 + sc / 30) * (0.7 + 0.6 * R())), mood = (N.peak && N.peak <= 30) || N.wins > 0 ? '\u0005' : '\u0006', used = {};
+  const nick = () => { for (let i = 0; i < 12; i++) { const x = pick(PL_NICK); if (!used[x]) { used[x] = 1; return x; } } return '익명'; };
+  const rk = x => x[0] === mood ? 0 : x[0] === '"' ? 1 : 2;
+  let up = tot * (0.25 + 0.3 * R());
+  const cm = ((c && c.lines) || []).slice().sort((a, b) => rk(a) - rk(b)).map((x, i) => { const u = Math.max(1, Math.round(up)), dn = Math.round(u * ((x[0] === '\u0005' || x[0] === '\u0006') && x[0] !== mood ? 0.3 + 0.5 * R() : 0.02 + 0.08 * R())); up *= 0.3 + 0.4 * R(); return `<div class="nw-c"><div class="nw-c-top"><b>${U.esc(nick())}</b>${i === 0 ? '<span class="nw-best">BEST</span>' : ''}<em>${1 + Math.floor(R() * 23)}시간 전</em></div><div class="nw-c-x">${evCol(U.esc(x))}</div><div class="nw-c-up">👍 ${plN(u)}<span>👎 ${plN(dn)}</span></div></div>`; }).join('');
+  return `<article class="news"><div class="nw-top"><span class="nw-logo">${U.esc(out)}</span><span class="nw-sec">연예 › 가요</span></div>`
+    + `<h3 class="nw-h">${U.esc(head)}</h3><div class="nw-by">${U.esc(rep)} 기자 · 입력 ${date}</div>${ph}`
+    + `<div class="nw-b">${body.map(p => `<p>${U.esc(p)}</p>`).join('')}</div>`
+    + (cm ? `<div class="nw-cm"><div class="nw-cm-h">댓글 <b>${plN(tot)}</b></div>${cm}</div>` : '') + `</article>`;
+}
+// 토스트로 띄울 성과: 순위 · 음악방송 1위, 그다음 사건이 준 것 (팬 · 정산 · 수익)
+function newsToasts(N) {
+  const T = [N.peak ? ['🎵', `음원 차트 최고 ${N.peak}위`, N.peak <= 20 ? 'g' : ''] : ['🎵', '음원 차트 100위 밖', 'b']];
+  if (N.wins) T.push(['🏆', `음악방송 1위 ${N.wins}회`, 'g']);
+  return T.concat((N.ts || []).filter(Boolean));
+}
+// 결과 창 본문: 기사 + 그 아래 버튼 (제작 과정 · 무대 다시 보기 · 성과 다시 보기) + 정산서 + 덧붙이는 글
+function newsEvHTML(s, d, N) {
+  const c = d.card || {}, mk = N.mk || c.mk;
+  const bns = [mk && typeof albStepsHTML === 'function' ? popBtnHTML('🎼 제작 과정', albStepsHTML(mk)) : '', c.live ? liveBtnHTML(c.live) : '', `<button class="lv-re" data-rtoast="${rtKey(newsToasts(N))}">📊 성과 다시 보기</button>`].filter(Boolean).join('');
+  return newsHTML(s, d, N) + `<div class="co-last nw-bns">${bns}</div>` + (c.bill ? billBtnHTML(c.bill) : '') + (N.after || '');
+}
+// ───── 성과 토스트 (v172): 한 줄씩 차례로 쌓였다가 몇 초 뒤 사라진다. 넓은 화면은 오른쪽 위, 휴대폰은 아래쪽 ─────
+function rtKey(L) { UI.rtMap = UI.rtMap || {}; const k = UI.rtN = (UI.rtN || 0) + 1; UI.rtMap[k] = L; delete UI.rtMap[k - 200]; return k; }
+function resToast(L) {
+  let box = $('#rtoast');
+  if (!box) { box = document.createElement('div'); box.id = 'rtoast'; box.className = 'rtoast'; document.body.appendChild(box); }
+  (UI.rtT || []).forEach(clearTimeout); UI.rtT = []; box.innerHTML = '';
+  L.forEach(([ic, x, tn], i) => UI.rtT.push(setTimeout(() => {
+    const e = document.createElement('div'); e.className = 'rt-i' + (tn ? ' ' + tn : ''); e.innerHTML = `<i>${ic}</i><span>${U.esc(x)}</span>`; box.appendChild(e);
+    UI.rtT.push(setTimeout(() => { e.classList.add('out'); UI.rtT.push(setTimeout(() => e.remove(), 400)); }, 5200));
+  }, 300 + i * 450)));
+}
 function billKey(b) { UI.billMap = UI.billMap || {}; const k = UI.billN = (UI.billN || 0) + 1; UI.billMap[k] = b; delete UI.billMap[k - 400]; return k; }
 function billBtnHTML(b) { return `<button class="bill-bn" data-bill="${billKey(b)}">🧾 정산서<span class="bb-t">${U.esc(b.t || '')}</span></button>`; }
 function billHTML(b) {
@@ -1968,6 +2063,7 @@ document.addEventListener('click', e => {
   if (t && t.dataset.popclose != null) { popClose(); return; }
   if (t && t.dataset.plio) { plioToggle(+t.dataset.plio); return; }
   if (t && t.dataset.commnow != null) { const sp = commNow(S); if (!UI.cmNow.key || !(UI.plioMap || {})[UI.cmNow.key]) UI.cmNow.key = plioKey(sp); plioToggle(UI.cmNow.key); return; }
+  if (t && t.dataset.rtoast) { const L = (UI.rtMap || {})[t.dataset.rtoast]; if (L) resToast(L); return; }
   if (t && t.dataset.bill) { const b = (UI.billMap || {})[t.dataset.bill]; if (b) popOpen(billHTML(b)); return; }
   if (t && t.dataset.song != null && S) { const c = songCardAt(S, t.dataset.song); if (c) popOpen(songCardHTML(c) + (c.mk && typeof albStepsHTML === 'function' ? albStepsHTML(c.mk) : '')); return; }
   if (!t) return;

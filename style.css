@@ -1327,3 +1327,38 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 
 /* 프로필 박스 제목 = 주인공 이름 · 나이 (v163) */
 .pf-name b { color: var(--violet); }
+
+/* 결과 기사 (v172 시안): 곡 · 앨범 결과 창을 인터넷 기사처럼. 매체 색은 임시 */
+.news { --nw-c: #d23a2a; border: 1px solid var(--line); border-radius: 14px; background: #fff; padding: var(--sp-3) var(--sp-4) var(--sp-2); margin-bottom: var(--sp-2); }
+.nw-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); border-bottom: 2px solid var(--ink); padding-bottom: var(--sp-2); margin-bottom: var(--sp-3); }
+.nw-logo { font-weight: 900; font-size: var(--fs-4); letter-spacing: -.02em; color: var(--nw-c); }
+.nw-sec { font-size: var(--fs-1); color: var(--muted); font-weight: 700; }
+.nw-h { font-size: var(--fs-5); line-height: 1.35; font-weight: 800; margin: 0 0 var(--sp-2); letter-spacing: -.02em; word-break: keep-all; color: var(--ink); }
+.nw-by { font-size: var(--fs-1); color: var(--muted); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--line); margin-bottom: var(--sp-3); }
+.nw-ph { margin: 0 0 var(--sp-3); }
+.nw-ph .pl-video { flex: none; height: clamp(150px, 26vh, 240px); border-radius: 6px; }
+.nw-ph .pl-kind, .nw-ph .pl-dur, .nw-ph .pl-prog { display: none; }
+.nw-ph figcaption { font-size: var(--fs-1); color: var(--muted); margin-top: var(--sp-1); }
+.nw-b p { margin: 0 0 var(--sp-3); font-size: var(--fs-3); line-height: 1.75; color: var(--ink); word-break: keep-all; }
+.nw-cm { border-top: 1px solid var(--line); padding-top: var(--sp-2); }
+.nw-cm-h { font-size: var(--fs-2); font-weight: 800; margin-bottom: var(--sp-1); }
+.nw-cm-h b { color: var(--nw-c); }
+.nw-c { padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); }
+.nw-c:last-child { border-bottom: 0; }
+.nw-c-top { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-2); }
+.nw-c-top em { margin-left: auto; font-style: normal; color: var(--muted); font-size: var(--fs-1); }
+.nw-best { background: var(--nw-c); color: #fff; font-size: 10px; font-weight: 800; border-radius: 4px; padding: 0 5px; }
+.nw-c-x { font-size: var(--fs-3); margin: 2px 0; }
+.nw-c-up { font-size: var(--fs-1); color: var(--muted); }
+.nw-c-up span { margin-left: var(--sp-2); }
+.nw-bns { margin-bottom: var(--sp-1); }
+
+/* 성과 토스트 (v172): 한 줄씩 쌓였다가 사라진다. 넓은 화면은 오른쪽 위, 휴대폰은 아래쪽 */
+.rtoast { position: fixed; top: 72px; right: 16px; display: flex; flex-direction: column; gap: 6px; z-index: 90; pointer-events: none; width: min(320px, calc(100vw - 32px)); }
+.rt-i { display: flex; align-items: center; gap: var(--sp-2); background: rgba(35, 27, 53, .94); color: #fff; border-radius: 12px; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-3); font-weight: 700; box-shadow: 0 6px 18px rgba(20, 10, 50, .25); border-left: 4px solid var(--violet); animation: rtIn .28s ease-out; transition: opacity .35s, transform .35s; }
+.rt-i i { font-style: normal; }
+.rt-i.g { border-left-color: var(--mint); }
+.rt-i.b { border-left-color: var(--red); }
+.rt-i.out { opacity: 0; transform: translateX(24px); }
+@keyframes rtIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) { .rtoast { top: auto; bottom: 16px; right: auto; left: 50%; transform: translateX(-50%); } }
