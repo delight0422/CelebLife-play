@@ -33,7 +33,8 @@ function coVTier(t) { return coTier(t, 'video'); }
 function coPF(P) { return P.f || 'video'; }
 function coPK(P) { return (P.f === 'anime' ? A_KIND : V_KIND)[P.kind]; }
 function coPShoot(P, l) { const V = coPK(P); return V.shoot + (P.f !== 'anime' && P.kind === 'film' && l >= 2 ? 1 : 0); }
-function coVView(s, k) { return coViewer(s, 'pd', k); }
+// 영상 · 애니 제작사는 기획 PD가 따로다 (회사마다 직원, v161). f = 그 작품을 만드는 회사
+function coVView(s, k, f) { return coViewer(s, 'pd', k, f); }
 function vKindN(k) { return V_KIND[k].n; }
 // 새 작품 기획을 지금 할 수 없는 이유
 function coVWhy(s, t) {
@@ -77,9 +78,9 @@ E({
       d.ms.push({ title: P.seq ? P.seq.title : dramaTitle(genre), genre, q, w: w.id, price: coVScriptPrice(P.kind, q) });
     }
   },
-  text: (s, d) => `${d.P.seq ? `「${d.P.seq.title}」` : `새 ${vKindN(d.P.kind)}`} 각본을 고른다.\n\n각본 보는 눈: ${coVView(s, 'script').id === s.me ? '내 눈' : `기획 PD ${coVView(s, 'script').name}`}`,
+  text: (s, d) => `${d.P.seq ? `「${d.P.seq.title}」` : `새 ${vKindN(d.P.kind)}`} 각본을 고른다.\n\n각본 보는 눈: ${coVView(s, 'script', d.P.f).id === s.me ? '내 눈' : `기획 PD ${coVView(s, 'script', d.P.f).name}`}`,
   ch: (s, d) => {
-    const P = d.P, v = coVView(s, 'script'), C = [];
+    const P = d.P, v = coVView(s, 'script', d.P.f), C = [];
     for (const m of d.ms) { const w = s.people[m.w]; C.push({ t: `「${m.title}」 ${m.genre} · 각본 ${grade5(v, m.q, 'q', 'script')}`, tr: m.genre === s.trendTV.drama, h: `${w ? w.name : '-'} 작가 · 각본료 ${fmtWon(m.price)}`, f: s => { Object.assign(P, { title: m.title, genre: m.genre, q: m.q, writer: m.w, price: m.price }); fireEvent(s, 'co_vdir', { P }); return ''; } }); }
     if (!P.seq) for (const sc of myScripts(s).filter(x => x.st === 'done' && x.tk === P.kind)) C.push({ t: `내 원고 「${sc.title}」 ${sc.genre} · 완성도 ${myScriptGrade(s, sc.q)}`, tr: sc.genre === s.trendTV.drama, h: '각본료가 들지 않는다', f: s => { Object.assign(P, { title: sc.title, genre: sc.genre, q: sc.q, writer: 'me', scId: sc.id, price: 0 }); fireEvent(s, 'co_vdir', { P }); return ''; } });
     // 내가 완결한 웹툰·웹소설 (js/webnovel.js): 원작료 없이 각색료만 낸다
@@ -106,9 +107,9 @@ E({
     while (L.length < 3) L.push(pickIndustry(s, '연출감독', y => !L.includes(y), 0.4));
     d.c = L.map(x => ({ id: x.id, fee: Math.round(coVDirFee(P.kind, x) * (back === x ? 1.3 : 1) / 1e6) * 1e6, p: coVHireP(s, t, P, x, 'direct'), back: back === x }));
   },
-  text: (s, d) => `「${d.P.title}」 감독을 섭외한다.${d.no ? `\n\n${d.no}` : ''}\n\n연출 보는 눈: ${coVView(s, 'direct').id === s.me ? '내 눈' : `기획 PD ${coVView(s, 'direct').name}`}`,
+  text: (s, d) => `「${d.P.title}」 감독을 섭외한다.${d.no ? `\n\n${d.no}` : ''}\n\n연출 보는 눈: ${coVView(s, 'direct', d.P.f).id === s.me ? '내 눈' : `기획 PD ${coVView(s, 'direct', d.P.f).name}`}`,
   ch: (s, d) => {
-    const P = d.P, v = coVView(s, 'direct'), C = d.c.filter(c => s.people[c.id]).map(c => {
+    const P = d.P, v = coVView(s, 'direct', d.P.f), C = d.c.filter(c => s.people[c.id]).map(c => {
       const x = s.people[c.id];
       return { t: `${x.name} 감독 — 연출 ${coLvSee(v, x, 'direct')} · 팬 ${fmtFans(x.fame || 0)}${c.back ? ' · 전작 감독' : ''}`, h: `연출료 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}`, f: s => {
         if (U.chance(c.p)) { Object.assign(P, { dir: x.id, dirFee: c.fee }); fireEvent(s, 'co_vcast', { P }); return `${josa(x.name, '이가')} 「${P.title}」 연출을 맡기로 했다.`; }
@@ -146,9 +147,9 @@ E({
     while (L.length < 4) L.push(pickIndustry(s, job, y => !L.includes(y) && !used.includes(y.id), 0.3));
     d.c = L.map(x => ({ id: x.id, fee: Math.round(coVCastFee(P, x, role) * (back === x ? 1.3 : 1) / 1e5) * 1e5, p: coVHireP(s, t, P, x, 'acting', role === 'sup'), back: back === x }));
   },
-  text: (s, d) => { const P = d.P, n = P.cast.length, v = coVView(s, 'acting'), nn = P.f === 'anime' ? '성우' : '배우'; return `「${P.title}」 ${d.role === 'lead' ? '주연' : '조연'} ${nn}를 섭외한다.${n ? `\n\n섭외한 ${nn} ${n}명 · ${coVCastLine(s, P)} · 출연료 ${fmtWon(coVCastFees(P))}` : ''}${d.no ? `\n\n${d.no}` : ''}\n\n연기 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
+  text: (s, d) => { const P = d.P, n = P.cast.length, v = coVView(s, 'acting', d.P.f), nn = P.f === 'anime' ? '성우' : '배우'; return `「${P.title}」 ${d.role === 'lead' ? '주연' : '조연'} ${nn}를 섭외한다.${n ? `\n\n섭외한 ${nn} ${n}명 · ${coVCastLine(s, P)} · 출연료 ${fmtWon(coVCastFees(P))}` : ''}${d.no ? `\n\n${d.no}` : ''}\n\n연기 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
   ch: (s, d) => {
-    const P = d.P, t = coT(s), v = coVView(s, 'acting'), role = d.role, roleN = role === 'lead' ? '주연' : '조연', ani = P.f === 'anime', nn = ani ? '성우' : '배우', n = P.cast.length, leads = P.cast.filter(c => c.role === 'lead').length;
+    const P = d.P, t = coT(s), v = coVView(s, 'acting', d.P.f), role = d.role, roleN = role === 'lead' ? '주연' : '조연', ani = P.f === 'anime', nn = ani ? '성우' : '배우', n = P.cast.length, leads = P.cast.filter(c => c.role === 'lead').length;
     // 4명을 넘겨 더 쓰려면 자본금이 지금까지의 각본료·연출료·출연료와 이 배우의 출연료를 감당해야 한다
     const afford = fee => n < CO_V_CAST.min || t.money >= coVUpfront(P) + fee;
     const set = (x, fee) => {
@@ -431,9 +432,9 @@ E({
       d.ms.push({ src: wt ? '웹툰' : '웹소설', title: animeTitle(genre), genre, q, w: w.id, fans, price: coARightsPrice(P.kind, fans, q) });
     }
   },
-  text: (s, d) => { const v = coVView(s, 'script'); return `${d.P.seq ? `「${d.P.seq.title}」 이야기를 이어 쓸 구성안을 고른다.` : `새 ${aKindN(d.P.kind)}의 원작을 고른다. 오리지널 기획안을 사거나, 웹툰·웹소설 판권을 사거나, 다 써 둔 내 원고를 쓴다.`}\n\n이야기 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
+  text: (s, d) => { const v = coVView(s, 'script', d.P.f); return `${d.P.seq ? `「${d.P.seq.title}」 이야기를 이어 쓸 구성안을 고른다.` : `새 ${aKindN(d.P.kind)}의 원작을 고른다. 오리지널 기획안을 사거나, 웹툰·웹소설 판권을 사거나, 다 써 둔 내 원고를 쓴다.`}\n\n이야기 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
   ch: (s, d) => {
-    const P = d.P, v = coVView(s, 'script'), C = [];
+    const P = d.P, v = coVView(s, 'script', d.P.f), C = [];
     for (const m of d.ms) {
       const w = s.people[m.w], lic = !!m.src;
       C.push({ t: `${lic ? m.src : P.seq ? '구성안' : '오리지널'} 「${m.title}」 ${m.genre} · 이야기 ${grade5(v, m.q, 'q', 'script')}`, tr: m.genre === (s.trendTV || {}).anime, h: `${w ? w.name : '-'} 작가${lic ? ` · 독자 ${fmtFans(m.fans)}` : ''} · ${lic ? '판권료' : '값'} ${fmtWon(m.price)}`, f: s => {
@@ -460,9 +461,9 @@ E({
     while (L.length < 3) L.push(pickIndustry(s, '애니메이션 감독', y => !L.includes(y), 0.4));
     d.c = L.map(x => ({ id: x.id, fee: Math.round(coADirFee(P.kind, x) * (back === x ? 1.3 : 1) / 1e5) * 1e5, p: coVHireP(s, t, P, x, 'direct'), back: back === x }));
   },
-  text: (s, d) => { const v = coVView(s, 'direct'); return `「${d.P.title}」 감독을 섭외한다. 감독은 연출과 그림을 같이 본다.${d.no ? `\n\n${d.no}` : ''}\n\n연출 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
+  text: (s, d) => { const v = coVView(s, 'direct', d.P.f); return `「${d.P.title}」 감독을 섭외한다. 감독은 연출과 그림을 같이 본다.${d.no ? `\n\n${d.no}` : ''}\n\n연출 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
   ch: (s, d) => {
-    const P = d.P, v = coVView(s, 'direct'), va = coVView(s, 'art'), p = me(s), C = d.c.filter(c => s.people[c.id]).map(c => {
+    const P = d.P, v = coVView(s, 'direct', d.P.f), va = coVView(s, 'art', d.P.f), p = me(s), C = d.c.filter(c => s.people[c.id]).map(c => {
       const x = s.people[c.id];
       return { t: `${x.name} 감독 — 연출 ${coLvSee(v, x, 'direct')} · 그림 ${coLvSee(va, x, 'art')} · 팬 ${fmtFans(x.fame || 0)}${c.back ? ' · 전작 감독' : ''}`, h: `연출료 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}`, f: s => {
         if (U.chance(c.p)) { Object.assign(P, { dir: x.id, dirFee: c.fee }); fireEvent(s, 'co_akey', { P }); return `${josa(x.name, '이가')} 「${P.title}」 감독을 맡기로 했다.`; }
@@ -487,9 +488,9 @@ E({
     while (L.length < 3) L.push(pickIndustry(s, '애니메이터', y => !L.includes(y), 0.4));
     d.c = L.map(x => ({ id: x.id, fee: coAKeyFee(P.kind, x), p: coVHireP(s, t, P, x, 'art') }));
   },
-  text: (s, d) => { const v = coVView(s, 'art'); return `「${d.P.title}」 작화를 이끌 작화감독을 섭외한다.${d.no ? `\n\n${d.no}` : ''}\n\n그림 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
+  text: (s, d) => { const v = coVView(s, 'art', d.P.f); return `「${d.P.title}」 작화를 이끌 작화감독을 섭외한다.${d.no ? `\n\n${d.no}` : ''}\n\n그림 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
   ch: (s, d) => {
-    const P = d.P, v = coVView(s, 'art'), nf = Math.round(A_KIND[P.kind].key * 0.4 / 1e5) * 1e5;
+    const P = d.P, v = coVView(s, 'art', d.P.f), nf = Math.round(A_KIND[P.kind].key * 0.4 / 1e5) * 1e5;
     return d.c.filter(c => s.people[c.id]).map(c => {
       const x = s.people[c.id];
       return { t: `${x.name} — 그림 ${coLvSee(v, x, 'art')} · 팬 ${fmtFans(x.fame || 0)}`, h: `계약금 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}`, f: s => {
@@ -513,8 +514,8 @@ E({
     while (L.length < 7) L.push(pickIndustry(s, '애니메이터', y => !L.includes(y) && y.id !== P.key, 0.4));
     d.c = L.map(x => ({ id: x.id, fee: coAAnimFee(P.kind, x) }));
   },
-  text: (s, d) => { const t = coT(s), v = coVView(s, 'art'); return `「${d.P.title}」 원화를 그릴 애니메이터를 ${CO_A_TEAM.min}명 이상 체크하자 (${CO_A_TEAM.max}명까지). ${CO_A_TEAM.min}명을 넘기면 자본금이 계약금을 감당해야 한다.\n\n지금까지 낼 돈 ${fmtWon(coVUpfront(d.P))} · 자본금 ${fmtWon(t.money)}\n그림 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
-  form: (s, d) => { const v = coVView(s, 'art'); return d.c.filter(c => s.people[c.id]).map(c => { const x = s.people[c.id]; return { k: x.id, type: 'check', label: `${x.name} — 그림 ${coLvSee(v, x, 'art')}`, sub: `계약금 ${fmtWon(c.fee)} · ${relWord(x)}` }; }); },
+  text: (s, d) => { const t = coT(s), v = coVView(s, 'art', d.P.f); return `「${d.P.title}」 원화를 그릴 애니메이터를 ${CO_A_TEAM.min}명 이상 체크하자 (${CO_A_TEAM.max}명까지). ${CO_A_TEAM.min}명을 넘기면 자본금이 계약금을 감당해야 한다.\n\n지금까지 낼 돈 ${fmtWon(coVUpfront(d.P))} · 자본금 ${fmtWon(t.money)}\n그림 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
+  form: (s, d) => { const v = coVView(s, 'art', d.P.f); return d.c.filter(c => s.people[c.id]).map(c => { const x = s.people[c.id]; return { k: x.id, type: 'check', label: `${x.name} — 그림 ${coLvSee(v, x, 'art')}`, sub: `계약금 ${fmtWon(c.fee)} · ${relWord(x)}` }; }); },
   cancel: () => '애니 기획을 접었다.',
   submit(s, d, v) {
     const t = coT(s), P = d.P, pick = d.c.filter(c => v[c.id] && s.people[c.id]), fee = pick.reduce((a, c) => a + c.fee, 0);

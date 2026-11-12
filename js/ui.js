@@ -506,8 +506,8 @@ function coBannerHTML(s, t, f, main) {
     // 돈 줄: 자본금(그룹 전체) · 지난달 순수익 · (적자면) 버틸 수 있는 기간
     const R = [['자본금', fmtWon(t.money), t.money < 0 ? 'neg' : ''], ['지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg']];
     if (net < 0 && out > 0) R.push(['버틸 수 있는 기간', t.money > 0 ? `약 ${Math.floor(t.money / out)}개월` : '바닥났다', 'neg']);
-    rows = facts(R) + facts([['등급', coRankName(t, coRank(t))]].concat(coFieldFacts(s, t, f), [['직원', `${coStaff(s).length}명`]]));
-  } else rows = facts([['모회사', t.name]].concat(coFieldFacts(s, t, f)));
+    rows = facts(R) + facts([['등급', coRankName(t, coRank(t))]].concat(coFieldFacts(s, t, f), [['직원', `${coStaff(s, null, f).length}명`]]));
+  } else rows = facts([['모회사', t.name]].concat(coFieldFacts(s, t, f), [['직원', `${coStaff(s, null, f).length}명`]]));
   return `<button class="job-bn co-bn" data-cof="${f}"><span class="jb-top"><span class="sb-ic">${CO_FIELDS[f].ic}</span><span class="sb-t">${U.esc(coFName(t, f))}</span><span class="jb-auto">${TIER_N[t.f[f].tier]} ${CO_TYPE_N[f] || CO_FIELDS[f].n}</span><span class="sb-n">›</span></span>${rows}</button>`;
 }
 // 회사 설립 배너: 첫 회사는 내 현금이 1억 원 이상일 때만 보인다. 자회사는 세울 분야가 남아 있으면 늘 보이고, 조건이 안 되면 잠금 + 빨간 이유

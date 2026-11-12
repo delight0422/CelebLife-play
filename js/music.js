@@ -1388,7 +1388,7 @@ function matePot(m, k) { const o = m && m.sk && m.sk[k]; if (!o || o.potUp) retu
 // 멤버 연습에 붙는 회사 몫: 내 회사 소속이면 내 회사 연습실 · 트레이너, 기획사 소속이면 그 회사 연습실 (밴드 악기 트레이너는 따로 없다: 외부 레슨)
 function mateEqM(s, tm, k) {
   const own = tm.k === 'band' ? ownCo(s, 'band') : null;
-  if (own) { const tr = typeof coTrainer === 'function' ? coTrainer(s, k) : null; return CO_EQ.mult[own.eq || 0] * (tr ? 1 + teachLv(tr, k) / 50 : 1); }
+  if (own) { const tr = typeof coTrainer === 'function' ? coTrainer(s, k, 'music') : null; return CO_EQ.mult[own.eq || 0] * (tr ? 1 + teachLv(tr, k) / 50 : 1); }
   const ag = tm.t.ag && AG[tm.t.ag];
   return ag && AG_EQ.some(id => EQUIP[id].k.includes(k)) ? 1 + eqPct(ag.eq || 1) / 100 : 1;
 }
@@ -2580,7 +2580,7 @@ function myAlbFit(s, k, c) { return albFit(s, musPpl(s, k), c) + (has(me(s), 'co
 function myPickRead(a, v) { const idx = a.five.map((x, i) => i).filter(i => albOn(v, 'p' + i)), ti = v.ti ? +String(v.ti).slice(1) : -1; return { idx, ti: idx.includes(ti) ? ti : -1, pol: albOn(v, 'pol'), ly: albOn(v, 'ly') }; }
 function myPickCost(x, ti, pol) { return (ti ? ti.price || 0 : 0) + (pol ? albPolCost(x) : 0) + x.prod; }
 function myAlbTbl(s, k) {
-  const a = s.tracks[k].alb, v = ownCo(s, k) && typeof coViewer === 'function' ? coViewer(s, 'anr', 'compose') : me(s);
+  const a = s.tracks[k].alb, v = ownCo(s, k) && typeof coViewer === 'function' ? coViewer(s, 'anr', 'compose', 'music') : me(s);
   const rows = a.five.map((x, i) => { const c = x.mine ? me(s) : x.cid && s.people[x.cid]; return { k: 'p' + i, tr: x.c === s.trend, cells: {
     t: [x.title, `「${x.title}」`], by: [albBy(s, x), albBy(s, x)], c: [x.c, x.c], lv: c ? coCellLv(v, c, 'compose', !!x.mine || x.src === 'mem') : [-1, '?'],
     q: coCellG(grade5(v, x.q, 'q', 'compose'), 'q'), m: x.m == null ? [-1, '-'] : coCellG(grade5(v, x.m, 'pot', 'compose')), p: [x.price, x.price ? fmtWon(x.price) : '-'] } }; });
