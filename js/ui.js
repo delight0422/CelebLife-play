@@ -324,7 +324,7 @@ function lifeLogHTML(s) {
   let h = '', lastA = -1;
   for (const it of items) {
     if (it.a !== lastA) { lastA = it.a; h += `<div class="log-y">${it.a}세</div>`; }
-    h += `<div class="log-i ${it.k}">${nl(it.x)}${it.lv ? `<div>${liveBtnHTML(it.lv, '무대 보기')}</div>` : ''}${it.pl ? `<div>${plioBtnHTML(it.pl)}</div>` : ''}</div>`;
+    h += `<div class="log-i ${it.k}">${nl(it.x)}${it.lv ? `<div>${liveBtnHTML(it.lv, '무대 보기')}</div>` : ''}${it.pl && plioBtnHTML(it.pl) ? `<div>${plioBtnHTML(it.pl)}</div>` : ''}</div>`;
   }
   return `<div class="log-tab">${h || '<div class="empty">아직 기록이 없다.</div>'}</div>`;
 }
@@ -361,7 +361,7 @@ function jobIc(id) { return id === 'idol' && idolIsBand(S) ? '🎸' : CAREERS[id
 // 직업마다 관련 분야의 유행: 직업 창 맨 위에 그 분야 유행만 보인다 (모델은 없음)
 const JOB_FIELD = { idol: 'music', band: 'music', solo: 'music', player: 'music', composer: 'music', lyricist: 'music', producer: 'music', anr: 'music', trainer: 'music', dancer: 'music', animator: 'anime', adir: 'anime', voice: 'anime', webtoon: 'web', webnovel: 'web', actor: 'drama', director: 'drama', writer: 'drama', acttrainer: 'drama', variety: 'show', youtube: 'yt', vidol: 'yt', editor: 'yt', agency: 'music' };
 function trendRowHTML(s, only) {
-  const tv = s.trendTV || {}, T = { music: ['🎵 음악', s.trend], drama: ['📺 드라마', tv.drama], show: ['😆 예능', tv.show], yt: ['▶️ 플리오', tv.yt], anime: ['🎨 애니', tv.anime], web: ['📖 웹툰·웹소설', tv.web] };
+  const tv = s.trendTV || {}, T = { music: ['🎵 음악', s.trend], drama: ['📺 드라마', tv.drama], show: ['😆 예능', tv.show], yt: ['▶️ 인터넷 방송', tv.yt], anime: ['🎨 애니', tv.anime], web: ['📖 웹툰·웹소설', tv.web] };
   return `<div class="trend-row"><span class="tr-h">📈 요즘 유행</span>${(only ? [only] : ['music', 'drama', 'show', 'yt']).map(k => `<span class="tr-i">${T[k][0]} '${U.esc(T[k][1] || '-')}'</span>`).join('')}</div>`;
 }
 // 오른쪽·왼쪽 박스들. 박스 하나를 그리다 오류가 나도 나머지는 그린다 (오류는 콘솔과 UI.drawErr에 남긴다)
@@ -662,7 +662,7 @@ function showEventRaw() {
   UI.res = null;
   let h = `${scBandHTML(s.pending.id, ev, s, d)}<button class="m-min" data-min>창 내리기</button><div class="m-cat">${U.esc(ev.cat || '')}</div><div class="m-title">${U.esc(typeof ev.title === 'function' ? ev.title(s, d) : ev.title)}</div>${hx ? `<div class="m-html">${hx}</div>` : `<div class="m-text">${rich(ev.text(s, d))}</div>`}`;
   // 공개 뒤 반응: 결과 글 아래에 플리오 배너 (12-3)
-  if (ev.plio) { let pl = null; try { pl = ev.plio(s, d); } catch (e) { } if (pl) h += `<div class="pf-row">${plioBtnHTML(pl)}</div>`; }
+  if (ev.plio) { let pl = null; try { pl = ev.plio(s, d); } catch (e) { } const bn = pl ? plioBtnHTML(pl) : ''; if (bn) h += `<div class="pf-row">${bn}</div>`; }
   let T = null; if (ev.tbl) { try { T = ev.tbl(s, d); } catch (e) { console.error('표 오류', s.pending.id, e); T = null; } }
   if (ev.form) {
     // type 'check': 체크 칸 한 줄 (오디션 지원자·그룹 멤버 고르기). 나머지는 글자 적는 칸. 표(tbl)가 있으면 체크 줄은 표로 간다
@@ -1002,24 +1002,12 @@ function panelInbox() {
   for (const m of s.inbox.slice().sort((a, b) => a.due - b.due)) h += msgHTML(s, m);
   return h + inboxPastHTML(s, 40);
 }
-// 그만두기·탈퇴·계약 해지와 은퇴: 직업 지원 창 맨 위에서 한다
-function quitSection(s) {
-  const rows = [];
-  for (const id of CAREER_IDS) {
-    const C = CAREERS[id];
-    if (!C || !C.actions || !trackOn(s, id)) continue;
-    for (const a of C.actions(s, s.tracks[id]).filter(a => a.danger)) rows.push(Object.assign({}, a, { t: `${C.ic || ''} ${C.n} · ${a.t}` }));
-  }
-  const fail = !s.everSuccess;
-  rows.push({ t: fail ? '🌙 꿈을 접기' : '🌙 은퇴하기', tag: '인생 마무리', h: '이번 인생이 여기서 정리된다', ok: age(s) >= 19 && !s.ended, why: '성인이 된 뒤에 할 수 있다', danger: true, btn: fail ? '꿈 접기' : '은퇴', confirm: `정말 ${fail ? '꿈을 접을까요' : '은퇴할까요'}?\n이번 인생이 여기서 정리됩니다.`, run: s => { endLife(s, fail ? 'fail' : 'retire', ''); return ''; } });
-  return `<div class="ap-cat"><div class="ap-cat-h">🚪 그만두기 · 은퇴<span class="hint">지금 하는 일을 정리한다</span></div><div class="ap-list">${rows.map(actRow).join('')}</div></div>`;
-}
-// 활동명: 활동명이 있는 직업마다 한 줄. 내가 직접 정한 이름만 '바꾸기'를 누를 수 있다
-function nameSection(s) {
-  const ids = CAREER_IDS.filter(id => trackOn(s, id) && s.tracks[id].sn);
-  if (!ids.length) return '';
-  const rows = ids.map(id => { const sn = s.tracks[id].sn, self = snSelf(s, id); return { t: `${CAREER_SHORT[id] || CAREERS[id].n} 활동명`, h: `지금 '${sn.sur + sn.given}'${sn.nick ? ` · 애칭 '${sn.nick}'` : ''}`, ok: self && !s.pending, why: self ? '' : '회사가 정해 준 이름이라 바꿀 수 없다', btn: '바꾸기', run: s => { fireEvent(s, 'stage_rename', { trk: id }); return ''; } }; });
-  return `<div class="ap-cat"><div class="ap-cat-h">🪪 활동명</div><div class="ap-list">${rows.map(actRow).join('')}</div></div>`;
+// 활동명 (v162): 직업 창 정보 탭 맨 위 한 줄. 내가 직접 정한 이름만 '바꾸기'를 누를 수 있다
+function snRowHTML(s, id) {
+  const tr = s.tracks[id];
+  if (!tr || !tr.sn) return '';
+  const sn = tr.sn, self = snSelf(s, id);
+  return actRow({ t: '🪪 활동명', h: `지금 '${sn.sur + sn.given}'${sn.nick ? ` · 애칭 '${sn.nick}'` : ''}`, ok: self && !s.pending, why: self ? '지금은 바꿀 수 없다' : '회사가 정해 준 이름이라 바꿀 수 없다', btn: '바꾸기', run: s => { fireEvent(s, 'stage_rename', { trk: id }); return ''; } });
 }
 // 지원할 수 있는 곳은 합격 가능성이 높은 것부터 (피드백 29). 지금 지원할 수 없는 곳은 그 아래에 원래 차례대로
 // 합격 가능성: 그 줄 설명에 적힌 'N%' 중 가장 높은 것 (파트·종류가 여럿이면 가장 잘 붙을 것). 시험 없이 바로 시작하는 곳은 100%
@@ -1036,7 +1024,6 @@ function panelApplyJob() {
   const s = S, list = jobApplies(s);
   let h = `<h2>📝 직업 지원</h2><p class="p-intro">분야를 누르면 직업이 나오고, 직업을 누르면 그 바로 아래에 지원할 수 있는 곳이 나온다. 직업 옆 숫자는 지금 바로 지원할 수 있는 곳의 수다.<br>직업은 ${JOB_CAP}개까지 같이 할 수 있다.</p>`;
   UI.apjOpen = UI.apjOpen || {};
-  h += nameSection(s) + quitSection(s);
   if (!list.length) return h + `<div class="empty">지금 나이와 상황에서 지원할 수 있는 직업이 없다.</div>`;
   for (const [cid, cn] of APPLY_CATS) {
     const items = list.filter(a => applyCatOf(a) === cid);
@@ -1134,15 +1121,14 @@ const PF_TABS = [['born', '👤 프로필'], ['job', '💼 직업'], ['tal', '�
 function panelProfile() {
   const s = S, p = me(s), k = UI.pfTab;
   if (k === 'fam') return `<h2>👪 가족</h2>` + famHTML(s);
-  if (k === 'rec' || k === 'log' || k === 'works' || k === 'job') return `<h2>📖 기록</h2>` + pfRecHTML(s);
+  if (k === 'rec' || k === 'log' || k === 'works' || k === 'job') { const tab = UI.recTab === 'log' || (k === 'log' && !UI.recTab) ? 'log' : 'career'; return `<h2>📖 기록</h2><div class="ap-row pf-tabs">${[['career', '💼 경력'], ['log', '📖 걸어온 길']].map(([t, n]) => `<button class="ap-tab ${tab === t ? 'on' : ''}" data-rectab="${t}">${n}</button>`).join('')}</div>` + (tab === 'log' ? lifeLogHTML(s) : pfRecHTML(s)); }
   if (k === 'tal') { UI.tsTab = 'tal'; return panel_skills(); }
   return `<h2>🪪 기본 정보</h2>` + pfBornTab(s, p);
 }
-// 기록 창: 작품(받은 상 포함) → 경력(번 돈 · 지난 경력) → 걸어온 길
+// 기록 창의 경력 탭: 작품(받은 상 포함) → 번 돈 → 지난 경력. 걸어온 길은 따로 탭 (v162)
 function pfRecHTML(s) {
   return `<div class="sec-h">🎬 작품${s.works.length ? ` <span class="n">${s.works.length}편</span>` : ''}</div>` + pfWorksTab(s)
-    + jobEarnHTML(s) + `<div class="sec-h">💼 지난 경력</div>` + careerTab(s)
-    + `<div class="sec-h">📖 걸어온 길</div>` + lifeLogHTML(s);
+    + jobEarnHTML(s) + `<div class="sec-h">💼 지난 경력</div>` + careerTab(s);
 }
 // 직업 탭: 지금 하는 직업(누르면 그 직업 창)과 지난 경력, 딱 두 가지
 function pfJobTab(s) {
@@ -1177,7 +1163,7 @@ function pfTalTab(p) {
 }
 function pfBornTab(s, p) {
   const r = REGION_BY[s.birthRegion] || REGION_BY[s.region];
-  const rows = [['성별', p.g === '여' ? '여성' : '남성'], ['나이', `${age(s)}세 (${s.birthYear}년 ${s.birthMonth + 1}월생)`], ['태어난 곳', `${s.birthPlace || s.place}`], ['태어난 집', `${wealthWord(s.wealth)} 집 (10단계 중 ${s.wealth})`], ['성격', `${PERSONA_BY[s.persona].n} — ${PERSONA_BY[s.persona].d}`], ['타고난 건강', `${HEALTH_BY[s.health].n} — ${HEALTH_BY[s.health].d}`], ['인상', p.look]];
+  const rows = [['성별', p.g === '여' ? '여성' : '남성'], ['나이', `${age(s)}세 (${s.birthYear}년 ${s.birthMonth + 1}월생)`], ['태어난 곳', `${s.birthPlace || s.place}`], ['성격', `${PERSONA_BY[s.persona].n} — ${PERSONA_BY[s.persona].d}`], ['타고난 건강', `${HEALTH_BY[s.health].n} — ${HEALTH_BY[s.health].d}`], ['인상', p.look]];
   if (s.flags.dream) rows.push(['어릴 적 장래희망', s.flags.dream]);
   if (s.armyExempt) rows.push(['병역', '생계유지 곤란 사유 병역 감면']);
   return `<table class="list">` + rows.map(([k, v]) => `<tr><td style="width:120px;color:var(--muted)">${k}</td><td>${U.esc(v)}</td></tr>`).join('') + `</table>`;
@@ -1313,7 +1299,7 @@ function panelCareer() {
         // 지금 하는 일은 현황 아래에 그 직업 설명도 함께 보여 준다
         h += `<div class="act" style="border:none;padding-bottom:0"><div><div class="a-t">${C.ic || ''} ${U.esc(C.n)}${trackOn(s, c.id) ? '<span class="tag">진행 중</span>' : ''}</div><div class="a-h">${U.esc(trackOn(s, c.id) && C.status ? careerStatus(s, c.id) : C.desc || '')}</div>${trackOn(s, c.id) && C.status && C.desc ? `<div class="hint">${U.esc(C.desc)}</div>` : ''}${trackOn(s, c.id) ? '' :`<div class="hint">${t.endNote || (C.status && C.status(s, t)) ? U.esc((t.endNote || C.status(s, t)) + ' · ') : ''}${c.id === 'agency' ? '🏢 메인 화면 회사 박스에서 차릴 수 있어요' : '📝 직업 지원에서 시작할 수 있어요'}</div>`}</div></div>`;
         for (const a of (C.actions ? C.actions(s, t) : []).filter(a => !a.danger)) h += actRow(a);
-        if (trackOn(s, c.id) && C.actions && C.actions(s, t).some(a => a.danger)) h += `<div class="hint" style="margin:0 0 var(--sp-2)">그만두기·탈퇴는 📝 직업 지원 창 맨 위에서 할 수 있어요</div>`;
+        if (trackOn(s, c.id) && C.actions && C.actions(s, t).some(a => a.danger)) h += `<div class="hint" style="margin:0 0 var(--sp-2)">그만두기·탈퇴는 직업 활동 박스의 그 직업 창 '행동' 탭에서 할 수 있어요</div>`;
       }
     }
   }
@@ -1327,6 +1313,18 @@ function halfName(s) { return calM(s) < 6 ? '1~6월' : '7~12월'; }
 function contactsUsed(s) { return s.contactH === halfKey(s) ? (s.contactN || 0) : 0; }
 function calledN(s, n) { return n.callH === halfKey(s) ? (n.callN || 1) : 0; }
 function calledThisHalf(s, n) { return calledN(s, n) >= CONTACT_PER; }
+// 인간관계 창의 같은 묶음 안 차례 (v162): 나와의 나이 차이(작은 순) → 친밀도(낮은 순) → 직급(높은 순) → 팀(가나다)
+const PPL_RANK = [[/대표|사장|회장/, 9], [/임원|이사|본부장|국장/, 8], [/부장|실장|총괄|수석/, 7], [/팀장|리더|감독|교수|원장/, 6], [/PD|프로듀서|작가|매니저|과장/, 5], [/선배|대리|주임/, 4], [/트레이너|강사|담당자|기자/, 3], [/사원|직원|막내|연습생|인턴|신입/, 1]];
+function pplRank(n) { const j = `${n.job || ''} ${n.co && n.co.job ? n.co.job : ''}`; for (const [re, v] of PPL_RANK) if (re.test(j)) return v; return 2; }
+function pplCmp(s, a, b) {
+  const my = age(s), da = Math.abs(pAge(s, a) - my), db = Math.abs(pAge(s, b) - my);
+  if (da !== db) return da - db;
+  if (Math.round(a.aff) !== Math.round(b.aff)) return a.aff - b.aff;
+  const ra = pplRank(a), rb = pplRank(b);
+  if (ra !== rb) return rb - ra;
+  const ta = (typeof orgOf === 'function' ? orgOf(s, a) : '') || a.job || '', tb = (typeof orgOf === 'function' ? orgOf(s, b) : '') || b.job || '';
+  return ta.localeCompare(tb, 'ko');
+}
 function panelPeople() {
   const s = S;
   const left = Math.max(0, CONTACT_MAX - contactsUsed(s));
@@ -1343,7 +1341,7 @@ function panelPeople() {
   if (age(s) >= 19 && !partner(s)) h += meetHTML(s);
   // 묶음 안에서는 친밀도가 높은 사람부터 (가족·연인만 배우자 → 연인 → 자녀 → 형제자매 순서를 먼저 따른다)
   const grp = n => PPL_TOP.findIndex(x => x[0] === pplTop(n)), famR = n => pplTop(n) === 'fam' ? REL_ORDER.indexOf(n.rel) : 0;
-  const list = people(s, n => (!['엄마', '아빠', '업계'].includes(n.rel) || coMine(s, n)) && !n.hidden).sort((a, b) => grp(a) - grp(b) || famR(a) - famR(b) || b.aff - a.aff);
+  const list = people(s, n => (!['엄마', '아빠', '업계'].includes(n.rel) || coMine(s, n)) && !n.hidden).sort((a, b) => grp(a) - grp(b) || pplCmp(s, a, b));
   if (!list.length) h += `<div class="muted">아직 가까운 사람이 없다.</div>`;
   // 트리 뷰 (피드백 26): 가족·연인 · 친구 · 동료(어느 직업으로 만났나) · 지인(그 사람의 직업)
   UI.pplOpen = UI.pplOpen || {};
@@ -1532,7 +1530,7 @@ function careerTab(s) {
 // 맨 위 그 분야의 유행 → 현황 → 할 일(일정의 직업 활동 칸에서 하는 일) → 그 직업 정보(등급·숙련도·내 실력·계약) → 할 수 있는 일
 // 직업 창 (UI 개편 시안): 정보 · 소속 · 행동 · 업계 인물 탭
 // 직업마다 정보 줄(c.info)을 이름으로 나눈다: 회사 · 그룹 · 팀에 대한 줄은 소속, 나에 대한 줄은 정보
-const JOB_TABS = [['info', '📋 정보'], ['org', '🏢 소속'], ['act', '🎬 행동'], ['npc', '⭐ 업계 인물']];
+const JOB_TABS = [['info', '📋 정보'], ['grp', '🎤 그룹'], ['org', '🏢 회사'], ['act', '🎬 행동'], ['npc', '⭐ 업계 인물']];
 const GRP_ROWS = ['그룹 팬', '밴드 팬', '팀워크', '팬덤 · 대표 컨셉', '대표 컨셉', '팬덤', '기수 안 순위', '동기', '선배', '최근 평가'];
 const CO_ROWS = ['소속', '회사', '일하는 곳', '팀장', '고정 일정', '작곡팀', '전담 방송인', 'MCN 지원', '공채'];
 const ORG_ROWS = GRP_ROWS.concat(CO_ROWS);
@@ -1546,14 +1544,7 @@ function panelJob() {
   const s = S, id = UI.jobId, c = CAREERS[id], t = s.tracks[id];
   const back = UI.jobFrom === 'profile' ? '<button class="btn sm ghost back-btn" data-pftab="rec">← 기록</button>' : UI.jobFrom === 'company' ? '<button class="btn sm ghost back-btn" data-panel="company">← 회사</button>' : '';
   if (!c || !trackOn(s, id)) return back + '<div class="empty">지금은 하지 않는 일이다.</div>';
-  const tabs = JOB_TABS.filter(([k]) => k !== 'npc' || jobNpcs(s, id).length), tab = tabs.some(x => x[0] === UI.jobTab) ? UI.jobTab : 'info';
-  let h = back + `<h2>${jobIc(id)} ${U.esc(jobName(id))}</h2>`;
-  if (JOB_FIELD[id]) h += trendRowHTML(s, JOB_FIELD[id]);
-  if (c.status) h += `<p class="p-intro">${U.esc(careerStatus(s, id))}</p>`;
-  h += `<div class="ap-row pf-tabs">${tabs.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-jobtab="${k}">${n}</button>`).join('')}</div>`;
-  if (tab === 'act') return h + jobActTab(s, id);
-  if (tab === 'npc') return h + jobNpcTab(s, id);
-  // 정보 줄을 모아서 정보 · 소속으로 나눈다
+  // 정보 줄을 모아서 정보 · 그룹 · 회사로 나눈다
   const ci = c.info ? c.info(s, t) : [], info = [], org = [];
   // 실력은 '내 실력' 한 줄만: 직업 정보에 '내 실력'이 없으면 그 일과 가장 가까운 특기를 '내 실력'으로 넣는다
   if (!ci.some(r => Array.isArray(r) && r[0] === '내 실력')) { const cs = careerSkill(s, id); if (cs) info.push(['내 실력', cs]); }
@@ -1561,7 +1552,7 @@ function panelJob() {
   if (POP_JOBS.includes(id)) info.unshift(['인기', popTxt(jpop(s, id))]);
   info.unshift(['개인 팬', fmtFans(Math.round((s.jf || {})[id] || 0))]);
   const cl = contractLine(s, id); if (cl) { const m = c.cLeft(s, t); info.push(['계약 기간', `${cl.replace('계약 ', '')} (${Math.max(0, m)}개월 남음)`]); }
-  // 회사 대표는 회사가 곧 소속: 내 실력 · 돈 줄 말고는 모두 소속 탭
+  // 회사 대표는 회사가 곧 소속: 내 실력 · 돈 줄 말고는 모두 회사 탭
   const coOwn = id === 'agency';
   for (const r of ci) {
     if (!r) continue;
@@ -1577,12 +1568,21 @@ function panelJob() {
   // 등급(자리) 칸에는 몇 번째 등급인지 별로 보인다. 교수는 대학원 길에만 등급이 있다
   const tk = id === 'prof' ? (t.route === 'grad' ? t.tier || 0 : null) : typeof t.tier === 'number' ? t.tier : null;
   if (tk != null) { const i = info.findIndex(r => Array.isArray(r) && (r[0] === '등급' || r[0] === '자리')); if (i >= 0) info[i] = [info[i][0], info[i][1], tk]; }
-  if (tab === 'org') {
-    const isG = r => Array.isArray(r) ? GRP_ROWS.includes(r[0]) : r.bars || GRP_HEADS.test(r.h);
-    return h + (org.length ? infoGroups([['🎤 그룹', org.filter(isG)], ['🏢 회사', org.filter(r => !isG(r))]]) : `<div class="empty">소속 없이 혼자 하는 일이다.</div>`);
-  }
+  const isG = r => Array.isArray(r) ? GRP_ROWS.includes(r[0]) : r.bars || GRP_HEADS.test(r.h), grp = org.filter(isG), co = org.filter(r => !isG(r));
+  // 탭: 그룹이 없는 직업(배우 등)은 그룹 탭이 없다. 업계 인물이 없는 분야는 업계 인물 탭이 없다
+  const tabs = JOB_TABS.filter(([k]) => (k !== 'grp' || grp.length) && (k !== 'npc' || jobNpcs(s, id).length)), tab = tabs.some(x => x[0] === UI.jobTab) ? UI.jobTab : 'info';
+  let h = back + `<h2>${jobIc(id)} ${U.esc(jobName(id))}</h2>`;
+  if (JOB_FIELD[id]) h += trendRowHTML(s, JOB_FIELD[id]);
+  if (c.status) h += `<p class="p-intro">${U.esc(careerStatus(s, id))}</p>`;
+  h += `<div class="ap-row pf-tabs">${tabs.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-jobtab="${k}">${n}</button>`).join('')}</div>`;
+  if (tab === 'act') return h + jobActTab(s, id);
+  if (tab === 'npc') return h + jobNpcTab(s, id);
+  if (tab === 'grp') return h + infoTable(grp);
+  if (tab === 'org') return h + (co.length ? infoTable(co) : `<div class="empty">소속 없이 혼자 하는 일이다.</div>`);
   const isM = r => Array.isArray(r) && MONEY_ROWS.includes(r[0]), isB = r => !Array.isArray(r) && r.bars;
-  return h + infoGroups([['⭐ 나', info.filter(r => !isM(r) && !isB(r))], ['📈 숙련도', info.filter(isB)], ['💰 계약 · 돈', info.filter(isM)]]) + (c.desc ? `<p class="hint" style="margin-top:var(--sp-3)">${U.esc(c.desc)}</p>` : '');
+  // 활동명 (v162): 직업 지원 창이 아니라 여기서만 바꾼다
+  const sn = snRowHTML(s, id);
+  return h + sn + infoGroups([['⭐ 나', info.filter(r => !isM(r) && !isB(r))], ['📈 숙련도', info.filter(isB)], ['💰 계약 · 돈', info.filter(isM)]]) + (c.desc ? `<p class="hint" style="margin-top:var(--sp-3)">${U.esc(c.desc)}</p>` : '');
 }
 // 행동 탭: 자동 활동(할 일) → 선택 활동(골라서 하는 일) → 그 밖에 할 수 있는 일 → 탈퇴 · 그만두기
 function jobActTab(s, id) {
@@ -1593,7 +1593,7 @@ function jobActTab(s, id) {
   if (c.act) h += jobTaskHTML(s, id);
   const A = c.actions ? c.actions(s, t) : [], other = A.filter(a => !a.danger), quit = A.filter(a => a.danger);
   if (other.length) h += `<div class="sec-h">할 수 있는 일</div>` + other.map(actRow).join('');
-  if (quit.length) h += `<div class="sec-h">🚪 탈퇴 · 그만두기</div>` + quit.map(actRow).join('');
+  if (quit.length) h += `<div class="sec-h">🚪 탈퇴 · 그만두기</div>` + quit.map(a => actRow(a.confirm ? a : Object.assign({}, a, { confirm: `'${a.t}' — 정말 할까요?\n되돌릴 수 없어요.` }))).join('');
   return h || `<div class="empty">지금 할 수 있는 일이 없다.</div>`;
 }
 // 업계 인물 탭: 그 직업 분야의 업계 인물만 (인간관계 창의 업계 인물과 같은 줄)
@@ -1601,32 +1601,27 @@ function jobNpcTab(s, id) {
   const fs = jobNpcs(s, id), L = npcList(s).filter(n => fs.includes(n.f) && (n.kn || n.fol)).sort((a, b) => (b.fol || 0) - (a.fol || 0) || (b.rk ? 1 : 0) - (a.rk ? 1 : 0) || b.pop - a.pop);
   return L.length ? npcRowsHTML(s, L) : `<div class="empty">아직 알게 된 업계 인물이 없다.</div>`;
 }
-// 할 일: 회사 연습시간·촬영처럼 고정된 칸이 있으면 고를 수 없다 (이미 하고 있고 그만둘 수 없다)
+// 자동 활동 (v162): 지금 하는 것 하나만, 이름과 내용만 보인다 (고정 일정 · 시기 설명은 빼고)
+function effTxt(x) { return Array.isArray(x.eff) ? x.eff.map(([k, v]) => `${k} ${v}`).join(' · ') : (x.eff || ''); }
+function actNowRow(x) { return `<div class="act lrow"><div><div class="a-t">${U.esc(`${x.ic || ''} ${x.n}`)}</div><div class="lr-eff">${U.esc(effTxt(x))}</div></div></div>`; }
+const ACT_NONE = `<div class="lnote">지금 하는 자동 활동이 없다</div>`;
 function jobTaskHTML(s, id) {
-  const c = CAREERS[id], n = jobSlots(s, id), cur = jobTask(s, id), f = jobForced(s, id);
+  const c = CAREERS[id], n = jobSlots(s, id), cur = jobTask(s, id), f = jobForced(s, id), t = s.tracks[id];
   if (c.auto && !f) return jobAutoHTML(s, id, n);
-  let h = `<div class="sec-h">${c.act.ic} 자동 활동 <span class="n">일정 ${n}칸${f ? ` · 고정 ${f}칸` : ''}</span></div>`;
+  const head = `<div class="sec-h">${c.act.ic} 자동 활동</div>`;
   if (f) {
-    h += `<div class="lnote">🔒 ${U.esc(lockWhy(s, 'c_' + id) || c.n)} · 정해진 일정이라 그만둘 수 없다</div>`;
-    // v157: 자동으로 하는 일이 시기에 따라 바뀌는 직업(아이돌)은 그 목록을 보여 준다 (지금 하는 것에 '하는 중')
-    const AL = c.autoList ? c.autoList(s, s.tracks[id]) : null;
-    if (AL && AL.length > 1) h += `<div class="lnote">🔄 자동으로 하는 일 · 시기에 따라 저절로 바뀐다</div>`;
-    if (AL) for (const x of AL) h += `<div class="act lrow${x.on ? '' : ' off'}"><div><div class="a-t">${U.esc(`${x.ic} ${x.n}`)}${x.on ? '<span class="tag">하는 중</span>' : ''}</div><div class="lr-eff">${U.esc(x.eff)}</div></div>${x.on ? '<span class="act-fixed">🔒 고정</span>' : ''}</div>`;
-    else for (const x of jobTasks(id)) if (cur && cur.id === x.id) h += `<div class="act lrow"><div><div class="a-t">${U.esc(`${x.ic} ${x.n}`)}<span class="tag">하는 중</span></div><div class="lr-eff">${U.esc(x.eff.map(([k, v]) => `${k} ${v}`).join(' · '))}</div></div><span class="act-fixed">🔒 고정</span></div>`;
-    return h + jobPicksHTML(s, id, true);
+    // 회사 · 촬영이 정한 일: 시기에 따라 바뀌는 직업(아이돌)은 지금 시기의 것 하나
+    const AL = c.autoList ? c.autoList(s, t) : null, x = AL ? AL.find(x => x.on) : cur && jobTasks(id).find(y => y.id === cur.id);
+    return head + (x ? actNowRow(x) : ACT_NONE) + jobPicksHTML(s, id, true);
   }
-  // 할 일이 하나뿐이면 저절로 한다: 고르는 버튼 없이 '하는 중'만 (v118 UI B4)
+  // 할 일이 하나뿐이면 저절로 한다 (v118 UI B4)
   const V = jobTasks(id).filter(x => !x.show || x.show(s));
-  if (V.length === 1) {
-    const x = V[0];
-    h += n ? `<div class="act lrow"><div><div class="a-t">${U.esc(`${x.ic} ${x.n}`)}<span class="tag">하는 중</span></div><div class="lr-eff">${U.esc(x.eff.map(([k, v]) => `${k} ${v}`).join(' · '))}</div></div></div>` : `<div class="lnote">일정에 빈 칸이 없다 (고정 일정이 다 차 있다)</div>`;
-    return h + jobPicksHTML(s, id, n > 0);
-  }
-  if (!n) h += `<div class="lnote">일정에 빈 칸이 없다 (고정 일정이 다 차 있다)</div>`;
-  else if (!cur) h += `<div class="lnote bad">할 일을 고르지 않으면 평가가 크게 떨어진다</div>`;
-  for (const x of jobTasks(id).filter(x => !x.show || x.show(s))) {
+  if (V.length === 1) return head + (n ? actNowRow(V[0]) : ACT_NONE) + jobPicksHTML(s, id, n > 0);
+  // 할 일을 고르는 직업: 고르는 목록 (안 골랐으면 경고만)
+  let h = head + (n && !cur ? `<div class="lnote bad">할 일을 고르지 않으면 평가가 크게 떨어진다</div>` : '');
+  for (const x of V) {
     const on = !!cur && cur.id === x.id;
-    h += actRow({ t: `${x.ic} ${x.n}`, tag: on ? '하는 중' : '', eff: x.eff.map(([k, v]) => `${k} ${v}`).join(' · '), ok: n > 0 || on, why: '일정에 빈 칸이 없다 (고정 일정이 다 차 있다)', btn: on ? '그만하기' : '하기', run: s => { s.jobDo = s.jobDo || {}; if (on) { delete s.jobDo[id]; return `${josa(x.n, '을를')} 그만했다.`; } s.jobDo[id] = x.id; return ''; } });
+    h += actRow({ t: `${x.ic} ${x.n}`, tag: on ? '하는 중' : '', eff: effTxt(x), ok: n > 0 || on, why: '일정에 빈 칸이 없다', btn: on ? '그만하기' : '하기', run: s => { s.jobDo = s.jobDo || {}; if (on) { delete s.jobDo[id]; return `${josa(x.n, '을를')} 그만했다.`; } s.jobDo[id] = x.id; return ''; } });
   }
   return h + jobPicksHTML(s, id, !!cur && n > 0);
 }
@@ -1657,12 +1652,12 @@ function jobPicksHTML(s, id, on) {
 // 직업 활동 두 갈래 (7-4단계부터): 칸만 넣어 두면 자동으로 하는 일 + 칸을 넣은 채로 골라서 하는 일 (c.picks)
 function jobAutoHTML(s, id, n) {
   const c = CAREERS[id], t = s.tracks[id];
-  let h = `<div class="sec-h">🔄 자동 활동 <span class="n">일정 ${n}칸</span></div>`;
-  if (!n) h += `<div class="lnote">일정에 빈 칸이 없다 (고정 일정이 다 차 있다)</div>`;
-  for (const x of (c.autoList ? c.autoList(s, t) : [])) h += `<div class="act lrow"><div><div class="a-t">${U.esc(`${x.ic} ${x.n}`)}${n && x.tag !== false ? '<span class="tag">하는 중</span>' : ''}</div><div class="lr-eff">${U.esc(x.eff)}</div></div></div>`;
+  // 지금 하는 자동 활동 하나만 (일정에 칸이 없으면 없음)
+  const x = n ? (c.autoList ? c.autoList(s, t) : []).find(x => x.tag !== false) : null;
+  let h = `<div class="sec-h">🔄 자동 활동</div>` + (x ? actNowRow(x) : ACT_NONE);
   const P = c.picks ? c.picks(s, t) : [];
   if (P.some(a => a.sw)) (s.pickSig = s.pickSig || {})[id] = pickSig(P);
-  if (P.length) h += `<div class="sec-h">🖐️ 선택 활동</div>` + P.map(a => actRow(Object.assign({}, pickWrap(id, a), n ? {} : { ok: false, why: '일정에 빈 칸이 없다 (고정 일정이 다 차 있다)' }))).join('');
+  if (P.length) h += `<div class="sec-h">🖐️ 선택 활동</div>` + P.map(a => (a.sec ? `<div class="lnote">${U.esc(a.sec)}</div>` : '') + actRow(Object.assign({}, pickWrap(id, a), n ? {} : { ok: false, why: '일정에 빈 칸이 없다' }))).join('');
   return h;
 }
 // 프로필의 걸어온 길 탭: 인생 기록 전체 (v89). 받은 상은 작품 탭 아래에
@@ -1849,6 +1844,12 @@ function panelMoney() {
   if (L.length) h += `<div class="sec-h">💳 갚기 · 빌리기</div>` + L.map(actRow).join('');
   return h;
 }
+// 은퇴 (v162): 직업 지원 창에서 메뉴로 옮겼다. 누르면 정말 할지 한 번 묻는다
+function retireRowHTML(s) {
+  if (!s || s.ended) return '';
+  const fail = !s.everSuccess;
+  return `<div class="sec-h">🌙 인생 마무리</div>` + actRow({ t: fail ? '🌙 꿈을 접기' : '🌙 은퇴하기', h: '이번 인생이 여기서 정리된다', ok: age(s) >= 19, why: '성인이 된 뒤에 할 수 있다', danger: true, btn: fail ? '꿈 접기' : '은퇴', confirm: `정말 ${fail ? '꿈을 접을까요' : '은퇴할까요'}?\n이번 인생이 여기서 정리됩니다.`, run: s => { endLife(s, fail ? 'fail' : 'retire', ''); return ''; } });
+}
 function panelMenu() {
   return `<h2>메뉴</h2><div class="choices">
     <button class="btn" id="m-copycode">세이브 코드 복사하기 (다른 기기로 옮길 때)</button>
@@ -1862,7 +1863,7 @@ function panelMenu() {
     <button class="btn" data-panel="help">도움말</button>
     <button class="btn" id="m-title">첫 화면으로 (자동 저장됨)</button>
     <button class="btn danger" id="m-newlife">이 인생을 그만두고 새로 시작</button>
-  </div><p class="hint">키보드: 스페이스바 진행 · 1 한 달 후 · 2 1년 후</p>`;
+  </div>${retireRowHTML(S)}<p class="hint">키보드: 스페이스바 진행 · 1 한 달 후 · 2 1년 후</p>`;
 }
 function panelHall() {
   const h = getHall();
@@ -2021,7 +2022,8 @@ document.addEventListener('click', e => {
   if (t.dataset.payer != null) { const sl = S.slots[+t.dataset.payer]; sl.payer = t.dataset.v; save(S); renderSchedule(); return; }
   if (t.dataset.leslv != null) { const i = +t.dataset.leslv, sl = S.slots[i]; sl.lesLv = +t.dataset.v; if (sl.payer === 'family' && !familyCanPay(S, i)) sl.payer = 'me'; save(S); renderSchedule(); return; }
   if (t.dataset.grp) { UI.openGroups[t.dataset.grp] = !UI.openGroups[t.dataset.grp]; renderPanel(); return; }
-  if (t.dataset.pftab) { UI.pfTab = t.dataset.pftab; if (UI.overlay) { UI.overlay = 'profile'; renderPanel(); } else openPanel('profile'); return; }
+  if (t.dataset.rectab) { UI.recTab = t.dataset.rectab; renderPanel(); return; }
+  if (t.dataset.pftab) { if (t.dataset.pftab === 'rec' && !UI.overlay) UI.recTab = 'career'; UI.pfTab = t.dataset.pftab; if (UI.overlay) { UI.overlay = 'profile'; renderPanel(); } else openPanel('profile'); return; }
   if (t.dataset.cotab) { UI.coTab = t.dataset.cotab; renderPanel(); return; }
   if (t.dataset.cogrp) { UI.coGrp = t.dataset.cogrp; renderPanel(); return; }
   if (t.dataset.fam != null) { openPanel('family'); return; }

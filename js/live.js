@@ -433,23 +433,18 @@ function plioThumbHTML(sp, hue) {
   const ph = sp.k === 'stage' || sp.k === 'stagew' ? 'fancam' : sp.k === 'mv' ? 'mv' : '';
   return `<div class="pl-video sc-${K[0]}" style="--hue:${hue}"><div class="pl-bg"></div>${ph ? `<div class="pl-ph" style="background-image:url('img/pl/${ph}.webp')"></div>` : ''}<div class="pl-chars n${n}">${chars}</div><span class="pl-kind">${U.esc(PL_KIND[sp.k] || '영상')}</span><span class="pl-dur">${1 + Math.floor(R() * 14)}:${String(Math.floor(R() * 60)).padStart(2, '0')}</span><i class="pl-prog"><b style="width:${Math.round(15 + R() * 70)}%"></b></i></div>`;
 }
-function plioHTML(sp) {
-  const C = plioComments(sp), R = liveRng(sp.seed + 7), hue = hashN('pl' + sp.t) % 360, like = Math.round(sp.vw * (0.002 + 0.004 * R())), cn = Math.max(C.length, Math.round(sp.vw * (0.001 + 0.003 * R())));
-  return `<div class="pl-top"><span class="pl-logo">▶ ${PF.video.en}</span><span class="pl-sub">${PF.video.n}</span></div>`
-    + `<div class="pl-wrap"><div class="pl-main">${plioThumbHTML(sp, hue)}`
-    + `<div class="pl-t">${U.esc(sp.t)}</div><div class="pl-meta"><span class="pl-ch"><i style="background:hsl(${(hue + 40) % 360} 60% 55%)"></i>${U.esc(sp.ch)}</span><span>조회수 ${plN(sp.vw)}회</span><span class="pl-like">👍 ${plN(like)}</span><span class="pl-like dn">👎 ${plN(plioDislike(sp, like))}</span></div></div>`
-    + `<div class="pl-cm"><div class="pl-cm-h">댓글 ${plN(cn)}개</div><div class="pl-cm-b">${C.map(c => `<div class="pl-c"><i class="pl-av" style="background:hsl(${hashN(c.who) % 360} 55% 58%)">${U.esc(c.who.slice(0, 1))}</i><div><b>${U.esc(c.who)}</b><span>${U.esc(c.x)}</span><em>👍 ${plN(c.up)}<i class="pl-dn">👎 ${plN(c.dn || 0)}</i></em></div></div>`).join('')}</div></div></div>`;
-}
 // 배너: 누르면 팝업이 열리고, 다시 누르면 닫힌다
 function plioKey(sp) { UI.plioMap = UI.plioMap || {}; const k = UI.plioN = (UI.plioN || 0) + 1; UI.plioMap[k] = sp; delete UI.plioMap[k - 400]; return k; }
-function plioBtnHTML(sp, label) { if (sp && sp.v === 'comm') return commBtnHTML(sp, label); return sp && sp.v === 'plio' ? `<button class="pf-bn plio" data-plio="${plioKey(sp)}"><b>▶ ${PF.video.en}</b><span>${U.esc(label || '플리오에서 반응 보기')}</span></button>` : ''; }
+// 플리오 배너는 없앴다 (v162): 와글 배너만 보인다. 플리오 장면(sp.v === 'plio')은 기록에 남겨 두었다가 에고서칭 글의 활동 사진으로 쓴다
+function plioBtnHTML(sp, label) { return sp && sp.v === 'comm' ? commBtnHTML(sp, label) : ''; }
 function plioToggle(k) {
   const sp = (UI.plioMap || {})[k];
   if (!sp) return;
   if (UI.plioOpen === k && !$('#pop').classList.contains('hidden')) { popClose(); return; }
-  popOpen(sp.v === 'comm' ? commHTML(sp) : plioHTML(sp), 'live-card pf-card'); UI.plioOpen = k;
-  // 영상 화면의 캐릭터 그림을 칠한다
-  if (sp.v !== 'comm') { chLoad(); chPaintAll(); }
+  if (sp.v !== 'comm') return;
+  popOpen(commHTML(sp), 'live-card pf-card cm-big'); UI.plioOpen = k;
+  // 글 안 활동 사진의 캐릭터 그림을 칠한다
+  if (sp.pl) { chLoad(); chPaintAll(); }
 }
 
 // ───── 커뮤니티 '와글' 팝업 (12-3) ─────
@@ -476,6 +471,11 @@ const CM_POST = {
     B: { meh: '기사 보고 왔는데 아직 뭐가 맞는지 모르겠다. 아는 사람 있음?' },
     C: { meh: ['중립 기어 박는다', '입장 나올 때까지 기다리자', '실망이다', '원래 그런 줄 알았다', '팬인데 믿고 기다린다', '사실이면 끝이지', '또 시작이네, 다들 진정해', '기사 제목만 보고 욕하지 말자'] },
   },
+  act: {
+    T: { great: ['{w} 봤냐 미쳤다', '{me} {w} 레전드 찍었네', '{w} 사진 한 장으로 끝났다'], good: ['{w} 괜찮더라', '{me} {w} 보고 옴', '{w} 생각보다 좋다'], meh: ['{w} 어땠음?', '{w} 그냥 그렇던데', '{me} {w} 본 사람?'], bad: ['{w} 좀 아쉽다', '{me} {w} 이게 맞냐', '{w} 보고 실망함'] },
+    B: { great: '사진 보고 들어갔다가 끝까지 봤다. {me} 진짜 물올랐다. 안 본 사람 꼭 봐라.', good: '기대 안 했는데 괜찮았다. {me} 다음 것도 볼 듯.', meh: '나쁘진 않은데 기억에 남는 건 없다. 다들 어떻게 봤음?', bad: '기대하고 봤는데 아쉬웠다. {me} 다음엔 좀 더 잘했으면.' },
+    C: { great: ['나도 봤다 레전드', '{me} 미쳤다', '몇 번을 돌려 봤는지 모름'], good: ['괜찮았음', '{me} 호감', '다음 것도 기대'], meh: ['그냥 그랬음', '무난했다', '기대보단 별로'], bad: ['나도 별로였음', '아쉽다', '다음엔 낫겠지'] },
+  },
   ego: {
     T: { great: ['{me} 요즘 안 나오는 데가 없다', '{me}한테 입덕했다', '{me} 요즘 폼 미쳤다'], good: ['{me} 괜찮지 않냐', '{me} 요즘 눈에 띈다'], meh: ['{me} 누군지 아는 사람?', '{me} 요즘 뭐 함?'], bad: ['{me} 요즘 이미지 안 좋네', '{me} 왜 이렇게 됐냐'] },
     B: { great: '어딜 가나 이름이 보인다. 나만 좋아하는 줄 알았는데 다들 좋아하네.', good: '처음엔 몰랐는데 볼수록 괜찮다. 더 잘됐으면 좋겠다.', meh: '이름은 들어 본 것 같은데 뭐 하는 사람인지 모르겠다.', bad: '예전엔 좋아했는데 요즘은 이름만 봐도 좀 그렇다.' },
@@ -496,12 +496,14 @@ function commTone(sc) { return sc >= 80 ? 'great' : sc >= 65 ? 'good' : sc >= 52
 // 글 하나와 댓글, 그리고 인기글 목록
 function commParts(sp) {
   const R = liveRng(sp.seed), pk = a => a[Math.floor(R() * a.length)], P = CM_POST[sp.k] || CM_POST.ego;
-  const tn = P.T[sp.tn] ? sp.tn : 'meh', fill = x => x.split('{t}').join(sp.t).split('{me}').join(sp.me);
+  const tn = P.T[sp.tn] ? sp.tn : 'meh', fill = x => x.split('{t}').join(sp.t).split('{w}').join(sp.w || sp.t).split('{me}').join(sp.me);
   const used = {}, take = arr => { for (let i = 0; i < 12; i++) { const x = pk(arr); if (!used[x]) { used[x] = 1; return x; } } return null; };
   const title = fill(pk(P.T[tn])), views = Math.round(300 + R() * 4000 * (tn === 'great' || tn === 'top' ? 6 : 1));
   // 댓글: 내 이름이 없으면 이름이 들어간 댓글은 뺀다
   const pool = P.C[tn].filter(x => sp.me || !x.includes('{me}')), C = [];
-  for (let i = 0; i < Math.min(5, pool.length); i++) { const x = take(pool); if (x) C.push({ who: take(PL_NICK) || '익명', x: fill(x), up: Math.round(2 + R() * views * 0.03) }); }
+  // 활동 글 (v162): 예전 플리오 댓글(그 활동 · 나에 대한 반응)을 앞에 넣는다
+  if (sp.pl && typeof plioComments === 'function') for (const c of plioComments(sp.pl).slice(0, 4)) C.push({ who: c.who, x: c.x, up: Math.round(2 + R() * views * 0.03) });
+  for (let i = 0; i < Math.min(sp.pl ? 2 : 5, pool.length); i++) { const x = take(pool); if (x) C.push({ who: take(PL_NICK) || '익명', x: fill(x), up: Math.round(2 + R() * views * 0.03) }); }
   C.sort((a, b) => b.up - a.up);
   // 비추천 · 싫어요 (v154 보탬): 다른 씨앗으로 따로 정한다. 논란 · 나쁜 분위기 글일수록 많다
   const R2 = liveRng(sp.seed + 13), dk = sp.k === 'scandal' ? [0.3, 0.6] : tn === 'bad' || tn === 'miss' ? [0.15, 0.4] : tn === 'meh' ? [0.06, 0.2] : [0.01, 0.06];
@@ -516,11 +518,13 @@ function commHTML(sp) {
   const top = `<div class="pl-top"><span class="pl-logo cm">💬 ${PF.comm.en}</span><span class="pl-sub">${PF.comm.n} · ${U.esc(sp.bd)}</span></div>`;
   if (sp.tn === 'none') return top + `<div class="cm-none"><b>'${U.esc(sp.me)}'</b> 검색 결과 0건<span>아직 아무도 내 이야기를 하지 않는다</span></div>`;
   const X = commParts(sp);
-  return top + `<div class="pl-wrap cm-wrap"><div class="pl-main"><div class="cm-post"><div class="cm-bd">${U.esc(sp.bd)}</div><div class="cm-t">${U.esc(X.title)}</div><div class="cm-by"><i class="pl-av" style="background:hsl(${hashN(X.who) % 360} 55% 58%)">${U.esc(X.who.slice(0, 1))}</i>${U.esc(X.who)} · 조회 ${plN(X.views)} · 추천 ${plN(X.up)} · 비추천 ${plN(X.dn || 0)}</div><div class="cm-b">${U.esc(X.body)}</div></div>`
+  return top + `<div class="pl-wrap cm-wrap"><div class="pl-main"><div class="cm-post"><div class="cm-bd">${U.esc(sp.bd)}</div><div class="cm-t">${U.esc(X.title)}</div><div class="cm-by"><i class="pl-av" style="background:hsl(${hashN(X.who) % 360} 55% 58%)">${U.esc(X.who.slice(0, 1))}</i>${U.esc(X.who)} · 조회 ${plN(X.views)} · 추천 ${plN(X.up)} · 비추천 ${plN(X.dn || 0)}</div>${sp.pl ? `<div class="cm-ph">${plioThumbHTML(sp.pl, hashN('pl' + sp.pl.t) % 360)}<div class="cm-ph-t">📷 ${U.esc(sp.pl.t)}</div></div>` : ''}<div class="cm-b">${U.esc(X.body)}</div></div>`
     + `<div class="cm-hot"><div class="cm-hot-h">🔥 실시간 인기글</div>${X.hot.map(([x, n]) => `<div class="cm-hot-i"><span>${U.esc(x)}</span><em>[${n}]</em></div>`).join('')}</div></div>`
     + `<div class="pl-cm cm"><div class="pl-cm-h">댓글 ${X.C.length}개</div><div class="pl-cm-b">${X.C.map(c => `<div class="pl-c"><i class="pl-av" style="background:hsl(${hashN(c.who) % 360} 55% 58%)">${U.esc(c.who.slice(0, 1))}</i><div><b>${U.esc(c.who)}</b><span>${U.esc(c.x)}</span><em>👍 ${plN(c.up)}<i class="pl-dn">👎 ${plN(c.dn || 0)}</i></em></div></div>`).join('')}</div></div></div>`;
 }
 function commBtnHTML(sp, label) { return sp && sp.v === 'comm' ? `<button class="pf-bn comm" data-plio="${plioKey(sp)}"><b>💬 ${PF.comm.en}</b><span>${U.esc(label || `${PF.comm.n}에서 반응 보기`)}</span></button>` : ''; }
+// 요즘 한 활동의 장면 (기록에 남긴 예전 플리오 장면, 최근 12개월)
+function commRecentAct(s) { for (let i = s.log.length - 1; i >= 0; i--) { const it = s.log[i]; if (s.t - it.t > 12) break; if (it.pl && it.pl.v === 'plio') return it.pl; } return null; }
 // 에고서치: 지금 내 이름으로 올라오는 글. 논란이 있으면 그 이야기, 아니면 인지도와 이미지에 따라. 같은 달에는 같은 글이 나온다
 function commNow(s) {
   if (UI.cmNow && UI.cmNow.t === s.t && UI.cmNow.id === me(s).id) return UI.cmNow.sp;
@@ -529,6 +533,9 @@ function commNow(s) {
   if (s.scandal && typeof SC !== 'undefined' && SC[s.scandal.id]) sp = commSpec(s, { k: 'scandal', bd: '이슈 게시판', t: SC[s.scandal.id].n, me: nm, tn: 'meh' });
   else if (totalFans(s) < 300 && (s.fame || 0) < 5) sp = commSpec(s, { k: 'ego', bd, me: nm, tn: 'none' });
   else sp = commSpec(s, { k: 'ego', bd, me: nm, tn: (s.stigma || 0) >= 15 ? 'bad' : (s.fame || 0) >= 55 ? 'great' : (s.fame || 0) >= 25 ? 'good' : 'meh' });
+  // 요즘(1년 안) 한 활동의 장면이 기록에 있으면 사진이 붙은 활동 글로 (분위기는 그 활동 반응)
+  const act = sp.tn !== 'none' && sp.k === 'ego' ? commRecentAct(s) : null;
+  if (act) { sp.k = 'act'; sp.pl = act; sp.w = act.t; sp.tn = commTone(act.sc); }
   UI.cmNow = { t: s.t, id: me(s).id, sp };
   return sp;
 }

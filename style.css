@@ -1310,3 +1310,12 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .co-new.chainlk .co-new-t { color: var(--ink2); }
 .co-new.chainlk > .co-why { opacity: 1; font-size: var(--fs-2); font-weight: 700; color: var(--red); }
 .co-card .co-bn + .co-bn { margin-top: var(--sp-2); }
+
+/* 와글 (v162): 플리오를 합쳤다. 창을 더 크게, 글 안에 활동 사진 */
+.mcard.live-card.cm-big { max-width: min(1280px, 100%); }
+.cm-big .pl-wrap.cm-wrap { height: min(760px, calc(100vh - 120px)); }
+.cm-wrap .pl-main { overflow-y: auto; min-height: 0; }
+.cm-ph { margin: var(--sp-3) 0; }
+.cm-ph .pl-video { flex: none; height: clamp(180px, 34vh, 340px); }
+.cm-ph .pl-dur, .cm-ph .pl-kind, .cm-ph .pl-prog { display: none; }
+.cm-ph-t { margin-top: var(--sp-1); font-size: var(--fs-2); color: #b9b0d6; }
