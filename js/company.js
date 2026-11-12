@@ -307,7 +307,7 @@ function coHireOK(s, job, f) {
   if (cd > s.t) return `${cd - s.t}개월 뒤에 다시 뽑을 수 있다`;
   // 트레이너는 자리가 꽉 차 있어도 뽑을 수 있다 (v131): 새로 뽑은 다음에 내보낼 사람을 고른다 (co_tr_out)
   if (job === 'edit') { const m = coTier(t, 'mcn'); if (coStaff(s, 'edit', 'mcn').length >= CO_ED_CAP[m]) return `${TIER_N[m]} MCN은 편집자를 ${CO_ED_CAP[m]}명까지 둔다`; }
-  if (job === 'prod') { const m = coTier(t, 'music'); if (coProdCount(s) >= CO_GRP_CAP[m]) return `${TIER_N[m]} 기획사는 사내 프로듀서를 ${CO_GRP_CAP[m]}명까지 둔다 (전담은 빼고 센다)`; }
+  if (job === 'prod') { const m = coTier(t, 'music'); if (coProdCount(s) >= CO_GRP_CAP[m]) return `${TIER_N[m]} 기획사는 사내 프로듀서를 ${CO_GRP_CAP[m]}명까지 둔다 (전담 프로듀서는 제외됨)`; }
   return '';
 }
 // 그 특기를 배우는 연습생 · 아티스트 수
@@ -1837,7 +1837,7 @@ function coTabStaff(s, t, f) {
     { btn: '뽑기', on: true, ok: !tw, run: s => { fireEvent(s, 'co_hire_tf', { f }); return ''; } },
     { btn: ta ? '🔁 자동 켜짐' : '🔁 자동', on: ta, ok: true, run: () => { TA.on['trainer_' + f] = !ta; return ''; } }] });
   const pds = coStaff(s, 'prod', f);
-  if (has('music')) { const pw = coHireOK(s, 'prod', f); rows.push({ t: '사내 프로듀서 뽑기', h: `사내 프로듀서 ${coProdCount(s)}/${CO_GRP_CAP[coTier(t, 'music')]}명${pds.length > coProdCount(s) ? ` (전담 ${pds.length - coProdCount(s)}명은 빼고 셈)` : ''} · 그룹에 전담으로 붙이면 앨범 기획 · 선정을 맡는다 · 붙이지 않아도 '사내 제작'으로 곡을 쓴다`, ok: !pw, why: pw, btn: '뽑기', run: s => { fireEvent(s, 'co_hire', { job: 'prod', f }); return ''; } }); }
+  if (has('music')) { const pw = coHireOK(s, 'prod', f); rows.push({ t: '사내 프로듀서 뽑기', h: `사내 프로듀서 ${coProdCount(s)}/${CO_GRP_CAP[coTier(t, 'music')]}명${pds.length > coProdCount(s) ? ' (전담 프로듀서는 제외됨)' : ''} · 그룹에 전담으로 붙이면 앨범 기획 · 선정을 맡는다 · 붙이지 않아도 '사내 제작'으로 곡을 쓴다`, ok: !pw, why: pw, btn: '뽑기', run: s => { fireEvent(s, 'co_hire', { job: 'prod', f }); return ''; } }); }
   if (has('mcn')) { const ew = coHireOK(s, 'edit', f); rows.push({ t: '편집자 뽑기', h: `편집자 ${eds.length}/${CO_ED_CAP[coTier(t, 'mcn')]}명 · 한 명이 크리에이터 ${CO_ED_PER}명까지 맡는다`, ok: !ew, why: ew, btn: '뽑기', run: s => { fireEvent(s, 'co_hire', { job: 'edit', f }); return ''; } }); }
   let h = `<div class="sec-h">직원 <span class="n">월급 합계 ${fmtWon(coStaff(s, null, f).reduce((a, x) => a + x.co.sal, 0))}</span></div>` + rows.map(actRow).join('');
   if (tr && trs.length) h += `<div class="sec-h">트레이너</div>` + trs.map(x => actRow({ t: `${trFieldN(x.co.k)} ${x.name} (${gNn(x)} · ${pAge(s, x)}세)`, h: coStaffLine(x), ok: true, danger: true, btn: '내보내기', confirm: `${x.name}을 내보낼까요?`, run: s => coFire(s, x) })).join('');

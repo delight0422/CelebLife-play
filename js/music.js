@@ -178,7 +178,7 @@ E({
 
 // ───── 유행을 바꾼 곡 (v165) ─────
 // 유행이 아닌 컨셉으로 낸 내 그룹 곡(내 회사 그룹 포함)이 차트 최고 1위 + 음악방송 1위 6회 이상이면, 그 컨셉이 새 유행이 될 수 있다
-// v166: 확률은 6회에 50%, 6회를 넘는 1위 한 번마다 8%씩 (9회 74% · 12회 98%). 음악방송 1위가 없는 솔로 · 밴드는 해당 없음
+// v166: 확률은 6회에 50%, 6회를 넘는 1위 한 번마다 8%씩 (9회 74% · 12회 98%). v167: 솔로도 음악방송에 나가서 해당된다. 밴드는 해당 없음
 // 한 번 바뀌면 2년 동안은 다시 일어나지 않고, 1년 동안은 유행이 저절로 바뀌지 않는다 (s.trendLock)
 function hitTrendP(peak, wins) { return peak === 1 && wins >= 6 ? Math.min(1, 0.5 + 0.08 * (wins - 6)) : 0; }
 function hitTrend(s, c, peak, wins) {
@@ -2285,7 +2285,8 @@ E({
     const cf = cFit(s, d.c, [p], stageYrs(s));
     const sc = songScore(s, { perf: cPerf(soloScore(s, t.type), cf), q: d.q, fans: totalFans(s), tier: signed ? t.tier : 0, trend: (d.tr = d.c ? d.c === s.trend : U.chance(0.3)), bonus: (d.self ? 3 : 0) + (p.tal.star - 50) * 0.12 + cScoreB(cf) });
     cNote(s, cf, d.title);
-    d.peak = chartFromScore(sc); d.ht = false; // 솔로는 음악방송 1위가 없어 유행을 바꾸지 않는다 (v166)
+    // v167: 솔로도 아이돌처럼 음악방송에 나가 1위를 한다 (팬이 적으면 1위 횟수가 적다). 유행을 바꾸는 조건도 아이돌과 같다
+    d.peak = chartFromScore(sc); d.wins = showWins(sc, totalFans(s)); d.ht = hitTrend(s, d.c, d.peak, d.wins);
     jpopWork(s, 'solo', sc);
     d.gain = Math.round(fanGain(s, sc, mk, signed ? 1.1 : 0.7) * myRoom(s, mk));
     s.fans[mk] = Math.max(0, s.fans[mk] + d.gain);
@@ -2305,20 +2306,20 @@ E({
     const sp = soloScore(s, t.type), ty = t.type === 'rap' ? 'rap' : t.type === 'perf' ? 'perf' : 'vocal';
     const F = [{ z: (sp - 45) / 18, g: { vocal: ['목소리가 곡을 꽉 채운다', '노래 실력이 확실하다'], rap: ['랩이 귀에 꽂힌다', '플로우가 살아 있다'], perf: ['퍼포먼스가 눈을 못 떼게 한다', '무대 장악력이 대단하다'] }[ty], b: { vocal: ['노래가 곡을 다 못 받쳐 준다'], rap: ['랩이 조금 어설프다'], perf: ['무대가 아직 덜 여물었다'] }[ty] },
       RX.q(d.q), RX.fans(totalFans(s), d.gain), RX.trend(!!d.tr, d.ht), RX.cf(cScoreB(cf)), RX.promo(signed ? t.tier : 0)];
-    d.card = songCardMake({ t: d.title, by: actName(s, 'solo'), peak: d.peak, fans: [['내 팬', d.gain]], pay: gross > 0 ? d.sale : null, bill: d.bill }, F, sc, t);
+    d.card = songCardMake({ t: d.title, by: actName(s, 'solo'), peak: d.peak, wins: d.wins, fans: [['내 팬', d.gain]], pay: gross > 0 ? d.sale : null, bill: d.bill }, F, sc, t);
     if (d.mk) d.card.mk = d.mk;
     if (d.ht) hitTrendGo(s, d.c, d.title, actName(s, 'solo'));
-    // 실시간 창 (12-1): 솔로는 음악방송 1위가 없어서 1위 발표 장면도 없다
-    d.card.live = liveStage({ k: 'solo', c: d.c, mic: 1, key: t.rel === 1, place: t.rel === 1 ? '데뷔 무대' : '음악방송', t: d.title, g: actName(s, 'solo'), cn: actCall(s, 'solo'), mem: [[actCall(s, 'solo'), '']], mi: 0,
-      z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, cf: F[4].z, star: (p.tal.star - 50) / 25, me: F[0].z }, sc, debut: t.rel === 1 });
-    addWork(s, { type: '싱글', title: d.title, by: actName(s, 'solo'), sc, pay: d.sale || 0, note: chartText(d.peak) + (d.self ? ' · 자작곡' : ''), card: d.card });
+    // 실시간 창 (12-1): 데뷔 무대 · 컴백 음악방송. v167: 1위 후보에 들면 1위 발표 장면도 (아이돌과 같다)
+    d.card.live = liveStage({ k: 'solo', c: d.c, mic: 1, key: t.rel === 1 || d.wins > 0 || sc >= 66, place: t.rel === 1 ? '데뷔 무대' : '음악방송', t: d.title, g: actName(s, 'solo'), cn: actCall(s, 'solo'), mem: [[actCall(s, 'solo'), '']], mi: 0,
+      z: { perf: F[0].z, q: F[1].z, fans: F[2].z, trend: F[3].z, cf: F[4].z, star: (p.tal.star - 50) / 25, me: F[0].z }, sc, wins: d.wins, cand: sc >= 66 ? 1 : 0, rv: sc >= 66 && !d.wins ? npcStageRival(s, actName(s, 'solo')) : '', debut: t.rel === 1 });
+    addWork(s, { type: '싱글', title: d.title, by: actName(s, 'solo'), sc, pay: d.sale || 0, note: chartText(d.peak) + (d.wins ? ` · 음악방송 1위 ${d.wins}회` : '') + (d.self ? ' · 자작곡' : ''), card: d.card });
     if (t.rel === 1) milestone(s, `${age(s)}세에 첫 솔로곡 ${josa(`「${d.title}」`, '을를')} 냈다.`);
     if (d.peak && d.peak <= 10 && !t.hitMs) { t.hitMs = true; milestone(s, `${age(s)}세에 ${josa(`「${d.title}」`, '으로')} 음원 차트 ${d.peak}위에 올랐다.`); }
     d.sc = sc; d.cm = comments(sc, actNick(s, 'solo'));
   },
   html: (s, d) => d.card && typeof songCardHTML === 'function' ? cardText(s, d) + albBannerHTML(d.card.mk) + songCardHTML(d.card) : '',
-  text: (s, d) => `「${d.title}」${d.self ? ` (자작곡${d.c ? ` · '${d.c}' 컨셉` : ''})` : d.w && d.c ? ` (작곡 ${d.w} · '${d.c}' 컨셉)` : ''} 성적이 나왔다.${d.side ? ` ${d.side}` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}\n팬 ${sgnFans(d.gain)}`}${d.sale ? `\n\n음반·음원 정산 ${fmtWon(d.sale)}` : ''}\n매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.card ? '' : `\n\n반응: ${d.cm}`}`,
-  ch: (s, d) => songCommentCh(s, d, `${josa(`「${d.title}」`, '을를')} 발표했다. ${chartText(d.peak)}.`, 'solo'),
+  text: (s, d) => `「${d.title}」${d.self ? ` (자작곡${d.c ? ` · '${d.c}' 컨셉` : ''})` : d.w && d.c ? ` (작곡 ${d.w} · '${d.c}' 컨셉)` : ''} 성적이 나왔다.${d.side ? ` ${d.side}` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}${d.wins ? ` · 음악방송 1위 ${d.wins}회` : ''}\n팬 ${sgnFans(d.gain)}`}${d.sale ? `\n\n음반·음원 정산 ${fmtWon(d.sale)}` : ''}\n매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.card ? '' : `\n\n반응: ${d.cm}`}`,
+  ch: (s, d) => songCommentCh(s, d, `${josa(`「${d.title}」`, '을를')} 발표했다. ${chartText(d.peak)}${d.wins ? `, 음악방송 1위 ${d.wins}회` : ''}.`, 'solo'),
 });
 E({
   id: 'solo_contract', cat: '계약', title: '솔로 계약 만료', tag: 'career',
