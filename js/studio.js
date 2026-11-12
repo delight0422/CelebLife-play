@@ -258,9 +258,16 @@ function coVidMonth(s, t, sales) {
     sendMsg(s, 'co_vad', { from: mv ? '음반 기획사' : b.n, title: mv ? '뮤직비디오 제작 의뢰' : '광고 제작 의뢰', months: 2, d: { what: mv ? '새 뮤직비디오' : `${b.cat} 광고`, fee } });
   }
 }
+// 제작 의뢰 글 (v179): 받는 회사 · 받는 돈 · 드는 돈 · 회사에 남는 돈 · 지금 자본금을 한눈에
+function coAdText(s, m, f, verb) {
+  const t = coOn(s) ? coT(s) : null, fee = m.d.fee, r = v => Math.round(fee * v / 1e5) * 1e5;
+  return `${m.from}에서 ${m.d.what} 제작을 맡아 달라고 한다.\n\n받는 돈 ${fmtWon(fee)} · ${verb} 데 드는 돈 ${fmtWon(r(0.55))}~${fmtWon(r(0.75))}\n회사에 남는 돈 ${fmtWon(r(0.25))}~${fmtWon(r(0.45))} (보통 ${fmtWon(r(0.35))})${t && t.f[f] ? `\n지금 「${coFName(t, f)}」 자본금 ${fmtWon(coM(t, f))}` : ''}`;
+}
+function coAdTo(s, f, n) { const t = coOn(s) ? coT(s) : null; return t && t.f[f] ? `「${coFName(t, f)}」 (내 ${n})` : `내 ${n} (지금은 없음)`; }
 INBOX.co_vad = {
   ic: '🎬',
-  text: (s, m) => `${m.from}에서 ${m.d.what} 제작을 맡아 달라고 한다.\n\n제작 금액 ${fmtWon(m.d.fee)} · 찍는 데 드는 돈은 그중 65%쯤이다.`,
+  to: s => coAdTo(s, 'video', '영상 제작사'),
+  text: (s, m) => coAdText(s, m, 'video', '찍는'),
   ch: (s, m) => [
     { t: '맡는다', ok: s => coOn(s) && !!coT(s).f.video, h: coOn(s) && coT(s).f.video ? '' : '영상 제작사를 운영하고 있어야 한다', f: s => { const t = coT(s), cost = Math.round(m.d.fee * U.fl(0.55, 0.75) / 1e5) * 1e5; coIn(t, m.d.fee, '광고·뮤직비디오 제작', 'video'); coOut(t, cost, '광고·뮤직비디오 제작비', 'video'); coVRepF(t, 'video', 0.3); return `「${t.name}」에서 ${m.from} ${josa(m.d.what, '을를')} 만들었다. 남은 돈 ${fmtWon(m.d.fee - cost)}.`; } },
     { t: '거절한다', f: () => `${m.from}의 제작 의뢰를 거절했다.` },
@@ -604,7 +611,8 @@ function coAniMonth(s, t, sales) {
 }
 INBOX.co_aad = {
   ic: '🎨',
-  text: (s, m) => `${m.from}에서 ${m.d.what} 제작을 맡아 달라고 한다.\n\n제작 금액 ${fmtWon(m.d.fee)} · 만드는 데 드는 돈은 그중 65%쯤이다.`,
+  to: s => coAdTo(s, 'anime', '애니메이션 제작사'),
+  text: (s, m) => coAdText(s, m, 'anime', '만드는'),
   ch: (s, m) => [
     { t: '맡는다', ok: s => coOn(s) && !!coT(s).f.anime, h: coOn(s) && coT(s).f.anime ? '' : '애니메이션 제작사를 운영하고 있어야 한다', f: s => { const t = coT(s), cost = Math.round(m.d.fee * U.fl(0.55, 0.75) / 1e5) * 1e5; coIn(t, m.d.fee, '광고·게임 애니메이션 제작', 'anime'); coOut(t, cost, '광고·게임 애니메이션 제작비', 'anime'); coVRepF(t, 'anime', 0.3); return `「${t.name}」에서 ${m.from} ${josa(m.d.what, '을를')} 만들었다. 남은 돈 ${fmtWon(m.d.fee - cost)}.`; } },
     { t: '거절한다', f: () => `${m.from}의 제작 의뢰를 거절했다.` },

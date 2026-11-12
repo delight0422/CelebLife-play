@@ -129,7 +129,8 @@ function turnSumHTML(s, T) {
   MONEY_TAP = null;
   h += `<div class="ts-ch">${ch.map(x => `<span class="chip">${x}</span>`).join('')}</div>`;
   // 일상은 같은 문장을 한 요약에 한 번만 (v118 UI A2)
-  const main = L.filter(x => x.k !== 'flavor'), flav = L.filter(x => x.k === 'flavor').filter((x, i, A) => A.findIndex(y => y.x === x.x) === i);
+  // v179: 맡긴 일(CEO · 전담 프로듀서, x.dl)은 특별한 일에 넣지 않고 맨 아래 접힌 줄 하나로
+  const main = L.filter(x => x.k !== 'flavor' && !x.dl), dlg = L.filter(x => x.dl && x.k !== 'flavor'), flav = L.filter(x => x.k === 'flavor').filter((x, i, A) => A.findIndex(y => y.x === x.x) === i);
   const box = {};
   for (const x of main) (box[tsCat(x)] = box[tsCat(x)] || []).push(x);
   // 성장 칸 맨 아래: 이번에 오른 특기 · 재능 · 숙련도 · 평판 · 인지도 (이번에 처음 배운 특기는 위에 따로 있다)
@@ -146,6 +147,7 @@ function turnSumHTML(s, T) {
     if (!B) continue;
     h += `<div class="ts-box ${id}"><div class="ts-bh">${ic} ${n}</div>` + B.map(x => { const hh = LOG_HTML.get(x), si = x.e ? songIdx(s, x) : -1; return `<div class="ts-i${si !== -1 ? ' ts-song' : ''}"${si !== -1 ? ` data-song="${si}"` : ''}>${mo ? `<span class="ts-mo">${x.up ? '' : ymOfT(s, x.t).m + '월'}</span>` : ''}<span class="ts-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${id === 'win' && x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}${x.lv ? liveBtnHTML(x.lv, '무대 보기') : ''}${x.pl ? plioBtnHTML(x.pl) : ''}</span></div>`; }).join('') + `</div>`;
   }
+  if (dlg.length) h += `<details class="ts-more ts-dl"><summary>🤝 맡긴 일 ${dlg.length}건</summary>${dlg.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   if (flav.length) h += `<details class="ts-more" open><summary>☕ 일상 ${flav.length}건</summary>${flav.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   h += `</div>`;
   const why = T.why === 'ev' ? '📌 결정할 일이 생겼다' : T.why === 'msg' ? '📨 새 메시지가 왔다' : '';
@@ -1013,7 +1015,9 @@ function msgHTML(s, m) {
   const left = Math.max(0, m.due - s.t);
   let h = `<div class="msg ${!m.read ? 'new' : ''}"><div class="msg-h"><b>${!m.read ? '<i class="rdot in"></i>' : ''}${INBOX[m.kind].ic || '📨'} ${U.esc(m.title)}${INBOX[m.kind].tag ? `<span class="fix-tag sm">${INBOX[m.kind].tag}</span>` : ''}${!m.read ? '<span class="new-tag">새 제안</span>' : ''}</b><span class="due ${left <= 1 ? 'soon' : ''}">${left ? `기한 ${left}개월 남음` : '이번 달까지'}</span></div>`;
   const ago = s.t - m.at;
-  h += `<div class="msg-from">보낸 곳: ${U.esc(m.from)} · ${ago ? `${ago}개월 전` : '이번 달'}에 받음</div>`;
+  // v179: 누구한테 온 제안인지 (내 회사 · 내 밴드 · 나)
+  const to = INBOX[m.kind].to ? INBOX[m.kind].to(s, m) : '나';
+  h += `<div class="msg-from">보낸 곳: ${U.esc(m.from)} → 받는 곳: <b>${U.esc(to)}</b> · ${ago ? `${ago}개월 전` : '이번 달'}에 받음</div>`;
   h += `<div class="msg-d">${nl(INBOX[m.kind].text(s, m))}</div><div class="msg-btns">`;
   msgChoices(s, m).forEach((c, i) => { const ok = !c.ok || c.ok(s); h += `<div class="opt"><button class="btn sm ${i === 0 ? 'primary' : ''}" data-msg="${m.id}" data-mi="${i}" ${ok ? '' : 'disabled'}>${U.esc(c.t)}</button>${c.tr ? TR_BADGE : ''}${c.h ? `<span class="h">${U.esc(c.h)}</span>` : ''}</div>`; });
   return h + `</div></div>`;
@@ -1395,12 +1399,23 @@ function panelPeople() {
     if (open && (k === 'work' || k === 'know')) {
       const G = {};
       for (const n of L) { const g = k === 'work' ? orgOf(s, n) : (n.job || '기타'); (G[g] = G[g] || []).push(n); }
+      // 그룹은 소속사 아래에 (v179): 동료 묶음 가운데 그룹 · 밴드 · 기수(와 내 회사의 직원 · 연습생 · 소속)는 그 회사 묶음 안의 작은 묶음으로
+      const par = {};
+      if (k === 'work') for (const g of Object.keys(G)) { const p = orgPar(s, g); if (p && p !== g) (par[p] = par[p] || []).push(g); }
+      const kid = new Set([].concat(...Object.values(par)));
+      const cnt = g => (G[g] || []).length + (par[g] || []).reduce((a, c) => a + G[c].length, 0);
       // '기타'는 늘 맨 아래 (v134)
       const etc = x => /기타$/.test(x) ? 1 : 0;
-      const keys = Object.keys(G).sort((a, b) => etc(a) - etc(b) || G[b].length - G[a].length || a.localeCompare(b));
+      const keys = [...new Set(Object.keys(G).filter(g => !kid.has(g)).concat(Object.keys(par)))].sort((a, b) => etc(a) - etc(b) || cnt(b) - cnt(a) || a.localeCompare(b));
       for (const g of keys) {
         const key = k + ':' + g, o2 = UI.pplOpen[key] != null ? UI.pplOpen[key] : keys.length === 1;
-        h += `<div class="ap-sub">` + tog(key, o2, U.esc(g), G[g].length) + (o2 ? G[g].map(n => npcCard(s, n)).join('') : '') + `</div>`;
+        h += `<div class="ap-sub">` + tog(key, o2, U.esc(g), cnt(g));
+        if (o2) {
+          h += (G[g] || []).map(n => npcCard(s, n)).join('');
+          const C = (par[g] || []).sort((a, b) => G[b].length - G[a].length);
+          for (const c of C) { const ck = key + '>' + c, o3 = UI.pplOpen[ck] != null ? UI.pplOpen[ck] : C.length === 1; h += `<div class="ap-sub ap-sub2">` + tog(ck, o3, U.esc(orgKidN(c, g)), G[c].length) + (o3 ? G[c].map(n => npcCard(s, n)).join('') : '') + `</div>`; }
+        }
+        h += `</div>`;
       }
     } else if (open) h += L.map(n => npcCard(s, n)).join('');
     h += `</div>`;
@@ -1436,6 +1451,19 @@ function orgOf(s, n) {
   const o = n.metOrg || orgGuess(s, n, job);
   return o ? `${ic} ${o}` : `${relJobName(job)} 시절`;
 }
+// 동료 묶음의 부모 묶음 (v179): 그룹은 그 그룹의 소속사 아래, 내 회사의 직원 · 연습생 · 소속 · 그룹은 회사 묶음 아래. 없으면 null
+function orgPar(s, g) {
+  const co = typeof coOn === 'function' && coOn(s) ? coT(s) : null, coK = co ? `🏢 ${co.name}` : null;
+  if (co && [`🏢 ${co.name} 직원`, `🌱 ${co.name} 연습생`, `🏢 ${co.name} 소속`].includes(g)) return coK;
+  if (co && coCardGroups(s).some(cg => g === `${cg.kind === 'band' ? '🎸 밴드' : cg.kind === 'vt' ? '🎙️ 기수' : '💫 그룹'} 「${cg.name}」`)) return coK;
+  const it = s.tracks.idol, ig = it && it.g;
+  if (ig && ig.name && it.agN && g === `💫 그룹 「${ig.name}」`) return co && it.agN === co.name ? coK : `${CAREERS.idol.ic} ${it.agN}`;
+  const bt = s.tracks.band, bd = bt && bt.b;
+  if (bd && bd.name && bt.st === 'signed' && bt.agN && g === `🎸 밴드 「${bd.name}」`) return co && bt.agN === co.name ? coK : `${CAREERS.band.ic} ${bt.agN}`;
+  return null;
+}
+// 부모 묶음 안에서 보이는 작은 묶음 이름: 회사 이름은 위에 있으니 뺀다 ('🏢 새벽빛 엔터 직원' → '🏢 직원')
+function orgKidN(c, p) { const nm = p.replace(/^\S+\s/, ''); return c.replace(` ${nm} `, ' ').replace(new RegExp(` ${nm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`), ''); }
 // 소속을 남기기 전(예전 세이브)에 만난 사람: 관계와 만난 곳 글자로 짐작한다. 모르면 ''
 function orgGuess(s, n, job) {
   if (n.coT && coBase(n.coT)) return coBase(n.coT).n;

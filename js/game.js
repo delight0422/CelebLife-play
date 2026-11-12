@@ -216,8 +216,11 @@ function repWord(v) { return v >= 80 ? '모두가 칭찬' : v >= 62 ? '좋은 �
 function wealthWord(w) { return w <= 1 ? '가장 가난한' : w <= 3 ? '형편이 빠듯한' : w <= 6 ? '평범한' : w <= 8 ? '형편이 넉넉한' : '아주 부유한'; }
 
 // ───── 기록 ─────
+// v179: 맡긴 일(CEO · 전담 프로듀서)이 남기는 기록은 dl 표시를 붙여 요약 창의 '특별한 일'에 넣지 않는다 (DL_N > 0인 동안)
+let DL_N = 0;
+function dlRun(fn) { DL_N++; try { return fn(); } finally { DL_N--; } }
 function addLog(s, x, k) {
-  s.log.push({ t: s.t, a: age(s), x, k: k || '' });
+  s.log.push(DL_N > 0 ? { t: s.t, a: age(s), x, k: k || '', dl: 1 } : { t: s.t, a: age(s), x, k: k || '' });
   if (s.log.length > 4000) s.log.splice(0, s.log.length - 4000);
 }
 function milestone(s, x) { s.ms.push({ a: age(s), x }); }
@@ -652,7 +655,8 @@ function pullBack(s) {
   fireQ(s, q);
 }
 function autoPick(s, ev, d, C) {
-  if (ev.form || (typeof ev.keepPop === 'function' ? ev.keepPop(s, d) : ev.keepPop)) return -1;
+  // v179: 결과 기사(ev.news)는 어떤 경우든 따로 창으로 띄운다
+  if (ev.form || ev.news || (typeof ev.keepPop === 'function' ? ev.keepPop(s, d) : ev.keepPop)) return -1;
   if (ev.noCh) return C.length - 1;
   if (ev.auto != null) return typeof ev.auto === 'function' ? ev.auto(s, d) : ev.auto;
   return C.length === 1 ? 0 : -1;

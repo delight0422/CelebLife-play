@@ -2063,6 +2063,7 @@ function bandReactF(s, t, d, cf) {
 }
 INBOX.band_fest = {
   ic: '🎪',
+  to: s => `밴드 「${((s.tracks.band || {}).b || {}).name || ''}」`,
   text: (s, m) => `「${m.from}」에서 밴드 ${josa(`「${(s.tracks.band.b || {}).name || ''}」`, '을를')} 섭외하고 싶다고 한다. ${m.d.festM != null ? `${m.d.festM + 1}월 첫 주말 · ` : ''}출연료 ${fmtWon(m.d.fee)}. ${(m.d.mult || 1) >= 1.5 ? '큰 무대라 새 팬을 모으기 좋다.' : '아담한 무대지만 처음 보는 관객을 만날 수 있다.'}`,
   ch: (s, m) => [
     // 나간다 = 그 자리에서 공연하지 않고, 페스티벌 달에 무대에 서는 일정으로 잡는다. (예전 세이브의 날짜 없는 섭외는 바로 공연)
