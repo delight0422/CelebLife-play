@@ -96,7 +96,7 @@ E({
   ch: (s, d) => {
     const act = d.ids.some(id => ACT_APPLY.some(a => a.id === id)), job = d.ids.some(id => JOB_APPLY.some(a => a.id === id));
     const o = [];
-    if (job) o.push({ t: '📝 직업 지원 창 열기', f: s => { s.uiOpen = 'applyjob'; return ''; } });
+    if (job) o.push({ t: '📝 구직활동 창 열기', f: s => { s.uiOpen = 'applyjob'; return ''; } });
     if (act) o.push({ t: '🎭 활동 지원 창 열기', f: s => { s.uiOpen = 'applyact'; return ''; } });
     o.push({ t: '확인', f: () => '' });
     return o;

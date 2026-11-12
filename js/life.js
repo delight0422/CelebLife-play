@@ -100,6 +100,14 @@ const SURGERY = {
   contour: { n: '윤곽 수술', c: 1200, v: 9, risk: 0.08, rest: 2, min: 19 },
 };
 
+// 기타 창에 지금 보이는 묶음 (v183, 생활 '기타' 배너 설명 · 레드닷). lifeActs의 learn · surgery · rest 조건과 같게 맞춘다
+function etcCats(s) {
+  const a = age(s), L = [];
+  if (a >= 19) L.push('learn');
+  if (Object.entries(SURGERY).some(([id, x]) => !s.flags[id] && a >= x.min)) L.push('surgery');
+  if (a >= 19) L.push('rest');
+  return L;
+}
 // 장비 단계 (예전 세이브의 true는 1단계)
 const EQ_MAX = 3;
 function eqLv(s, id) { const v = (s.equip || {})[id]; return v === true ? 1 : (v || 0); }

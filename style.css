@@ -190,6 +190,9 @@ h2 .sk-cnt { vertical-align: middle; margin-left: var(--sp-1); }
 
 /* 사건 창·패널 */
 .overlay { position: fixed; inset: 0; background: rgba(28, 18, 48, .38); display: flex; align-items: center; justify-content: center; z-index: 50; padding: var(--sp-4); }
+/* 위쪽에 붙는 창 (v183, ui.js panelTop): 안에서 높이가 바뀌어도 창 위쪽 끝이 그대로다 */
+.overlay.top { align-items: flex-start; padding-top: max(var(--sp-4), 6vh); }
+.overlay.top > .mcard { max-height: calc(100vh - max(var(--sp-4), 6vh) - var(--sp-4)); }
 .mcard { background: var(--card); border-radius: 20px; padding: var(--sp-4) var(--sp-4) var(--sp-4); width: 100%; max-width: 560px; max-height: calc(100vh - 32px); overflow-y: auto; position: relative; box-shadow: 0 20px 60px rgba(30, 10, 80, .25); }
 .mcard.sheet { max-width: 760px; }
 .mcard.small { max-width: 400px; }
@@ -407,6 +410,16 @@ button.ap-tog { width: 100%; background: none; border: 0; padding: 0; color: inh
 @media (max-width: 760px) { .end-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* 여러 단계 중 고르는 줄 (자녀 교육비) */
 .act-opts { display: flex; gap: var(--sp-1); flex-wrap: wrap; justify-content: flex-end; flex-shrink: 0; }
+/* 구직활동 · 활동 지원에서 지금 지원할 수 없는 줄 (v183 · v184): 막힌 버튼은 회색 */
+.act.ap-off .btn:disabled { background: #eceaf1; border-color: #e2dfe9; color: #9d98ad; opacity: 1; }
+/* 백과사전 (v184): 진로 탭 '시작하는 법' · 생활 탭 칸. 왼쪽 이름, 오른쪽 조건 */
+.dx-box { margin: var(--sp-1) 0 var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; }
+.dx-h { font-size: var(--fs-1); font-weight: 700; color: var(--muted); margin-bottom: 2px; }
+.dx-r { display: flex; gap: var(--sp-3); font-size: var(--fs-2); line-height: 1.55; padding: 2px 0; }
+.dx-r + .dx-r { border-top: 1px dashed var(--line); }
+.dx-r b { flex: 0 0 13em; font-weight: 600; color: var(--ink); }
+.dx-r span { flex: 1; color: var(--ink2); }
+@media (max-width: 760px) { .dx-r { display: block; } .dx-r b { display: block; } }
 
 /* 생활 카드 (오른쪽 아래): 집 · 지속 관리 · 장비 설치 · 기타 탭 */
 .life-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-1); margin: 0 0 var(--sp-2); }
@@ -795,6 +808,7 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .ts-x .lv-re { margin: var(--sp-2) 0 2px; }
 .lv-set { display: flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; padding: var(--sp-1) 2px; }
 .lv-set span { font-size: var(--fs-3); color: var(--ink2); margin-right: var(--sp-1); }
+.lv-set .ls-v { min-width: 2.2em; text-align: center; font-size: var(--fs-3); }
 @media (max-width: 700px) {
   .live-ov { padding: var(--sp-2); }
   .mcard.live-card { padding: var(--sp-3) var(--sp-3); }

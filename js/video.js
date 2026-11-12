@@ -1220,7 +1220,7 @@ JOB_APPLY.push({
   run: s => { s.cd.dedApply = s.t + 6; fireEvent(s, 'ded_pick', {}); return ''; },
 });
 E({
-  id: 'ded_pick', cat: '직업 지원', title: '전담 편집자 구함', tag: 'career',
+  id: 'ded_pick', cat: '구직활동', title: '전담 편집자 구함', tag: 'career',
   init(s, d) { d.cs = [3.4, 4.4, 5.4].map(sz => { const cr = makeCreator(s, sz); return { cr, pay: dedPay(cr.subs), p: audP(dedScore(s), dedThr(cr.subs)) }; }); },
   text: s => `전담 편집자를 찾는 방송인들이 있다. 한 명에게 지원할 수 있다.\n\n영상 편집 ${lvi(me(s), 'edit')}레벨`,
   ch: (s, d) => d.cs.map(x => ({ t: `${creatorName(s, x.cr)} 「${x.cr.ch}」`, tr: (x.cr.vt ? '버튜버' : '캠튜버') === s.trendTV.yt, h: `${x.cr.cat} · 구독자 ${fmtFans(x.cr.subs)} · 월급 ${fmtWon(x.pay)} · 합격 가능성 ${fmtPct(x.p)}`, f: s => { queueEv(s, 'ded_res', 1, x); return `${creatorName(s, x.cr)}의 전담 편집자 자리에 지원했다.`; } })).concat([{ t: '그만둔다', f: () => '이번엔 지원하지 않기로 했다.' }]),

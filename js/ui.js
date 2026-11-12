@@ -477,7 +477,7 @@ function renderJobsCard() {
   if (s.scandal && (s.scandal.resp || s.scandal.seen)) row('scandal', `🔥 ${U.esc(SC[s.scandal.id].n)}`, s.scandal.resp ? '여론을 지켜보는 중' : '대응을 기다리는 중');
   if (s.hiatus) row('hiatus', '🤐 자숙', `${s.hiatus.left}개월 남음 (${ymLater(s, s.hiatus.left)})`);
   if (rows.length) h += `<div class="trks">${rows.join('')}</div>`;
-  if (!any && !rows.length) h += `<div class="empty">아직 하는 일이 없다. 📝 직업 지원에서 시작할 수 있다.</div>`;
+  if (!any && !rows.length) h += `<div class="empty">아직 하는 일이 없다. 📝 구직활동에서 시작할 수 있다.</div>`;
   el.innerHTML = `<div class="card-h">💼 직업 활동</div><div class="jobs-body">${h}</div>`;
 }
 // 인간관계 박스: 박스를 누르면 인간관계 창. 안에는 가족 배너와 연인 배너 (결혼하면 가족 배너 하나)
@@ -616,7 +616,7 @@ function renderMoneyCard() {
   if (s.debt > 0) m += `<div class="row"><span>빚</span><b class="neg">${fmtWon(s.debt)}</b></div>`;
   if (s.sibLoan) m += `<div class="row"><span>형제자매에게 빌린 돈</span><b class="neg">${fmtWon(s.sibLoan.left)}</b></div>`;
   if (s.friendLoan) m += `<div class="row"><span>${U.esc(s.friendLoan.name)}에게 빌린 돈</span><b class="neg">${fmtWon(s.friendLoan.left)}</b></div>`;
-  m += `<div class="row"><span>지난달 들어온 돈</span><b class="pos">+${fmtWon(lm.inc)}</b></div><div class="row"><span>지난달 나간 돈</span><b class="neg">-${fmtWon(lm.exp)}</b></div>`;
+  m += `<div class="row"><span>지난달 들어온 돈</span><b class="pos">+${fmtWon(lm.inc)}</b></div><div class="row"><span>지난달 나간 돈</span><b class="neg">${Math.round(lm.exp) ? '-' : ''}${fmtWon(lm.exp)}</b></div>`;
   if (lm.familyPaid) m += `<div class="hint">가족이 대 준 돈 ${fmtWon(lm.familyPaid)} (${famPaidWhat(s)})</div>`;
   m += `<div class="mn-r total"><span>총자산 (집 포함)</span><b>${fmtWon(s.money + ha)}</b></div>`;
   const mc = $('#money-card'); if (mc) mc.innerHTML = m;
@@ -1004,10 +1004,15 @@ function renderPanel() {
   else if (typeof window['panel_' + k] === 'function') h += window['panel_' + k]();
   h += pResHTML();
   $('#pcard').classList.toggle('wide', k === 'company'); // 회사 창은 넓게 (v131)
+  $('#panel').classList.toggle('top', panelTop(k));
   $('#pcard').innerHTML = h;
   apPlace();
   if (k === 'pick') { const q = $('#pick-q'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }
 }
+// 위쪽에 붙는 창 (v183): 탭 · 펼치기 · 찾기 · 행동 결과 띠로 높이가 바뀌는 창은 가운데 정렬이면 누를 때마다 위치가 튄다.
+// 안에서 높이가 안 바뀌는 창(메뉴 · 도움말 · 세이브 코드 · 프로필 · 가족)만 가운데에 두고, 나머지는 위쪽에 붙인다
+const PANEL_MID = new Set(['menu', 'help', 'pastecode', 'soon', 'family']);
+function panelTop(k) { return !(PANEL_MID.has(k) || ((k === 'profile' || k === 'me') && ['born', 'fam'].includes(UI.pfTab))); }
 // 일정 칸 고르기: 검색과 설명
 function panelPick() {
   const s = S, p = me(s), i = UI.pickSlot, sl = s.slots[i];
@@ -1080,7 +1085,7 @@ function apSorted(s, L) {
 }
 function panelApplyJob() {
   const s = S, list = jobApplies(s);
-  let h = `<h2>📝 직업 지원</h2><p class="p-intro">분야를 누르면 직업이 나오고, 직업을 누르면 그 바로 아래에 지원할 수 있는 곳이 나온다. 직업 옆 숫자는 지금 바로 지원할 수 있는 곳의 수다.<br>직업은 ${JOB_CAP}개까지 같이 할 수 있다.</p>`;
+  let h = `<h2>📝 구직활동</h2><p class="p-intro">분야를 누르면 직업이 나오고, 직업을 누르면 그 바로 아래에 지원할 수 있는 곳이 나온다. 직업 옆 숫자는 지금 바로 지원할 수 있는 곳의 수다.<br>직업은 ${JOB_CAP}개까지 같이 할 수 있다.</p>`;
   UI.apjOpen = UI.apjOpen || {};
   if (!list.length) return h + `<div class="empty">지금 나이와 상황에서 지원할 수 있는 직업이 없다.</div>`;
   for (const [cid, cn] of APPLY_CATS) {
@@ -1129,7 +1134,7 @@ function apSize(s, a) {
   return '';
 }
 // 크기 묶음 안에서는 꼬리표의 '중형 · '을 뗀다 (묶음 이름과 겹친다)
-function apJobRow(s, a, inSz) { const tag = inSz ? String(a.tag || '').replace(/^(대형|중형|소형)( · )?/, '') : a.tag; return actRow({ t: a.n, tag, h: a.h ? a.h(s) : '', ok: !!a.ok(s), why: a.why ? a.why(s) : '', btn: '지원하기', run: a.run }); }
+function apJobRow(s, a, inSz) { const tag = inSz ? String(a.tag || '').replace(/^(대형|중형|소형)( · )?/, '') : a.tag, ok = !!a.ok(s); return actRow({ t: a.n, tag, h: a.h ? a.h(s) : '', ok, why: a.why ? a.why(s) : '', btn: '지원하기', run: a.run, cls: ok ? '' : 'ap-off' }); }
 function apSizeList(s, g) {
   const free = g.items.filter(a => !apSize(s, a));
   let h = free.length ? `<div class="ap-list">${apSorted(s, free).map(a => apJobRow(s, a)).join('')}</div>` : '';
@@ -1151,11 +1156,14 @@ function lifeAutoRow(a) {
     { btn: on ? '🔁 자동 켜짐' : '🔁 자동', on, ok: true, run: s => { s.lifeAuto = s.lifeAuto || {}; s.lifeAuto[a.autoKey] = !on; return ''; } }] });
 }
 // 활동 지원 한 줄: 지원하기 + 자동 (켜 두면 다시 지원할 수 있게 될 때마다 저절로 지원한다, 피드백 24)
+// 나이 때문에 못 하는지: '15세부터 지원할 수 있다' · '15~32세만 나갈 수 있다' · '30세까지만' 같은 이유 (v184)
+function ageWhy(w) { return /\d+세(부터|까지)|\d+~\d+세/.test(w || ''); }
+// 못 하는 '지원하기'는 회색 (ap-off, v183 · v184). '자동'은 나이 때문에 못 할 때만 막는다: 결과를 기다리는 동안 · 실력이 모자랄 때는 켜 두면 할 수 있게 될 때 저절로 지원한다. 켜 둔 자동은 언제든 끌 수 있다
 function actAutoRow(s, a) {
-  const ok = !!a.ok(s), on = !!(s.actAuto || {})[a.id];
-  return actRow({ t: `${a.ic || ''} ${a.n}`, h: a.h ? a.h(s) : '', why: ok ? '' : (a.why ? a.why(s) : ''), opts: [
+  const ok = !!a.ok(s), on = !!(s.actAuto || {})[a.id], why = ok ? '' : (a.why ? a.why(s) : '');
+  return actRow({ t: `${a.ic || ''} ${a.n}`, h: a.h ? a.h(s) : '', why, cls: ok ? '' : 'ap-off', opts: [
     { btn: '지원하기', on: true, ok, run: a.run },
-    { btn: on ? '🔁 자동 켜짐' : '🔁 자동', on, ok: true, run: s => { s.actAuto = s.actAuto || {}; s.actAuto[a.id] = !on; return ''; } }] });
+    { btn: on ? '🔁 자동 켜짐' : '🔁 자동', on, ok: ok || on || !ageWhy(why), run: s => { s.actAuto = s.actAuto || {}; s.actAuto[a.id] = !on; return ''; } }] });
 }
 function panelApplyAct() {
   const s = S, list = actApplies(s);
@@ -1252,7 +1260,7 @@ function panelLove() {
   if (age(s) >= 19) h += meetHTML(s);
   return h;
 }
-function contactLeftHTML(s) { return `<p class="p-intro">${calY(s)}년 ${halfName(s)}에 남은 연락: <b>${Math.max(0, CONTACT_MAX - contactsUsed(s))}번</b></p>`; }
+function contactLeftHTML(s) { return `<p class="p-intro"><b>${contactLeftLine(s)}</b></p>`; }
 // 형제자매: 동생이 태어날 때 남동생·여동생을 기록해 둔다
 function sibText(s) {
   const g = s.sibG || [], m = g.filter(x => x === '남').length, f = g.filter(x => x === '여').length, unk = s.youngerSib - m - f;
@@ -1342,9 +1350,49 @@ function panelTrk() {
   if (key === 'pt' && pt) return `<h2>${pt.rel === '배우자' ? '💍' : '💕'} ${U.esc(pt.name)}</h2>` + infoTable([['관계', pt.rel], ['나이 · 직업', `${pAge(s, pt)}세 · ${pt.job}`], ['성격', TRAIT_BY[pt.trait].n], ['친밀도', `${Math.round(pt.aff)}`], ['만난 곳', pt.met || '-'], ['특기', skillLine(pt, 3)]]);
   return gone;
 }
+// ───── 백과사전 (v184): 위쪽 '📚 백과사전' 버튼. 탭 두 개 — 진로(직업 설명 + 시작하는 법) · 생활(생활 박스 네 칸 안의 것이 언제 열리는지) ─────
+const DICT_TABS = [['career', '🧭 진로'], ['life', '🏠 생활']];
+// 직업마다 시작하는 길과 그 조건: [길, 조건]. 지원 항목(JOB_APPLY · ACT_APPLY)의 show · ok · why에서 옮겨 적었다. 조건을 바꾸면 여기도 같이 고친다
+const CAREER_REQ = {
+  idol: [['기획사 아이돌 오디션', '11~24세 · 노래 · 랩 · 춤 중 하나를 할 줄 알아야 한다 · 일본 · 미국 기획사는 일본어나 영어도 본다']],
+  band: [['밴드 만들기', '14세부터 · 보컬 · 기타 · 베이스 · 드럼 · 키보드 중 하나가 8레벨 이상'], ['인디 밴드 구인 공고에 지원', '14세부터 · 위 파트 중 하나가 18레벨 이상'], ['기획사 밴드 연습생 오디션', '13~24세 · 보컬이나 악기 하나가 12레벨 이상 · 한국 소형 · 중형 기획사'], ['기획사에 밴드 데모 보내기', '인디 밴드 멤버가 다 모이면']],
+  solo: [['인디 가수로 시작하기', '15세부터 · 보컬이나 랩이 12레벨 이상'], ['기획사 솔로 오디션', '15~30세 · 노래나 랩을 할 줄 알아야 한다 · 일본 · 미국 기획사는 일본어나 영어도 본다']],
+  player: [['연주가로 활동 시작', '14세부터 · 악기 하나가 15레벨 이상']],
+  dancer: [['프리랜서 댄서로 시작하기', '15세부터 · 댄스 25레벨 이상'], ['댄스팀 입단 오디션', '15~35세']],
+  actor: [['드라마 · 영화 오디션 (활동 지원)', '8세부터 · 연기 10레벨 이상 · 붙으면 배우 일을 시작한다'], ['배우 소속사 오디션', '8~40세'], ['지금 소속사를 통해 연기 시작하기', '14세부터 · 음악 소속사에 있을 때 · 연기 15레벨 이상'], ['소속사 없이 배우 시작하기', '19세부터 · 연기 15레벨 이상']],
+  variety: [['예능 출연 신청 (활동 지원)', '10세부터'], ['예능인으로 활동 시작하기', '16세부터 · 예능 25레벨 이상 · 팬 5천 명이 넘거나 예능에 나가 좋은 반응을 얻은 적이 있어야 한다'], ['방송사 개그맨 공채 시험', '19~34세 · 예능 25레벨 이상 · 1년에 한 번']],
+  youtube: [['라이브온 채널 열기', '14세부터 · 아이돌 연습생은 열 수 없다'], ['버튜버 개인세 준비', '14세부터 · 아바타 값이 든다 · 그림 실력이 있어야 고를 수 있는 아바타도 있다'], ['MCN 가입 신청', '채널을 하는 중 · MCN마다 정한 구독자 수를 넘어야 한다']],
+  vidol: [['버츄얼 아이돌 기획사 오디션', '14세부터 · 개인 채널이 없거나 개인세 버튜버일 때 · 일본 회사는 일본어도 본다']],
+  model: [['모델 에이전시 오디션', '14~32세'], ['프리랜서 모델로 시작하기', '16세부터 · 외모 · 운동신경 재능과 연기로 본다']],
+  voice: [['방송사 전속 성우 공채', '18~35세 · 연기 25레벨 이상 · 방송사마다 1년에 한 번'], ['프리랜서 성우로 시작하기', '18세부터 · 연기 30레벨 이상']],
+  composer: [['작곡가로 활동 시작', '14세부터 · 작곡 15레벨 이상']],
+  lyricist: [['작사가로 활동 시작', '14세부터 · 작사 15레벨 이상']],
+  producer: [['프로듀서로 나서기', '작곡 40레벨 이상 · 작곡가로 평판 30을 쌓았거나 히트곡 2곡 (가수 출신이면 작곡 50레벨 + 팬 5만 명으로 대신)'], ['기획사 사내 프로듀서 채용', '20세부터 · 위 조건을 채웠거나 프로듀서로 앨범을 만든 적이 있어야 한다']],
+  anr: [['기획사 A&R 채용', '20세부터']],
+  trainer: [['기획사 트레이너 채용', '20세부터 · 보컬 · 랩 · 댄스 · 악기 중 하나가 30레벨 이상']],
+  marketer: [['기획사 마케팅팀 채용', '20세부터']],
+  director: [['단편영화 찍으며 시작하기', '16세부터 · 연출 15레벨 이상'], ['영상 제작사 연출부 (조감독)', '20세부터 · 연출 25레벨 이상']],
+  writer: [['시나리오 작가로 시작하기', '16세부터 · 작문 15레벨 이상']],
+  webtoon: [['도전 만화에 올리기', '14세부터 · 그림 15 · 작문 10레벨 이상'], ['웹툰 공모전', '14세부터 · 그림 25 · 작문 20레벨 이상 · 1년에 한 번'], ['CP사 투고', '16세부터 · 그림 25 · 작문 20레벨 이상']],
+  webnovel: [['자유 연재에 올리기', '14세부터 · 작문 15레벨 이상'], ['웹소설 공모전', '14세부터 · 작문 25레벨 이상 · 1년에 한 번'], ['CP사 투고', '16세부터 · 작문 25레벨 이상']],
+  illust: [['일러스트레이터로 시작하기', '14세부터 · 그림 20레벨 이상']],
+  prof: [['대학원 진학 (대학원 길)', '21~45세 · 대학을 졸업해야 한다 · 박사를 마치면 교수 임용에 지원한다'], ['겸임교수 (현장 경력 길)', '25세부터 · 이어지는 현장 경력 5년 이상 · 그 직업 4등급 이상'], ['전임교수 (현장 경력 길)', '25세부터 · 현장 경력 10년 이상 · 그 직업 5등급 이상 · 대학 졸업'], ['산학협력중점교수 (현장 경력 길)', '25세부터 · 현장 경력 15년 이상 · 대학 졸업']],
+  tutor: [['학원 · 인강 강사 채용', '20세부터 · 학업이나 영어가 25레벨 이상']],
+  editor: [['프리랜서 영상 편집자로 시작하기', '16세부터 · 영상 편집 20레벨 이상'], ['스트리머 전담 편집자 구하기', '17세부터 · 영상 편집 25레벨 이상'], ['영상 제작사 · MCN 편집팀 채용', '20세부터 · 영상 편집 30레벨 이상']],
+  acttrainer: [['배우 소속사 연기 트레이너 채용', '20세부터 · 연기 30레벨 이상']],
+  animator: [['프리랜서 애니메이터로 시작하기', '16세부터 · 그림 20레벨 이상'], ['애니 제작사 작화팀 채용', '18세부터 · 그림 30레벨 이상']],
+  adir: [['단편 애니메이션 만들기', '16세부터 · 연출 · 그림 20레벨 이상 · 제작비가 든다'], ['애니 제작사 연출부 (각 화 연출)', '20세부터 · 연출 25레벨 이상']],
+  agency: [['회사 차리기 (메인 화면 회사 박스)', '20세부터 · 자본금 1억 원 · 다른 회사와 소속 계약이 없을 때']],
+};
+// 백과사전 한 칸: 제목 + [이름, 설명] 줄들
+function dxBox(title, rows) { return `<div class="dx-box">${title ? `<div class="dx-h">${title}</div>` : ''}${rows.map(([n, c]) => `<div class="dx-r"><b>${U.esc(n)}</b><span>${U.esc(c)}</span></div>`).join('')}</div>`; }
 function panelCareer() {
-  const s = S;
-  let h = `<h2>🧭 진로 백과사전</h2><p class="p-intro">직업을 얻은 뒤에는 이번 달 일정에서 직업 관련 활동을 할 수 있다. 직업은 여러 개를 같이 할 수 있지만, 소속 계약은 한 번에 한 곳과만 할 수 있다.${agencyContract(s) ? `<br><b>지금 계약:</b> ${U.esc(agencyContract(s))}` : ''}</p>`;
+  const tab = UI.dictTab === 'life' ? 'life' : 'career';
+  return `<h2>📚 백과사전</h2><div class="ap-row pf-tabs">${DICT_TABS.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-dicttab="${k}">${n}</button>`).join('')}</div>` + (tab === 'life' ? dictLifeHTML(S) : dictCareerHTML(S));
+}
+// 진로 탭: 예전 진로 백과사전 그대로 + 직업마다 '시작하는 법'
+function dictCareerHTML(s) {
+  let h = `<p class="p-intro">직업을 얻은 뒤에는 이번 달 일정에서 직업 관련 활동을 할 수 있다. 직업은 여러 개를 같이 할 수 있지만, 소속 계약은 한 번에 한 곳과만 할 수 있다. 직업마다 '시작하는 법'에 지원할 수 있는 나이와 꼭 필요한 특기를 적었다. 군 복무 중에는 지원할 수 없다.${agencyContract(s) ? `<br><b>지금 계약:</b> ${U.esc(agencyContract(s))}` : ''}</p>`;
   for (const g of CAREER_GROUPS) {
     const open = UI.openGroups[g.id];
     h += `<div class="sec-h tog" data-grp="${g.id}">${open ? '▾' : '▸'} ${g.n}</div>`;
@@ -1356,8 +1404,11 @@ function panelCareer() {
         const C = CAREERS[c.id];
         if (!C) { h += `<div class="act"><div><div class="a-t">${U.esc(c.n)}<span class="tag soon">준비 중</span></div><div class="a-h">다음 업데이트에서 열려요${c.soon ? ' · ' + U.esc(c.soon) : ''}</div></div></div>`; continue; }
         const t = s.tracks[c.id];
+        // 안 하는 직업의 덧붙임: 끝난 사연 · 현황 (v183: '직업 지원에서 시작할 수 있어요'는 뺐다, v184: 회사 차리는 곳은 '시작하는 법'으로)
+        const note = t.endNote || (C.status && C.status(s, t)) || '';
         // 지금 하는 일은 현황 아래에 그 직업 설명도 함께 보여 준다
-        h += `<div class="act" style="border:none;padding-bottom:0"><div><div class="a-t">${C.ic || ''} ${U.esc(C.n)}${trackOn(s, c.id) ? '<span class="tag">진행 중</span>' : ''}</div><div class="a-h">${U.esc(trackOn(s, c.id) && C.status ? careerStatus(s, c.id) : C.desc || '')}</div>${trackOn(s, c.id) && C.status && C.desc ? `<div class="hint">${U.esc(C.desc)}</div>` : ''}${trackOn(s, c.id) ? '' :`<div class="hint">${t.endNote || (C.status && C.status(s, t)) ? U.esc((t.endNote || C.status(s, t)) + ' · ') : ''}${c.id === 'agency' ? '🏢 메인 화면 회사 박스에서 차릴 수 있어요' : '📝 직업 지원에서 시작할 수 있어요'}</div>`}</div></div>`;
+        h += `<div class="act" style="border:none;padding-bottom:0"><div><div class="a-t">${C.ic || ''} ${U.esc(C.n)}${trackOn(s, c.id) ? '<span class="tag">진행 중</span>' : ''}</div><div class="a-h">${U.esc(trackOn(s, c.id) && C.status ? careerStatus(s, c.id) : C.desc || '')}</div>${trackOn(s, c.id) && C.status && C.desc ? `<div class="hint">${U.esc(C.desc)}</div>` : ''}${trackOn(s, c.id) || !note ? '' : `<div class="hint">${U.esc(note)}</div>`}</div></div>`;
+        if (CAREER_REQ[c.id]) h += dxBox('📋 시작하는 법', CAREER_REQ[c.id]);
         for (const a of (C.actions ? C.actions(s, t) : []).filter(a => !a.danger)) h += actRow(a);
         if (trackOn(s, c.id) && C.actions && C.actions(s, t).some(a => a.danger)) h += `<div class="hint" style="margin:0 0 var(--sp-2)">그만두기·탈퇴는 직업 활동 박스의 그 직업 창 '정보' 탭 맨 아래에서 할 수 있어요</div>`;
       }
@@ -1365,9 +1416,37 @@ function panelCareer() {
   }
   return h;
 }
+// 생활 탭: 생활 박스 네 칸(장비 · 집 · 지속 관리 · 기타) 안의 것이 언제 열리는지. 장비 · 지속 관리 · 시술은 자료(EQUIP · SUBS · SURGERY)에서 바로 만든다
+function dictLifeHTML(s) {
+  let h = `<p class="p-intro">메인 화면 생활 박스의 네 칸에 무엇이 언제 생기는지 적었다. 장비 · 기타 칸은 새로 할 수 있는 게 생기면 빨간 점이 뜬다.</p>`;
+  const eq = Object.values(EQUIP).filter(x => !x.slot).map(x => [`${x.ic} ${x.n}`, `${x.k.map(k => SKILLS[k].n).join(' · ')} 특기를 배우면${x.out ? ' · 집 자리를 차지하지 않는다' : ''}`]);
+  const van = Object.values(EQUIP).filter(x => x.slot).map(x => [`${x.ic} ${x.n}`, `${x.min}세부터 · 일정 칸이 하나 늘어난다`]);
+  h += `<div class="sec-h">🎛️ 장비</div><div class="lnote">혼자 나가 살면(독립) 직접 들일 수 있다. 본가에 사는 동안에는 한 특기를 여섯 달 넘게 연습하면 부모님이 그 장비를 가끔 사 주신다. 기획사 숙소에 살면 숙소 연습실 장비를 쓴다. 장비는 3단계까지 올릴 수 있다.</div>`;
+  h += dxBox('', [['들일 수 있는 수', `본가는 집안 형편에 따라 2 · 4 · 6개, 혼자 사는 집은 크기에 따라 ${Object.values(SIZE_EQ).join(' · ')}개`]]) + dxBox('장비마다 열리는 때', eq.concat(van));
+  h += `<div class="sec-h">🏠 집</div>` + dxBox('', [
+    ['본가 (부모님 집)', '처음부터 · 19세부터는 생활비를 조금 낸다'],
+    ['이사 (월세 · 전세 · 매매)', '19세부터 · 지금 사는 곳 · 서울 · 강남 · 고향으로 갈 수 있다 · 기획사 숙소에 살거나 군 복무 중에는 못 한다'],
+    ['전세 · 매매 대출', '전세 · 내 집은 모자란 돈을 대출로 채우고 매달 갚는다'],
+    ['집 팔기', '내 집에 살 때'],
+    ['본가로 돌아가기', '혼자 살 때 · 부모님이 살아 계시면'],
+    ['독립 권유', '26세부터 본가에 계속 살면 부모님이 나가 살라고 하신다 (한 번은 버틸 수 있다)'],
+    ['대출 · 빚 한 번에 갚기', '대출이나 빚이 생기면'],
+    ['형제자매에게 돈 빌리기', '19세부터 · 형제자매가 있을 때'],
+    ['집 크기 제한', '결혼하면 원룸에 살 수 없고, 자녀가 셋이면 아파트에 산다']]);
+  const subs = Object.values(SUBS).map(x => [x.n, x.kids ? '아이가 생기면 · 4~18세 아이마다 정한다' : `${x.min || 14}세부터${x.side ? ` · ${SIDE_N[x.side]} 일을 하는 동안` : ''}${x.lvs ? ' · 1~3단계' : ''}`]);
+  h += `<div class="sec-h">🥗 지속 관리</div><div class="lnote">매달 돈이 나간다. 군 복무 중에는 쓸 수 없다 (자녀 교육비는 빼고).</div>` + dxBox('', subs);
+  h += `<div class="sec-h">💉 기타</div>` + dxBox('', [['📚 새 특기 배우기', '19세부터 · 석 달에 한 번 · 아직 안 배운 특기를 골라 학원에 등록한다']]
+    .concat(Object.values(SURGERY).map(x => [`💉 ${x.n}`, `${x.min}세부터 · 평생 한 번`]))
+    .concat([['✈️ 여행 다녀오기', '19세부터 · 반년에 한 번']]));
+  return h;
+}
 const REL_ORDER = ['배우자', '연인', '자녀', '형제자매', '멤버', '친구', '동료', '제자', '부모님 지인', '동기', '선배', '전 멤버', '지인', '전 연인', '전 배우자'];
 // 연락(연락하기·데이트)은 반년(1~6월, 7~12월)마다 네 번까지, 같은 사람에게는 반년에 두 번까지 (턴제 실험: 한 턴이 최대 6개월이라 3개월 2번 → 6개월 4번)
 const CONTACT_MAX = 4, CONTACT_PER = 2;
+// v183: 연락은 7세부터 (그 전에는 남은 연락 대신 안내만, 연락 버튼은 막는다)
+const CONTACT_AGE = 7;
+function contactYoung(s) { return age(s) < CONTACT_AGE; }
+function contactLeftLine(s) { return contactYoung(s) ? `연락은 ${CONTACT_AGE}세부터 할 수 있다` : `${calY(s)}년 ${halfName(s)}에 남은 연락: ${Math.max(0, CONTACT_MAX - contactsUsed(s))}번`; }
 function halfKey(s) { return calY(s) * 2 + Math.floor(calM(s) / 6); }
 function halfName(s) { return calM(s) < 6 ? '1~6월' : '7~12월'; }
 function contactsUsed(s) { return s.contactH === halfKey(s) ? (s.contactN || 0) : 0; }
@@ -1375,7 +1454,7 @@ function calledN(s, n) { return n.callH === halfKey(s) ? (n.callN || 1) : 0; }
 function calledThisHalf(s, n) { return calledN(s, n) >= CONTACT_PER; }
 // 인간관계 레드닷 (v164): 턴을 넘긴 뒤 이번 반년 연락이 남아 있고 연락할 수 있는 사람이 있으면 뜬다. 인간관계 창을 열면 그 턴에는 사라진다
 function pplCanCall(s) {
-  if (contactsUsed(s) >= CONTACT_MAX) return false;
+  if (contactYoung(s) || contactsUsed(s) >= CONTACT_MAX) return false;
   return people(s, n => (!['엄마', '아빠', '업계'].includes(n.rel) || coMine(s, n)) && !n.hidden && n.rel !== '자녀' && !(n.rel === '형제자매' && pAge(s, n) < 19) && !calledThisHalf(s, n)).length > 0;
 }
 function pplDot(s) { return !!s && s.t > 0 && s.pplSeenT !== s.t && pplCanCall(s); }
@@ -1393,8 +1472,7 @@ function pplCmp(s, a, b) {
 }
 function panelPeople() {
   const s = S;
-  const left = Math.max(0, CONTACT_MAX - contactsUsed(s));
-  let h = `<h2>인간관계</h2><p class="p-intro">관계는 살면서 생기는 일들로 바뀐다. 연인·배우자는 반년, 나머지는 1년 넘게 연락하지 않으면 멀어진다.<br><b>${calY(s)}년 ${halfName(s)}에 남은 연락: ${left}번</b></p>`;
+  let h = `<h2>인간관계</h2><p class="p-intro">관계는 살면서 생기는 일들로 바뀐다. 연인·배우자는 반년, 나머지는 1년 넘게 연락하지 않으면 멀어진다.<br><b>${contactLeftLine(s)}</b></p>`;
   h += `<div class="sec-h">가족</div><div class="npc">`;
   for (const p of [mom(s), dad(s)].filter(Boolean)) h += `<div class="npc-d">${p.rel} ${p.name} · ${p.alive ? `${pAge(s, p)}세 · ${U.esc(p.job)} · ${skillLine(p, 2, s)}` : '돌아가셨다'}</div>`;
   if (s.family.single) h += `<div class="npc-d">엄마 혼자 키우신 집이다.</div>`;
@@ -1539,7 +1617,7 @@ function npcCard(s, n) {
   const called = calledThisHalf(s, n), kid = n.rel === '자녀', kidSib = n.rel === '형제자매' && pAge(s, n) < 19;
   // 자녀는 연락·고백 없이 능력만 본다. 형제자매는 그 형제자매가 성인이 된 뒤부터 연락한다
   h += `<div class="npc-btns">`;
-  if (!kid && !kidSib) h += `<button class="btn sm" data-npc="${n.id}" data-op="${love ? 'date' : 'call'}" ${used >= CONTACT_MAX || called ? 'disabled' : ''}>${love ? `데이트하기 (${age(s) < 19 ? '1만 원' : '10만 원'})` : '연락하기'}</button>${called ? `<span class="hint">이번 반년(${halfName(s)})에 이미 두 번 ${love ? '만났다' : '연락했다'}</span>` : ''}`;
+  if (!kid && !kidSib) h += `<button class="btn sm" data-npc="${n.id}" data-op="${love ? 'date' : 'call'}" ${used >= CONTACT_MAX || called || contactYoung(s) ? 'disabled' : ''}>${love ? `데이트하기 (${age(s) < 19 ? '1만 원' : '10만 원'})` : '연락하기'}</button>${contactYoung(s) ? `<span class="hint">${CONTACT_AGE}세부터 연락할 수 있다</span>` : called ? `<span class="hint">이번 반년(${halfName(s)})에 이미 두 번 ${love ? '만났다' : '연락했다'}</span>` : ''}`;
   if (!kid && !love && !n.married && age(s) >= 14 && !partner(s) && !['전 연인', '전 배우자', '형제자매'].includes(n.rel)) h += `<button class="btn sm" data-npc="${n.id}" data-op="confess">고백하기 · ${confessWord(s, n)}</button>`;
   // 청혼: 사귄 지 3년이 넘은 연인에게만 (둘 다 성인일 때)
   if (n.rel === '연인' && canPropose(s, n)) { const cd = s.cd.propose > s.t; h += `<button class="btn sm" data-npc="${n.id}" data-op="propose" ${cd ? 'disabled' : ''}>청혼하기 · 받아 줄 가능성 ${fmtPct(proposeP(n))}</button>${cd ? `<span class="hint">${ymLater(s, s.cd.propose - s.t)}에 다시 할 수 있다</span>` : ''}`; }
@@ -1563,7 +1641,7 @@ function npcOp(id, op) {
   const used = contactsUsed(s);
   let r = '';
   if (op === 'call' || op === 'date') {
-    if (used >= CONTACT_MAX || calledThisHalf(s, n) || (n.rel === '형제자매' && pAge(s, n) < 19)) return;
+    if (contactYoung(s) || used >= CONTACT_MAX || calledThisHalf(s, n) || (n.rel === '형제자매' && pAge(s, n) < 19)) return;
     n.callN = calledN(s, n) + 1;
     s.contactH = halfKey(s); s.contactN = used + 1; n.contactT = s.t; n.callT = s.t; n.callH = halfKey(s);
     const kid = age(s) < 19;
@@ -2062,9 +2140,9 @@ function lifeSecSum(s, k) {
     if (have.length) return { main: `${have.length}개 들여놓음 · 유지비 월 ${have.reduce((a, id) => a + eqUp(id, eqLv(s, id)), 0)}만 원`, sub: have.map(id => EQUIP[id].slot ? EQUIP[id].n : `${EQUIP[id].n} ${eqLv(s, id)}단계`).join(' · ') };
     return { main: '들여놓은 장비 없음', sub: can ? `들일 수 있는 장비 ${can}개` : '배운 특기에 맞는 장비가 아직 없다' };
   }
-  const surg = Object.keys(SURGERY).filter(id => !s.flags[id]).length;
-  const trip = age(s) < 19 ? '여행은 성인이 된 뒤에' : s.cd.trip > s.t ? `여행은 ${s.cd.trip - s.t}개월 뒤에 다시` : '여행 다녀올 수 있음';
-  return { main: '특기 배우기 · 시술 · 여행', sub: `${trip} · 남은 시술 ${surg}가지` };
+  const L = etcCats(s), surg = Object.keys(SURGERY).filter(id => !s.flags[id] && age(s) >= SURGERY[id].min).length;
+  const trip = s.cd.trip > s.t ? `여행은 ${s.cd.trip - s.t}개월 뒤에 다시` : '여행 다녀올 수 있음';
+  return { main: etcDesc(s), sub: [L.includes('rest') ? trip : '', L.includes('surgery') ? `받을 수 있는 시술 ${surg}가지` : ''].filter(Boolean).join(' · ') || '할 수 있는 게 생기면 하나씩 늘어난다' };
 }
 function lifeTilesHTML(s) {
   return `<div class="trks life-tiles">` + LIFE_SECS.map(([k, ic, n]) => { const x = lifeSecSum(s, k); return `<div class="trk ltile${ltLock(s, k) ? ' chainlk' : ''}"${ltLock(s, k) ? '' : ` data-lifesec="${k}"`}>${ltDot(s, k)}<b>${ic} ${n}</b><div class="lt-main">${U.esc(x.main)}</div><div class="st">${U.esc(x.sub)}</div></div>`; }).join('') + `</div>`;
@@ -2105,7 +2183,7 @@ function lifeSecBody(s, k) {
     if (ord.length) h += `<div class="lnote">장비 유지비 <b>월 ${em.mine}만 원</b>${em.fam ? ` · 부모님이 내 주시는 유지비 월 ${em.fam}만 원` : ''}</div>`;
     h += A.filter(a => a.sec === 'equip').sort((a, b) => oi(a) - oi(b)).map(actRow).join('') || '<div class="empty">배운 특기에 맞는 장비가 아직 없다.</div>';
   }
-  if (k === 'etc') h += (sec('learn', '📚 특기 배우기', '') + sec('surgery', '💉 시술 (평생 한 번)', '') + sec('rest', '✈️ 쉬기', '', lifeAutoRow)) || '<div class="empty">지금 할 수 있는 게 없다. 시술은 정해진 나이부터 받을 수 있다.</div>';
+  if (k === 'etc') h += (sec('learn', '📚 특기 배우기', '') + sec('surgery', '💉 시술 (평생 한 번)', '') + sec('rest', '✈️ 쉬기', '', lifeAutoRow)) || '<div class="empty">지금 할 수 있는 게 없다. 새로 할 수 있는 게 생기면 기타 칸에 빨간 점이 뜬다.</div>';
   return h;
 }
 // 생활 창 맨 위: 지금 가진 돈 (턴제 실험 6차)
@@ -2117,13 +2195,18 @@ function eqCanIds(s) { return Object.keys(EQUIP).filter(id => !eqLv(s, id) && (E
 function ltLock(s, k) { return k === 'equip' && !Object.keys(EQUIP).some(id => eqLv(s, id)) && !!eqBuyWhy(s) && !dormAg(s); }
 // v163: 한 번이라도 가졌던 장비는 본 것으로 친다. 예전에는 독립하면서 부모님 집에 두고 온 장비가 '새로 들일 수 있는 장비'로 다시 잡혀서, 창은 그대로인데 레드닷이 떴다
 function ltDot(s, k) {
+  if (k === 'etc') { const L = etcCats(s); if (!s.etcSeen) s.etcSeen = L.slice(); return L.some(x => !s.etcSeen.includes(x)) ? '<span class="rdot"></span>' : ''; }
   if (k !== 'equip' || ltLock(s, k)) return '';
   const L = eqCanIds(s); if (!s.eqSeen) s.eqSeen = L.slice();
   for (const id of Object.keys(s.equip || {})) if (eqLv(s, id) && !s.eqSeen.includes(id)) s.eqSeen.push(id);
   return L.some(id => !s.eqSeen.includes(id)) ? '<span class="rdot"></span>' : '';
 }
+// 기타 칸 (v183): 배너 설명에는 지금 할 수 있는 묶음만 (etcCats, life.js). 새 묶음이 생기면 설명에 붙고 레드닷, 기타 창을 열면 꺼진다
+const ETC_N = { learn: '특기 배우기', surgery: '시술', rest: '여행' };
+function etcDesc(s) { const L = etcCats(s); return L.length ? L.map(k => ETC_N[k]).join(' · ') : '아직 할 수 있는 게 없다'; }
 function panelLifeSec() {
   if (UI.lifeSec === 'equip' && S) S.eqSeen = [...new Set((S.eqSeen || []).concat(eqCanIds(S)))];
+  if (UI.lifeSec === 'etc' && S) { S.etcSeen = [...new Set((S.etcSeen || []).concat(etcCats(S)))]; }
   const k = UI.lifeSec || 'home', d = LIFE_SECS.find(x => x[0] === k) || LIFE_SECS[0];
   return `${UI.lifeFrom === 'panel' ? '<button class="btn sm ghost back-btn" data-panel="life">← 생활</button>' : ''}<h2>${d[1]} ${d[2]}</h2>` + lifeCashHTML(S) + lifeSecBody(S, k);
 }
@@ -2132,7 +2215,7 @@ const LIFE_Q = [['equip', '🎛️', '장비', '연습 장비 들이기 · 업�
 function renderLifeCard() {
   const el = $('#life-grid');
   if (!el || !S) return;
-  const h = LIFE_Q.map(([k, ic, n, d]) => { const lk = ltLock(S, k); return `<div class="lq${lk ? ' chainlk' : ''}"${lk ? '' : ` data-lifesec="${k}"`}>${ltDot(S, k)}<div class="lq-h">${ic} ${n}${lk ? '' : '<span class="bn-arr">›</span>'}</div><div class="lq-d">${U.esc(d)}</div></div>`; }).join('');
+  const h = LIFE_Q.map(([k, ic, n, d]) => { const lk = ltLock(S, k); if (k === 'etc') d = etcDesc(S); return `<div class="lq${lk ? ' chainlk' : ''}"${lk ? '' : ` data-lifesec="${k}"`}>${ltDot(S, k)}<div class="lq-h">${ic} ${n}${lk ? '' : '<span class="bn-arr">›</span>'}</div><div class="lq-d">${U.esc(d)}</div></div>`; }).join('');
   if (h === UI.lifeHTML) return;
   UI.lifeHTML = h; el.innerHTML = h;
 }
@@ -2154,7 +2237,7 @@ function panelMoney() {
   if (tab === 'cal') h += yearNetHTML(s) + (incomeTable(`${calY(s)}년 (올해)`, s.yinc) + incomeTable(`${s.lastYincY || calY(s) - 1}년 (작년)`, s.lastYinc) || '<div class="empty">아직 기록이 없다.</div>');
   else {
     h += `<div class="mon-when">${when}</div>`;
-    h += `<div class="mon-sum"><div><div class="ms-k">들어온 돈</div><div class="ms-v pos">+${fmtWon(T.iSum)}</div></div><div><div class="ms-k">나간 돈</div><div class="ms-v neg">-${fmtWon(T.eSum)}</div></div><div><div class="ms-k">남은 돈</div><div class="ms-v ${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}</div></div></div>`;
+    h += `<div class="mon-sum"><div><div class="ms-k">들어온 돈</div><div class="ms-v pos">+${fmtWon(T.iSum)}</div></div><div><div class="ms-k">나간 돈</div><div class="ms-v neg">${Math.round(T.eSum) ? '-' : ''}${fmtWon(T.eSum)}</div></div><div><div class="ms-k">남은 돈</div><div class="ms-v ${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}</div></div></div>`;
     // 정산서가 있는 수입 줄은 누르면 정산서 (v118 UI C2)
     const list = (arr, cls) => arr.length ? arr.map(([k, v]) => `<div class="mon-row${v > 0 && (s.bills || {})[k] ? ' has-bill' : ''}"${v > 0 && (s.bills || {})[k] ? ` data-bill="${billKey(s.bills[k])}"` : ''}><span>${U.esc(k)}${v > 0 && (s.bills || {})[k] ? ' 🧾' : ''}</span><b class="${cls}">${v > 0 ? '+' : '-'}${fmtWon(Math.abs(v))}</b></div>`).join('') : '<div class="hint">없음</div>';
     h += `<div class="two-col"><div><div class="sec-h">수입</div>${list(T.inc, 'pos')}</div><div><div class="sec-h">지출</div>${list(T.exp, 'neg')}</div></div>`;
@@ -2188,8 +2271,7 @@ function panelMenu() {
     <button class="btn" id="m-export">세이브 파일로 내보내기 (PC에서만)</button>
     <button class="btn" id="m-import">세이브 파일 불러오기</button>
     <button class="btn" data-endprev>인생 결산 창 미리 보기</button>
-    <button class="btn" data-logsize="1">인생 기록 글자 크게</button>
-    <button class="btn" data-logsize="-1">인생 기록 글자 작게</button>
+    <div class="lv-set"><span>인생 기록 글자</span><button class="btn sm" data-logsize="-1"${logSize() <= LOG_MIN ? ' disabled' : ''}>가−</button><b class="ls-v">${logSize()}</b><button class="btn sm" data-logsize="1"${logSize() >= LOG_MAX ? ' disabled' : ''}>가+</button></div>
     <div class="lv-set"><span>실시간 창</span>${LIVE_MODES.map(([k, n]) => `<button class="btn sm${liveMode() === k ? ' primary' : ''}" data-livemode="${k}">${n}</button>`).join('')}</div>
     <button class="btn" data-panel="help">도움말</button>
     <button class="btn" id="m-title">첫 화면으로 (자동 저장됨)</button>
@@ -2209,7 +2291,8 @@ function panelHelp() {
   return `<h2>도움말</h2>
   <div class="sec-h">재능과 특기</div><div class="ms">재능은 태어날 때 정해지고 거의 안 변해요. 특기는 살면서 만나는 선택지로 처음 배우고, 그다음부터 일정에서 연습하거나 학원에 다니며 레벨을 올려요. 오래 안 하면 천천히 떨어져요. 특기마다 숨은 한계(포텐)가 있어서, 그 근처에 가면 잘 안 늘어요.</div>
   <div class="sec-h">일정</div><div class="ms">초등학교에 들어가면 '📅 이번 달 일정' 칸에서 매달 할 일을 정해요. 고등학교 졸업 전에는 학원비를 가족이 내 줄 수도 있어요(집안 형편에 따라 개수가 달라요).</div>
-  <div class="sec-h">직업</div><div class="ms">진로 백과사전에서 직업을 알아볼 수 있어요. 아티스트(앞에 서는 일)와 스태프(뒤에서 만드는 일), 회사 경영으로 나뉘어 있어요.</div>`;
+  <div class="sec-h">직업</div><div class="ms">백과사전 진로 탭에서 직업과 시작하는 법(지원할 수 있는 나이 · 필요한 특기)을 알아볼 수 있어요. 아티스트(앞에 서는 일)와 스태프(뒤에서 만드는 일), 회사 경영으로 나뉘어 있어요.</div>
+  <div class="sec-h">생활</div><div class="ms">백과사전 생활 탭에서 생활 박스(장비 · 집 · 지속 관리 · 기타)에 무엇이 언제 생기는지 알아볼 수 있어요.</div>`;
 }
 
 // ───── 세이브 코드 (기기 사이에 옮기기) ─────
@@ -2249,9 +2332,11 @@ function importSave(file) {
   r.onload = () => { try { const s = JSON.parse(r.result); if (!s || s.v !== 4) { toast('이 버전의 세이브 파일이 아니에요'); return; } S = migrate(s); save(S); showGame(); toast('불러왔어요'); } catch (e) { toast('파일을 읽지 못했어요'); } };
   r.readAsText(file);
 }
+// 인생 기록 글자 크기 (메뉴의 가− · 가+ 한 줄, v183)
+const LOG_MIN = 13, LOG_MAX = 20;
+function logSize() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--log-size')) || 14; }
 function setLogSize(d) {
-  const cur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--log-size')) || 14;
-  const v = U.clamp(cur + d, 13, 20);
+  const v = U.clamp(logSize() + d, LOG_MIN, LOG_MAX);
   document.documentElement.style.setProperty('--log-size', v + 'px');
   try { localStorage.setItem('celebLife.logSize', v); } catch (e) { }
 }
@@ -2327,7 +2412,7 @@ document.addEventListener('click', e => {
   if (t.dataset.turnok != null) { turnClose(t.dataset.turnok); return; }
   if (t.dataset.panel) { if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
   if (t.dataset.close != null) return closePanel();
-  if (t.dataset.logsize) return setLogSize(+t.dataset.logsize);
+  if (t.dataset.logsize) { setLogSize(+t.dataset.logsize); if (UI.overlay === 'menu') renderPanel(); return; }
   if (t.dataset.min != null) { UI.minimized = true; showEvent(); return; }
 
   if (t.dataset.choice != null) {
@@ -2360,6 +2445,7 @@ document.addEventListener('click', e => {
   if (t.dataset.leslv != null) { const i = +t.dataset.leslv, sl = S.slots[i]; sl.lesLv = +t.dataset.v; if (sl.payer === 'family' && !familyCanPay(S, i)) sl.payer = 'me'; save(S); renderSchedule(); return; }
   if (t.dataset.grp) { UI.openGroups[t.dataset.grp] = !UI.openGroups[t.dataset.grp]; renderPanel(); return; }
   if (t.dataset.rectab) { UI.recTab = t.dataset.rectab; renderPanel(); return; }
+  if (t.dataset.dicttab) { UI.dictTab = t.dataset.dicttab; renderPanel(); $('#pcard').scrollTop = 0; return; }
   if (t.dataset.pftab) { if (t.dataset.pftab === 'rec' && !UI.overlay) UI.recTab = 'career'; UI.pfTab = t.dataset.pftab; if (UI.overlay) { UI.overlay = 'profile'; renderPanel(); } else openPanel('profile'); return; }
   if (t.dataset.cotab) { UI.coTab = t.dataset.cotab; renderPanel(); return; }
   if (t.dataset.cogrp) { UI.coGrp = t.dataset.cogrp; renderPanel(); return; }
