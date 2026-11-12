@@ -742,14 +742,26 @@ function formVals() { const vals = {}; document.querySelectorAll('#mcard input[d
 // 체크할 때마다 바뀌는 합계 줄 (사건의 sum)
 function formSum() { tblCnt(); const el = $('#form-sum'), p = S && S.pending, ev = p && EVENTS[p.id]; if (!el || !ev || !ev.sum) return; let x = ''; try { x = ev.sum(S, p.d, formVals()) || ''; } catch (e) { } el.textContent = x; }
 // 표에서 고른 수 (v177): T.cnt = { n: 이름, min, max } → '고른 멤버 7/9명'. 모자라거나 넘치면 빨강
-function tblCnt() { const el = $('#tbl-cnt'), C = UI.tblT && UI.tblT.cnt; if (!el || !C) return; const n = document.querySelectorAll('#ev-tbl tbody input[type=checkbox]:checked').length; el.innerHTML = `${U.esc(C.n || '고른 사람')} <b>${n}</b>${C.max ? `/${C.max}` : ''}명`; el.classList.toggle('bad', (C.max > 0 && n > C.max) || n < (C.min || 0)); }
+// v182: cnt.need가 있으면(배우 · 성우 섭외) 성별 조건도 같이: 이미 섭외한 사람(cnt.have) + 지금 체크한 사람, 채우면 초록 · 모자라면 빨강
+function tblCnt() {
+  const el = $('#tbl-cnt'), T = UI.tblT, C = T && T.cnt; if (!el || !C) return;
+  const ck = [...document.querySelectorAll('#ev-tbl tbody input[type=checkbox]:checked')], n = ck.length;
+  let g = '';
+  if (C.need) {
+    const G = Object.assign({ m: 0, f: 0 }, C.have);
+    for (const cb of ck) { const tr = cb.closest('tr'), r = tr && T.rows[+tr.dataset.ti], x = r && r.cells.g && r.cells.g[0]; if (x) G[x === '여' ? 'f' : 'm']++; }
+    g = [['m', '남'], ['f', '여']].filter(([k]) => C.need[k]).map(([k, w]) => `<span class="cg ${G[k] >= C.need[k] ? 'ok' : 'no'}">${w} ${G[k]}/${C.need[k]}</span>`).join('');
+  }
+  el.innerHTML = `${U.esc(C.n || '고른 사람')} <b>${n}</b>${C.max ? `/${C.max}` : ''}명${g}`;
+  el.classList.toggle('bad', (C.max > 0 && n > C.max) || n < (C.min || 0));
+}
 function evTblHTML(T, form) {
   UI.tblT = T; UI.tblS = null;
   // 처음 정렬 (v134): 오디션은 나이, 타이틀곡은 완성도. 줄 번호(data-ti)는 그대로 두고 그리는 순서만 바꾼다
   const ord = T.rows.map((r, i) => i);
   if (T.sort) { const [sk, sd] = T.sort, val = i => { const c = T.rows[i].cells[sk]; return c ? c[0] : 0; }; ord.sort((a, b) => { const x = val(a), y = val(b); return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'ko')) * sd; }); UI.tblS = { k: sk, dir: sd }; }
   const th = T.cols.map(([k, n]) => `<th data-tsort="${k}"${T.sort && T.sort[0] === k ? ' class="on"' : ''}>${U.esc(n)}<i>${T.sort && T.sort[0] === k ? (T.sort[1] > 0 ? ' ▲' : ' ▼') : ''}</i></th>`).join('');
-  const tr = ord.map(i => [T.rows[i], i]).map(([r, i]) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}${r.rec ? ' rec' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}>` : '<span class="tdot"></span>'}</td>${form && T.radio ? `<td class="tc"><input type="radio" name="tbl-r" data-k="${T.radio.k}" value="${r.k}"></td>` : ''}` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${potH(U.esc(String(c[1])))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}${j === 0 && r.rec && !r.cells.rec ? `<span class="trb rec">${U.esc(r.rec)}</span>` : ''}${j === 0 && S && S.people[r.pid || r.k] ? `<button type="button" class="pi-btn" data-pinfo="${r.pid || r.k}">정보</button>` : ''}</td>`; }).join('') + `</tr>`).join('');
+  const tr = ord.map(i => [T.rows[i], i]).map(([r, i]) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}${r.rec ? ' rec' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}${r.ok === false ? ' disabled' : ''}>` : '<span class="tdot"></span>'}</td>${form && T.radio ? `<td class="tc"><input type="radio" name="tbl-r" data-k="${T.radio.k}" value="${r.k}"></td>` : ''}` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${potH(U.esc(String(c[1])))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}${j === 0 && r.rec && !r.cells.rec ? `<span class="trb rec">${U.esc(r.rec)}</span>` : ''}${j === 0 && S && S.people[r.pid || r.k] ? `<button type="button" class="pi-btn" data-pinfo="${r.pid || r.k}">정보</button>` : ''}</td>`; }).join('') + `</tr>`).join('');
   // 추천 묶음 (v132): 버튼을 누르면 그 줄들만 체크된다 (트레이너가 권하는 데뷔 멤버 등)
   const pre = form && T.presets && T.presets.length ? `<div class="tbl-pre">${T.presets.map((p, i) => `<button type="button" class="btn sm rec" data-tpre="${i}">${U.esc(p.n)}</button>`).join('')}</div>` : '';
   return pre + `<div class="tbl-tools">${form && T.cnt ? `<span class="tbl-cnt" id="tbl-cnt"></span>` : ''}<input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc">${form ? T.ckN || (T.radio ? '실을 곡' : '') : ''}</th>${form && T.radio ? `<th class="tc">${U.esc(T.radio.n)}</th>` : ''}${th}</tr></thead><tbody>${tr}</tbody></table></div>`;

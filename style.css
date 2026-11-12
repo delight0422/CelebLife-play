@@ -846,6 +846,8 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 #pcard.wide { max-width: 1040px; }
 .tbl-tools { display: flex; gap: var(--sp-3); align-items: center; margin: var(--sp-3) 0 var(--sp-2); }
 .tbl-tools .search { flex: 0 1 220px; margin: 0; }
+/* 좁은 화면 (v182): 고른 수 · 찾기 칸을 한 줄에, 안내 글은 다음 줄로 */
+@media (max-width: 640px) { .tbl-tools { flex-wrap: wrap; row-gap: var(--sp-2); } .tbl-tools .search { flex: 1 1 120px; min-width: 0; } .tbl-tools .hint { flex: 1 1 100%; } }
 .tbl-wrap { overflow: auto; max-height: min(52vh, 520px); border: 1px solid var(--line); border-radius: 12px; }
 .ev-tbl { width: 100%; border-collapse: collapse; font-size: var(--fs-2); white-space: nowrap; }
 .ev-tbl th { position: sticky; top: 0; z-index: 1; background: #f1eefb; text-align: left; padding: var(--sp-2) var(--sp-3); font-weight: 800; color: var(--ink2); cursor: pointer; user-select: none; border-bottom: 1px solid var(--line); }
@@ -1416,6 +1418,10 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .tbl-cnt { flex: none; font-weight: 700; font-size: var(--fs-3); padding: 4px 12px; border-radius: 999px; background: #efeafd; color: var(--violet-d, #5a3fc0); }
 .tbl-cnt b { font-size: 1.15em; }
 .tbl-cnt.bad { background: #fdecee; color: #c62f3c; }
+/* 성별 조건 (v182): 고른 주연 · 조연 옆에 '남 1/1' '여 0/1' */
+.tbl-cnt .cg { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; font-size: .9em; background: #fff; }
+.tbl-cnt .cg.ok { color: #0b7a4f; box-shadow: inset 0 0 0 1.5px #9fd8bd; }
+.tbl-cnt .cg.no { color: #c62f3c; box-shadow: inset 0 0 0 1.5px #f2b3ba; }
 
 /* ───── 캐릭터 배너 · 정보 창 (v177) ───── */
 .pav { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; font-weight: 800; font-size: 15px; color: #fff; background: #6b8ee8; box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .55); }
