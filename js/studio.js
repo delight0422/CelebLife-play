@@ -78,10 +78,12 @@ E({
       d.ms.push({ title: P.seq ? P.seq.title : dramaTitle(genre), genre, q, w: w.id, price: coVScriptPrice(P.kind, q) });
     }
   },
+  // v178: 곡 고르기처럼 표로 (내 원고 · 내 웹툰 · 웹소설은 표 아래 버튼)
+  tbl(s, d) { return Object.assign(chPplTbl(s, this.ch(s, d), [['t', '제목'], ['gen', '장르'], ['q', '각본'], ['w', '작가'], ['price', '각본료']], '이 각본으로 한다'), { sort: ['q', -1] }); },
   text: (s, d) => `${d.P.seq ? `「${d.P.seq.title}」` : `새 ${vKindN(d.P.kind)}`} 각본을 고른다.\n\n각본 보는 눈: ${coVView(s, 'script', d.P.f).id === s.me ? '내 눈' : `기획 PD ${coVView(s, 'script', d.P.f).name}`}`,
   ch: (s, d) => {
     const P = d.P, v = coVView(s, 'script', d.P.f), C = [];
-    for (const m of d.ms) { const w = s.people[m.w]; C.push({ t: `「${m.title}」 ${m.genre} · 각본 ${grade5(v, m.q, 'q', 'script')}`, tr: m.genre === s.trendTV.drama, h: `${w ? w.name : '-'} 작가 · 각본료 ${fmtWon(m.price)}`, f: s => { Object.assign(P, { title: m.title, genre: m.genre, q: m.q, writer: m.w, price: m.price }); fireEvent(s, 'co_vdir', { P }); return ''; } }); }
+    for (const m of d.ms) { const w = s.people[m.w]; C.push({ row: { t: [m.title, `「${m.title}」`], gen: [m.genre, m.genre], q: coCellG(grade5(v, m.q, 'q', 'script'), 'q'), w: [w ? w.name : '-', w ? `${w.name} 작가` : '-'], price: [m.price, fmtWon(m.price)] }, t: `「${m.title}」 ${m.genre} · 각본 ${grade5(v, m.q, 'q', 'script')}`, tr: m.genre === s.trendTV.drama, h: `${w ? w.name : '-'} 작가 · 각본료 ${fmtWon(m.price)}`, f: s => { Object.assign(P, { title: m.title, genre: m.genre, q: m.q, writer: m.w, price: m.price }); fireEvent(s, 'co_vdir', { P }); return ''; } }); }
     if (!P.seq) for (const sc of myScripts(s).filter(x => x.st === 'done' && x.tk === P.kind)) C.push({ t: `내 원고 「${sc.title}」 ${sc.genre} · 완성도 ${myScriptGrade(s, sc.q)}`, tr: sc.genre === s.trendTV.drama, h: '각본료가 들지 않는다', f: s => { Object.assign(P, { title: sc.title, genre: sc.genre, q: sc.q, writer: 'me', scId: sc.id, price: 0 }); fireEvent(s, 'co_vdir', { P }); return ''; } });
     // 내가 완결한 웹툰·웹소설 (js/webnovel.js): 원작료 없이 각색료만 낸다
     if (!P.seq) for (const w of wbMyWorks(s).filter(x => !x.video)) { const g = WB_DRAMA_G[w.g] || '로맨스', price = Math.round(coVScriptPrice(P.kind, w.q) * 0.5 / 1e6) * 1e6; C.push({ t: `내 ${w.sn} 「${w.title}」 원작 · ${g}`, tr: g === s.trendTV.drama, h: `독자 ${fmtFans(w.peak)} · 각색료 ${fmtWon(price)}`, f: s => { Object.assign(P, { title: w.title, genre: g, q: w.q, writer: null, wbId: w.id, price }); fireEvent(s, 'co_vdir', { P }); return ''; } }); }
@@ -96,6 +98,9 @@ function coVHireP(s, t, P, x, k, sup) {
   const star = Math.log10(1 + (x.fame || 0)), f = coPF(P), F = t.f[f];
   return U.clamp(U.sig((P.q * 0.4 + coTier(t, f) * 7 + F.rep * 0.15 + (P.lvlHint || 0) + (sup ? 10 : 0) - star * 6 - lv(x, k) * 0.15 + 16) / 7) + relBonus(s, x), 0.05, 0.95);
 }
+// v178: 감독 · 배우 · 성우 · 작화감독 섭외도 오디션처럼 표로 (company.js chPplTbl): 이름 · 성별 · 나이 · 실력(보는 눈의 범위) · 팬 · 돈 · 섭외 가능성 · 관계 · 비고
+const CO_PJ_COLS = Object.fromEntries([['direct', '연출', '연출료'], ['acting', '연기', '출연료'], ['art', '그림', '계약금']].map(([k, n, fee]) => [k, [[k, n], ['fame', '팬'], ['fee', fee], ['p', '섭외 가능성'], ['rel', '관계'], ['nt', '비고']]]));
+function coPjRow(s, x, v, ks, c, feeN, nt) { return Object.assign(pplCells(s, x, v, ks), { fee: [c.fee, fmtWon(c.fee)], p: [c.p == null ? 1 : c.p, c.p == null ? '꼭 해 준다' : fmtPct(c.p)], nt: [nt ? 1 : 0, nt || ''] }); }
 E({
   id: 'co_vdir', cat: '작품 기획', title: '감독 섭외', tag: 'career',
   cond: s => coOn(s),
@@ -108,10 +113,11 @@ E({
     d.c = L.map(x => ({ id: x.id, fee: Math.round(coVDirFee(P.kind, x) * (back === x ? 1.3 : 1) / 1e6) * 1e6, p: coVHireP(s, t, P, x, 'direct'), back: back === x }));
   },
   text: (s, d) => `「${d.P.title}」 감독을 섭외한다.${d.no ? `\n\n${d.no}` : ''}\n\n연출 보는 눈: ${coVView(s, 'direct', d.P.f).id === s.me ? '내 눈' : `기획 PD ${coVView(s, 'direct', d.P.f).name}`}`,
+  tbl(s, d) { return chPplTbl(s, this.ch(s, d), PPL_COLS.concat(CO_PJ_COLS.direct), '섭외 제안을 한다'); },
   ch: (s, d) => {
     const P = d.P, v = coVView(s, 'direct', d.P.f), C = d.c.filter(c => s.people[c.id]).map(c => {
       const x = s.people[c.id];
-      return { t: `${x.name} 감독 — 연출 ${coLvSee(v, x, 'direct')} · 팬 ${fmtFans(x.fame || 0)}${c.back ? ' · 저번 감독' : ''}`, h: `연출료 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}`, f: s => {
+      return { pid: x.id, row: coPjRow(s, x, v, ['direct'], c, '연출료', c.back ? '저번 감독' : ''), t: `${x.name} 감독 — 연출 ${coLvSee(v, x, 'direct')} · 팬 ${fmtFans(x.fame || 0)}${c.back ? ' · 저번 감독' : ''}`, h: `연출료 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}`, f: s => {
         if (U.chance(c.p)) { Object.assign(P, { dir: x.id, dirFee: c.fee }); fireEvent(s, 'co_vcast', { P }); return `${josa(x.name, '이가')} 「${P.title}」 연출을 맡기로 했다.`; }
         fireEvent(s, 'co_vdir', { P, c: d.c.filter(y => y.id !== c.id), no: `${josa(x.name, '이가')} 거절했다. 다른 감독을 찾아본다.` });
         return `${josa(x.name, '이가')} 「${P.title}」 연출 제안을 거절했다.`;
@@ -149,6 +155,7 @@ E({
     while (L.length < 4) L.push(pickIndustry(s, job, y => !L.includes(y) && !used.includes(y.id), 0.3));
     d.c = L.map(x => ({ id: x.id, fee: Math.round(coVCastFee(P, x, role) * (back === x ? 1.3 : 1) / 1e5) * 1e5, p: coVHireP(s, t, P, x, 'acting', role === 'sup'), back: back === x }));
   },
+  tbl(s, d) { return chPplTbl(s, this.ch(s, d), PPL_COLS.concat(CO_PJ_COLS.acting.map(c => c[0] === 'fee' ? ['fee', '출연료'] : c)), '섭외 제안을 한다'); },
   text: (s, d) => { const P = d.P, n = P.cast.length, v = coVView(s, 'acting', d.P.f), nn = P.f === 'anime' ? '성우' : '배우'; return `「${P.title}」 ${d.role === 'lead' ? '주연' : '조연'} ${nn}를 섭외한다.${n ? `\n\n섭외한 ${nn} ${n}명 · ${coVCastLine(s, P)} · 출연료 ${fmtWon(coVCastFees(P))}` : ''}${d.no ? `\n\n${d.no}` : ''}\n\n연기 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
   ch: (s, d) => {
     const P = d.P, t = coT(s), v = coVView(s, 'acting', d.P.f), role = d.role, roleN = role === 'lead' ? '주연' : '조연', ani = P.f === 'anime', nn = ani ? '성우' : '배우', n = P.cast.length, leads = P.cast.filter(c => c.role === 'lead').length;
@@ -162,7 +169,7 @@ E({
     };
     const C = d.c.filter(c => s.people[c.id]).map(c => {
       const x = s.people[c.id], ok = afford(c.fee);
-      return { t: `${x.name} — 연기 ${coLvSee(v, x, 'acting')} · 팬 ${fmtFans(x.fame || 0)}${c.back ? ' · 저번 주연' : ''}`, h: `출연료 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}${ok ? '' : ' · 자본금이 모자라다'}`, ok: () => ok, f: s => {
+      return { pid: x.id, row: coPjRow(s, x, v, ['acting'], c, '출연료', [c.back ? '저번 주연' : '', ok ? '' : '자본금이 모자라다'].filter(Boolean).join(' · ')), t: `${x.name} — 연기 ${coLvSee(v, x, 'acting')} · 팬 ${fmtFans(x.fame || 0)}${c.back ? ' · 저번 주연' : ''}`, h: `출연료 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}${ok ? '' : ' · 자본금이 모자라다'}`, ok: () => ok, f: s => {
         if (U.chance(c.p)) return set(x, c.fee);
         fireEvent(s, 'co_vcast', { P, role, c: d.c.filter(y => y.id !== c.id), no: `${josa(x.name, '이가')} 거절했다. 다른 배우를 찾아본다.` });
         return `${josa(x.name, '이가')} 「${P.title}」 ${roleN} 제안을 거절했다.`;
@@ -364,7 +371,8 @@ function coVidYear(s, t) {
 
 // ───── 회사 창: 🎬 작품 탭 ─────
 function coTabVw(s, t) {
-  const w = coVWhy(s, t), A = [{ t: '새 작품 기획', h: `함께 만드는 작품 ${t.vw.length}/${CO_V_CAP[coVTier(t)]}편 · 자본금 ${fmtWon(coM(t, 'video'))}`, ok: !w, why: w, btn: '기획', run: s => { fireEvent(s, 'co_vplan', {}); return ''; } }];
+  // v178: 오디션 줄처럼 이 줄에서 바로 자동을 켜고 끈다
+  const w = coVWhy(s, t), A = [{ t: '새 작품 기획', h: `함께 만드는 작품 ${t.vw.length}/${CO_V_CAP[coVTier(t)]}편 · 자본금 ${fmtWon(coM(t, 'video'))}${coAuto(t).on.video ? ' · 자동: 작품이 끝날 때마다 기획 회의를 연다' : ''}`, why: w, opts: [{ btn: '기획', on: true, ok: !w, run: s => { fireEvent(s, 'co_vplan', {}); return ''; } }, coAutoSw(t, 'video')] }];
   let h = `<div class="sec-h">할 수 있는 일</div>` + A.map(actRow).join('');
   h += `<div class="sec-h">만드는 중 ${t.vw.length}편</div>`;
   if (!t.vw.length) h += `<div class="muted">지금 만드는 작품이 없다.</div>`;
@@ -440,6 +448,8 @@ function coARightsPrice(kind, fans, q) { return Math.round(A_KIND[kind].rights *
 E({
   id: 'co_asrc', cat: '애니 기획', title: (s, d) => d.P.seq ? '구성안 고르기' : '원작 고르기', tag: 'career',
   cond: s => coOn(s),
+  // v178: 곡 고르기처럼 표로 (내 원고 · 내 웹툰 · 웹소설은 표 아래 버튼)
+  tbl(s, d) { return Object.assign(chPplTbl(s, this.ch(s, d), [['t', '제목'], ['src', '종류'], ['gen', '장르'], ['q', '이야기'], ['w', '작가'], ['fans', '원작 독자'], ['price', '값']], '이 원작으로 한다'), { sort: ['q', -1] }); },
   init(s, d) {
     const P = d.P, k = coATier(coT(s)), tr = (s.trendTV || {}).anime || U.pick(ANIME_TRENDS);
     d.ms = [];
@@ -459,7 +469,7 @@ E({
     const P = d.P, v = coVView(s, 'script', d.P.f), C = [];
     for (const m of d.ms) {
       const w = s.people[m.w], lic = !!m.src;
-      C.push({ t: `${lic ? m.src : P.seq ? '구성안' : '오리지널'} 「${m.title}」 ${m.genre} · 이야기 ${grade5(v, m.q, 'q', 'script')}`, tr: m.genre === (s.trendTV || {}).anime, h: `${w ? w.name : '-'} 작가${lic ? ` · 독자 ${fmtFans(m.fans)}` : ''} · ${lic ? '판권료' : '값'} ${fmtWon(m.price)}`, f: s => {
+      C.push({ row: { src: [lic ? m.src : '오리지널', lic ? `${m.src} 원작` : P.seq ? '구성안' : '오리지널 기획안'], t: [m.title, `「${m.title}」`], gen: [m.genre, m.genre], q: coCellG(grade5(v, m.q, 'q', 'script'), 'q'), w: [w ? w.name : '-', w ? `${w.name} 작가` : '-'], fans: [m.fans || 0, m.fans ? fmtFans(m.fans) : '-'], price: [m.price, fmtWon(m.price)] }, t: `${lic ? m.src : P.seq ? '구성안' : '오리지널'} 「${m.title}」 ${m.genre} · 이야기 ${grade5(v, m.q, 'q', 'script')}`, tr: m.genre === (s.trendTV || {}).anime, h: `${w ? w.name : '-'} 작가${lic ? ` · 독자 ${fmtFans(m.fans)}` : ''} · ${lic ? '판권료' : '값'} ${fmtWon(m.price)}`, f: s => {
         Object.assign(P, { title: m.title, genre: m.genre, q: m.q, writer: m.w, price: m.price, lic, src: lic ? { kind: m.src, fans: m.fans } : P.seq ? P.seq.src : null });
         fireEvent(s, 'co_adir', { P }); return '';
       } });
@@ -484,10 +494,11 @@ E({
     d.c = L.map(x => ({ id: x.id, fee: Math.round(coADirFee(P.kind, x) * (back === x ? 1.3 : 1) / 1e5) * 1e5, p: coVHireP(s, t, P, x, 'direct'), back: back === x }));
   },
   text: (s, d) => { const v = coVView(s, 'direct', d.P.f); return `「${d.P.title}」 감독을 섭외한다. 감독은 연출과 그림을 같이 본다.${d.no ? `\n\n${d.no}` : ''}\n\n연출 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
+  tbl(s, d) { return chPplTbl(s, this.ch(s, d), PPL_COLS.concat([['direct', '연출'], ['art', '그림']], CO_PJ_COLS.direct.slice(1)), '섭외 제안을 한다'); },
   ch: (s, d) => {
     const P = d.P, v = coVView(s, 'direct', d.P.f), va = coVView(s, 'art', d.P.f), p = me(s), C = d.c.filter(c => s.people[c.id]).map(c => {
       const x = s.people[c.id];
-      return { t: `${x.name} 감독 — 연출 ${coLvSee(v, x, 'direct')} · 그림 ${coLvSee(va, x, 'art')} · 팬 ${fmtFans(x.fame || 0)}${c.back ? ' · 저번 감독' : ''}`, h: `연출료 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}`, f: s => {
+      return { pid: x.id, row: Object.assign(coPjRow(s, x, v, ['direct'], c, '연출료', c.back ? '저번 감독' : ''), { art: pplCells(s, x, va, ['art']).art }), t: `${x.name} 감독 — 연출 ${coLvSee(v, x, 'direct')} · 그림 ${coLvSee(va, x, 'art')} · 팬 ${fmtFans(x.fame || 0)}${c.back ? ' · 저번 감독' : ''}`, h: `연출료 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}`, f: s => {
         if (U.chance(c.p)) { Object.assign(P, { dir: x.id, dirFee: c.fee }); fireEvent(s, 'co_akey', { P }); return `${josa(x.name, '이가')} 「${P.title}」 감독을 맡기로 했다.`; }
         fireEvent(s, 'co_adir', { P, c: d.c.filter(y => y.id !== c.id), no: `${josa(x.name, '이가')} 거절했다. 다른 감독을 찾아본다.` });
         return `${josa(x.name, '이가')} 「${P.title}」 감독 제안을 거절했다.`;
@@ -510,12 +521,13 @@ E({
     while (L.length < 3) L.push(pickIndustry(s, '애니메이터', y => !L.includes(y), 0.4));
     d.c = L.map(x => ({ id: x.id, fee: coAKeyFee(P.kind, x), p: coVHireP(s, t, P, x, 'art') }));
   },
+  tbl(s, d) { return chPplTbl(s, this.ch(s, d), PPL_COLS.concat(CO_PJ_COLS.art), '섭외 제안을 한다'); },
   text: (s, d) => { const v = coVView(s, 'art', d.P.f); return `「${d.P.title}」 작화를 이끌 작화감독을 섭외한다.${d.no ? `\n\n${d.no}` : ''}\n\n그림 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
   ch: (s, d) => {
     const P = d.P, v = coVView(s, 'art', d.P.f), nf = Math.round(A_KIND[P.kind].key * 0.4 / 1e5) * 1e5;
     return d.c.filter(c => s.people[c.id]).map(c => {
       const x = s.people[c.id];
-      return { t: `${x.name} — 그림 ${coLvSee(v, x, 'art')} · 팬 ${fmtFans(x.fame || 0)}`, h: `계약금 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}`, f: s => {
+      return { pid: x.id, row: coPjRow(s, x, v, ['art'], c, '계약금', ''), t: `${x.name} — 그림 ${coLvSee(v, x, 'art')} · 팬 ${fmtFans(x.fame || 0)}`, h: `계약금 ${fmtWon(c.fee)} · 섭외 가능성 ${fmtPct(c.p)} · ${relWord(x)}`, f: s => {
         if (U.chance(c.p)) { Object.assign(P, { key: x.id, keyFee: c.fee }); fireEvent(s, 'co_ateam', { P }); return `${josa(x.name, '이가')} 「${P.title}」 작화감독을 맡기로 했다.`; }
         fireEvent(s, 'co_akey', { P, c: d.c.filter(y => y.id !== c.id), no: `${josa(x.name, '이가')} 거절했다. 다른 작화감독을 찾아본다.` });
         return `${josa(x.name, '이가')} 「${P.title}」 작화감독 제안을 거절했다.`;
@@ -538,6 +550,8 @@ E({
   },
   text: (s, d) => { const t = coT(s), v = coVView(s, 'art', d.P.f); return `「${d.P.title}」 원화를 그릴 애니메이터를 ${CO_A_TEAM.min}명 이상 체크하자 (${CO_A_TEAM.max}명까지). ${CO_A_TEAM.min}명을 넘기면 자본금이 계약금을 감당해야 한다.\n\n지금까지 낼 돈 ${fmtWon(coVUpfront(d.P))} · 자본금 ${fmtWon(coM(t, 'anime'))}\n그림 보는 눈: ${v.id === s.me ? '내 눈' : `기획 PD ${v.name}`}`; },
   form: (s, d) => { const v = coVView(s, 'art', d.P.f); return d.c.filter(c => s.people[c.id]).map(c => { const x = s.people[c.id]; return { k: x.id, type: 'check', label: `${x.name} — 그림 ${coLvSee(v, x, 'art')}`, sub: `계약금 ${fmtWon(c.fee)} · ${relWord(x)}` }; }); },
+  // v178: 오디션처럼 표로 (체크 · 정렬 · 고른 인원수)
+  tbl: (s, d) => { const v = coVView(s, 'art', d.P.f); return { cols: PPL_COLS.concat([['art', '그림'], ['fame', '팬'], ['fee', '계약금'], ['rel', '관계']]), rows: d.c.filter(c => s.people[c.id]).map(c => { const x = s.people[c.id]; return { k: x.id, cells: Object.assign(pplCells(s, x, v, ['art']), { fee: [c.fee, fmtWon(c.fee)] }) }; }), sort: ['art', -1], cnt: { n: '고른 애니메이터', min: CO_A_TEAM.min, max: CO_A_TEAM.max } }; },
   cancel: () => '애니 기획을 접었다.',
   submit(s, d, v) {
     const t = coT(s), P = d.P, pick = d.c.filter(c => v[c.id] && s.people[c.id]), fee = pick.reduce((a, c) => a + c.fee, 0);
@@ -674,7 +688,8 @@ function coAniYear(s, t) {
 
 // ───── 회사 창: 🎨 애니 탭 ─────
 function coTabAw(s, t) {
-  const w = coAWhy(s, t), A = [{ t: '새 애니 기획', h: `함께 만드는 애니 ${t.aw.length}/${CO_V_CAP[coATier(t)]}편 · 자본금 ${fmtWon(coM(t, 'anime'))}`, ok: !w, why: w, btn: '기획', run: s => { fireEvent(s, 'co_aplan', {}); return ''; } }];
+  // v178: 오디션 줄처럼 이 줄에서 바로 자동을 켜고 끈다
+  const w = coAWhy(s, t), A = [{ t: '새 애니 기획', h: `함께 만드는 애니 ${t.aw.length}/${CO_V_CAP[coATier(t)]}편 · 자본금 ${fmtWon(coM(t, 'anime'))}${coAuto(t).on.anime ? ' · 자동: 애니가 끝날 때마다 기획 회의를 연다' : ''}`, why: w, opts: [{ btn: '기획', on: true, ok: !w, run: s => { fireEvent(s, 'co_aplan', {}); return ''; } }, coAutoSw(t, 'anime')] }];
   let h = `<div class="sec-h">할 수 있는 일</div>` + A.map(actRow).join('');
   h += `<div class="sec-h">만드는 중 ${t.aw.length}편</div>`;
   if (!t.aw.length) h += `<div class="muted">지금 만드는 애니가 없다.</div>`;

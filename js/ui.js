@@ -689,7 +689,7 @@ function showEventRaw() {
   } else if (T) {
     // 표에서 줄을 고르고 아래 보라색 버튼으로 정한다. 표에 없는 선택지(미루기 등)는 옆에 작은 버튼으로
     const C1 = evChoices(s);
-    h += evTblHTML(T, false) + `<div class="choices tbl-btns"><button class="btn primary" data-tgo disabled>${U.esc(T.go || '고른 것으로 한다')}</button>${(T.rest || []).map(i => C1[i] ? `<button class="btn" data-choice="${i}">${U.esc(C1[i].t)}</button>` : '').join('')}</div>`;
+    h += evTblHTML(T, false) + `<div class="choices tbl-btns"><button class="btn primary" data-tgo disabled>${U.esc(T.go || '고른 것으로 한다')}</button>${(T.rest || []).map(i => { const c = C1[i]; if (!c) return ''; const ok = !c.ok || c.ok(s); return `<button class="btn${c.h ? ' rest-b' : ''}" data-choice="${i}" ${ok ? '' : 'disabled'}>${U.esc(c.t)}${c.h ? `<span class="rest-h">${U.esc(c.h)}</span>` : ''}</button>`; }).join('')}</div>`;
   } else {
     const C1 = evChoices(s);
     // 고를 것이 하나뿐이면 결과 창처럼 보라색 버튼 하나 (스페이스바로 넘어간다, v129)
@@ -2432,7 +2432,7 @@ function piOrg(s, x) {
       return `「${cn}」 소속`;
     }
   }
-  if (x.co && x.co.role === 'cand') return x.co.job ? `${x.co.job === 'trainer' && x.co.k ? trFieldN(x.co.k) : CO_JOBS[x.co.job] || '직원'} 지원자` : `${coKindN(x.co.kind)} 오디션 지원자`;
+  if (x.co && x.co.role === 'cand') return x.co.job === 'ceo' ? 'CEO 후보' : x.co.job ? `${x.co.job === 'trainer' && x.co.k ? trFieldN(x.co.k) : CO_JOBS[x.co.job] || '직원'} 지원자` : `${coKindN(x.co.kind)} 오디션 지원자`;
   const ig = (s.tracks.idol || {}).g; if (ig && (ig.members || []).includes(x.id)) return `그룹 「${ig.name}」 · 같은 그룹`;
   const bd = (s.tracks.band || {}).b; if (bd && (bd.members || []).includes(x.id)) return `밴드 「${bd.name}」 · 같은 밴드`;
   return x.metOrg || '';

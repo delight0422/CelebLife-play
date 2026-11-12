@@ -1455,3 +1455,7 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .pi-pot { font-size: var(--fs-1); font-weight: 700; border-radius: 999px; padding: 1px 8px; background: #f1f0f5; color: #666; white-space: nowrap; }
 .pi-pot.g0 { background: #fdecee; color: #c62f3c; } .pi-pot.g1 { background: #fff2e6; color: #b5651d; } .pi-pot.g3 { background: #e7f7f0; color: #0b7a4f; } .pi-pot.g4 { background: #dff3ff; color: #1f6fb5; }
 .pi-bar i.rg { background: repeating-linear-gradient(45deg, #b9a6f3 0 4px, #d8cdfa 4px 8px); }
+/* 표 아래 다른 선택지 버튼 (v178): 설명이 있으면 작은 글씨로 아래에 */
+.tbl-btns .btn.rest-b { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.25; padding-top: 6px; padding-bottom: 6px; }
+.rest-h { display: block; font-size: var(--fs-1); font-weight: 500; color: var(--muted); }
+.tbl-btns .btn[disabled] { opacity: .55; cursor: not-allowed; }
