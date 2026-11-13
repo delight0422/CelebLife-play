@@ -2474,7 +2474,7 @@ document.addEventListener('click', e => {
   if (t.id === 'btn-go') { turnGo(turnMax(S)); return; }
   if (t.id === 'btn-month') { turnGo(1); return; }
   if (t.dataset.turnok != null) { turnClose(t.dataset.turnok); return; }
-  if (t.dataset.panel) { UI.apjFrom = null; if (t.dataset.cofx) { UI.coF = t.dataset.cofx; UI.coTab = 'home'; UI.coGrp = null; } if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
+  if (t.dataset.panel) { UI.apjFrom = null; if (t.dataset.panel === 'group' && !UI.overlay) UI.grpTab = 'home'; if (t.dataset.cofx) { UI.coF = t.dataset.cofx; UI.coTab = 'home'; UI.coGrp = null; } if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
   if (t.dataset.close != null) return closePanel();
   if (t.dataset.logsize) { setLogSize(+t.dataset.logsize); if (UI.overlay === 'menu') renderPanel(); return; }
   if (t.dataset.min != null) { UI.minimized = true; showEvent(); return; }
@@ -2514,6 +2514,7 @@ document.addEventListener('click', e => {
   if (t.dataset.dicttab) { UI.dictTab = t.dataset.dicttab; renderPanel(); $('#pcard').scrollTop = 0; return; }
   if (t.dataset.pftab) { if (t.dataset.pftab === 'rec' && !UI.overlay) UI.recTab = 'career'; UI.pfTab = t.dataset.pftab; if (UI.overlay) { UI.overlay = 'profile'; renderPanel(); } else openPanel('profile'); return; }
   if (t.dataset.cotab) { UI.coTab = t.dataset.cotab; renderPanel(); return; }
+  if (t.dataset.grptab) { UI.grpTab = t.dataset.grptab; renderPanel(); return; }
   if (t.dataset.cogrp) { UI.coGrp = t.dataset.cogrp; renderPanel(); return; }
   if (t.dataset.fam != null) { openPanel('family'); return; }
   if (t.dataset.love != null) { openPanel('love'); return; }

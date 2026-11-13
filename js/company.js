@@ -460,15 +460,32 @@ function coStaffCand(s, t, job, k, boost, f) {
   // 기획 PD: 각본·감독·배우를 보는 눈 (스카우트와 작문·연출. v186: 배우도 연출 실력으로 본다, 연기는 뺐다)
   else if (job === 'pd') { learnSkill(s, x, 'scout', L); learnSkill(s, x, 'script', Math.max(1, Math.round(L * U.fl(0.6, 1.05)))); learnSkill(s, x, 'direct', Math.max(1, Math.round(L * U.fl(0.5, 0.95)))); if (t.f.anime) learnSkill(s, x, 'art', Math.max(1, Math.round(L * U.fl(0.4, 0.9)))); }
   else { learnSkill(s, x, teachSk(k), Math.min(92, L + U.int(0, 10))); learnSkill(s, x, 'edu', Math.max(1, L - U.int(0, 8))); }
-  for (const kk of learnedSkills(x)) { const sk = x.sk[kk]; sk.lv = Math.min(sk.lv, 100); sk.best = sk.lv; sk.pot = Math.max(sk.pot, sk.lv); }
+  // v195: 직원도 더 클 여지(성장 가능성)가 있다. 젊을수록 크다 (coStaffRoom). 예전엔 지금 레벨이 곧 끝이었다
+  const room = coStaffRoom(pAge(s, x));
+  for (const kk of learnedSkills(x)) { const sk = x.sk[kk]; sk.lv = Math.min(sk.lv, 100); sk.best = sk.lv; sk.pot = Math.min(100, Math.max(sk.lv, Math.round(sk.lv + room * U.fl(0.7, 1.3)))); }
   const lvl = job === 'trainer' ? teachLv(x, k) : job === 'anr' ? scoutLv(x, 'compose') : job === 'edit' ? lv(x, 'edit') : job === 'prod' ? lv(x, 'compose') : lv(x, 'scout');
-  x.co = { f: job === 'edit' ? 'mcn' : job === 'pd' ? (t.f.video ? 'video' : 'anime') : 'music', role: 'cand', job, k: k || null, sal: Math.round((job === 'edit' ? 100 + lvl * 2.5 : job === 'pd' ? 150 + lvl * 4 : (job === 'prod' ? 180 + lvl * 5 : 150 + lvl * 4) * CO_SAL_M) / 10) * 10 * 1e4 };
+  x.co = { room: 1, f: job === 'edit' ? 'mcn' : job === 'pd' ? (t.f.video ? 'video' : 'anime') : 'music', role: 'cand', job, k: k || null, sal: Math.round((job === 'edit' ? 100 + lvl * 2.5 : job === 'pd' ? 150 + lvl * 4 : (job === 'prod' ? 180 + lvl * 5 : 150 + lvl * 4) * CO_SAL_M) / 10) * 10 * 1e4 };
   return x;
 }
 function coStaffLine(x) {
-  const j = x.co.job;
-  return (j === 'trainer' ? `${SKILLS[teachSk(x.co.k)].n} ${lvi(x, teachSk(x.co.k))} · 교육 ${lvi(x, 'edu')}` : j === 'edit' ? `편집 ${lvi(x, 'edit')}` : j === 'pd' ? `스카우트 ${lvi(x, 'scout')} · 작문 ${lvi(x, 'script')} · 연출 ${lvi(x, 'direct')}${has(x, 'art') ? ` · 그림 ${lvi(x, 'art')}` : ''}` : j === 'anr' ? `스카우트 ${lvi(x, 'scout')} · 작곡 ${lvi(x, 'compose')}` : j === 'prod' ? `작곡 ${lvi(x, 'compose')} · 스카우트 ${lvi(x, 'scout')}${has(x, 'lyric') ? ` · 작사 ${lvi(x, 'lyric')}` : ''} · 잘하는 컨셉 ${coTopCm(x)}` : `스카우트 ${lvi(x, 'scout')}`) + ` · 월급 ${fmtWon(x.co.sal)}`;
+  // v195: 레벨마다 성장 가능성 별 (coStPot)
+  const j = x.co.job, L = k => `${lvi(x, k)}${coStPot(x, k)}`;
+  return (j === 'trainer' ? `${SKILLS[teachSk(x.co.k)].n} ${L(teachSk(x.co.k))} · 교육 ${L('edu')}` : j === 'edit' ? `편집 ${L('edit')}` : j === 'pd' ? `스카우트 ${L('scout')} · 작문 ${L('script')} · 연출 ${L('direct')}${has(x, 'art') ? ` · 그림 ${L('art')}` : ''}` : j === 'anr' ? `스카우트 ${L('scout')} · 작곡 ${L('compose')}` : j === 'prod' ? `작곡 ${L('compose')} · 스카우트 ${L('scout')}${has(x, 'lyric') ? ` · 작사 ${L('lyric')}` : ''} · 잘하는 컨셉 ${coTopCm(x)}` : `스카우트 ${L('scout')}`) + ` · 월급 ${fmtWon(x.co.sal)}`;
 }
+// ───── 직원의 성장 (v195) ─────
+// 직원이 더 클 여지: 20대 후반이면 18쯤, 30대 13, 40대 초중반 8, 그 위로 4 (사람마다 다르다). 뽑을 때 정한다 (예전 직원은 coFix에서 한 번)
+function coStaffRoom(a) { return Math.max(0, Math.round(U.normal(a < 32 ? 18 : a < 40 ? 13 : a < 47 ? 8 : 4, a < 40 ? 7 : 5))); }
+// 그 직원이 그 일에 쓰는 특기 (가진 것만)
+function coStKs(x) { return coJobKs(x.co.job, x.co.k).filter(k => has(x, k)); }
+function coStJobN(x) { return x.co.job === 'trainer' ? trFieldN(x.co.k) : CO_JOBS[x.co.job] || '직원'; }
+// 직원 특기의 성장 가능성 별: 연습생처럼 헤드헌터(없으면 나)의 눈으로 본다. 레벨은 정확히 보인다
+function coStPot(x, k) { const s = S; if (!s || !coOn(s) || !has(x, k)) return ''; return potTok(coViewer(s, 'cast', k), x, k, true); }
+function coStSkTxt(x) { return coStKs(x).map(k => `${SKILLS[k].n} ${lvi(x, k)}${coStPot(x, k)}`).join(' · '); }
+// 직원은 일하면서 달마다 조금씩 는다 (그 일에 쓰는 특기마다). 정기 교육 프로그램을 하면 더 빨리. 별이 다 차면 더 늘지 않는다
+const CO_ST_GROW = 4.5;
+function coStaffGrow(s, t) { const m = CO_EDU_PROG[coEdu(t).prog || 0][2]; for (const x of coStaff(s)) for (const k of coStKs(x)) practice(s, x, k, CO_ST_GROW * m); }
+// 한 번 가르친다 (워크숍 · 세미나 · 연수 · 멘토링). 돌려주는 값: 오른 양
+function coStTrain(s, x, base, ks) { let g = 0; for (const k of ks || coStKs(x)) g += practice(s, x, k, base); return g; }
 // 그 사람이 잘하는 컨셉 (숙련도 45 이상, 없으면 가장 높은 하나)
 function coTopCm(x) { const cm = coCm(x), L = TRENDS.slice().sort((a, b) => cm[b] - cm[a]); return L.filter(c => cm[c] >= 45).concat(L.slice(0, 1)).filter((c, i, A) => A.indexOf(c) === i).slice(0, 2).map(c => `'${c}'`).join(' · '); }
 // 그룹에 붙은 전담 사내 프로듀서 (회사를 떠났으면 없다)
@@ -520,7 +537,7 @@ E({
   init(s, d) { d.f = d.f || coMainF(coT(s)); if (coStaff(s, 'trainer', d.f).length <= coStaffCap(coT(s), 'trainer', d.f)) d.skip = true; },
   text: (s, d) => `「${coFName(coT(s), d.f)}」 트레이너 자리가 ${coStaffCap(coT(s), 'trainer', d.f)}명인데 지금 ${coStaff(s, 'trainer', d.f).length}명이다. 한 명을 내보내야 한다.`,
   tbl(s, d) { return chPplTbl(s, this.ch(s, d), [['n', '이름'], ['fd', '분야'], ['g', '성별'], ['a', '나이'], ['lv', '실력'], ['edu', '교육'], ['need', '배우는 사람'], ['sal', '월급'], ['nt', '비고']], '이 사람을 내보낸다'); },
-  ch: (s, d) => coStaff(s, 'trainer', d.f).map(x => ({ pid: x.id, row: Object.assign(pplCells(s, x, null, ['edu'], true), { fd: [x.co.k, trFieldN(x.co.k)], lv: [lvi(x, teachSk(x.co.k)), String(lvi(x, teachSk(x.co.k)))], need: [coTrNeedN(s, x.co.k, d.f), `${coTrNeedN(s, x.co.k, d.f)}명`], sal: [x.co.sal, fmtWon(x.co.sal)], nt: [x.id === d.new ? 1 : 0, x.id === d.new ? '방금 뽑은 사람' : ''] }), t: `${trFieldN(x.co.k)} ${x.name}${x.id === d.new ? ' (방금 뽑은 사람)' : ''}`, h: `${coStaffLine(x)} · 배우는 사람 ${coTrNeedN(s, x.co.k, d.f)}명`, f: s => { const r = coFire(s, x); if (coStaff(s, 'trainer', d.f).length > coStaffCap(coT(s), 'trainer', d.f)) fireEvent(s, 'co_tr_out', { new: d.new , f: d.f}); return r; } })),
+  ch: (s, d) => coStaff(s, 'trainer', d.f).map(x => ({ pid: x.id, row: Object.assign(pplCells(s, x, null, ['edu'], true), { edu: [lvi(x, 'edu'), `${lvi(x, 'edu')}${coStPot(x, 'edu')}`], fd: [x.co.k, trFieldN(x.co.k)], lv: [lvi(x, teachSk(x.co.k)), `${lvi(x, teachSk(x.co.k))}${coStPot(x, teachSk(x.co.k))}`], need: [coTrNeedN(s, x.co.k, d.f), `${coTrNeedN(s, x.co.k, d.f)}명`], sal: [x.co.sal, fmtWon(x.co.sal)], nt: [x.id === d.new ? 1 : 0, x.id === d.new ? '방금 뽑은 사람' : ''] }), t: `${trFieldN(x.co.k)} ${x.name}${x.id === d.new ? ' (방금 뽑은 사람)' : ''}`, h: `${coStaffLine(x)} · 배우는 사람 ${coTrNeedN(s, x.co.k, d.f)}명`, f: s => { const r = coFire(s, x); if (coStaff(s, 'trainer', d.f).length > coStaffCap(coT(s), 'trainer', d.f)) fireEvent(s, 'co_tr_out', { new: d.new , f: d.f}); return r; } })),
 });
 // 자동으로 뽑는데 자리가 꽉 찼다: 자동을 끌지 묻는다 (v131)
 E({
@@ -674,7 +691,8 @@ function pplCells(s, x, v, ks, exact) {
 // 직원 지원자 표에서 직업마다 보는 특기 (직원 지원자의 특기는 정확히 보인다)
 function coJobKs(job, k) { return job === 'trainer' ? [teachSk(k), 'edu'] : job === 'cast' ? ['scout'] : job === 'anr' ? ['scout', 'compose', 'lyric'] : job === 'pd' ? ['scout', 'script', 'direct', 'art'] : job === 'prod' ? ['compose', 'scout', 'lyric'] : job === 'edit' ? ['edit'] : job === 'ceo' ? ['biz'] : []; }
 function coJobCols(job, k) { return PPL_COLS.concat(coJobKs(job, k).map(kk => [kk, SKILLS[kk].n]), job === 'prod' ? [['cm', '잘하는 컨셉']] : []); }
-function coJobRow(s, x, job, k) { const c = pplCells(s, x, null, coJobKs(job, k), true); if (job === 'prod') c.cm = [0, coTopCm(x)]; return c; }
+// v195: 레벨 옆에 성장 가능성 별
+function coJobRow(s, x, job, k) { const c = pplCells(s, x, null, coJobKs(job, k), true); for (const kk of coJobKs(job, k)) if (has(x, kk)) c[kk][1] += coStPot(x, kk); if (job === 'prod') c.cm = [0, coTopCm(x)]; return c; }
 // 트레이너가 권하는 데뷔 멤버 (v133): 트레이너마다 딱 한 명. 표에서 그 줄에 초록 테두리와 '○○ 트레이너 추천'이 붙는다
 // 자기 분야를 더 무겁게 보고, 가르치는 실력이 낮을수록 잘못 본다 (같은 해에는 같은 추천). 돌려주는 값: { 연습생 id: '보컬 트레이너 추천' }
 // v177: 밴드(파트마다) · 버츄얼 아이돌(예능 · 노래 · 게임 · 연기)도 추천한다. 돌려주는 값: { 연습생 id: [분야, …] }
@@ -782,8 +800,8 @@ function coTrainMonth(s, t, teach) {
     if (q.tw >= 30 && !q.told) { q.told = 1; queueEv(s, 'co_sq_ready', 0, { kind: q.kind }, true); }
     for (const id of q.ids) { const x = s.people[id], k = q.kind === 'band' ? x.co.part : q.kind === 'vt' ? 'variety' : 'dance'; if (has(x, k)) practice(s, x, k, 1, coTrainM(s, t, k, coFOfKind(q.kind))); }
   }
-  for (const x of coStaff(s, 'trainer')) if (U.chance(0.3)) practice(s, x, 'edu', 0.5);
-  for (const x of coStaff(s, 'edit')) if (U.chance(0.3)) practice(s, x, 'edit', 0.5);
+  // v195: 직원은 일하면서 무난하게 는다 (예전엔 트레이너의 교육 · 편집자의 편집만 아주 조금)
+  coStaffGrow(s, t);
   // 직원은 65세가 넘으면 은퇴한다
   for (const x of coStaff(s)) if (pAge(s, x) >= 65 && U.chance(0.08)) { const n = x.co.job === 'trainer' ? trFieldN(x.co.k) : CO_JOBS[x.co.job]; t.staff = t.staff.filter(id => id !== x.id); x.co = null; x.job = `은퇴한 ${n}`; addLog(s, `${n} ${josa(x.name, '이가')} 은퇴했다.`, 'career'); }
 }
@@ -2010,6 +2028,8 @@ function coRankCheck(s, t) {
 function coFix(s, t) {
   // v194: v186~v193에 뽑은 연기 트레이너는 연기 대신 연출을 배워 왔다 → 한 번만 연출 레벨만큼 연기를 준다
   if (!t.actFix) { t.actFix = 1; for (const id of (t.staff || []).concat(t.cands || [])) { const x = s.people[id]; if (x && x.co && x.co.job === 'trainer' && x.co.k === 'acting' && lv(x, 'acting') < lv(x, 'direct')) { const L = Math.round(lv(x, 'direct')); if (!learnSkill(s, x, 'acting', L)) { const k = x.sk.acting; k.lv = k.best = Math.max(k.lv, L); k.pot = Math.max(k.pot, L); } } } }
+  // v195: 예전에 뽑은 직원은 지금 레벨이 곧 끝이었다 → 한 번만 나이만큼 더 클 여지를 준다
+  for (const id of t.staff || []) { const x = s.people[id]; if (!x || !x.co || x.co.room) continue; x.co.room = 1; const r = coStaffRoom(pAge(s, x)); for (const k of coStKs(x)) { const sk = x.sk[k]; sk.pot = Math.max(sk.pot || 0, Math.min(100, Math.round(sk.lv + r * U.fl(0.7, 1.3)))); } }
   if (typeof t.audCd !== 'object' || !t.audCd) t.audCd = { music: t.audCd || 0 };
   // v166: 예전 연습실 하나(t.eq)는 용도마다 같은 단계로 나눈다
   if (!t.rooms) { const e = t.eq || 0; t.rooms = {}; for (const r of CO_ROOMS) t.rooms[r.id] = e; delete t.eq; }
@@ -2068,6 +2088,9 @@ function coMonth(s, t) {
   // 연습생 비용: 한 명마다 쌓아 두었다가 데뷔하면 그룹이 갚을 비용(g.debt)이 된다
   for (const x of coTrainees(s)) { const c = coTrCost(t, x.co.f); coOut(t, c, '연습생 비용', x.co.f); x.co.cost = (x.co.cost || 0) + c; }
   for (const x of coStaff(s)) coOut(t, x.co.sal || 0, '직원 월급', coStaffF(t, x));
+  // v195: 정기 교육 프로그램 (한 명마다 그 직원이 있는 회사 자본금에서)
+  const EP = CO_EDU_PROG[coEdu(t).prog || 0];
+  if (EP[1]) for (const x of coStaff(s)) coOut(t, EP[1], '직원교육', coStaffF(t, x));
   for (const b of coBlds(t)) coOut(t, coRoomUpB(t, b), '연습실 장비', b);
   coCeoMonth(s, t);
   if (t.hire) hireMonth(s, t);
@@ -2172,7 +2195,7 @@ function coCurF(t) { return UI.coF && t.f[UI.coF] ? UI.coF : coMainF(t); }
 function coTabs(t, f) {
   const tr = coTrFields(t).includes(f);
   // v169: CEO 탭은 회사마다. CEO가 있으면 자동 탭은 없다 (CEO가 직접 한다)
-  return [['home', '🏢 회사'], ['fin', '💰 재정'], ['ceo', t.hire ? '📋 내 계약' : '👔 CEO']].concat(tr ? [['tr', '🌱 연습생'], ['grp', f === 'music' ? '🎤 그룹' : '🎙️ 기수'], ['room', '🏋️ 연습실']] : [], f === 'mcn' ? [['cr', '📡 크리에이터']] : [], f === 'video' ? [['vw', '🎬 작품']] : [], f === 'anime' ? [['aw', '🎨 애니']] : [], [['staff', '🧑‍💼 직원']], !coCeo(t, f) && (tr || f === 'video' || f === 'anime' || f === 'mcn') ? [['auto', '🔁 자동']] : []);
+  return [['home', '🏢 회사'], ['fin', '💰 재정'], ['ceo', t.hire ? '📋 내 계약' : '👔 CEO']].concat(tr ? [['tr', '🌱 연습생'], ['grp', f === 'music' ? '🎤 그룹' : '🎙️ 기수'], ['room', '🏋️ 연습실']] : [], f === 'mcn' ? [['cr', '📡 크리에이터']] : [], f === 'video' ? [['vw', '🎬 작품']] : [], f === 'anime' ? [['aw', '🎨 애니']] : [], [['staff', '🧑‍💼 직원']], !coIsGrp(t) && !t.hire ? [['edu', '📚 직원교육']] : [], !coCeo(t, f) && (tr || f === 'video' || f === 'anime' || f === 'mcn') ? [['auto', '🔁 자동']] : []);
 }
 function panel_company() {
   const s = S;
@@ -2190,6 +2213,7 @@ function panel_company() {
     if (tab === 'vw') return coTabVw(s, t);
     if (tab === 'aw') return coTabAw(s, t);
     if (tab === 'staff') return coTabStaff(s, t, f);
+    if (tab === 'edu') return coTabEdu(s, t);
     if (tab === 'fin') return coTabFin(s, t, f);
     if (tab === 'room') return coTabRoom(s, t, f);
     if (tab === 'auto') return coTabAuto(s, t, f);
@@ -2203,7 +2227,8 @@ function panel_company() {
   actRow = a => a0(coCeoRO(a, nm));
   try { return h + `<p class="hint">이 회사 일은 CEO ${josa(nm, '이가')} 맡고 있다. 경영 방향은 👔 CEO 탭에서 정한다.</p>` + body(); } finally { actRow = a0; }
 }
-function coCoRO(t, f, tab) { return ['home', 'fin', 'ceo'].includes(tab) ? null : coCeo(t, f); }
+// 직원교육 탭(v195)은 그룹 일이라 CEO가 있어도 내가 한다
+function coCoRO(t, f, tab) { return ['home', 'fin', 'ceo', 'edu'].includes(tab) ? null : coCeo(t, f); }
 // ───── 그룹 창 (v187) ─────
 // 자회사가 생기면 메인 화면 박스가 '그룹'이 되고, 누르면 이 창: 그룹 이름 · 등급 · 소속 회사 · 그룹 전체 자본금 · 출자 · 배당 · 자회사 세우기
 // 회사 창에서는 이것들을 뺐다 (겹치지 않게). 회사 배너를 누르면 그 회사 창, 회사 창 위 '← 그룹'으로 돌아온다
@@ -2254,7 +2279,10 @@ function panel_group() {
   if (!coIsGrp(t)) { UI.overlay = 'company'; return panel_company(); }
   const m = coMainF(t), fs = [m].concat(coFields(t).filter(f => f !== m)), subs = fs.slice(1), rk = Math.max(coRank(t), t.rankMax || 0);
   const net = Object.values(t.lastL || {}).reduce((a, v) => a + v, 0), lb = coLocB(s, t);
-  let h = `<h2>🏛️ ${U.esc(coGrpName(t))} <span class="muted" style="font-size:var(--fs-3)">${coRankName(t, rk)} · 회사 ${fs.length}곳</span></h2>`;
+  // v195: 탭 둘 — 그룹 · 정기 직원교육
+  const GT = [['home', '🏛️ 그룹'], ['edu', '📚 직원교육']], gt = GT.some(x => x[0] === UI.grpTab) ? UI.grpTab : 'home';
+  let h = `<h2>🏛️ ${U.esc(coGrpName(t))} <span class="muted" style="font-size:var(--fs-3)">${coRankName(t, rk)} · 회사 ${fs.length}곳</span></h2><div class="ap-row pf-tabs">${GT.map(([k, n]) => `<button class="ap-tab ${gt === k ? 'on' : ''}" data-grptab="${k}">${n}</button>`).join('')}</div>`;
+  if (gt === 'edu') return h + coTabEdu(s, t);
   h += infoTable([['그룹 등급', coRankName(t, rk)], ['그룹 전체 자본금', fmtWon(t.money)], ['지난달 그룹 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`], ['모회사', `「${t.name}」`], ['입지', `${REGION_BY[coLocR(s, t)].n}${lb > 1 ? ` · 회사 일 +${Math.round((lb - 1) * 100)}%` : ''} · 집에서 ${coDistTxt(coDist(s, t))}`]]);
   h += `<div class="sec-h">소속 회사 <span class="n">${fs.length}곳 · 누르면 그 회사 창</span></div><div class="grp-cos">${fs.map(f => coBannerHTML(s, t, f, false, true)).join('')}</div>`;
   // v189: 사옥마다 든 회사 · 연습실 정원, 본사에 있는 자회사는 사옥 독립 (v194: 모든 자회사)
@@ -2268,6 +2296,77 @@ function panel_group() {
   if (coSubLeft(t).length) h += `<div class="sec-h">자회사 세우기</div>` + coNewBannerHTML(true, coSubWhy(s, t));
   return h;
 }
+// ───── 정기 직원교육 (v195) ─────
+// 그룹 창의 '📚 직원교육' 탭 (자회사가 없으면 회사 창의 탭). 그룹 모든 회사의 직원을 같이 가르친다. 비용은 그 직원이 있는 회사 자본금에서
+// 정기 교육 프로그램 [이름, 한 명당 월 비용, 달마다 느는 배수] · 사내 워크숍(모두 · 3개월) · 전문 세미나(한 직무 · 6개월) · 해외 연수(한 명 · 1년 · 성장 가능성도 조금 넓어진다) · 멘토링(같은 일을 하는 선배가 가르친다 · 6개월)
+const CO_EDU_PROG = [['안 함', 0, 1], ['기본', 50e4, 1.5], ['집중', 150e4, 2.2]];
+const CO_EDU = { ws: { cd: 3, per: 300e4, base: 20 }, sem: { cd: 6, per: 1000e4, base: 45 }, abr: { cd: 12, per: 5000e4, base: 80, pot: [3, 6] }, men: { cd: 6, base: 30 } };
+function coEdu(t) { return t.edu = t.edu || { prog: 0 }; }
+function coEduCdWhy(s, t, k) { const n = coEdu(t)[k] || 0; return n > s.t ? `${n - s.t}개월 뒤에 다시 할 수 있다` : ''; }
+// 회사마다 낼 돈: 모자란 회사가 있으면 그 이유
+function coEduPayWhy(t, L, per) { const N = {}; for (const x of L) { const f = coStaffF(t, x); N[f] = (N[f] || 0) + per; } const f = Object.keys(N).find(f => coM(t, f) < N[f]); return f ? `「${coFName(t, f)}」 자본금이 모자라다 (${fmtWon(N[f])} 필요)` : ''; }
+function coEduPay(t, L, per) { for (const x of L) coOut(t, per, '직원교육', coStaffF(t, x)); }
+// 직무마다 묶은 직원 [이름, 사람들]
+function coEduJobs(s) { return ['trainer', 'cast', 'anr', 'pd', 'prod', 'edit'].map(j => [j, CO_JOBS[j], coStaff(s, j)]).filter(g => g[2].length); }
+// 교육 결과: 레벨이 오른 사람 · 이미 다 큰 사람
+function coEduRes(s, head, L, fn) {
+  const up = [], full = [];
+  for (const x of L) {
+    const ks = coStKs(x), b = ks.map(k => lvi(x, k));
+    fn(x);
+    const ch = ks.map((k, i) => lvi(x, k) > b[i] ? `${SKILLS[k].n} ${b[i]}→${lvi(x, k)}` : '').filter(Boolean);
+    if (ch.length) up.push(`${x.name} ${ch.join(' · ')}`); else if (ks.every(k => x.sk[k].pot - x.sk[k].lv < 0.5)) full.push(x.name);
+  }
+  return [head, up.length ? `오른 사람: ${up.join(', ')}` : full.length < L.length ? '레벨이 오른 사람은 아직 없지만 다들 조금씩 늘었다.' : '', full.length ? `${full.join(', ')}: 이미 다 커서 더 늘지 않았다.` : ''].filter(Boolean).join('\n');
+}
+// 멘토링: 같은 일을 하는 직원 중 그 특기를 5 넘게 더 잘하는 사람이 있으면 가르친다. [[후배, 특기, 선배]]
+function coMentorPairs(s) {
+  const L = coStaff(s), P = [];
+  for (const x of L) for (const k of coStKs(x)) { const m = L.filter(y => y !== x && y.co.job === x.co.job && lv(y, k) >= lv(x, k) + 5).sort((a, b) => lv(b, k) - lv(a, k))[0]; if (m) P.push([x, k, m]); }
+  return P;
+}
+function coMentorRun(s, t) {
+  const P = coMentorPairs(s), J = [...new Set(P.map(p => p[0]))], M = [...new Set(P.map(p => p[2]))];
+  coEdu(t).men = s.t + CO_EDU.men.cd;
+  const r = coEduRes(s, `멘토링을 했다. 가르친 사람: ${M.map(x => `${coStJobN(x)} ${x.name}`).join(', ')}`, J, x => { for (const [y, k, m] of P) if (y === x) practice(s, x, k, CO_EDU.men.base * Math.min(1, (lv(m, k) - lv(x, k)) / 20)); });
+  for (const m of M) teach(s, m, 2);
+  return r;
+}
+function coTabEdu(s, t) {
+  const E0 = coEdu(t), L = coStaff(s), n = L.length, grp = coIsGrp(t), none = n ? '' : '직원이 없다', p = E0.prog || 0;
+  let h = `<p class="hint">직원은 일하면서 조금씩 는다. 별은 그 사람이 더 클 수 있는 정도다 (색칠한 별이 다 차면 더 늘지 않는다). 교육을 하면 더 빨리 큰다.${grp ? ' 그룹 모든 회사의 직원을 같이 가르치고, 비용은 그 직원이 있는 회사 자본금에서 나간다.' : ''}</p>`;
+  const A = [];
+  A.push({ emo: '📅', t: '정기 교육 프로그램', tag: p ? CO_EDU_PROG[p][0] : '', h: `달마다 한 명당 기본 ${fmtWon(CO_EDU_PROG[1][1])} · 집중 ${fmtWon(CO_EDU_PROG[2][1])}${n && p ? ` · 지금 직원 ${n}명 월 ${fmtWon(n * CO_EDU_PROG[p][1])}` : ''} · 기본은 더 빨리, 집중은 훨씬 빨리 는다`, opts: CO_EDU_PROG.map((P, i) => ({ btn: P[0], on: p === i, ok: true, run: s => { if ((coEdu(coT(s)).prog || 0) === i) return ''; coEdu(coT(s)).prog = i; return i ? `정기 교육 프로그램을 '${P[0]}'으로 정했다. 다음 달부터 직원 한 명당 월 ${fmtWon(P[1])}.` : '정기 교육 프로그램을 그만뒀다.'; } })) });
+  const W = CO_EDU.ws, ww = none || coEduCdWhy(s, t, 'ws') || coEduPayWhy(t, L, W.per);
+  A.push({ emo: '🧑‍🏫', t: '사내 워크숍', price: n ? `${fmtWon(W.per * n)} (자본금)` : '', eff: '모든 직원 · 일에 쓰는 특기 ↑', note: `3개월에 한 번 · 한 명당 ${fmtWon(W.per)}`, ok: !ww, why: ww, btn: '열기', run: s => { const t = coT(s), L = coStaff(s); coEduPay(t, L, W.per); coEdu(t).ws = s.t + W.cd; return coEduRes(s, `사내 워크숍을 열었다. 직원 ${L.length}명 · ${fmtWon(W.per * L.length)}.`, L, x => coStTrain(s, x, W.base)); } });
+  const sw = none || coEduCdWhy(s, t, 'sem');
+  A.push({ emo: '🎓', t: '전문 세미나', price: `한 명당 ${fmtWon(CO_EDU.sem.per)} (자본금)`, eff: '한 직무 직원 모두 · 일에 쓰는 특기 크게 ↑', note: '6개월에 한 번 · 직무를 고른다', ok: !sw, why: sw, btn: '고르기', run: s => { fireEvent(s, 'co_edu_sem', {}); return ''; } });
+  const aw = none || coEduCdWhy(s, t, 'abr');
+  A.push({ emo: '✈️', t: '해외 연수', price: `${fmtWon(CO_EDU.abr.per)} (자본금)`, eff: '한 명 · 일에 쓰는 특기 아주 크게 ↑ · 성장 가능성도 조금 넓어진다', note: '1년에 한 번 · 보낼 사람을 고른다', ok: !aw, why: aw, btn: '고르기', run: s => { fireEvent(s, 'co_edu_abr', {}); return ''; } });
+  const mw = none || coEduCdWhy(s, t, 'men') || (coMentorPairs(s).length ? '' : '같은 일을 하는 직원 중 더 잘하는 선배가 있어야 한다');
+  A.push({ emo: '🤝', t: '멘토링', eff: '같은 일을 하는 직원끼리 · 잘하는 선배가 후배를 가르친다 · 선배는 교육 ↑', note: '6개월에 한 번', ok: !mw, why: mw, btn: '하기', run: s => coMentorRun(s, coT(s)) });
+  h += `<div class="sec-h">교육</div>` + A.map(actRow).join('');
+  h += `<div class="sec-h">직원 <span class="n">${n}명</span></div>`;
+  if (!n) return h + `<div class="muted">아직 직원이 없다. 회사 창의 직원 탭에서 뽑는다.</div>`;
+  return h + L.map(x => { const f = coStaffF(t, x); return actRow({ who: x.id, t: `${coStJobN(x)} ${x.name} (${gNn(x)} · ${pAge(s, x)}세)${grp ? ` · ${CO_FIELDS[f].ic} ${coFName(t, f)}` : ''}`, h: coStSkTxt(x), noBtn: true }); }).join('');
+}
+E({
+  id: 'co_edu_sem', cat: '직원교육', title: '어느 직원들을 세미나에 보낼까?', tag: 'career',
+  cond: s => coOn(s),
+  text: () => `직무마다 전문 세미나가 열린다. 고른 직무의 직원을 모두 보낸다. 한 명당 ${fmtWon(CO_EDU.sem.per)} (그 직원이 있는 회사 자본금에서).`,
+  ch: s => coEduJobs(s).map(([j, n, L]) => { const why = coEduPayWhy(coT(s), L, CO_EDU.sem.per); return { t: `${n} ${L.length}명`, h: `${fmtWon(L.length * CO_EDU.sem.per)} · ${L.map(x => x.name).join(', ')}${why ? ` · ${why}` : ''}`, ok: s => !coEduPayWhy(coT(s), coStaff(s, j), CO_EDU.sem.per), f: s => { const t = coT(s), L = coStaff(s, j); coEduPay(t, L, CO_EDU.sem.per); coEdu(t).sem = s.t + CO_EDU.sem.cd; return coEduRes(s, `${n} ${L.length}명을 전문 세미나에 보냈다 (${fmtWon(L.length * CO_EDU.sem.per)}).`, L, x => coStTrain(s, x, CO_EDU.sem.base)); } }; }).concat([{ t: '그만둔다', f: () => '' }]),
+});
+E({
+  id: 'co_edu_abr', cat: '직원교육', title: '누구를 해외 연수에 보낼까?', tag: 'career',
+  cond: s => coOn(s),
+  text: () => `해외의 큰 회사에서 몇 주 동안 배우고 온다. ${fmtWon(CO_EDU.abr.per)} (그 직원이 있는 회사 자본금에서). 일에 쓰는 특기가 아주 크게 늘고, 성장 가능성도 조금 넓어진다.`,
+  tbl(s, d) { return chPplTbl(s, this.ch(s, d), PPL_COLS.concat([['job', '하는 일'], ['sk', '특기'], ['co', '회사']]), '이 사람을 보낸다'); },
+  ch: s => { const t = coT(s), grp = coIsGrp(t); return coStaff(s).map(x => { const f = coStaffF(t, x); return { pid: x.id, ok: s => coM(coT(s), f) >= CO_EDU.abr.per, row: Object.assign(pplCells(s, x, null, []), { job: [coStJobN(x), coStJobN(x)], sk: [coStKs(x).reduce((a, k) => a + lv(x, k), 0), coStSkTxt(x)], co: [f, grp ? coFName(t, f) : ''] }), t: `${coStJobN(x)} ${x.name} (${gNn(x)} · ${pAge(s, x)}세)`, h: coStSkTxt(x), f: s => {
+    const t = coT(s); coOut(t, CO_EDU.abr.per, '직원교육', f); coEdu(t).abr = s.t + CO_EDU.abr.cd;
+    for (const k of coStKs(x)) { const sk = x.sk[k]; sk.pot = Math.min(100, Math.max(sk.pot, sk.lv) + U.int(...CO_EDU.abr.pot)); }
+    return coEduRes(s, `${coStJobN(x)} ${josa(x.name, '을를')} 해외 연수에 보냈다 (${fmtWon(CO_EDU.abr.per)}).`, [x], x => coStTrain(s, x, CO_EDU.abr.base));
+  } }; }).concat([{ t: '그만둔다', f: () => '' }]); },
+});
 // 그 회사에 맞는 직원 자리 (CO_NEW_JOBS) 에 있는 사람
 function coStaffOfF(s, f) { return coStaff(s, null, f); }
 function coLedItems(L) { return Object.entries(L || {}).filter(([k, v]) => v && !CO_IO.includes(k)).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v > 0 ? '+' : '-'}${fmtWon(Math.abs(v))}`); }
@@ -2432,7 +2531,7 @@ function coTabStaff(s, t, f) {
   const pds = coStaff(s, 'prod', f);
   if (has('music')) { const pw = coHireOK(s, 'prod', f); rows.push({ t: '사내 프로듀서 뽑기', h: `사내 프로듀서 ${coProdCount(s)}/${CO_PROD_CAP[coTier(t, 'music')]}명${pds.length > coProdCount(s) ? ' (전담 프로듀서는 제외됨)' : ''} · 그룹에 전담으로 붙이면 앨범 기획 · 선정을 맡는다 · 붙이지 않아도 '사내 제작'으로 곡을 쓴다`, ok: !pw, why: pw, btn: '뽑기', run: s => { fireEvent(s, 'co_hire', { job: 'prod', f }); return ''; } }); }
   if (has('mcn')) { const ew = coHireOK(s, 'edit', f), ea = coAuto(t).on.edit; rows.push({ t: '편집자 뽑기', h: `편집자 ${eds.length}/${CO_ED_CAP[coTier(t, 'mcn')]}명 · 한 명이 크리에이터 ${CO_ED_PER}명까지 맡는다${ea ? ' · 자동: 편집자가 모자라면 3개월마다 지원자를 본다' : ''}`, why: ew, opts: [{ btn: '뽑기', on: true, ok: !ew, run: s => { fireEvent(s, 'co_hire', { job: 'edit', f }); return ''; } }, coAutoSw(t, 'edit')] }); }
-  let h = `<div class="sec-h">직원 <span class="n">월급 합계 ${fmtWon(coStaff(s, null, f).reduce((a, x) => a + x.co.sal, 0))}</span></div>` + rows.map(actRow).join('');
+  let h = `<div class="sec-h">직원 <span class="n">월급 합계 ${fmtWon(coStaff(s, null, f).reduce((a, x) => a + x.co.sal, 0))}</span></div>` + (t.hire ? '' : `<p class="hint">별은 그 사람이 더 클 수 있는 정도다. 직원은 일하면서 조금씩 늘고, ${coIsGrp(t) ? '그룹 창의 ' : ''}📚 직원교육 탭에서 더 빨리 키울 수 있다.</p>`) + rows.map(actRow).join('');
   if (tr && trs.length) h += `<div class="sec-h">트레이너</div>` + trs.map(x => actRow({ who: x.id, t: `${trFieldN(x.co.k)} ${x.name} (${gNn(x)} · ${pAge(s, x)}세)`, h: coStaffLine(x), ok: true, danger: true, btn: '내보내기', confirm: `${x.name}을 내보낼까요?`, run: s => coFire(s, x) })).join('');
   if (has('music') && pds.length) h += `<div class="sec-h">사내 프로듀서</div>` + pds.map(x => { const g = t.groups.find(y => y.prod === x.id); return actRow({ who: x.id, t: `${x.name} (${gNn(x)} · ${pAge(s, x)}세)${g ? ` · 「${g.name}」 전담` : ''}`, h: coStaffLine(x), ok: true, danger: true, btn: '내보내기', confirm: `${x.name}을 내보낼까요?`, run: s => coFire(s, x) }); }).join('');
   if (has('mcn') && eds.length) h += `<div class="sec-h">편집자</div>` + eds.map(x => actRow({ who: x.id, t: `${x.name} (${gNn(x)} · ${pAge(s, x)}세)`, h: coStaffLine(x), ok: true, danger: true, btn: '내보내기', confirm: `${x.name}을 내보낼까요?`, run: s => coFire(s, x) })).join('');
