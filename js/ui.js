@@ -1305,6 +1305,7 @@ window.addEventListener('resize', () => { if (UI.overlay === 'applyjob') apPlace
 // 직업 탭 안: 인디(프리랜서)처럼 회사 크기가 없는 곳은 바로 보이고, 회사는 소형 · 중형 · 대형 트리 뷰 아래에 (묶음 안은 원래처럼 합격 가능성 순)
 const AP_SZ = ['', '소형', '중형', '대형'];
 function apSize(s, a) {
+  if (a.coKey) { const c = coByKey(a.coKey); if (c) return AP_SZ[c.tier] || ''; }
   const m = String(a.tag || '').match(/^(대형|중형|소형)/) || a.n.match(/(대형|중형|소형) /);
   if (m) return m[1];
   let x = a.id.match(/^editor_mcn_(.+)$/);
@@ -1330,18 +1331,21 @@ function apSizeList(s, g) {
 // ───── 구직활동 회사별 보기 (v205) ─────
 // 회사 종류 → 회사(대형 · 중형 · 소형 순) → 그 회사에 지원할 수 있는 자리. 어느 회사인지 붙은 뒤에 정해지는 채용(대형 배우 소속사 연기 트레이너 등)은 '대형 배우 소속사' 한 곳으로 묶는다
 // v206: 회사 없이 혼자 시작하는 일(인디 · 프리랜서 · 채널 열기 등)은 그 분야 회사 종류 맨 아래 '🧑 프리랜서'에. 지금 지원할 수 없는 곳은 보이지 않는다
-const AP_CO_TY = [['label', '🎤', '기획사'], ['vidol', '🎙️', '버츄얼 아이돌 기획사'], ['mcn', '📡', 'MCN'], ['dance', '🕺', '댄스 컴퍼니'], ['actor', '🎬', '배우 소속사'], ['model', '📸', '모델 에이전시'], ['bc', '📺', '방송사'], ['vprod', '🎞️', '영상 제작사'], ['anime', '✏️', '애니메이션 제작사'], ['web', '📚', '웹툰 · 웹소설 플랫폼'], ['univ', '🎓', '대학'], ['acad', '👩‍🏫', '학원 · 인강 회사'], ['etc', '🧩', '그 밖에']];
+const AP_CO_TY = [['label', '🎤', '기획사'], ['vidol', '🎙️', '버츄얼 아이돌 기획사'], ['mcn', '📡', 'MCN'], ['dance', '🕺', '댄스팀'], ['actor', '🎬', '배우 소속사'], ['model', '📸', '모델 에이전시'], ['bc', '📺', '방송사'], ['vprod', '🎞️', '영상 제작사'], ['anime', '✏️', '애니메이션 제작사'], ['web', '📚', '웹툰 · 웹소설 플랫폼'], ['univ', '🎓', '대학'], ['acad', '👩‍🏫', '학원 · 인강 회사'], ['etc', '🧩', '그 밖에']];
 // 회사 종류 이름 아래 작은 설명
 const AP_CO_DESC = { web: '작가가 웹툰 · 웹소설을 회차마다 올리고 독자가 돈을 내거나 광고를 보며 읽는 인터넷 사이트 · 앱. 플랫폼 공모전에 붙거나, CP사(작가와 계약해 작품을 다듬고 플랫폼에 연재를 넣어 주는 회사)를 거쳐 연재한다.' };
-const AP_CO_RULE = [[/^(idol|bandtr|bandsign)_|^solo_(?!indie$)/, 'label'], [/^vidol_aud_/, 'vidol'], [/^(mcn_join|editor_mcn)_/, 'mcn'], [/^dancer_dc_/, 'dance'], [/^actor_(?!indie$)|^acttrainer_\d$/, 'actor'], [/^model_(?!free$)/, 'model'], [/^voice_bc_|^variety_gong$/, 'bc'], [/^editor_\d$|^director_ad$/, 'vprod'], [/^animator_\d$|^adir_ep$/, 'anime'], [/^(webtoon|webnovel)_(contest|cp)\d$/, 'web'], [/^prof_/, 'univ'], [/^tutor_/, 'acad']];
+const AP_CO_RULE = [[/^(idol|bandtr|bandsign)_|^solo_(?!indie$)/, 'label'], [/^vidol_aud_/, 'vidol'], [/^(mcn_join|editor_mcn)_/, 'mcn'], [/^dancer_dc_/, 'dance'], [/^actor_(?!indie$)/, 'actor'], [/^model_(?!free$)/, 'model'], [/^voice_bc_|^variety_gong$/, 'bc'], [/^(webtoon|webnovel)_contest\d$/, 'web'], [/^prof_/, 'univ'], [/^tutor_/, 'acad']];
 // 프리랜서: 회사 없이 혼자 시작하는 일이 어느 회사 종류 아래에 들어가나
 const AP_FREE = [[/^(band_make|band_join|solo_indie|player_start|composer_start|lyricist_start|producer_start)$/, 'label'], [/^youtube_vt\d$/, 'vidol'], [/^(youtube_open|editor_ded)$/, 'mcn'], [/^dancer_free$/, 'dance'], [/^actor_indie$/, 'actor'], [/^model_free$/, 'model'], [/^(variety_start|voice_free)$/, 'bc'], [/^(editor_free|director_short|writer_start)$/, 'vprod'], [/^(animator_free|adir_short)$/, 'anime'], [/^(webtoon_free|webnovel_free|illust_start)$/, 'web']];
 // 지원 하나가 어느 회사의 어떤 자리인가: { ty 회사 종류, co 회사 이름(없으면 그 종류 바로 아래), pos 자리, free 프리랜서 }
+// v207: 회사마다 따로 지원하는 자리(coKey)는 회사 열쇠로 바로 찾는다 (CP사 · 영상 제작사 · 애니 제작사 · 연기 트레이너 · 대학 · 학원 · 마케팅팀 등)
+const AP_KIND_TY = { music: 'label', vtuber: 'vidol', mcn: 'mcn', dance: 'dance', actor: 'actor', model: 'model', bc: 'bc', prod: 'vprod', ani: 'anime', cp: 'web', uni: 'univ', acad: 'acad', ol: 'acad' };
 function apCoOf(a) {
   const n = String(a.n);
+  if (a.coKey) { const c = coByKey(a.coKey); if (c && AP_KIND_TY[c.kind]) return { ty: AP_KIND_TY[c.kind], co: c.n, pos: a.pos || n, spec: c.con || '', tier: c.tier }; }
   // v206: 회사마다 따로 뽑는 직원 자리 (사내 프로듀서 · A&R · 트레이너 · 마케팅팀)
   let m = a.id.match(/^(pin|anr|tr|marketer)_(.+)$/);
-  if (m && AG[m[2]]) { const ag = AG[m[2]]; return { ty: ag.kind === 'vtuber' ? 'vidol' : 'label', co: ag.n, pos: n.startsWith(ag.n + ' ') ? n.slice(ag.n.length + 1) : n }; }
+  if (m && AG[m[2]]) { const ag = AG[m[2]]; return { ty: ag.kind === 'vtuber' ? 'vidol' : 'label', co: ag.n, pos: n.startsWith(ag.n + ' ') ? n.slice(ag.n.length + 1) : n, spec: ag.con || '', tier: ag.tier }; }
   const f = AP_FREE.find(([re]) => re.test(a.id));
   if (f) return { ty: f[1], co: '', pos: n, free: true };
   const r = AP_CO_RULE.find(([re]) => re.test(a.id)), ty = r ? r[1] : 'etc';
@@ -1379,8 +1383,9 @@ function apCoHTML(s, list) {
     const direct = L.filter(x => !x[1].co && !x[1].free);
     if (okN(direct)) h += rows(direct);
     for (const C of cos) {
-      C.sz = C.gen ? C.n.split(' ')[0] : apSize(s, C.L[0][0]) || '';
-      C.spec = (C.L.map(x => String(x[0].tag || '').match(/^(?:대형|중형|소형) · (?!월급)(.+)$/)).find(Boolean) || [])[1] || '';
+      const tr = C.L.find(x => x[1].tier);
+      C.sz = C.gen ? C.n.split(' ')[0] : tr ? AP_SZ[tr[1].tier] : apSize(s, C.L[0][0]) || '';
+      C.spec = (C.L.find(x => x[1].spec) || [0, {}])[1].spec || (C.L.map(x => String(x[0].tag || '').match(/^(?:대형|중형|소형) · (?!월급)(.+)$/)).find(Boolean) || [])[1] || '';
     }
     cos.sort((x, y) => szI(x.sz) - szI(y.sz));
     for (const C of cos) {

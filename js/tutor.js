@@ -221,14 +221,16 @@ function tuBestSubj(s) { return TU_SUBJ_IDS.slice().sort((a, b) => tuSubLv(s, b)
 function tuApplySc(s) { const p = me(s), t = s.tracks.tutor || {}, on = tuOn(s); return (on ? tuSubLv(s, t.subj) : tuSubLv(s, tuBestSubj(s))) * 0.5 + lv(p, 'edu') * 0.3 + (uniDone(s) ? 4 : 0) + TU_POW[t.tier || 0] * 3 + (on ? (t.rep - 50) * 0.1 : 0); }
 function tuSign(s, coT) { return Math.round((300 + coT * 400) * (1 + TU_POW[(s.tracks.tutor || {}).tier || 0] * 0.5)) * 1e4; }
 function tuCands(s, kind, tier) { const t = s.tracks.tutor || {}; return TU_COS.filter(x => x.kind === kind && x.tier === tier && !(tuOn(s) && x.n === t.co)); }
-for (const kind of ['acad', 'ol']) for (const tier of [3, 2, 1]) JOB_APPLY.push({
-  id: (kind === 'ol' ? 'tutor_ol' : 'tutor_') + tier, trk: 'tutor', g: '👩‍🏫 강사', n: kind === 'ol' ? `${TIER_N[tier]} 인강 회사 오디션` : `${TIER_N[tier]} 학원 강사 지원`, tag: tuTerms(kind, tier),
-  show: s => (tuOn(s) || age(s) >= 20) && tuCands(s, kind, tier).length > 0,
-  h: s => `합격 가능성 ${fmtPct(audP(tuApplySc(s), TU_THR[kind][tier]))} · 결과는 다음 달${tuOn(s) ? ` · 붙으면 ${kind === 'ol' ? '인강 회사로' : '학원을'} 옮긴다` : ''}`,
-  ok: s => !s.army && tuSubLv(s, tuOn(s) ? s.tracks.tutor.subj : tuBestSubj(s)) >= 25 && !hasQ(s, 'tu_res') && !(s.cd['tu' + kind + tier] > s.t),
+// v207: 학원 · 인강 회사마다 따로 지원한다 (회사 특징 CO_FOCUS.acad · ol)
+function tuApplyP(s, c) { return audP(coFocus(s, c.kind === 'ol' ? 'ol' : 'acad', c.con, tuApplySc(s)), TU_THR[c.kind === 'ol' ? 'ol' : 'acad'][c.tier]); }
+TU_COS.forEach((x, i) => { const key = 'tu.' + i, ol = () => x.kind === 'ol'; JOB_APPLY.push({
+  id: 'tutor_t' + i, coKey: key, get pos() { return ol() ? '인강 오디션' : '강사 지원'; }, trk: 'tutor', g: '👩‍🏫 강사', get n() { return ol() ? `${x.n} 인강 오디션` : `${x.n} 강사 지원`; }, get tag() { return `${TIER_N[x.tier]} · ${tuTerms(x.kind, x.tier)}`; },
+  show: s => (tuOn(s) || age(s) >= 20) && !(tuOn(s) && s.tracks.tutor.co === x.n),
+  h: s => `합격 가능성 ${fmtPct(tuApplyP(s, x))} · 결과는 다음 달${tuOn(s) ? ` · 붙으면 ${ol() ? '인강 회사로' : '학원을'} 옮긴다` : ''}`,
+  ok: s => !s.army && tuSubLv(s, tuOn(s) ? s.tracks.tutor.subj : tuBestSubj(s)) >= 25 && !hasQ(s, 'tu_res') && !(s.cd['tu_' + key] > s.t),
   why: s => s.army ? '군 복무 중' : tuSubLv(s, tuOn(s) ? s.tracks.tutor.subj : tuBestSubj(s)) < 25 ? '가르칠 과목 실력(학업·영어)이 25레벨 이상이어야 한다' : hasQ(s, 'tu_res') ? '결과를 기다리는 중' : '얼마 전에 지원했다',
-  run: s => { s.cd['tu' + kind + tier] = s.t + 6; const c = U.pick(tuCands(s, kind, tier)); queueEv(s, 'tu_res', 1, { co: c.n, kind, coT: tier, p: audP(tuApplySc(s), TU_THR[kind][tier]) }); return kind === 'ol' ? `${c.n} 인강 오디션을 봤다. 시범 강의를 찍었다.` : `${c.n} 강사 모집에 지원했다.`; },
-});
+  run: s => { s.cd['tu_' + key] = s.t + 6; queueEv(s, 'tu_res', 1, { co: x.n, kind: x.kind, coT: x.tier, p: tuApplyP(s, x) }); return ol() ? `${x.n} 인강 오디션을 봤다. 시범 강의를 찍었다.` : `${x.n} 강사 모집에 지원했다.`; },
+}); });
 // 채용 결과 (예전 세이브의 인강 오디션 결과 'tu_ol_res'도 같은 방식으로 받는다)
 function tuResEv(id, kind0) {
   E({

@@ -271,14 +271,16 @@ JOB_APPLY.push({
   why: s => s.army ? '군 복무 중' : age(s) < 16 ? '16세부터 할 수 있다' : '연출을 더 배워야 한다',
   run: s => { startDirector(s); return '단편영화를 찍으며 감독 일을 시작하기로 했다.'; },
 });
-JOB_APPLY.push({
-  id: 'director_ad', trk: 'director', g: '🎥 연출감독', n: '영상 제작사 연출부 지원 (조감독)', tag: '월급 200만 원',
+// v207: 영상 제작사마다 따로 지원한다. 큰 회사일수록 문턱이 높다 (소형 29 · 중형 32 · 대형 35). 회사 특징 (CO_FOCUS.prod)
+function dirAdP(s, c) { return audP(coFocus(s, 'prod', c.con, dirScore(s)), 26 + c.tier * 3); }
+PROD_COS.forEach((x0, i) => { const key = 'prod.' + i; JOB_APPLY.push({
+  id: 'director_ad_p' + i, coKey: key, pos: '연출부 지원 (조감독)', trk: 'director', g: '🎥 연출감독', get n() { return `${coByKey(key).n} 연출부 지원 (조감독)`; }, get tag() { return `${TIER_N[coByKey(key).tier]} · 월급 200만 원`; },
   show: s => !(trackOn(s, 'director') && (s.tracks.director.mode === 'ad' || s.tracks.director.mode === 'excl' || s.tracks.director.tier >= 3)) && age(s) >= 20,
-  h: s => lv(me(s), 'direct') >= 25 ? `합격 가능성 ${fmtPct(audP(dirScore(s), 32))} · 결과는 다음 달` : '연출이 25레벨 이상이어야 지원할 수 있다',
-  ok: s => !s.army && lv(me(s), 'direct') >= 25 && !agencyContract(s) && !hasQ(s, 'dir_ad_res') && !(s.cd.dirAd > s.t) && !(trackOn(s, 'director') && s.tracks.director.proj),
+  h: s => lv(me(s), 'direct') >= 25 ? `합격 가능성 ${fmtPct(dirAdP(s, coByKey(key)))} · 결과는 다음 달` : '연출이 25레벨 이상이어야 지원할 수 있다',
+  ok: s => !s.army && lv(me(s), 'direct') >= 25 && !agencyContract(s) && !hasQ(s, 'dir_ad_res') && !(s.cd['dirAd_' + key] > s.t) && !(trackOn(s, 'director') && s.tracks.director.proj),
   why: s => s.army ? '군 복무 중' : lv(me(s), 'direct') < 25 ? '연출을 더 배워야 한다' : agencyContract(s) ? contractWhy(s) : hasQ(s, 'dir_ad_res') ? '결과를 기다리는 중' : trackOn(s, 'director') && s.tracks.director.proj ? '지금 작품을 찍고 있다' : '얼마 전에 지원했다 (반년 뒤 다시)',
-  run: s => { s.cd.dirAd = s.t + 6; queueEv(s, 'dir_ad_res', 1, { co: U.pick(PROD_CO), p: audP(dirScore(s), 32) }); return '영상 제작사 연출부에 지원했다.'; },
-});
+  run: s => { const c = coByKey(key); s.cd['dirAd_' + key] = s.t + 6; queueEv(s, 'dir_ad_res', 1, { co: c.n, p: dirAdP(s, c) }); return `${c.n} 연출부에 지원했다.`; },
+}); });
 E({
   id: 'dir_ad_res', cat: '채용', title: '연출부 채용 결과', tag: 'career',
   init(s, d) { d.pass = U.chance(d.p); },

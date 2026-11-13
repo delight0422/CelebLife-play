@@ -371,7 +371,7 @@ function scoutOffer(s, kind) {
   const pool = musicAgencies().filter(a => a.tier <= maxTier && langOK(s, a) && (kind !== 'band' || a.mkt === 'kr'));
   if (!pool.length) return null;
   const a = U.shuffle(pool).sort((x, y) => y.tier - x.tier)[0];
-  return { ag: a.id, bonus: Math.round((f * U.fl(15, 45) + a.tier * 800e4) / 1e5) * 1e5, cut: Math.round(U.clamp(a.cut - (maxTier - a.tier) * 0.05 - (f >= 1e6 ? 0.15 : f >= 1e5 ? 0.08 : 0), 0.25, 0.7) * 100) / 100, months: U.pick([36, 48, 60]) };
+  return { ag: a.id, bonus: Math.round((f * U.fl(15, 45) + a.tier * 800e4) / 1e5) * 1e5, cut: Math.round(U.clamp(a.cut - (maxTier - a.tier) * 0.05 - (f >= 1e6 ? 0.15 : f >= 1e5 ? 0.08 : 0), 0.25, 0.7) * 100) / 100, months: U.pick([36, 48, 60]) + coLongC(a) };
 }
 INBOX.ag_offer = {
   ic: '🤝',
@@ -531,12 +531,15 @@ function idolTalPts(p) { return 20 + (idolTal(p) - 45) * 1.5; }
 function idolTalW(a) { return a <= 12 ? 0.75 : a <= 14 ? 0.6 : a <= 16 ? 0.45 : a <= 18 ? 0.3 : a <= 20 ? 0.15 : 0; }
 function idolAudScore(s) { const w = idolTalW(age(s)); return idolScore(s) * (1 - w) + idolTalPts(me(s)) * w; }
 // 오디션 합격률: 문턱 -2, 나이 보너스는 절반만
-function idolAudP(s, ag) { return audP(idolAudScore(s) + idolAgeAdj(age(s)) * 0.5 + pm(s, 'audition', 0), ag.thr - 2); }
+// v207: 회사 특징 (CO_FOCUS.music) — 그 회사가 특화한 능력치를 크게 본다
+function idolAudP(s, ag) { return audP(coFocus(s, 'music', ag.con, idolAudScore(s)) + idolAgeAdj(age(s)) * 0.5 + pm(s, 'audition', 0), ag.thr - 2); }
 // 연습생 월말평가는 특기만 본다. 대신 어린 연습생은 방출·계약 만료를 잘 당하지 않는다 (idolYouth)
 const IDOL_EVAL_OFF = [0, 6, 3, 3];
 // 어린 연습생 보호: 1이면 보통, 0이면 방출되지 않는다
 function idolYouth(a) { return a < 17 ? 0 : a < 19 ? 0.4 : 1; }
 function idolBar(s, t) { return AG[t.ag].thr + IDOL_EVAL_OFF[t.tier] - Math.max(0, 17 - age(s)) * 6 + Math.min(3, t.months * 0.1); }
+// v207: 걸크러시 회사는 20세 미만 연습생을 데뷔조에 잘 뽑지 않는다 (연습생으로 들어오는 건 막지 않는다)
+function idolTeamMul(s, t) { const ag = AG[t.ag]; return ag && ag.con === '걸크러시' && t.kind !== 'band' && age(s) < 20 ? 0.15 : 1; }
 function groupFans(g) { return g.f.kr + g.f.jp + g.f.us; }
 function idolBlock(s, band) {
   const a = age(s), p = me(s);
@@ -560,11 +563,12 @@ for (const ag of musicAgencies().filter(a => !a.soloOnly)) JOB_APPLY.push({
 // v99 (8-5): 그 파트 특기 + 그 파트를 빨리 배우는 재능(강함 재능 둘). 아이돌처럼 어릴수록 재능을 더 본다. 외모 · 예능은 안 본다
 function bandTrTal(p, k) { const T = Object.entries(SKILLS[k].tal).filter(([, w]) => w >= 1).map(([x]) => p.tal[x] || 50); return T.reduce((a, x) => a + x, 0) / T.length; }
 function bandTrScore(s, k) { const p = me(s), w = idolTalW(age(s)); return lv(p, k) * (1 - w) + (20 + (bandTrTal(p, k) - 45) * 1.5) * w; }
+function bandTrP(s, ag, k) { return audP(coFocus(s, 'music', ag.con, bandTrScore(s, k)) + idolAgeAdj(age(s)) * 0.5, ag.thr - 2); }
 function bandTrParts(s) { return BAND_PARTS.map(x => x[0]).filter(k => lv(me(s), k) >= 12); }
 for (const ag of musicAgencies().filter(a => a.mkt === 'kr' && a.tier <= 2)) JOB_APPLY.push({
   id: 'bandtr_' + ag.id, trk: 'band', g: '🎸 밴드 멤버', get n() { return `${ag.n} 밴드 연습생 오디션`; }, get tag() { return agTag(ag); },
   show: s => !trackOn(s, 'idol') && !trackOn(s, 'band') && age(s) >= 13 && age(s) <= 26,
-  h: s => { const ps = bandTrParts(s); return (ps.length ? ps.map(k => `${partN(k)} ${fmtPct(audP(bandTrScore(s, k) + idolAgeAdj(age(s)) * 0.5, ag.thr - 2))}`).join(' · ') + ' · ' : '') + '붙으면 연습생이 되고, 회사가 밴드 데뷔조를 꾸린다'; },
+  h: s => { const ps = bandTrParts(s); return (ps.length ? ps.map(k => `${partN(k)} ${fmtPct(bandTrP(s, ag, k))}`).join(' · ') + ' · ' : '') + '붙으면 연습생이 되고, 회사가 밴드 데뷔조를 꾸린다'; },
   ok: s => !idolBlock(s, true) && bandTrParts(s).length && !(s.cd['aud_' + ag.id] > s.t),
   why: s => idolBlock(s, true) || (!bandTrParts(s).length ? '보컬이나 악기 하나는 12레벨 이상이어야 한다' : '같은 회사는 1년 뒤에 다시 볼 수 있다'),
   run: s => { fireEvent(s, 'bandtr_pick', { ag: ag.id }); return ''; },
@@ -572,7 +576,7 @@ for (const ag of musicAgencies().filter(a => a.mkt === 'kr' && a.tier <= 2)) JOB
 E({
   id: 'bandtr_pick', cat: '오디션', title: '어떤 파트로 오디션을 볼까?', tag: 'career',
   text: (s, d) => `${AG[d.ag].n} 밴드 연습생 오디션. 어떤 파트로 볼까?`,
-  ch: (s, d) => bandTrParts(s).map(k => { const p = audP(bandTrScore(s, k) + idolAgeAdj(age(s)) * 0.5, AG[d.ag].thr - 2); return { t: `${partN(k)} (${lvi(me(s), k)}레벨)`, h: `합격 가능성 ${fmtPct(p)} · 결과는 다음 달`, f: s => { s.cd['aud_' + d.ag] = s.t + 12; queueEv(s, 'idol_aud', 1, { ag: d.ag, p, kind: 'band', part: k }); return `${AG[d.ag].n} 밴드 연습생 오디션을 ${partN(k)}${josa(partN(k), '으로').slice(partN(k).length)} 봤다.`; } }; }).concat([{ t: '그만둔다', f: () => '오디션을 보지 않기로 했다.' }]),
+  ch: (s, d) => bandTrParts(s).map(k => { const p = bandTrP(s, AG[d.ag], k); return { t: `${partN(k)} (${lvi(me(s), k)}레벨)`, h: `합격 가능성 ${fmtPct(p)} · 결과는 다음 달`, f: s => { s.cd['aud_' + d.ag] = s.t + 12; queueEv(s, 'idol_aud', 1, { ag: d.ag, p, kind: 'band', part: k }); return `${AG[d.ag].n} 밴드 연습생 오디션을 ${partN(k)}${josa(partN(k), '으로').slice(partN(k).length)} 봤다.`; } }; }).concat([{ t: '그만둔다', f: () => '오디션을 보지 않기로 했다.' }]),
 });
 function traineeScore(s, t) { return t.kind === 'band' ? bandTrScore(s, t.part) : idolScore(s); }
 // 첫 연습생 계약: 17세가 될 때까지 (17세가 넘어서 들어오면 1년). 그 뒤로는 1년마다 재계약을 통보받는다
@@ -716,7 +720,7 @@ function idolTraineeMonth(s, t) {
     t.rank = Math.round(t.rks.reduce((a, x) => a + x, 0) / t.rks.length);
     addRes(s, `${t.agN} 월말평가 3개월 평균 ${t.rank}위 (${t.pool}명 중).`);
     // 데뷔조 마지막 한 자리를 놓쳤으면(v157) 다음 데뷔조 1순위
-    if (!t.team && t.months >= 9 && (t.kind === 'band' || age(s) >= 15) && (t.rank <= Math.max(6, t.pool * 0.35) || t.seatLost) && U.chance(t.seatLost ? 0.9 : 0.45) && !hasQ(s, 'idol_team')) queueEv(s, 'idol_team', 0);
+    if (!t.team && t.months >= 9 && (t.kind === 'band' || age(s) >= 15) && (t.rank <= Math.max(6, t.pool * 0.35) || t.seatLost) && U.chance((t.seatLost ? 0.9 : 0.45) * idolTeamMul(s, t)) && !hasQ(s, 'idol_team')) queueEv(s, 'idol_team', 0);
   }
   if (t.team) {
     t.prep++;
@@ -1190,7 +1194,7 @@ E({
     const ag = AG[d.ag];
     if (!d.pass) return [{ t: '다시 준비한다', f: s => `${ag.n} 오디션에 떨어졌다.` + fx(s, { stress: 4 * pm(s, 'loseStress') }) }];
     return [
-      { t: '계약서를 받아 본다', ok: s => !agencyContract(s), h: agencyContract(s) ? contractWhy(s) : '정산 비율과 데뷔 뒤 계약 기간을 협상할 수 있다', f: s => startNego(s, { kind: 'idol', ag: d.ag, agN: ag.n, months: 84, cut: ag.cut, k2: d.kind, part: d.part, trC: trContractText(s), lev: U.clamp((d.p - 0.5) * 0.8 + 0.15, 0.05, 0.6) }) },
+      { t: '계약서를 받아 본다', ok: s => !agencyContract(s), h: agencyContract(s) ? contractWhy(s) : '정산 비율과 데뷔 뒤 계약 기간을 협상할 수 있다', f: s => startNego(s, { kind: 'idol', ag: d.ag, agN: ag.n, months: 84 + coLongC(ag), cut: ag.cut, k2: d.kind, part: d.part, trC: trContractText(s), lev: U.clamp((d.p - 0.5) * 0.8 + 0.15, 0.05, 0.6) }) },
       { t: '거절한다', f: () => `${ag.n} 연습생 제안을 거절했다.` },
     ];
   },
@@ -1717,7 +1721,7 @@ E({
   init(s, d) { if (s.tracks.band.st !== 'indie') { d.skip = true; return; } d.pass = U.chance(d.p); },
   text: (s, d) => d.pass ? `${AG[d.ag].n}에서 밴드 ${josa(`「${s.tracks.band.b.name}」`, '과와')} 전속 계약을 하고 싶다는 연락이 왔다!` : `${AG[d.ag].n}에서 답이 오지 않았다.`,
   ch: (s, d) => d.pass ? [
-    { t: '계약 조건을 들어 본다', ok: s => !agencyContract(s) && s.tracks.band.st === 'indie', h: agencyContract(s) ? contractWhy(s) : '정산 비율과 계약 기간을 협상할 수 있다', f: s => startNego(s, { kind: 'band', ag: d.ag, agN: AG[d.ag].n, months: 48, cut: AG[d.ag].cut, lev: U.clamp((d.p - 0.5) * 0.8 + 0.3, 0.05, 0.8) }) },
+    { t: '계약 조건을 들어 본다', ok: s => !agencyContract(s) && s.tracks.band.st === 'indie', h: agencyContract(s) ? contractWhy(s) : '정산 비율과 계약 기간을 협상할 수 있다', f: s => startNego(s, { kind: 'band', ag: d.ag, agN: AG[d.ag].n, months: 48 + coLongC(AG[d.ag]), cut: AG[d.ag].cut, lev: U.clamp((d.p - 0.5) * 0.8 + 0.3, 0.05, 0.8) }) },
     { t: '거절한다', f: () => `${AG[d.ag].n}의 계약 제안을 거절했다.` },
   ] : [{ t: '다음에 다시', f: () => `${AG[d.ag].n}에서 답이 오지 않았다.` }],
 });
@@ -2206,10 +2210,11 @@ function soloBlock(s) {
   if (!has(me(s), 'vocal') && !has(me(s), 'rap')) return '노래나 랩을 할 줄 알아야 한다';
   return '';
 }
+function soloAudP(s, ag, type) { return audP(coFocus(s, 'music', ag.con, soloScore(s, type)) + pm(s, 'audition', 0) + (age(s) <= 22 ? 2 : -3), ag.thr - 4); }
 for (const ag of musicAgencies()) JOB_APPLY.push({
   id: 'solo_' + ag.id, trk: 'solo', g: '🎙️ 솔로 가수', get n() { return `${ag.n} 솔로 오디션`; }, get tag() { return agTag(ag); },
   show: s => (!trackOn(s, 'solo') || s.tracks.solo.st === 'indie') && age(s) >= 14 && age(s) <= 32,
-  h: s => SOLO_TYPES.filter(([k]) => soloTypeOK(s, k)).map(([k, n]) => `${n} ${fmtPct(audP(soloScore(s, k) + pm(s, 'audition', 0) + (age(s) <= 22 ? 2 : -3), ag.thr - 4))}`).concat(['결과는 다음 달']).join(' · '),
+  h: s => SOLO_TYPES.filter(([k]) => soloTypeOK(s, k)).map(([k, n]) => `${n} ${fmtPct(soloAudP(s, ag, k))}`).concat(['결과는 다음 달']).join(' · '),
   ok: s => !soloBlock(s) && !agencyContract(s) && age(s) <= 30 && !(s.cd['saud_' + ag.id] > s.t) && langOK(s, ag) && !hasQ(s, 'solo_aud'),
   why: s => soloBlock(s) || contractWhy(s) || (age(s) > 30 ? '솔로 오디션은 30세까지만 볼 수 있다' : s.cd['saud_' + ag.id] > s.t ? '같은 회사는 1년 뒤에 다시 볼 수 있다' : hasQ(s, 'solo_aud') ? '다른 오디션 결과를 기다리는 중' : langWhy(ag)),
   run: s => { fireEvent(s, 'solo_pick', { ag: ag.id }); return ''; },
@@ -2227,7 +2232,7 @@ E({
   ch(s, d) {
     const p = me(s), ag = d.ag ? AG[d.ag] : null;
     return SOLO_TYPES.filter(([type]) => soloTypeOK(s, type)).map(([type, , n]) => { const k = type === 'perf' ? 'dance' : type;
-      const pp = ag ? audP(soloScore(s, type) + pm(s, 'audition', 0) + (age(s) <= 22 ? 2 : -3), ag.thr - 4) : 0;
+      const pp = ag ? soloAudP(s, ag, type) : 0;
       return { t: n, h: `${SKILLS[k].n} ${lvi(p, k)}레벨` + (type === 'perf' ? ` · ${SKILLS[perfVoice(p)].n} ${lvi(p, perfVoice(p))}레벨` : '') + (ag ? ` · 합격 가능성 ${fmtPct(pp)}` : ''), f: s => {
         if (d.indie) { const old = s.tracks.solo; s.tracks.solo = { st: 'indie', type, months: 0, rel: old.rel || 0, nextRel: 3, bestPeak: old.bestPeak || null, yearBest: 0, mkt: 'kr', cut: 0, tier: 0, sn: old.sn, hist: old.hist || [] }; milestone(s, `${age(s)}세에 인디 ${soloTypeN(type)}${josa(soloTypeN(type), '으로').slice(soloTypeN(type).length)} 활동을 시작했다.`); return `인디 ${soloTypeN(type)}${josa(soloTypeN(type), '으로').slice(soloTypeN(type).length)} 활동을 시작했다. 일정에 '가수 활동'을 넣어야 공연을 한다.`; }
         s.cd['saud_' + d.ag] = s.t + 12; queueEv(s, 'solo_aud', 1, { ag: d.ag, p: pp, type }); return `${ag.n} 솔로 오디션을 ${josa(type === 'rap' ? '랩' : type === 'perf' ? '퍼포먼스' : '노래', '으로')} 봤다.`;
@@ -2250,7 +2255,7 @@ NEGO.solo = {
   refuse: (s, d) => `${d.agN}의 계약 제안을 거절했다.`,
 };
 // 솔로 계약을 맺을 때 쓰는 협상 시작 (오디션 합격·오디션 프로그램·영입 제안)
-function soloNego(s, agId, type, lev, extra) { const ag = AG[agId]; return startNego(s, Object.assign({ kind: 'solo', ag: agId, agN: ag.n, type, months: 60, cut: ag.cut, lev }, extra || {})); }
+function soloNego(s, agId, type, lev, extra) { const ag = AG[agId]; return startNego(s, Object.assign({ kind: 'solo', ag: agId, agN: ag.n, type, months: 60 + coLongC(ag), cut: ag.cut, lev }, extra || {})); }
 E({
   id: 'solo_aud', cat: '오디션', title: '솔로 오디션 결과', tag: 'career',
   init(s, d) { d.pass = U.chance(d.p); },

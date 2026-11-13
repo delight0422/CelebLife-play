@@ -60,6 +60,8 @@ function pickIndustry(s, job, f, reuse = 0.55) {
 // 회사 종류마다 어떤 팀을 둘지, 컨셉에 따라 무엇이 달라질지는 12단계 직업별 디테일에서 다시 정한다
 // 자리: [직함, 주 특기, 둘째 특기, 둘째 특기가 낮은 만큼]. 첫 자리가 팀장
 const CO_ED = { id: 'ed', n: '편집팀', roles: [['편집팀장', 'edit'], ['편집자', 'edit'], ['편집자', 'edit'], ['편집자', 'edit']] };
+// v207: 마케팅팀은 댄스팀 · 대학 · 작곡팀을 빼고 모든 회사에 (마케터 직업, js/marketer.js)
+const CO_MK = { id: 'mk', n: '마케팅팀', roles: [['마케팅 팀장', 'biz', 'script', 20], ['마케터', 'biz'], ['마케터', 'biz'], ['마케터', 'biz']] };
 const CO_TEAMS = {
   music: [
     { id: 'tr', n: '트레이너팀', roles: [['트레이너 팀장', 'vocal', 'edu'], ['보컬 트레이너', 'vocal', 'edu'], ['댄스 트레이너', 'dance', 'edu'], ['랩 트레이너', 'rap', 'edu']] },
@@ -70,7 +72,8 @@ const CO_TEAMS = {
   ],
   actor: [{ id: 'tr', n: '연기 트레이너팀', roles: [['연기 트레이너 팀장', 'acting', 'edu'], ['연기 트레이너', 'acting', 'edu'], ['연기 트레이너', 'acting', 'edu'], ['연기 트레이너', 'acting', 'edu']] }],
   model: [{ id: 'cast', n: '캐스팅팀', roles: [['캐스팅 디렉터', 'scout'], ['캐스팅 담당자', 'scout'], ['캐스팅 담당자', 'scout'], ['캐스팅 담당자', 'scout']] }],
-  vtuber: [CO_ED],
+  // v207: 버츄얼 아이돌 기획사 트레이너팀 (예능 트레이너 포함)
+  vtuber: [{ id: 'tr', n: '트레이너팀', roles: [['트레이너 팀장', 'vocal', 'edu'], ['보컬 트레이너', 'vocal', 'edu'], ['댄스 트레이너', 'dance', 'edu'], ['예능 트레이너', 'variety', 'edu']] }, CO_ED],
   mcn: [CO_ED],
   prod: [CO_ED, { id: 'dir', n: '연출부', roles: [['전속 감독', 'direct', 'script', 20], ['조감독', 'direct'], ['조감독', 'direct'], ['조감독', 'direct']] }],
   // 작곡팀·안무 팀은 팀 자체가 회사다 (이름 뒤에 팀 이름을 붙이지 않는다)
@@ -93,7 +96,8 @@ const CO_TEAMS = {
     { id: 'as', n: '어시스턴트팀', roles: [['어시스턴트 팀장', 'art'], ['채색 어시스턴트', 'art'], ['배경 어시스턴트', 'art'], ['선화 어시스턴트', 'art']] },
   ],
 };
-// 회사 열쇠: 기획사·소속사·MCN·안무 팀·CP사는 AGENCIES의 id, 영상 제작사는 'prod:이름', 작곡팀은 'song:이름', 애니 제작사는 'ani:이름', 성우 공채 방송사는 'bc:이름', 대학은 'uni:이름', 학원은 'acad:이름', 인강 회사는 'ol:이름'
+for (const k of ['vtuber', 'actor', 'model', 'mcn', 'cp', 'prod', 'ani', 'bc', 'acad', 'ol']) CO_TEAMS[k].push(CO_MK);
+// 회사 열쇠: 기획사·소속사·MCN·댄스팀·CP사는 AGENCIES의 id, 영상 제작사는 'prod:이름', 작곡팀은 'song:이름', 애니 제작사는 'ani:이름', 성우 공채 방송사는 'bc:이름', 대학은 'uni:이름', 학원은 'acad:이름', 인강 회사는 'ol:이름'
 // 팀 열쇠: '회사 열쇠#팀' (예: 'golmok#ed', 'prod:해든 제작소#dir', 'lum#anr')
 function coSplit(tk) { tk = String(tk); const i = tk.lastIndexOf('#'); return i < 0 ? [tk, ''] : [tk.slice(0, i), tk.slice(i + 1)]; }
 function coKindOf(key) { key = coSplit(key)[0]; const m = key.match(/^(prod|song|ani|bc|uni|acad|ol):/); return m ? m[1] : (AG[key] || {}).kind || ''; }
@@ -180,7 +184,8 @@ function jobTeams(s, id) {
     case 'webnovel': return t.cp ? T(ag(t.cp), ['pd']) : [];
     case 'prof': return t.uni && UNIS.some(x => x.n === t.uni) ? T('uni:' + t.uni, ['fac'], pfTeaches(t) ? ['fac', 'edu'] : null) : [];
     case 'tutor': return t.co ? T((t.mode === 'ol' ? 'ol:' : 'acad:') + t.co, [t.mode === 'ol' ? 'pd' : 'boss']) : [];
-    case 'marketer': return ag(t.ag) ? [{ tk: t.ag + '#mk', me: 'biz', lead: t.tier >= 4 }] : [];
+    // v207: 마케터는 어느 회사든 (회사 열쇠 coByKey)
+    case 'marketer': { const c = coByKey(t.ag); return c && coTeamDef(c.team + '#mk') ? [{ tk: c.team + '#mk', me: 'biz', lead: t.tier >= 4 }] : []; }
   }
   return [];
 }

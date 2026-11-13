@@ -193,14 +193,15 @@ CAREERS.actor = {
     if (t.tier >= 3 && !s.inbox.some(m => m.kind === 'cast_offer') && U.chance((0.02 + ACT_POW[t.tier] * 0.01) * stigmaMul(s))) { const pj = genProjects(s, t.tier, 1)[0]; pj.ri = Math.max(pj.ri, t.tier >= 4 ? 2 : 1); sendMsg(s, 'cast_offer', { from: pj.co, title: `${PJ_TYPES[pj.tk].n} ${ROLE_N[pj.ri]} 제안`, months: 3, d: { pj } }); }
   },
 };
-// 배우 소속사 오디션 (직업 지원)
+// 배우 소속사 오디션 (직업 지원). v207: 회사 특징 (CO_FOCUS.actor)
+function actorAudP(s, ag) { return audP(coFocus(s, 'actor', ag.con, actorScore(s)) + pm(s, 'audition', 0) + (age(s) < 19 ? 4 : 0), ag.thr); }
 for (const ag of actorAgencies()) JOB_APPLY.push({
   id: 'actor_' + ag.id, trk: 'actor', g: '🎬 배우', get n() { return `${ag.n} 배우 오디션`; }, get tag() { return agTag(ag); },
   show: s => !(trackOn(s, 'actor') && s.tracks.actor.via === 'agency') && age(s) >= 8 && age(s) <= 40,
-  h: s => `합격 가능성 ${fmtPct(audP(actorScore(s) + pm(s, 'audition', 0) + (age(s) < 19 ? 4 : 0), ag.thr))} · 결과는 다음 달${age(s) < 19 ? ' · 아역 배우로 시작' : ''}`,
+  h: s => `합격 가능성 ${fmtPct(actorAudP(s, ag))} · 결과는 다음 달${age(s) < 19 ? ' · 아역 배우로 시작' : ''}`,
   ok: s => !actorBlock(s) && !agencyContract(s) && !(s.cd['aaud_' + ag.id] > s.t) && !hasQ(s, 'actor_aud') && (s.tracks.actor.proj == null),
   why: s => actorBlock(s) || contractWhy(s) || (s.cd['aaud_' + ag.id] > s.t ? '같은 회사는 1년 뒤에 다시 볼 수 있다' : hasQ(s, 'actor_aud') ? '다른 오디션 결과를 기다리는 중' : '촬영 중에는 볼 수 없다'),
-  run: s => { const p = audP(actorScore(s) + pm(s, 'audition', 0) + (age(s) < 19 ? 4 : 0), ag.thr); s.cd['aaud_' + ag.id] = s.t + 12; queueEv(s, 'actor_aud', 1, { ag: ag.id, p }); return `${ag.n} 배우 오디션을 봤다.`; },
+  run: s => { const p = actorAudP(s, ag); s.cd['aaud_' + ag.id] = s.t + 12; queueEv(s, 'actor_aud', 1, { ag: ag.id, p }); return `${ag.n} 배우 오디션을 봤다.`; },
 });
 // 음악 소속사에 있으면 그 회사를 통해 연기를 시작한다
 JOB_APPLY.push({
@@ -230,7 +231,7 @@ E({
   init(s, d) { d.pass = U.chance(d.p); },
   text: (s, d) => d.pass ? `${AG[d.ag].n}에서 전속 계약을 하자는 연락이 왔다!${age(s) < 19 ? ' 아역 배우로 시작한다.' : ''}` : `${AG[d.ag].n}에서 연락이 오지 않았다. 불합격이다.`,
   ch: (s, d) => d.pass ? [
-    { t: '계약서를 받아 본다', ok: s => !agencyContract(s), h: agencyContract(s) ? contractWhy(s) : '정산 비율과 계약 기간을 협상할 수 있다', f: s => startNego(s, { kind: 'actor', ag: d.ag, agN: AG[d.ag].n, months: 48, cut: AG[d.ag].cut, lev: U.clamp((d.p - 0.5) * 0.8 + 0.3, 0.05, 0.8) }) },
+    { t: '계약서를 받아 본다', ok: s => !agencyContract(s), h: agencyContract(s) ? contractWhy(s) : '정산 비율과 계약 기간을 협상할 수 있다', f: s => startNego(s, { kind: 'actor', ag: d.ag, agN: AG[d.ag].n, months: 48 + coLongC(AG[d.ag]), cut: AG[d.ag].cut, lev: U.clamp((d.p - 0.5) * 0.8 + 0.3, 0.05, 0.8) }) },
     { t: '거절한다', f: () => `${AG[d.ag].n}의 계약 제안을 거절했다.` },
   ] : [{ t: '다시 준비한다', f: s => `${AG[d.ag].n} 배우 오디션에 떨어졌다.` + fx(s, { stress: 3 * pm(s, 'loseStress') }) }],
 });
@@ -426,18 +427,20 @@ const ATR_THR = [0, 26, 38, 50];
 EMP_N.acttrainer = '연기 트레이너';
 // v99 (8-5): 트레이너 계열은 특기로만 면접을 본다 (재능 안 봄)
 function atrScore(s) { const p = me(s); return lv(p, 'acting') * 0.6 + eduLv(p) * 0.5; }
-for (const tier of [3, 2, 1]) JOB_APPLY.push({
-  id: 'acttrainer_' + tier, trk: 'acttrainer', g: '🎭 연기 트레이너', n: `${TIER_N[tier]} 배우 소속사 연기 트레이너 채용`, tag: `월급 ${ATR_SAL[tier]}만 원`,
+// v207: 배우 소속사마다 따로 지원한다 (회사 특징 CO_FOCUS.actTr)
+function atrApplyP(s, ag) { return audP(coFocus(s, 'actTr', ag.con, atrScore(s)) + empExpBonus(s, 'acttrainer'), ATR_THR[ag.tier]); }
+for (const ag of actorAgencies().filter(a => a.mkt === 'kr')) JOB_APPLY.push({
+  id: 'acttrainer_' + ag.id, coKey: ag.id, pos: '연기 트레이너 채용', trk: 'acttrainer', g: '🎭 연기 트레이너', get n() { return `${ag.n} 연기 트레이너 채용`; }, tag: `${TIER_N[ag.tier]} · 월급 ${ATR_SAL[ag.tier]}만 원`,
   show: s => !trackOn(s, 'acttrainer') && age(s) >= 20,
-  h: s => lv(me(s), 'acting') >= 30 ? `합격 가능성 ${fmtPct(audP(atrScore(s) + empExpBonus(s, 'acttrainer'), ATR_THR[tier]))} · 결과는 다음 달` : '연기가 30레벨 이상이어야 지원할 수 있다',
-  ok: s => !s.army && !agencyContract(s) && lv(me(s), 'acting') >= 30 && !hasQ(s, 'atr_res') && !(s.cd['atr' + tier] > s.t),
+  h: s => lv(me(s), 'acting') >= 30 ? `합격 가능성 ${fmtPct(atrApplyP(s, ag))} · 결과는 다음 달` : '연기가 30레벨 이상이어야 지원할 수 있다',
+  ok: s => !s.army && !agencyContract(s) && lv(me(s), 'acting') >= 30 && !hasQ(s, 'atr_res') && !(s.cd['atr_' + ag.id] > s.t),
   why: s => s.army ? '군 복무 중' : agencyContract(s) ? contractWhy(s) : lv(me(s), 'acting') < 30 ? '가르칠 만큼 연기를 잘하지 못한다' : hasQ(s, 'atr_res') ? '결과를 기다리는 중' : '얼마 전에 지원했다 (반년 뒤 다시)',
-  run: s => { s.cd['atr' + tier] = s.t + 6; const ag = U.pick(actorAgencies().filter(a => a.tier === tier)); queueEv(s, 'atr_res', 1, { ag: ag.id, p: audP(atrScore(s) + empExpBonus(s, 'acttrainer'), ATR_THR[tier]) }); return `${ag.n} 연기 트레이너 채용에 지원했다.`; },
+  run: s => { s.cd['atr_' + ag.id] = s.t + 6; queueEv(s, 'atr_res', 1, { ag: ag.id, p: atrApplyP(s, ag) }); return `${ag.n} 연기 트레이너 채용에 지원했다.`; },
 });
 E({
   id: 'atr_res', cat: '채용', title: '연기 트레이너 채용 결과', tag: 'career',
   init(s, d) { d.pass = U.chance(d.p); d.lead = d.pass && empStartLead(s, 'acttrainer'); d.sal = empStartSal(s, 'acttrainer', ATR_SAL[AG[d.ag].tier] * 1e4, d.lead); },
-  text: (s, d) => d.pass ? `${AG[d.ag].n} 연기 트레이너${d.lead ? ' 팀장' : ''}으로 합격했다! 회사가 제시한 월급은 ${fmtWon(d.sal)}.${d.lead ? '\n\n그동안의 경력을 보고 처음부터 팀장 자리를 맡긴다.' : ''}\n\n일정에 '연기 레슨'을 넣으면 신인 배우들을 가르친다.` : `${AG[d.ag].n} 연기 트레이너 채용에 떨어졌다.`,
+  text: (s, d) => d.pass ? `${AG[d.ag].n} ${josa('연기 트레이너' + (d.lead ? ' 팀장' : ''), '으로')} 합격했다! 회사가 제시한 월급은 ${fmtWon(d.sal)}.${d.lead ? '\n\n그동안의 경력을 보고 처음부터 팀장 자리를 맡긴다.' : ''}\n\n일정에 '연기 레슨'을 넣으면 신인 배우들을 가르친다.` : `${AG[d.ag].n} 연기 트레이너 채용에 떨어졌다.`,
   ch: (s, d) => d.pass ? [
     { t: '입사 조건을 들어 본다', ok: s => !agencyContract(s), h: agencyContract(s) ? contractWhy(s) : '월급을 협상할 수 있다', f: s => startNego(s, { kind: 'acttrainer', ag: d.ag, agN: AG[d.ag].n, sal: d.sal, lead: d.lead, months: 24, lev: U.clamp((d.p - 0.5) * 0.8 + 0.3, 0.05, 0.8) }) },
     { t: '거절한다', f: () => '연기 트레이너 제안을 거절했다.' },
@@ -830,11 +833,12 @@ CAREERS.youtube = {
   info(s, t) {
     const p = me(s), ks = [...new Set(YT_SK[t.cat] || ['variety'])];
     if (t.st === 'prep') return [['준비', `${VT_AV[t.av].n} (${t.left}개월 남음)`], ['소속', t.corpN || '개인세']];
-    return [['채널', `「${t.ch}」 · ${t.cat}`], ['소속', t.mcn ? `${t.mcn.n} (${TIER_N[mcnTierT(s, t)]} MCN) · MCN 몫 ${pctN(t.mcn.cut)}` : t.corpN ? `${t.corpN} · 회사 몫 ${pctN(t.cut)}` : '개인'], t.mcn ? ['MCN 지원', `광고 연결 · 편집팀 (무료) · 기획·썸네일 · 합작 주선 · 굿즈 · 개인 행사 · 논란 대응`] : null, ['구독자', `${fmtFans(t.subs)} (가장 많을 때 ${fmtFans(t.peak || t.subs)})`], ['수입', t.subs < 1000 ? '구독자 1,000명부터 들어온다' : `지난달 ${fmtWon(t.lastInc || 0)} (최근 1년 평균 ${fmtWon(incAvg(t))})`], ['내 실력', ks.concat('edit').filter((k, i, a) => a.indexOf(k) === i && has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ') || '-'], t.mode === 'vt' ? ['아바타', VT_AV[t.av].n] : null, t.mode !== 'vt' && t.vid && typeof plioBtnHTML === 'function' ? { h: '가장 최근 영상', html: plioBtnHTML(t.vid, '이번 달 영상 반응 보기') } : null, ['편집', t.editor ? '편집자 고용 중 (월 150만 원)' : t.mcn ? `${t.mcn.n} 편집팀 (무료) · 담당 ${mcnEdLine(s, mcnMyEd(s, t))}` : '혼자 한다']].filter(Boolean);
+    return [['채널', `「${t.ch}」 · ${t.cat}`], ['방송 타겟', YT_TGT[ytMk(t)].n], ['소속', t.mcn ? `${t.mcn.n} (${TIER_N[mcnTierT(s, t)]} MCN) · MCN 몫 ${pctN(t.mcn.cut)}` : t.corpN ? `${t.corpN} · 회사 몫 ${pctN(t.cut)}` : '개인'], t.mcn ? ['MCN 지원', `광고 연결 · 편집팀 (무료) · 기획·썸네일 · 합작 주선 · 굿즈 · 개인 행사 · 논란 대응`] : null, ['구독자', `${fmtFans(t.subs)} (가장 많을 때 ${fmtFans(t.peak || t.subs)})`], ['수입', t.subs < 1000 ? '구독자 1,000명부터 들어온다' : `지난달 ${fmtWon(t.lastInc || 0)} (최근 1년 평균 ${fmtWon(incAvg(t))})`], ['내 실력', ks.concat('edit').filter((k, i, a) => a.indexOf(k) === i && has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ') || '-'], t.mode === 'vt' ? ['아바타', VT_AV[t.av].n] : null, t.mode !== 'vt' && t.vid && typeof plioBtnHTML === 'function' ? { h: '가장 최근 영상', html: plioBtnHTML(t.vid, '이번 달 영상 반응 보기') } : null, ['편집', t.editor ? '편집자 고용 중 (월 150만 원)' : t.mcn ? `${t.mcn.n} 편집팀 (무료) · 담당 ${mcnEdLine(s, mcnMyEd(s, t))}` : '혼자 한다']].filter(Boolean);
   },
   actions(s, t) {
     if (t.st !== 'active') return [];
     const A = [];
+    A.push({ t: '방송 타겟 바꾸기', h: `지금 ${YT_TGT[ytMk(t)].n} · 바꾸면 한동안 구독자가 꽤 빠진다`, ok: !t.corp && !(t.tgtT > s.t), why: t.corp ? '회사가 정한다' : '얼마 전에 바꿨다', run: s => { fireEvent(s, 'yt_tgt', { change: true }); return ''; } });
     A.push({ t: '채널 컨셉 바꾸기', h: `지금 '${t.cat}' · 바꾸면 한동안 구독자가 조금 빠진다`, ok: !(t.catT > s.t), why: '얼마 전에 바꿨다', run: s => { fireEvent(s, 'yt_cat', { change: true }); return ''; } });
     A.push(t.editor ? { t: '편집자 내보내기', h: '매달 나가던 150만 원이 없어진다', ok: true, run: s => { t.editor = false; return '편집자와의 계약을 끝냈다. 이제 편집은 혼자 한다.'; } } : { t: '편집자 고용하기', h: t.mcn ? '월 150만 원' : '월 150만 원 · 편집 실력이 모자라도 영상 완성도가 오른다', ok: !t.mcn && s.money >= 150e4, why: t.mcn ? `${t.mcn.n} 편집팀이 무료로 편집해 준다` : '돈이 모자라다', run: s => { t.editor = true; return '영상 편집자를 고용했다.'; } });
     if (t.mode === 'vt' && avQ(t) < 4) { const ni = avQ(t) + 1, nx = VT_AV[ni]; A.push({ t: `아바타 바꾸기: ${nx.n}`, h: fmtWon(nx.c) + (ownCo(s, 'youtube') ? ' (자본금)' : ''), ok: jobMoney(s, 'youtube') >= nx.c, why: `${ownCo(s, 'youtube') ? '회사 ' : ''}돈이 모자라다 (${fmtWon(nx.c)} 필요)`, run: s => { jobPay(s, nx.c, '아바타 교체', 'youtube'); t.av = ni; const b0 = t.subs; t.subs = Math.round(t.subs * 1.05); return streamShow(s, 'youtube', ytCut(t), '새 아바타 공개 방송', `${josa(nx.n, '으로')} 아바타를 바꿨다. 새 아바타 공개 방송에 시청자가 몰렸다.`, ytLive(s, t, 'avatar', { sc: 72 }), { gain: t.subs - b0 }); } }); }
@@ -849,13 +853,13 @@ CAREERS.youtube = {
     if (t.editor) jobPay(s, 150e4, '편집자 월급', 'youtube');
     if (t.mcn) mcnMonth(s, t, slotsOn(s, 'c_youtube'));
     if (t.tamper) t.tamper = null;
-    const n = slotsOn(s, 'c_youtube'), p = me(s), mk = t.jp ? 'jp' : 'kr';
+    const n = slotsOn(s, 'c_youtube'), p = me(s), mk = ytMk(t);
     if (!n) { t.subs = Math.round(t.subs * 0.985); t.lastInc = 0; incPush(t, 0); return; }
     const ks = YT_SK[t.cat] || ['variety', 'variety'];
     practice(s, p, ks[0], 1.1 * n); if (ks[1] !== ks[0]) practice(s, p, ks[1], 0.5 * n); if (!t.editor) useSkill(s, p, 'edit', 0.5 * n);
     addStress(s, 2 * n);
     // 매력으로 정해지는 '닿을 수 있는 구독자 수'를 향해 조금씩 다가간다 (칸을 많이 쓰면 더 빨리)
-    const target = Math.min(t.mode === 'vt' ? 3e6 : 2e7, Math.pow(10, (ytAppeal(s, t) + YT_REACH) / 16));
+    const target = Math.min(t.mode === 'vt' ? 3e6 : 2e7, Math.pow(10, (ytAppeal(s, t) + YT_REACH) / 16)) * ytTgtMul(s, t);
     const before = t.subs;
     if (t.subs < target) t.subs += Math.round((target - t.subs) * U.fl(0.02, 0.06) * Math.min(2, n) + U.int(3, 20));
     else t.subs = Math.round(t.subs * U.fl(0.99, 1.0));
@@ -916,7 +920,8 @@ VT_AV.forEach((av, i) => { if (!av) return; JOB_APPLY.push({
 // 회사 오디션: 아직 채널이 없거나, 개인세로 활동 중인 버튜버만 낼 수 있다 (회사 소속 버튜버는 못 낸다. 템퍼링으로 퇴출되면 버튜버 지원은 모두 사라진다)
 // 개인세 버튜버가 붙으면 회사가 만든 새 아바타로 다시 데뷔하고, 지금 채널 구독자 일부가 따라온다. 구독자가 많을수록 붙기 쉽다
 function vtSolo(s) { const t = s.tracks.youtube; return t.st === 'active' && t.mode === 'vt' && !t.corp; }
-function vtAudP(s, ag) { const t = s.tracks.youtube; return audP(vtScore(s) + pm(s, 'audition', 0) + (vtSolo(s) ? Math.log10(1 + t.subs / 1000) * 4 : 0), ag.thr); }
+// v207: 버츄얼 아이돌은 예능이 중요하다 (방송 실력 75% + 예능 25%). 회사 특징 (CO_FOCUS.vtuber)
+function vtAudP(s, ag) { const t = s.tracks.youtube; return audP(coFocus(s, 'vtuber', ag.con, vtScore(s) * 0.75 + lv(me(s), 'variety') * 0.25) + pm(s, 'audition', 0) + (vtSolo(s) ? Math.log10(1 + t.subs / 1000) * 4 : 0), ag.thr); }
 // 회사 소속 버튜버(버츄얼 아이돌)의 오디션·계약·활동은 js/vidol.js
 const VT_CARRY = 0.3, VT_TAMPER_CATCH = 0.03;
 // 채널 컨셉 고르기 (라이브온 채널을 열 때 · 버튜버 아바타가 다 됐을 때 · 바꿀 때)
@@ -926,9 +931,24 @@ E({
   text: (s, d) => `${d.change ? `채널 컨셉을 바꾼다. 지금은 '${s.tracks.youtube.cat}'.` : d.mode === 'vt' ? '아바타가 다 됐다. 어떤 방송을 하는 버튜버로 데뷔할까?' : '어떤 영상을 올리는 채널로 할까?'}`,
   ch: (s, d) => ytCatSort(s, ytCats((d.change ? s.tracks.youtube.mode : d.mode) === 'vt').filter(c => !d.change || c !== s.tracks.youtube.cat)).map(c => { return { t: c, h: ytCatH(s, c), f: s => {
     if (d.change) { const t = s.tracks.youtube; t.cat = c; t.catT = s.t + 12; t.subs = Math.round(t.subs * 0.9); return `채널 컨셉을 '${c}'${josa(c, '으로').slice(c.length)} 바꿨다. 예전 구독자 일부가 떠났다.`; }
-    if (d.mode === 'vt') { s.tracks.youtube.cat = c; fireEvent(s, 'yt_debut', { mode: 'vt' }); return ''; }
-    fireEvent(s, 'yt_debut', { mode: 'yt', cat: c }); return '';
+    if (d.mode === 'vt') { s.tracks.youtube.cat = c; fireEvent(s, s.tracks.youtube.corp ? 'yt_debut' : 'yt_tgt', { mode: 'vt' }); return ''; }
+    fireEvent(s, 'yt_tgt', { mode: 'yt', cat: c }); return '';
   } }; }).concat(d.mode === 'vt' && !d.change ? [] : [{ t: '역시 그만둔다', f: () => '' }]),
+});
+// v207: 방송 타겟 — 국내 · 일본 · 해외(영어권). 외국은 그 나라 말을 잘해야 고를 수 있다 (40레벨부터)
+// 외국은 닿을 수 있는 시청자가 많은 대신, 말을 아주 잘하지 않으면 다 끌어오지 못한다. 회사 소속 버튜버는 회사가 정한다
+const YT_TGT = { kr: { n: '국내', mul: 1 }, jp: { n: '일본', mul: 1.4, sk: 'jp' }, us: { n: '해외 (영어권)', mul: 2, sk: 'en' } };
+const YT_TGT_LV = 40;
+function ytMk(t) { return t.tgt || (t.jp ? 'jp' : 'kr'); }
+function ytTgtMul(s, t) { const T = YT_TGT[ytMk(t)]; return T.sk ? T.mul * Math.min(1, 0.4 + lv(me(s), T.sk) / 100) : 1; }
+function ytTgtWhy(s, k) { const T = YT_TGT[k]; return T.sk && lv(me(s), T.sk) < YT_TGT_LV ? `${SKILLS[T.sk].n}${josa(SKILLS[T.sk].n, '이가').slice(SKILLS[T.sk].n.length)} ${YT_TGT_LV}레벨 이상이어야 한다` : ''; }
+E({
+  id: 'yt_tgt', cat: '채널', title: '방송 타겟', tag: 'career',
+  text: (s, d) => d.change ? `방송 타겟을 바꾼다. 지금은 ${YT_TGT[ytMk(s.tracks.youtube)].n}.` : '누구를 보고 방송할까? 외국 시청자를 노리면 더 많은 사람에게 닿을 수 있지만, 그 나라 말을 잘해야 한다.',
+  ch: (s, d) => Object.entries(YT_TGT).filter(([k]) => !d.change || k !== ytMk(s.tracks.youtube)).map(([k, T]) => { const w = ytTgtWhy(s, k); return { t: T.n, ok: () => !w, h: w || (T.sk ? `${SKILLS[T.sk].n} ${lvi(me(s), T.sk)}레벨` : ''), f: s => {
+    if (d.change) { const t = s.tracks.youtube; t.tgt = k; t.jp = k === 'jp'; t.tgtT = s.t + 12; t.subs = Math.round(t.subs * 0.8); return `방송 타겟을 ${josa(T.n, '으로')} 바꿨다. 예전 시청자 일부가 떠났다.`; }
+    fireEvent(s, 'yt_debut', { mode: d.mode, cat: d.cat, tgt: k }); return '';
+  } }; }).concat(d.change ? [{ t: '그만둔다', f: () => '' }] : d.mode === 'vt' ? [] : [{ t: '역시 그만둔다', f: () => '' }]),
 });
 // 채널 이름(버튜버는 RP 이름과 애칭까지) 정하고 첫 영상·첫 방송
 E({
@@ -949,7 +969,7 @@ E({
     if (!ch) return { err: '채널 이름은 비울 수 없어요' };
     if (d.mode === 'yt') {
       const old = s.tracks.youtube;
-      s.tracks.youtube = { st: 'active', mode: 'yt', ch, cat: d.cat, subs: Math.round(totalFans(s) * 0.05), months: 0, peak: 0, corp: null, cut: 0, sn: old.sn, hist: old.hist || [] };
+      s.tracks.youtube = { st: 'active', mode: 'yt', ch, cat: d.cat, tgt: d.tgt || 'kr', jp: d.tgt === 'jp', subs: Math.round(totalFans(s) * 0.05), months: 0, peak: 0, corp: null, cut: 0, sn: old.sn, hist: old.hist || [] };
       milestone(s, `${age(s)}세에 라이브온 채널 ${josa(`「${ch}」`, '을를')} 열었다.`);
       return { log: `라이브온 채널 ${josa(`「${ch}」`, '을를')} 열었다. 일정에 채널 활동을 넣어야 영상을 올린다.` + learnMe(s, 'edit', 1, true) };
     }
@@ -960,7 +980,7 @@ E({
     // 개인세 때 채널에서 따라온 구독자(carry)도 더한다
     const start = (t.corp ? AG[t.corp].tier * 2500 : 0) + Math.round(s.fans.kr * 0.05) + (t.carry || 0);
     delete t.carry;
-    Object.assign(t, { st: 'active', ch, cat: t.cat || (lv(me(s), 'game') > lv(me(s), 'vocal') ? '게임 방송' : '커버 영상'), subs: start, months: 0, peak: start, jp: !!(t.corp && AG[t.corp].mkt === 'jp') });
+    Object.assign(t, { st: 'active', ch, cat: t.cat || (lv(me(s), 'game') > lv(me(s), 'vocal') ? '게임 방송' : '커버 영상'), subs: start, months: 0, peak: start, jp: t.corp ? AG[t.corp].mkt === 'jp' : d.tgt === 'jp', tgt: t.corp ? (AG[t.corp].mkt === 'jp' ? 'jp' : 'kr') : d.tgt || 'kr' });
     milestone(s, `${age(s)}세에 버튜버 ${qn(given, '라는')} 이름으로 「${ch}」 채널을 열고 데뷔했다.`);
     // 데뷔 방송을 실시간 창으로 (볼 차례가 아니면 예전처럼 결과만)
     const log = `버튜버 ${given}(채널 「${ch}」)로 데뷔했다! 일정에 채널 활동을 넣어야 방송을 한다.` + (t.corp ? '' : learnMe(s, 'edit', 1, true));
@@ -1094,14 +1114,16 @@ JOB_APPLY.push({
   why: s => s.army ? '군 복무 중' : age(s) < 16 ? '16세부터 할 수 있다' : '영상 편집을 더 배워야 한다',
   run: s => { startEditor(s); return '프리랜서 영상 편집자로 일을 시작했다. 일정에 편집 작업을 넣으면 일감이 들어온다.'; },
 });
-for (const tier of [3, 2, 1]) JOB_APPLY.push({
-  id: 'editor_' + tier, trk: 'editor', g: '🎞️ 편집자', n: `${TIER_N[tier]} 영상 제작사 편집팀 채용`, tag: `월급 ${EDIT_SAL[tier]}만 원`,
+// v207: 영상 제작사마다 따로 지원한다 (회사 특징 CO_FOCUS.prod)
+function editApplyP(s, c) { return audP(coFocus(s, 'prod', c.con, editScore(s)) + empExpBonus(s, 'editor'), EDIT_THR[c.tier]); }
+PROD_COS.forEach((x0, i) => { const key = 'prod.' + i; JOB_APPLY.push({
+  id: 'editor_p' + i, coKey: key, pos: '편집팀 채용', trk: 'editor', g: '🎞️ 편집자', get n() { return `${coByKey(key).n} 편집팀 채용`; }, get tag() { const c = coByKey(key); return `${TIER_N[c.tier]} · 월급 ${EDIT_SAL[c.tier]}만 원`; },
   show: s => !(trackOn(s, 'editor') && s.tracks.editor.mode === 'emp') && age(s) >= 20,
-  h: s => lv(me(s), 'edit') >= 30 ? `합격 가능성 ${fmtPct(audP(editScore(s) + empExpBonus(s, 'editor'), EDIT_THR[tier]))} · 결과는 다음 달` : '영상 편집이 30레벨 이상이어야 지원할 수 있다',
-  ok: s => !s.army && !agencyContract(s) && lv(me(s), 'edit') >= 30 && !hasQ(s, 'edit_res') && !(s.cd['edit' + tier] > s.t),
+  h: s => lv(me(s), 'edit') >= 30 ? `합격 가능성 ${fmtPct(editApplyP(s, coByKey(key)))} · 결과는 다음 달` : '영상 편집이 30레벨 이상이어야 지원할 수 있다',
+  ok: s => !s.army && !agencyContract(s) && lv(me(s), 'edit') >= 30 && !hasQ(s, 'edit_res') && !(s.cd['edit_' + key] > s.t),
   why: s => s.army ? '군 복무 중' : agencyContract(s) ? contractWhy(s) : lv(me(s), 'edit') < 30 ? '영상 편집을 더 배워야 한다' : hasQ(s, 'edit_res') ? '결과를 기다리는 중' : '얼마 전에 지원했다 (반년 뒤 다시)',
-  run: s => { s.cd['edit' + tier] = s.t + 6; queueEv(s, 'edit_res', 1, { tier, co: prodCoOf(tier), p: audP(editScore(s) + empExpBonus(s, 'editor'), EDIT_THR[tier]) }); return `${TIER_N[tier]} 영상 제작사 편집팀 채용에 지원했다.`; },
-});
+  run: s => { const c = coByKey(key); s.cd['edit_' + key] = s.t + 6; queueEv(s, 'edit_res', 1, { tier: c.tier, co: c.n, p: editApplyP(s, c) }); return `${c.n} 편집팀 채용에 지원했다.`; },
+}); });
 E({
   id: 'edit_res', cat: '채용', title: '편집팀 채용 결과', tag: 'career',
   init(s, d) { d.pass = U.chance(d.p); d.lead = d.pass && empStartLead(s, 'editor'); d.sal = empStartSal(s, 'editor', EDIT_SAL[d.tier] * 1e4, d.lead); },
@@ -1354,13 +1376,15 @@ CAREERS.model = {
     if (!hasQ(s, 'model_job') && U.chance(chance)) queueEv(s, 'model_job', 0);
   },
 };
+// v207: 회사 특징 (CO_FOCUS.model). 뷰티 에이전시는 여성 모델 위주로 계약한다
+function modelAudP(s, ag) { const p = audP(coFocus(s, 'model', ag.con, modelScore(s)) + modelAgeAdj(age(s)) + pm(s, 'audition', 0), ag.thr); return ag.con === '뷰티' && me(s).g !== '여' ? p * 0.25 : p; }
 for (const ag of modelAgencies()) JOB_APPLY.push({
   id: 'model_' + ag.id, trk: 'model', g: '📸 모델', get n() { return `${ag.n} 모델 오디션`; }, get tag() { return agTag(ag); },
   show: s => !(trackOn(s, 'model') && s.tracks.model.ag) && age(s) >= 14 && age(s) <= 32,
-  h: s => `합격 가능성 ${fmtPct(audP(modelScore(s) + modelAgeAdj(age(s)) + pm(s, 'audition', 0), ag.thr))} · 결과는 다음 달`,
+  h: s => `합격 가능성 ${fmtPct(modelAudP(s, ag))} · 결과는 다음 달`,
   ok: s => !modelBlock(s) && !agencyContract(s) && !(s.cd['maud_' + ag.id] > s.t) && !hasQ(s, 'model_aud'),
   why: s => modelBlock(s) || contractWhy(s) || (s.cd['maud_' + ag.id] > s.t ? '같은 회사는 1년 뒤에 다시 볼 수 있다' : '다른 오디션 결과를 기다리는 중'),
-  run: s => { const p = audP(modelScore(s) + modelAgeAdj(age(s)) + pm(s, 'audition', 0), ag.thr); s.cd['maud_' + ag.id] = s.t + 12; queueEv(s, 'model_aud', 1, { ag: ag.id, p }); return `${ag.n} 모델 오디션을 봤다.`; },
+  run: s => { const p = modelAudP(s, ag); s.cd['maud_' + ag.id] = s.t + 12; queueEv(s, 'model_aud', 1, { ag: ag.id, p }); return `${ag.n} 모델 오디션을 봤다.`; },
 });
 JOB_APPLY.push({
   id: 'model_free', trk: 'model', g: '📸 모델', n: '프리랜서 모델로 시작하기',
@@ -1381,7 +1405,7 @@ E({
   init(s, d) { d.pass = U.chance(d.p); },
   text: (s, d) => d.pass ? `${AG[d.ag].n}에서 계약하자는 연락이 왔다!` : `${AG[d.ag].n}에서 연락이 오지 않았다. 불합격이다.`,
   ch: (s, d) => d.pass ? [
-    { t: '계약서를 받아 본다', ok: s => !agencyContract(s), h: agencyContract(s) ? contractWhy(s) : '정산 비율과 계약 기간을 협상할 수 있다', f: s => startNego(s, { kind: 'model', ag: d.ag, agN: AG[d.ag].n, months: 36, cut: AG[d.ag].cut, lev: U.clamp((d.p - 0.5) * 0.8 + 0.3, 0.05, 0.8) }) },
+    { t: '계약서를 받아 본다', ok: s => !agencyContract(s), h: agencyContract(s) ? contractWhy(s) : '정산 비율과 계약 기간을 협상할 수 있다', f: s => startNego(s, { kind: 'model', ag: d.ag, agN: AG[d.ag].n, months: 36 + coLongC(AG[d.ag]), cut: AG[d.ag].cut, lev: U.clamp((d.p - 0.5) * 0.8 + 0.3, 0.05, 0.8) }) },
     { t: '거절한다', f: () => `${AG[d.ag].n}의 계약 제안을 거절했다.` },
   ] : [{ t: '다시 준비한다', f: s => `${AG[d.ag].n} 모델 오디션에 떨어졌다.` + fx(s, { stress: 3 * pm(s, 'loseStress') }) }],
 });

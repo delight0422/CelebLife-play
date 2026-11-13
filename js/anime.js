@@ -134,14 +134,16 @@ JOB_APPLY.push({
   why: s => s.army ? '군 복무 중' : age(s) < 16 ? '16세부터 할 수 있다' : '그림이 20레벨 이상이어야 한다',
   run: s => { anStart(s); return '프리랜서 애니메이터로 일을 시작했다. 일정에 작화 작업을 넣어야 일감이 들어온다.'; },
 });
-for (const tier of [3, 2, 1]) JOB_APPLY.push({
-  id: 'animator_' + tier, trk: 'animator', g: '✏️ 애니메이터', n: `${TIER_N[tier]} 애니 제작사 작화팀 채용`, tag: `월급 ${ANIM_SAL[tier]}만 원`,
+// v207: 애니 제작사마다 따로 지원한다 (회사 특징 CO_FOCUS.ani)
+function animApplyP(s, c) { return audP(coFocus(s, 'ani', c.con, animApply(s)), ANIM_THR[c.tier]); }
+ANIME_COS.forEach((x0, i) => { const key = 'ani.' + i; JOB_APPLY.push({
+  id: 'animator_a' + i, coKey: key, pos: '작화팀 채용', trk: 'animator', g: '✏️ 애니메이터', get n() { return `${coByKey(key).n} 작화팀 채용`; }, get tag() { const c = coByKey(key); return `${TIER_N[c.tier]} · 월급 ${ANIM_SAL[c.tier]}만 원`; },
   show: s => !(trackOn(s, 'animator') && s.tracks.animator.mode === 'emp') && age(s) >= 18,
-  h: s => lv(me(s), 'art') >= 30 ? `합격 가능성 ${fmtPct(audP(animApply(s), ANIM_THR[tier]))} · 결과는 다음 달` : '그림이 30레벨 이상이어야 지원할 수 있다',
-  ok: s => !s.army && !agencyContract(s) && lv(me(s), 'art') >= 30 && !hasQ(s, 'an_res') && !(s.cd['anim' + tier] > s.t),
+  h: s => lv(me(s), 'art') >= 30 ? `합격 가능성 ${fmtPct(animApplyP(s, coByKey(key)))} · 결과는 다음 달` : '그림이 30레벨 이상이어야 지원할 수 있다',
+  ok: s => !s.army && !agencyContract(s) && lv(me(s), 'art') >= 30 && !hasQ(s, 'an_res') && !(s.cd['anim_' + key] > s.t),
   why: s => s.army ? '군 복무 중' : agencyContract(s) ? contractWhy(s) : lv(me(s), 'art') < 30 ? '그림을 더 배워야 한다' : hasQ(s, 'an_res') ? '결과를 기다리는 중' : '얼마 전에 지원했다 (반년 뒤 다시)',
-  run: s => { s.cd['anim' + tier] = s.t + 6; queueEv(s, 'an_res', 1, { tier, co: aniCoOf(tier).n, p: audP(animApply(s), ANIM_THR[tier]) }); return `${TIER_N[tier]} 애니 제작사 작화팀 채용에 지원했다.`; },
-});
+  run: s => { const c = coByKey(key); s.cd['anim_' + key] = s.t + 6; queueEv(s, 'an_res', 1, { tier: c.tier, co: c.n, p: animApplyP(s, c) }); return `${c.n} 작화팀 채용에 지원했다.`; },
+}); });
 E({
   id: 'an_res', cat: '채용', title: '작화팀 채용 결과', tag: 'career',
   init(s, d) { d.pass = U.chance(d.p); d.lead = d.pass && empStartLead(s, 'animator'); d.sal = empStartSal(s, 'animator', ANIM_SAL[d.tier] * 1e4, d.lead); },
@@ -276,14 +278,16 @@ JOB_APPLY.push({
   why: s => s.army ? '군 복무 중' : age(s) < 16 ? '16세부터 할 수 있다' : lv(me(s), 'direct') < 20 || lv(me(s), 'art') < 20 ? '연출과 그림이 20레벨 이상이어야 한다' : trackOn(s, 'adir') && s.tracks.adir.pj ? '만드는 작품이 있다' : '제작비가 모자란다',
   run: s => { const t = trackOn(s, 'adir') ? s.tracks.adir : adirStart(s), g = aniGenre(s); addMoney(s, -ADIR_SHORT_COST, '단편 애니 제작비'); const r = researchDo(s, g); t.pj = { kind: 'short', g, title: animeTitle(g), co: '', coTier: 0, lvl: 0, fee: 0, start: s.t, end: s.t + ADIR_KIND.short.m, work: 0, rs: r.rs }; return `${g} 단편 애니메이션 「${t.pj.title}」을 만들기 시작했다. 사전 조사: ${r.w}.`; },
 });
-JOB_APPLY.push({
-  id: 'adir_ep', trk: 'adir', g: '📽️ 애니메이션 감독', n: '애니 제작사 연출부 지원 (각 화 연출)', tag: `월급 ${fmtWon(ADIR_SAL)}`,
+// v207: 애니 제작사마다 따로 지원한다. 큰 회사일수록 문턱이 높다 (소형 27 · 중형 30 · 대형 33)
+function adirEpP(s, c) { return audP(coFocus(s, 'ani', c.con, adirScore(s) + (s.tracks.adir.shorts || 0) * 2), 24 + c.tier * 3); }
+ANIME_COS.forEach((x0, i) => { const key = 'ani.' + i; JOB_APPLY.push({
+  id: 'adir_ep_a' + i, coKey: key, pos: '연출부 지원 (각 화 연출)', trk: 'adir', g: '📽️ 애니메이션 감독', get n() { return `${coByKey(key).n} 연출부 지원 (각 화 연출)`; }, get tag() { return `${TIER_N[coByKey(key).tier]} · 월급 ${fmtWon(ADIR_SAL)}`; },
   show: s => !(trackOn(s, 'adir') && s.tracks.adir.mode !== 'indie') && age(s) >= 20,
-  h: s => `합격 가능성 ${fmtPct(audP(adirScore(s) + (s.tracks.adir.shorts || 0) * 2, 30))} · 결과는 다음 달 · 월급을 받으며 회차 연출을 배운다`,
-  ok: s => !s.army && !agencyContract(s) && lv(me(s), 'direct') >= 25 && !(trackOn(s, 'adir') && s.tracks.adir.pj) && !hasQ(s, 'adir_ep_res') && !(s.cd.adirEp > s.t),
+  h: s => `합격 가능성 ${fmtPct(adirEpP(s, coByKey(key)))} · 결과는 다음 달 · 월급을 받으며 회차 연출을 배운다`,
+  ok: s => !s.army && !agencyContract(s) && lv(me(s), 'direct') >= 25 && !(trackOn(s, 'adir') && s.tracks.adir.pj) && !hasQ(s, 'adir_ep_res') && !(s.cd['adirEp_' + key] > s.t),
   why: s => s.army ? '군 복무 중' : agencyContract(s) ? contractWhy(s) : lv(me(s), 'direct') < 25 ? '연출이 25레벨 이상이어야 한다' : trackOn(s, 'adir') && s.tracks.adir.pj ? '만드는 작품이 있다' : hasQ(s, 'adir_ep_res') ? '결과를 기다리는 중' : '얼마 전에 지원했다 (반년 뒤 다시)',
-  run: s => { s.cd.adirEp = s.t + 6; queueEv(s, 'adir_ep_res', 1, { co: aniCoOf(U.pick([1, 1, 2, 2, 3])).n, p: audP(adirScore(s) + (s.tracks.adir.shorts || 0) * 2, 30) }); return '애니 제작사 연출부에 지원했다.'; },
-});
+  run: s => { const c = coByKey(key); s.cd['adirEp_' + key] = s.t + 6; queueEv(s, 'adir_ep_res', 1, { co: c.n, p: adirEpP(s, c) }); return `${c.n} 연출부에 지원했다.`; },
+}); });
 E({
   id: 'adir_ep_res', cat: '채용', title: '연출부 채용 결과', tag: 'career',
   init(s, d) { d.pass = U.chance(d.p); },
@@ -409,9 +413,10 @@ CAREERS.voice = {
     if (!hasQ(s, 'vo_job') && U.chance(chance)) queueEv(s, 'vo_job', 0);
   },
 };
-function voAudP(s, x) { return audP(voScore(s) + pm(s, 'audition', 0) + VO_POW[(s.tracks.voice || {}).tier || 0] * 2, VO_THR[x.tier]); }
+// v207: 방송사 특징 (CO_FOCUS.bc). 다큐멘터리 방송사는 목소리 재능을 크게 본다 (내레이션)
+function voAudP(s, x) { return audP(coFocus(s, 'bc', x.con, voScore(s)) + pm(s, 'audition', 0) + VO_POW[(s.tracks.voice || {}).tier || 0] * 2, VO_THR[x.tier]); }
 for (const x of VO_BCS) JOB_APPLY.push({
-  id: 'voice_bc_' + VO_BCS.indexOf(x), trk: 'voice', g: '🗣️ 성우', get n() { return `${x.n} 전속 성우 공채`; }, tag: coTagOf(x),
+  id: 'voice_bc_' + VO_BCS.indexOf(x), coKey: 'vo.' + VO_BCS.indexOf(x), pos: '전속 성우 공채', trk: 'voice', g: '🗣️ 성우', get n() { return `${x.n} 전속 성우 공채`; }, get tag() { return coTagOf(x); },
   show: s => !(trackOn(s, 'voice') && s.tracks.voice.mode === 'bc') && age(s) >= 18 && age(s) <= 35,
   h: s => lv(me(s), 'acting') >= 25 ? `합격 가능성 ${fmtPct(voAudP(s, x))} · 결과는 다음 달 · 붙으면 2년 동안 그 방송사 전속 성우로 월급을 받는다` : '연기가 25레벨 이상이어야 지원할 수 있다',
   ok: s => !s.army && !agencyContract(s) && lv(me(s), 'acting') >= 25 && !hasQ(s, 'vo_exam') && !(s.cd['vo_' + x.n] > s.t),

@@ -236,16 +236,18 @@ E({
 });
 // 대학원 진학: 대학을 졸업했으면 대학 크기마다 지원한다. 붙으면 학과를 고른다
 const PF_GRAD_THR = [0, 28, 36, 44];
-function pfGradP(s, ut) { const p = me(s), b = pfBestJob(s); return audP(lv(p, 'study') * 0.7 + Math.max(0, ...Object.keys(PF_DEPTS).map(d => pfDeptSk(s, d))) * 0.3 + (p.tal.intel - 50) * 0.2 + (b ? b.tier : 0), PF_GRAD_THR[ut]); }
+// v207: 대학마다 따로 지원한다 (대학 특징 CO_FOCUS.uni: 연구 중심은 학업, 실기 · 예술은 실기 특기, 산학 협력은 사업)
+function pfGradSc(s) { const p = me(s), b = pfBestJob(s); return lv(p, 'study') * 0.7 + Math.max(0, ...Object.keys(PF_DEPTS).map(d => pfDeptSk(s, d))) * 0.3 + (p.tal.intel - 50) * 0.2 + (b ? b.tier : 0); }
+function pfGradP(s, u) { if (typeof u === 'number') u = UNIS.find(x => x.tier === u); return audP(coFocus(s, 'uni', u.con, pfGradSc(s)), PF_GRAD_THR[u.tier]); }
 function pfOn(s) { return trackOn(s, 'prof'); }
-for (const ut of [3, 2, 1]) JOB_APPLY.push({
-  id: 'prof_grad' + ut, trk: 'prof', g: '🎓 교수', n: `${TIER_N[ut]} 대학 대학원 진학`, tag: `등록금 매달 ${fmtWon(PF_FEE)}`,
+UNIS.forEach((u, i) => JOB_APPLY.push({
+  id: 'prof_grad_u' + i, coKey: 'uni.' + i, pos: '대학원 진학', trk: 'prof', g: '🎓 교수', get n() { return `${u.n} 대학원 진학`; }, get tag() { return `${TIER_N[u.tier]} · 등록금 매달 ${fmtWon(PF_FEE)}`; },
   show: s => !pfOn(s) && !!s.edu.uni && age(s) >= 21 && age(s) <= 45 && (s.tracks.prof.deg || '') !== '박사',
-  h: s => uniDone(s) ? `합격 가능성 ${fmtPct(pfGradP(s, ut))} · 결과는 다음 달 · 석사 2년 → 박사 3년 → 시간강사 → 교수` : '대학을 졸업해야 지원할 수 있다',
-  ok: s => !s.army && uniDone(s) && !hasQ(s, 'pf_grad_res') && !(s.cd['pfg' + ut] > s.t),
+  h: s => uniDone(s) ? `합격 가능성 ${fmtPct(pfGradP(s, u))} · 결과는 다음 달 · 석사 2년 → 박사 3년 → 시간강사 → 교수` : '대학을 졸업해야 지원할 수 있다',
+  ok: s => !s.army && uniDone(s) && !hasQ(s, 'pf_grad_res') && !(s.cd['pfg_' + i] > s.t),
   why: s => s.army ? '군 복무 중' : !uniDone(s) ? '대학을 졸업해야 한다' : hasQ(s, 'pf_grad_res') ? '결과를 기다리는 중' : '올해는 이미 지원했다',
-  run: s => { s.cd['pfg' + ut] = s.t + 12; queueEv(s, 'pf_grad_res', 1, { ut, uni: uniOf(ut).n, p: pfGradP(s, ut) }); return `${TIER_N[ut]} 대학 대학원에 원서를 냈다.`; },
-});
+  run: s => { s.cd['pfg_' + i] = s.t + 12; queueEv(s, 'pf_grad_res', 1, { ut: u.tier, uni: u.n, p: pfGradP(s, u) }); return `${u.n} 대학원에 원서를 냈다.`; },
+}));
 E({
   id: 'pf_grad_res', cat: '대학원', title: '대학원 합격 발표', tag: 'career',
   init(s, d) { d.pass = U.chance(d.p); },
@@ -264,15 +266,16 @@ E({
 });
 // 교수 임용 (조교수): 박사 · 시간강사가 지원한다. 실적이 많을수록, 강의 평가가 좋을수록 붙기 쉽다
 const PF_HIRE_THR = [0, 40, 48, 56];
-function pfHireP(s, ut) { const t = s.tracks.prof; return audP(t.pts * 4 + pfResearch(s, t) * 0.5 + (t.tier >= 2 ? t.rep * 0.1 : 0), PF_HIRE_THR[ut]); }
-for (const ut of [3, 2, 1]) JOB_APPLY.push({
-  id: 'prof_hire' + ut, trk: 'prof', g: '🎓 교수', n: `${TIER_N[ut]} 대학 교수 임용 지원`, tag: `조교수 · 월급 ${PF_SAL[3]}만 원쯤`,
+function pfHireSc(s) { const t = s.tracks.prof; if (!pfOn(s)) return 0; return t.pts * 4 + pfResearch(s, t) * 0.5 + (t.tier >= 2 ? t.rep * 0.1 : 0); }
+function pfHireP(s, u) { if (typeof u === 'number') u = UNIS.find(x => x.tier === u); return audP(coFocus(s, 'uni', u.con, pfHireSc(s)), PF_HIRE_THR[u.tier]); }
+UNIS.forEach((u, i) => JOB_APPLY.push({
+  id: 'prof_hire_u' + i, coKey: 'uni.' + i, pos: '교수 임용 지원', trk: 'prof', g: '🎓 교수', get n() { return `${u.n} 교수 임용 지원`; }, get tag() { return `${TIER_N[u.tier]} · 조교수 · 월급 ${PF_SAL[3]}만 원쯤`; },
   show: s => pfOn(s) && s.tracks.prof.route === 'grad' && (s.tracks.prof.tier === 1 || s.tracks.prof.tier === 2),
-  h: s => `합격 가능성 ${fmtPct(pfHireP(s, ut))} · 결과는 다음 달`,
-  ok: s => !s.army && !hasQ(s, 'pf_hire_res') && !(s.cd['pfh' + ut] > s.t),
+  h: s => `합격 가능성 ${fmtPct(pfHireP(s, u))} · 결과는 다음 달`,
+  ok: s => !s.army && !hasQ(s, 'pf_hire_res') && !(s.cd['pfh_' + i] > s.t),
   why: s => s.army ? '군 복무 중' : hasQ(s, 'pf_hire_res') ? '결과를 기다리는 중' : '올해는 이미 지원했다',
-  run: s => { s.cd['pfh' + ut] = s.t + 12; queueEv(s, 'pf_hire_res', 1, { ut, uni: uniOf(ut).n, p: pfHireP(s, ut) }); return `${TIER_N[ut]} 대학 교수 임용에 지원했다.`; },
-});
+  run: s => { s.cd['pfh_' + i] = s.t + 12; queueEv(s, 'pf_hire_res', 1, { ut: u.tier, uni: u.n, p: pfHireP(s, u) }); return `${u.n} 교수 임용에 지원했다.`; },
+}));
 E({
   id: 'pf_hire_res', cat: '임용', title: '교수 임용 결과', tag: 'career',
   init(s, d) { d.pass = U.chance(d.p); },

@@ -1,7 +1,7 @@
 'use strict';
 // ════════ 댄서 (피드백 29) ════════
 // 가수 무대 · 뮤직비디오 · 콘서트에서 백댄서로 춤추고, 곡에 맞는 안무를 만든다. 이름이 알려지면 가끔 예능에도 나간다
-// 프리랜서로 시작하거나 안무 팀(AGENCIES kind 'dance')의 입단 오디션을 본다. 일을 잘하면 안무 팀에서 먼저 연락이 온다
+// 프리랜서로 시작하거나 댄스팀(AGENCIES kind 'dance')의 입단 오디션을 본다. 일을 잘하면 댄스팀에서 먼저 연락이 온다
 // 백댄서는 댄스 특기, 안무 창작은 댄스 특기와 창의력 · 예술 감각, 그 컨셉의 안무 숙련도를 본다 (v94)
 const DANCER_TIERS = ['신인 댄서', '현역 댄서', '실력파 댄서', '메인 댄서', '이름난 댄서', '스타 댄서', '레전드 댄서'];
 // 등급마다 일의 크기 (보수 · 일감 확률 · 잘 나올 가능성에 곱한다)
@@ -36,7 +36,7 @@ function chGain(s, c, amt) { if (!c) return; s.chm = s.chm || {}; const m = chGe
 function chBonus(s, c) { return (chGet(s, c) - 20) / 8; }
 function chBars(s) { return TRENDS.filter(c => chGet(s, c) >= 1 || c === s.trend).sort((a, b) => chGet(s, b) - chGet(s, a)).map(c => ({ n: c, v: chGet(s, c), tag: c === s.trend ? '유행' : '' })); }
 
-// 안무가 (v140): 서른다섯이 넘은 메인 댄서 이상은 안무 팀에 '안무가'로 남는다 (t.lead). 무대보다 안무를 만드는 자리라 나이 때문에 재계약이 막히지 않는다
+// 안무가 (v140): 서른다섯이 넘은 메인 댄서 이상은 댄스팀에 '안무가'로 남는다 (t.lead). 무대보다 안무를 만드는 자리라 나이 때문에 재계약이 막히지 않는다
 // 그 아래 등급은 서른다섯 뒤로 팀 제안이 오지 않는다 (예전엔 '입단 → 2년 뒤 재계약 불발 → 또 다른 팀 제안'이 되풀이됐다)
 const DC_LEAD = { age: 35, tier: 3 };
 function dcLeadOK(s, t) { return age(s) >= DC_LEAD.age && t.tier >= DC_LEAD.tier; }
@@ -60,14 +60,14 @@ CAREERS.dancer = {
   cLeft(s, t) { return t.st === 'active' && t.crew ? t.contract - t.months : null; },
   mainSk() { return 'dance'; },
   info(s, t) {
-    return [['소속', t.crew ? `${t.crewN} (${TIER_N[AG[t.crew].tier]} 안무 팀)${t.lead ? ' 안무가' : ''} · 팀 몫 ${pctN(t.cut)}` : '프리랜서'], ['등급', DANCER_TIERS[t.tier]], ['한 일', `백댄서 ${t.back}번 · 안무 ${t.cho}곡`],
+    return [['소속', t.crew ? `${t.crewN} (${TIER_N[AG[t.crew].tier]} 댄스팀)${t.lead ? ' 안무가' : ''} · 팀 몫 ${pctN(t.cut)}` : '프리랜서'], ['등급', DANCER_TIERS[t.tier]], ['한 일', `백댄서 ${t.back}번 · 안무 ${t.cho}곡`],
       { h: '안무 컨셉 숙련도', bars: chBars(s) }];
   },
   actions(s, t) {
     if (t.st !== 'active') return [];
     if (t.crew) {
       const left = Math.max(0, t.contract - t.months), pen = Math.max(300e4, left * 20e4 * AG[t.crew].tier);
-      return [{ t: '안무 팀 계약 해지', h: `계약이 ${left}개월 남았다 · 위약금 ${fmtWon(pen)} · 해지하면 프리랜서로 일한다`, ok: true, danger: true, confirm: `${josa(t.crewN, '과와')}의 계약을 해지할까요? 위약금 ${fmtWon(pen)}을 물어야 해요.`, run: s => { s.debt += pen; t.hist.push(`${t.crewN} (계약 해지)`); dcLeave(t); return '안무 팀과의 계약을 해지했다. 이제 프리랜서로 일한다.'; } }];
+      return [{ t: '댄스팀 계약 해지', h: `계약이 ${left}개월 남았다 · 위약금 ${fmtWon(pen)} · 해지하면 프리랜서로 일한다`, ok: true, danger: true, confirm: `${josa(t.crewN, '과와')}의 계약을 해지할까요? 위약금 ${fmtWon(pen)}을 물어야 해요.`, run: s => { s.debt += pen; t.hist.push(`${t.crewN} (계약 해지)`); dcLeave(t); return '댄스팀과의 계약을 해지했다. 이제 프리랜서로 일한다.'; } }];
     }
     return [{ t: '댄서 일 그만두기', ok: true, danger: true, confirm: '정말 댄서 일을 그만둘까요?', run: s => { t.st = 'ended'; t.endNote = `${DANCER_TIERS[t.tier]}, 백댄서 ${t.back}번 · 안무 ${t.cho}곡`; t.hist.push(t.endNote); return '댄서 일을 그만뒀다.'; } }];
   },
@@ -78,18 +78,19 @@ CAREERS.dancer = {
     const n = slotsOn(s, 'c_dancer'), p = me(s);
     if (n) { practice(s, p, 'dance', 0.8 * n); addStress(s, 1.5); }
     if (!n && !t.crew) return;
-    // 안무 팀에 있으면 일정에 넣지 않아도 팀이 가끔 일을 잡아 준다
+    // 댄스팀에 있으면 일정에 넣지 않아도 팀이 가끔 일을 잡아 준다
     const chance = stigmaMul(s) * (0.3 + DANCER_POW[t.tier] * 0.04 + (t.crew ? 0.1 : 0)) * (n ? 1 : 0.4) * (t.lead ? 1 : Math.max(0.3, 1 + dancerAgeAdj(age(s)) / 15)) * access(s);
     if (!hasQ(s, 'dc_job') && U.chance(chance)) queueEv(s, 'dc_job', 0);
     // 이름이 알려지면 가끔 예능 섭외가 온다
     if (n && t.tier >= 2 && !s.army && !hasQ(s, 'dc_var') && U.chance(0.004 + t.tier * 0.004)) queueEv(s, 'dc_var', 0);
-    // 프리랜서로 일을 잘하면 안무 팀에서 같이 하자는 연락이 온다
+    // 프리랜서로 일을 잘하면 댄스팀에서 같이 하자는 연락이 온다
     if (n && !t.crew && t.jobs >= 3 && (age(s) < DC_LEAD.age || dcLeadOK(s, t)) && !agencyContract(s) && !s.inbox.some(m => m.kind === 'dc_offer') && U.chance(0.02 + t.tier * 0.006)) dcOffer(s);
   },
 };
 
 // ───── 지원 · 입단 ─────
-function dcAudP(s, ag) { const t = s.tracks.dancer; return audP(dancerScore(s, 'back') + dancerAgeAdj(age(s)) + pm(s, 'audition', 0) + (trackOn(s, 'dancer') ? DANCER_POW[t.tier] * 2 : 0), ag.thr); }
+// v207: 댄스팀 특징 (CO_FOCUS.dance). 힙합 댄스팀은 센 인상을 좋아한다
+function dcAudP(s, ag) { const t = s.tracks.dancer; return audP(coFocus(s, 'dance', ag.con, dancerScore(s, 'back')) + dancerAgeAdj(age(s)) + pm(s, 'audition', 0) + (trackOn(s, 'dancer') ? DANCER_POW[t.tier] * 2 : 0), ag.thr); }
 for (const ag of dancerCrews()) JOB_APPLY.push({
   id: 'dancer_' + ag.id, trk: 'dancer', g: '🕺 댄서', get n() { return `${ag.n} 입단 오디션`; }, get tag() { return agTag(ag); },
   show: s => !(trackOn(s, 'dancer') && s.tracks.dancer.crew) && age(s) >= 15 && age(s) <= 35,
@@ -107,12 +108,12 @@ JOB_APPLY.push({
   run: s => dcStart(s, {}),
 });
 NEGO.dancer = {
-  what: d => '안무 팀 전속 계약이다. 팀이 무대와 안무 일을 잡아 주고, 보수의 일부를 팀 몫으로 가져간다.',
+  what: d => '댄스팀 전속 계약이다. 팀이 무대와 안무 일을 잡아 주고, 보수의 일부를 팀 몫으로 가져간다.',
   block: s => agencyContract(s) ? contractWhy(s) : '',
   sign: (s, d) => dcStart(s, { crew: d.ag, months: d.months, cut: d.cut }),
   refuse: (s, d) => `${d.agN}의 계약 제안을 거절했다.`,
 };
-function dcNego(s, ag, lev) { return startNego(s, { kind: 'dancer', ag: ag.id, agN: ag.n, months: 24, cut: ag.cut, lev }); }
+function dcNego(s, ag, lev) { return startNego(s, { kind: 'dancer', ag: ag.id, agN: ag.n, months: 24 + coLongC(ag), cut: ag.cut, lev }); }
 E({
   id: 'dc_aud', cat: '오디션', title: '입단 오디션 결과', tag: 'career',
   init(s, d) { d.pass = U.chance(d.p); },
@@ -122,7 +123,7 @@ E({
     { t: '거절한다', f: () => `${AG[d.ag].n}의 입단 제안을 거절했다.` },
   ] : [{ t: '다시 준비한다', f: s => `${AG[d.ag].n} 입단 오디션에 떨어졌다.` + fx(s, { stress: 3 * pm(s, 'loseStress') }) }],
 });
-// 안무 팀이 먼저 보내는 제안: 등급이 높을수록 큰 팀에서 온다
+// 댄스팀이 먼저 보내는 제안: 등급이 높을수록 큰 팀에서 온다
 function dcOffer(s) {
   const t = s.tracks.dancer, top = Math.min(3, 1 + Math.floor(t.tier / 2));
   const L = dancerCrews().filter(a => a.tier <= top && a.tier >= top - 1);
@@ -131,21 +132,21 @@ function dcOffer(s) {
 }
 INBOX.dc_offer = {
   ic: '🕺',
-  text: (s, m) => { const ag = AG[m.d.ag]; return `${ag.n}(${agTag(ag)} 안무 팀)에서 ${trackOn(s, 'dancer') && dcLeadOK(s, s.tracks.dancer) ? '안무가로 와 달라는' : '같이 하자는'} 연락이 왔다. 팀에 들어가면 팀이 무대와 안무 일을 잡아 주지만, 보수의 ${pctN(ag.cut)}는 팀 몫이다.`; },
+  text: (s, m) => { const ag = AG[m.d.ag]; return `${ag.n}(${agTag(ag)} 댄스팀)에서 ${trackOn(s, 'dancer') && dcLeadOK(s, s.tracks.dancer) ? '안무가로 와 달라는' : '같이 하자는'} 연락이 왔다. 팀에 들어가면 팀이 무대와 안무 일을 잡아 주지만, 보수의 ${pctN(ag.cut)}는 팀 몫이다.`; },
   ch: (s, m) => [
     { t: '계약서를 받아 본다', ok: s => trackOn(s, 'dancer') && !agencyContract(s), h: agencyContract(s) ? contractWhy(s) : '', f: s => dcNego(s, AG[m.d.ag], 0.5) },
     { t: '거절한다', f: () => `${AG[m.d.ag].n}의 제안을 거절했다.` },
   ],
 };
 E({
-  id: 'dc_contract', cat: '계약', title: '안무 팀 계약 만료', tag: 'career',
+  id: 'dc_contract', cat: '계약', title: '댄스팀 계약 만료', tag: 'career',
   cond: s => trackOn(s, 'dancer') && !!s.tracks.dancer.crew,
   text: s => { const t = s.tracks.dancer; return `${josa(t.crewN, '과와')}의 계약이 끝났다. ${DANCER_TIERS[t.tier]}, 백댄서 ${t.back}번 · 안무 ${t.cho}곡.${dcLeadOK(s, t) ? ' 팀에서는 이제 무대보다 안무를 맡는 안무가로 남아 달라고 한다.' : age(s) >= 35 ? ' 나이가 있어서 팀도 재계약을 망설이는 눈치다.' : ''}`; },
   ch: s => {
     const t = s.tracks.dancer, lead = dcLeadOK(s, t), p = age(s) < 35 || lead ? 1 : Math.max(0.15, 1 - (age(s) - 34) * 0.12);
     return [
       { t: `${josa(t.crewN, '과와')} ${lead ? '안무가로 ' : ''}재계약`, h: `2년${p < 1 ? ` · 받아 줄 가능성 ${fmtPct(p)}` : ''}`, f: s => { if (!U.chance(p)) { t.hist.push(`${t.crewN} (재계약 불발)`); dcLeave(t); return '팀이 재계약을 거절했다. 이제 프리랜서로 일한다.' + fx(s, { stress: 5 }); } t.months = 0; t.contract = 24; t.lead = lead; return `${josa(t.crewN, '과와')} ${lead ? '안무가로 ' : ''}재계약했다.`; } },
-      { t: '팀을 나와 프리랜서로 일한다', f: s => { t.hist.push(`${t.crewN} (계약 만료)`); dcLeave(t); return '안무 팀을 나와 프리랜서로 일하기로 했다.'; } },
+      { t: '팀을 나와 프리랜서로 일한다', f: s => { t.hist.push(`${t.crewN} (계약 만료)`); dcLeave(t); return '댄스팀을 나와 프리랜서로 일하기로 했다.'; } },
     ];
   },
 });

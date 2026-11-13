@@ -99,7 +99,10 @@ function mcnBlock(s) {
   if (agencyContract(s)) return contractWhy(s);
   return '';
 }
-function mcnJoinP(s, ag) { return U.clamp(0.3 + Math.log10(Math.max(1, s.tracks.youtube.subs) / ag.min) * 0.45, 0.08, 0.95); }
+// v207: MCN 특징 — 그쪽 채널이면 더 잘 받아 주고, 다른 쪽을 파는 MCN은 덜 받아 준다
+const MCN_FIT = { '게임 특화': ['게임 방송'], '라이프스타일': ['브이로그', '먹방'], '먹방·일상': ['먹방', '브이로그'], '교육·리뷰': ['리뷰'], '숏폼': ['숏폼 밈', '챌린지'] };
+function mcnFit(s, ag) { const t = s.tracks.youtube, c = ag.con; if (c === '버튜버 전문') return t.mode === 'vt' ? 1.8 : 0.7; if (c === '해외 진출') return ytMk(t) !== 'kr' ? 1.8 : 0.7; const L = MCN_FIT[c]; return !L ? 1 : L.includes(t.cat) ? 1.8 : 0.7; }
+function mcnJoinP(s, ag) { return U.clamp((0.3 + Math.log10(Math.max(1, s.tracks.youtube.subs) / ag.min) * 0.45) * mcnFit(s, ag), 0.05, 0.95); }
 for (const ag of mcnAgencies()) JOB_APPLY.push({
   id: 'mcn_join_' + ag.id, trk: 'youtube', g: '▶️ 스트리머', get n() { return `${ag.n} 가입 신청 (MCN)`; }, get tag() { return agTag(ag, mcnTierOf(S, ag.id)); },
   show: s => trackOn(s, 'youtube') && s.tracks.youtube.st === 'active' && !s.tracks.youtube.mcn,
@@ -117,7 +120,7 @@ for (const ag of mcnAgencies()) JOB_APPLY.push({
   why: s => s.army ? '군 복무 중' : agencyContract(s) ? contractWhy(s) : lv(me(s), 'edit') < 30 ? '영상 편집을 더 배워야 한다' : hasQ(s, 'edit_res') ? '결과를 기다리는 중' : '얼마 전에 지원했다 (반년 뒤 다시)',
   run: s => { s.cd['editm_' + ag.id] = s.t + 6; { const k = mcnTierOf(s, ag.id); queueEv(s, 'edit_res', 1, { tier: k, co: ag.n, mcn: ag.id, p: audP(editScore(s, true) + empExpBonus(s, 'editor'), EDIT_THR[k]) }); } return `${ag.n} 편집팀 채용에 지원했다.`; },
 });
-function mcnNego(s, ag, o = {}) { return startNego(s, Object.assign({ kind: 'mcn', ag: ag.id, agN: ag.n, months: mcnTierOf(s, ag.id) === 3 ? 36 : 24, cut: mcnCutMe(s, ag), cutStep: 0.05, cutMin: 0.1, lev: U.clamp(Math.log10(1 + s.tracks.youtube.subs / ag.min) * 0.3 + 0.15, 0.05, 0.8) }, o)); }
+function mcnNego(s, ag, o = {}) { return startNego(s, Object.assign({ kind: 'mcn', ag: ag.id, agN: ag.n, months: (mcnTierOf(s, ag.id) === 3 ? 36 : 24) + coLongC(ag), cut: mcnCutMe(s, ag), cutStep: 0.05, cutMin: 0.1, lev: U.clamp(Math.log10(1 + s.tracks.youtube.subs / ag.min) * 0.3 + 0.15, 0.05, 0.8) }, o)); }
 E({
   id: 'mcn_res', cat: 'MCN', title: 'MCN 가입 신청 결과', tag: 'career',
   init(s, d) { d.pass = U.chance(d.p) && !mcnBlock(s); },

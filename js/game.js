@@ -486,39 +486,166 @@ function applyCoNames(s) {
   }
   VO_BCS.forEach((v, i) => { const k = coVoLink(i); if (k) v.n = cur[k]; });
 }
-// v206: 가끔 회사가 문을 닫고 그 자리에 새 회사가 생긴다 (창 없이 요약의 특별한 일 · 소식에만)
+// v206: 가끔 회사가 문을 닫고 그 자리에 새 회사가 생긴다 (요약의 특별한 일 · 소식에 한 줄)
 // 1년에 문 닫을 확률: 소형 1% >> 중형 0.2% >>>>>> 대형 0.01% (모두 합쳐 3년에 한 곳쯤). 한 달에 한 곳까지
-// 기획사 · 배우 소속사 · 버츄얼 아이돌 기획사 · 모델 에이전시 · MCN · 댄스 컴퍼니 · CP사 · 영상 제작사 · 애니 제작사 · 학원 · 인강 회사 (방송사 · 대학 · 플랫폼은 닫지 않는다)
-// 내가 얽힌 회사(소속 · 지원 결과 기다림 · 하는 일 · 메시지)는 닫지 않는다. 새 회사는 크기가 같고, 이름은 아직 안 쓴 이름, 특징은 같은 종류 회사의 특징 가운데 하나
+// 기획사 · 배우 소속사 · 버츄얼 아이돌 기획사 · 모델 에이전시 · MCN · 댄스팀(해체) · CP사 · 영상 제작사 · 애니 제작사 · 학원 · 인강 회사 (방송사 · 대학 · 플랫폼은 닫지 않는다)
+// v207: 내가 소속된 회사도 닫힐 수 있다. 그러면 그 회사와의 일이 위약금 없이 끝나고 실직 창이 뜬다 (co_closed)
+//   지원 결과를 기다리거나 · 메시지 · 하는 작품에 얽힌 회사는 그동안 닫지 않는다
+// 새 회사는 크기가 같고, 이름은 아직 안 쓴 이름, 특징은 같은 종류 · 같은 크기 회사의 특징 가운데 하나
 const CO_BUST = [0, 0.01, 0.002, 0.0001];
-const CO_BUST_N = { music: '기획사', actor: '배우 소속사', vtuber: '버츄얼 아이돌 기획사', model: '모델 에이전시', mcn: 'MCN', dance: '댄스 컴퍼니', cp: 'CP사' };
+// 회사 종류 이름 (coByKey의 kind)
+const CO_KIND_N = { music: '기획사', vtuber: '버츄얼 아이돌 기획사', actor: '배우 소속사', model: '모델 에이전시', mcn: 'MCN', dance: '댄스팀', cp: 'CP사', prod: '영상 제작사', ani: '애니 제작사', bc: '방송사', uni: '대학', acad: '학원', ol: '인강 회사' };
 const CO_PLAN = [null, [30, 65], [45, 70], [75, 95]];
-function coBustKind(x) { const k = x.k.split(':')[0]; return k === 'ag' ? CO_BUST_N[x.o.kind] || '회사' : k === 'prod' ? '영상 제작사' : k === 'ani' ? '애니 제작사' : k === 'tu' ? (x.o.kind === 'ol' ? '인강 회사' : '학원') : '회사'; }
+function coBustKind(x) { const k = x.k.split(':')[0]; return k === 'ag' ? CO_KIND_N[x.o.kind] || '회사' : k === 'prod' ? '영상 제작사' : k === 'ani' ? '애니 제작사' : k === 'tu' ? (x.o.kind === 'ol' ? '인강 회사' : '학원') : '회사'; }
+function jo(n, j) { return josa(n, j).slice(String(n).length); }
 function coBust(s) {
   coDefaults();
   const L = coSlots().filter(x => x.bust && x.o && x.o.tier);
   let tied = null;
   for (const x of U.shuffle(L.slice())) {
     if (!U.chance((CO_BUST[x.o.tier] || 0) / 12)) continue;
-    if (tied == null) tied = JSON.stringify([s.tracks, s.queue, s.pending, s.projects, s.inbox, s.co || null]);
-    const id = x.k.startsWith('ag:') ? x.k.slice(3) : null;
-    if ((id && tied.includes(`"${id}"`)) || tied.includes(x.o.n)) continue;
+    if (tied == null) tied = JSON.stringify([s.queue, s.pending, s.projects, s.inbox, s.co || null]);
+    const [pf, ix] = x.k.split(':'), id = pf === 'ag' ? ix : null, key = id || `${pf}.${ix}`;
+    if ((id && tied.includes(`"${id}"`)) || tied.includes(`"${key}"`) || tied.includes(x.o.n)) continue;
     const used = new Set(coSlots().map(y => y.get()).concat(s.coGone || [])), names = (CO_POOL[x.pool] || []).filter(n => !used.has(n));
     if (!names.length) continue;
-    const kn = coBustKind(x), old = x.o.n, nn = U.pick(names);
+    const kn = coBustKind(x), old = x.o.n, nn = U.pick(names), dance = x.o.kind === 'dance';
+    // 소속된 일 (이름이 바뀌기 전에 찾는다)
+    const c = { id, key, n: old, p: pf }, aff = CAREER_IDS.filter(j => CO_AFF[j] && trackOn(s, j) && CO_AFF[j](s.tracks[j], c));
     // 특징은 같은 종류 · 같은 크기 회사의 특징에서 (없으면 같은 종류 아무 크기)
-    const conOf = M => [...new Set(M.map(y => y.o.con).filter(c => c && c !== x.o.con))], K = L.filter(y => coBustKind(y) === kn && (!x.o.mkt || y.o.mkt === x.o.mkt));
+    const conOf = M => [...new Set(M.map(y => y.o.con).filter(v => v && v !== x.o.con))], K = L.filter(y => coBustKind(y) === kn && (!x.o.mkt || y.o.mkt === x.o.mkt));
     let cons = conOf(K.filter(y => y.o.tier === x.o.tier)); if (!cons.length) cons = conOf(K);
     const con = cons.length ? U.pick(cons) : x.o.con, pr = x.o.plan != null && CO_PLAN[x.o.tier], plan = pr ? U.int(pr[0], pr[1]) : null;
+    const lines = aff.map(j => `· ${jobName(j)}: ${CO_CLOSE[j](s, s.tracks[j], old, j)}`);
     (s.coGone = s.coGone || []).push(old);
     (s.coNames = s.coNames || {})[x.k] = nn; (s.coMod = s.coMod || {})[x.k] = plan != null ? { con, plan } : { con };
     x.set(nn); x.o.con = con; if (plan != null) x.o.plan = plan;
     if (id && s.mcnCo && s.mcnCo[id]) delete s.mcnCo[id];
-    addLog(s, `🏚️ ${kn} 「${old}」${josa(old, '이가').slice(old.length)} 문을 닫았다. 그 자리에 ${TIER_N[x.o.tier]} ${kn} 「${nn}」(${con})${josa(nn, '이가').slice(nn.length)} 새로 생겼다.`, 'news');
+    addLog(s, dance ? `🏚️ 댄스팀 「${old}」${jo(old, '이가')} 해체했다. 새 댄스팀 「${nn}」(${con})${jo(nn, '이가')} 생겼다.` : `🏚️ ${kn} 「${old}」${jo(old, '이가')} 문을 닫았다. 그 자리에 ${TIER_N[x.o.tier]} ${kn} 「${nn}」(${con})${jo(nn, '이가')} 새로 생겼다.`, 'news');
+    if (aff.length) queueEv(s, 'co_closed', 0, { old, kn, dance, lines });
     return x.k;
   }
   return null;
 }
+// ───── v207: 소속 회사가 문을 닫으면 ─────
+// 어느 일이 그 회사 소속인가. c: { id AGENCIES id(아니면 null), key 회사 열쇠(coByKey), n 이름, p 'ag' · 'prod' · 'ani' · 'tu' }
+const CO_AFF = {
+  idol: (t, c) => !!c.id && t.ag === c.id, band: (t, c) => !!c.id && t.st === 'signed' && t.ag === c.id, solo: (t, c) => !!c.id && t.st === 'signed' && !t.withGroup && t.ag === c.id,
+  actor: (t, c) => !!c.id && t.via === 'agency' && t.ag === c.id, model: (t, c) => !!c.id && t.ag === c.id, vidol: (t, c) => !!c.id && t.corp === c.id,
+  youtube: (t, c) => !!c.id && !!t.mcn && t.mcn.id === c.id, dancer: (t, c) => !!c.id && t.crew === c.id, webtoon: (t, c) => !!c.id && t.cp === c.id, webnovel: (t, c) => !!c.id && t.cp === c.id,
+  trainer: (t, c) => !!c.id && t.ag === c.id, anr: (t, c) => !!c.id && t.ag === c.id, acttrainer: (t, c) => !!c.id && t.ag === c.id, producer: (t, c) => !!c.id && t.mode === 'in' && t.ag === c.id,
+  marketer: (t, c) => t.ag === c.key,
+  editor: (t, c) => t.mode === 'emp' && (t.mcn ? !!c.id && t.mcn === c.id : c.p === 'prod' && t.agN === c.n),
+  director: (t, c) => c.p === 'prod' && (t.mode === 'excl' || t.mode === 'ad') && t.co === c.n,
+  animator: (t, c) => c.p === 'ani' && t.mode === 'emp' && t.agN === c.n,
+  adir: (t, c) => c.p === 'ani' && t.mode === 'ep' && t.co === c.n,
+  tutor: (t, c) => c.p === 'tu' && t.co === c.n,
+};
+// 그 회사와의 일이 끝난다 (위약금 · 평판 손해 없이). 돌려주는 말은 실직 창에 한 줄로
+const coLeaveHist = (t, n, w) => { (t.hist = t.hist || []).push(`${n} (${w})`); };
+const CO_CLOSE = {
+  idol: (s, t) => { if (t.st === 'trainee') { quitTrainee(s, '회사 폐업'); return '연습생 생활이 여기서 끝났다.'; } endGroup(s, '회사 폐업'); return '그룹도 함께 해체됐다.'; },
+  band: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { st: 'indie', ag: null, agN: '', tier: 0, cut: 0, nextRel: U.int(3, 6) }); return '밴드는 다시 인디가 됐다.'; },
+  solo: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { st: 'indie', ag: null, agN: '', cut: 0, tier: 0, nextRel: 3 }); return '이제 인디로 활동한다.'; },
+  actor: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { via: 'indie', ag: null, agN: '', cut: 0, contract: 0 }); return '이제 무소속으로 활동한다.'; },
+  model: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { ag: null, agN: '', cut: 0, contract: 0 }); return '이제 프리랜서로 활동한다.'; },
+  vidol: (s, t) => { viEnd(s, t, '회사 폐업'); return '아바타가 회사 것이라 버츄얼 아이돌 활동도 끝났다.'; },
+  youtube: s => { mcnLeave(s, '회사 폐업'); return '채널은 그대로 혼자 이어 간다.'; },
+  dancer: (s, t, n) => { coLeaveHist(t, n, '팀 해체'); dcLeave(t); return '이제 프리랜서로 일한다.'; },
+  webtoon: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); wbLeaveCp(t); return '이제 혼자 연재한다.'; },
+  webnovel: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); wbLeaveCp(t); return '이제 혼자 연재한다.'; },
+  trainer: (s, t, n, j) => { leaveEmp(s, j, '회사 폐업'); return '일자리를 잃었다.'; },
+  anr: (s, t, n, j) => { leaveEmp(s, j, '회사 폐업'); return '일자리를 잃었다.'; },
+  acttrainer: (s, t, n, j) => { leaveEmp(s, j, '회사 폐업'); return '일자리를 잃었다.'; },
+  marketer: (s, t, n, j) => { leaveEmp(s, j, '회사 폐업'); (t.hist = t.hist || []).push(t.endNote); return '일자리를 잃었다.'; },
+  producer: (s, t, n, j) => { leaveEmp(s, j, '회사 폐업'); return '프리랜서 프로듀서로 일을 이어 간다.'; },
+  editor: (s, t, n) => { t.hist = (t.hist || []).concat(`${n} 편집팀 (회사 폐업)`); Object.assign(t, { mode: 'free', agN: '', lead: false, mcn: null }); return '프리랜서 편집자로 돌아갔다.'; },
+  director: (s, t, n) => { if (t.mode === 'excl') { dirGoFree(s, '회사 폐업'); return '프리랜서 감독이 됐다.'; } coLeaveHist(t, `${n} 연출부`, '회사 폐업'); Object.assign(t, { mode: 'indie', co: '', sal: 0 }); return '혼자 단편영화부터 다시 시작한다.'; },
+  animator: s => { anLeave(s, '회사 폐업'); return '프리랜서 애니메이터로 돌아갔다.'; },
+  adir: (s, t, n) => { coLeaveHist(t, `${n} 연출부`, '회사 폐업'); Object.assign(t, { mode: 'indie', co: '', sal: 0 }); return '혼자 단편 애니부터 다시 시작한다.'; },
+  tutor: (s, t) => { tuEnd(s, t, '학원 폐업'); return '강사 일도 끝났다.'; },
+};
+E({
+  id: 'co_closed', cat: '실직', title: (s, d) => d.dance ? '댄스팀 해체' : '회사 폐업', tag: 'career',
+  text: (s, d) => `${d.dance ? `댄스팀 「${d.old}」${jo(d.old, '이가')} 해체했다.` : `${d.kn} 「${d.old}」${jo(d.old, '이가')} 문을 닫았다.`} 하루아침에 소속이 사라졌다.\n\n${d.lines.join('\n')}`,
+  ch: (s, d) => [{ t: '받아들인다', f: s => `「${d.old}」${jo(d.old, '이가')} ${d.dance ? '해체해' : '문을 닫아'} 소속을 잃었다.` + fx(s, { stress: 6 }) }],
+});
+// ───── v207: 회사 하나를 바뀌지 않는 열쇠로 ─────
+// 기획사 · 소속사 · MCN · 댄스팀 · CP사는 AGENCIES id. 나머지는 '종류.차례': prod.0 영상 제작사 · ani.0 애니 제작사 · vo.0 방송사 · tu.0 학원 · 인강 회사 · uni.0 대학
+// team: 그 회사 팀 열쇠의 앞부분 (js/work.js: AGENCIES는 id, 나머지는 'prod:이름'처럼)
+function coLists() { return { prod: PROD_COS, ani: ANIME_COS, vo: VO_BCS, tu: TU_COS, uni: UNIS }; }
+function coKeysOf(p) { return coLists()[p].map((x, i) => `${p}.${i}`); }
+function coByKey(k) {
+  if (AG[k]) { const a = AG[k]; return { key: k, o: a, n: a.n, tier: a.tier, con: a.con, kind: a.kind, team: k }; }
+  const m = String(k || '').match(/^(prod|ani|vo|tu|uni)\.(\d+)$/), o = m && coLists()[m[1]][+m[2]];
+  if (!o) return null;
+  const kind = m[1] === 'tu' ? (o.kind === 'ol' ? 'ol' : 'acad') : m[1] === 'vo' ? 'bc' : m[1];
+  return { key: k, o, n: o.n, tier: o.tier, con: o.con, kind, team: `${kind}:${o.n}` };
+}
+// ───── v207: 회사 특징 → 지원할 때 더 보는 능력치 ─────
+// 'XX 특화' 회사는 그쪽 능력치를 크게 본다: 원래 점수 60% + 그 능력치 40%. 같은 크기라도 나에게 맞는 회사가 붙기 쉽다
+// 능력치는 0~100 (특기 레벨 · 재능). 외국어처럼 없는 사람이 많은 것은 50에서 시작한다 (없어도 크게 깎이지 않고, 잘하면 오른다)
+// 화면에는 회사 특징 이름만 보이고, 차이는 합격 가능성 %에만 나온다
+const CO_FOCUS_W = 0.4;
+// 센 인상 · 순한 인상 (얼굴 인상: LOOKS_F · LOOKS_M)
+const LOOKS_STRONG = ['고양이상', '여우상', '또렷하고 도도한 인상', '날카롭고 차가운 인상', '선이 굵은 인상'];
+const LOOKS_SOFT = ['강아지상', '토끼상', '곰돌이상', '맑고 청순한 인상', '부드럽고 순한 인상', '앳된 인상', '소년 같은 인상'];
+const fAvg = (...v) => v.reduce((a, x) => a + x, 0) / v.length;
+const fLang = p => 50 + Math.max(lv(p, 'en'), lv(p, 'jp')) * 0.5;
+const fInst = p => Math.max(...['guitar', 'bass', 'piano', 'keyboard', 'drum'].map(k => lv(p, k)));
+const fTal = (p, ks) => fAvg(...ks.map(k => p.tal[k] || 0));
+const fSk = k => (s, p) => lv(p, k);
+const fGenre = (...gs) => (s, p, x) => Math.max(...gs.map(g => aniMGet(s, WB[x.id || 'webnovel'].mkey, g)));
+const fPrac = s => Math.max(0, ...Object.keys(PF_DEPTS).map(d => pfDeptSk(s, d)));
+const CO_FOCUS = {
+  music: {
+    '글로벌 기획': (s, p) => fLang(p), '퍼포먼스 명가': fSk('dance'), '청량 컨셉': (s, p) => p.tal.looks, '보컬 그룹': fSk('vocal'), '감성 발라드': fSk('vocal'),
+    '걸크러시': (s, p) => fAvg(lv(p, 'rap'), lv(p, 'dance')), '밴드 사운드': (s, p) => fInst(p), '신인 발굴': (s, p) => fTal(p, ['music', 'rhythm', 'voice', 'looks']),
+    '자체 제작': (s, p) => Math.max(lv(p, 'compose'), lv(p, 'lyric')), '힙합': fSk('rap'), '애니송': fSk('vocal'), '팝 솔로': fSk('vocal'),
+  },
+  vtuber: {
+    '아이돌형': (s, p) => fAvg(lv(p, 'vocal'), lv(p, 'dance'), lv(p, 'variety')), '3D 라이브': fSk('dance'), '음악 중심': fSk('vocal'), '힐링·잡담': fSk('variety'),
+    '노래·음악': (s, p) => Math.max(lv(p, 'vocal'), fInst(p)), '게임 방송': fSk('game'), '노래 방송': fSk('vocal'), '버라이어티': fSk('variety'), '일본 활동': (s, p) => 50 + lv(p, 'jp') * 0.5,
+  },
+  actor: {
+    '톱스타 관리': (s, p) => fAvg(p.tal.looks, p.tal.star), '해외 진출': (s, p) => fLang(p), '연기파 배우': fSk('acting'), '영화 전문': fSk('acting'), '예능형 배우': fSk('variety'),
+    '신인 육성': (s, p) => fTal(p, ['express', 'looks', 'verbal']), '연극 출신': fSk('acting'), '아역 전문': (s, p) => lv(p, 'acting') + (age(s) <= 15 ? 25 : age(s) >= 20 ? -25 : 0),
+  },
+  model: {
+    '하이패션': (s, p) => p.tal.athletic, '해외 컬렉션': (s, p) => fLang(p), '런웨이': (s, p) => p.tal.athletic, '화보': (s, p) => p.tal.looks, '뷰티': (s, p) => p.tal.looks,
+    '광고 모델': (s, p) => fAvg(p.tal.star, lv(p, 'acting')), '온라인 쇼핑몰': (s, p) => p.tal.athletic, '신인 발굴': (s, p) => fAvg(p.tal.looks, p.tal.athletic) + (age(s) <= 19 ? 15 : 0), '피팅 모델': (s, p) => p.tal.athletic,
+  },
+  // 힙합 댄스팀은 랩이 아니라 얼굴 인상을 본다 (센 인상이 유리)
+  dance: {
+    '대형 무대': (s, p) => fAvg(lv(p, 'dance'), p.tal.athletic), '코레오그래피': (s, p) => fAvg(lv(p, 'dance'), p.tal.creative), '해외 투어': (s, p) => fLang(p),
+    '아이돌 안무': (s, p) => fAvg(lv(p, 'dance'), p.tal.creative), '걸리시': (s, p) => p.tal.looks, '힙합': (s, p) => LOOKS_STRONG.includes(p.look) ? 85 : LOOKS_SOFT.includes(p.look) ? 25 : 55,
+    '스트릿': fSk('dance'), '챌린지 영상': (s, p) => fAvg(p.tal.star, lv(p, 'variety')),
+  },
+  // CP사: x.id 웹툰 · 웹소설. 장르 특화는 그 장르 숙련도
+  cp: {
+    '영상화 기획': fSk('script'), '로맨스 판타지': fGenre('로맨스', '판타지'), '웹툰 스튜디오': (s, p, x) => x.id === 'webtoon' ? lv(p, 'art') : 20, '웹소설의 웹툰화': (s, p, x) => lv(p, x.id === 'webtoon' ? 'art' : 'script'),
+    '무협·판타지': fGenre('액션', '판타지'), '해외 번역': (s, p) => fLang(p), '신인 발굴': (s, p) => fTal(p, ['creative', 'aesth']), '로맨스': fGenre('로맨스'), '웹소설 전문': (s, p, x) => x.id === 'webnovel' ? lv(p, 'script') : 20,
+  },
+  prod: { '장르물': fSk('direct'), '작가주의 영화': (s, p) => fAvg(lv(p, 'direct'), p.tal.aesth), '웹드라마': (s, p) => fAvg(lv(p, 'edit'), p.tal.humor), '단편·광고': (s, p) => fAvg(lv(p, 'edit'), p.tal.creative) },
+  ani: { '극장판': fSk('art'), 'TV 시리즈': (s, p) => fAvg(lv(p, 'art'), p.tal.grit), '해외 합작': (s, p) => fLang(p), '판타지 액션': fSk('art'), '일상·코미디': (s, p) => p.tal.humor, 'SF': (s, p) => fAvg(lv(p, 'art'), lv(p, 'edit')), '광고·게임 영상': (s, p) => fAvg(lv(p, 'art'), p.tal.creative), '숏폼 애니': (s, p) => p.tal.creative },
+  // 방송사 성우 공채: 내레이션 · 발성은 따로 특기가 없어서 목소리 재능으로 본다
+  bc: { '외화 더빙': (s, p) => fLang(p), '다큐멘터리': (s, p) => p.tal.voice, '드라마 더빙': fSk('acting'), '애니 전문': (s, p) => fAvg(lv(p, 'acting'), p.tal.express), '영화 채널': fSk('acting'), '키즈': (s, p) => fAvg(p.tal.voice, p.tal.humor), '유아 애니': (s, p) => fAvg(p.tal.voice, p.tal.humor), '교육 애니': (s, p) => fAvg(p.tal.voice, p.tal.verbal) },
+  uni: { '연구 중심': fSk('study'), '실기 중심': fPrac, '예술 특성화': fPrac, '전문 실기': fPrac, '방송·공연': fPrac, '산학 협력': fSk('biz') },
+  acad: { '최상위권 입시': fSk('study'), '재수 종합반': fSk('study'), '동네 보습': fSk('edu'), '소수 정예': fSk('edu') },
+  ol: { '수능 전 과목': fSk('study'), '무제한 패스': (s, p) => p.tal.star, '모바일 인강': (s, p) => p.tal.star },
+  // 배우 소속사 연기 트레이너 채용
+  actTr: { '연기파 배우': fSk('acting'), '연극 출신': fSk('acting'), '영화 전문': fSk('acting'), '신인 육성': fSk('edu'), '아역 전문': fSk('edu'), '예능형 배우': fSk('variety') },
+  // 기획사 사내 프로듀서 채용
+  pin: { '자체 제작': (s, p) => Math.max(lv(p, 'compose'), lv(p, 'lyric')), '밴드 사운드': (s, p) => fInst(p), '힙합': fSk('rap'), '감성 발라드': fSk('compose') },
+  // 마케팅팀 채용: 해외 쪽 회사는 외국어
+  mk: Object.fromEntries(['글로벌 기획', '해외 진출', '해외 컬렉션', '해외 번역', '해외 투어', '외화 더빙', '해외 합작'].map(c => [c, (s, p) => fLang(p)])),
+};
+function coFocus(s, kind, con, base, x) { const f = (CO_FOCUS[kind] || {})[con]; return f ? base * (1 - CO_FOCUS_W) + f(s, me(s), x || {}) * CO_FOCUS_W : base; }
+// 트레이너 채용: 그 회사가 특화한 분야의 트레이너를 더 뽑는다 (맞으면 +6, 다른 분야면 -2)
+const CO_TR_FOCUS = { '퍼포먼스 명가': 'dance', '보컬 그룹': 'vocal', '감성 발라드': 'vocal', '애니송': 'vocal', '팝 솔로': 'vocal', '힙합': 'rap', '걸크러시': 'rap', '3D 라이브': 'dance', '음악 중심': 'vocal', '노래 방송': 'vocal', '노래·음악': 'vocal', '힐링·잡담': 'variety', '버라이어티': 'variety', '아이돌형': 'variety', '밴드 사운드': 'inst' };
+function coTrFocusB(ag, k) { const f = ag && CO_TR_FOCUS[ag.con]; if (!f) return 0; return (f === 'inst' ? ['guitar', 'bass', 'piano', 'keyboard', 'drum'].includes(k) : f === k) ? 6 : -2; }
+// 신인 육성 · 신인 발굴 회사는 계약을 1~2년 더 길게 제안한다
+function coLongC(ag) { return ag && ['신인 육성', '신인 발굴'].includes(ag.con) ? 12 * U.int(1, 2) : 0; }
 // 예능 제목: 예능 종류(SHOW_TRENDS · 연애 프로그램 · 공부 예능)에 맞는 낱말로. 종류를 모르면 아무 종류나
 function tvShowTitle(genre) { const W = SHOW_WORDS[genre] || SHOW_WORDS[U.pick(SHOW_TRENDS)]; return freshName(() => dramaPick(W, SHOW_BAN)); }
 
@@ -1552,6 +1679,25 @@ function migrate(s) {
     if (s.apSeen) for (const a of JOB_APPLY) { const m = a.id.match(/^(pin|anr|tr|marketer)_(.+)$/), ag = m && AG[m[2]]; if (ag && ag.kind === 'music' && s.apSeen[`${m[1]}_${ag.tier}`]) s.apSeen[a.id] = 1; }
     // 트레이너 지원 창이 떠 있던 세이브: 그 크기의 기획사 한 곳으로
     if (s.pending && s.pending.id === 'tr_pick' && s.pending.d && !s.pending.d.ag) EVENTS.tr_pick.init(s, s.pending.d);
+  }
+  // v207: 연기 트레이너 · 편집팀 · 연출부 · 작화팀 · CP 투고 · 대학원 · 교수 임용 · 학원 강사가 회사마다 따로가 됐고, 마케팅팀이 모든 회사에 생겼다
+  // 예전에 알린 크기의 자리는 그 크기 회사들도 알린 것으로, 마케팅팀을 하나라도 알렸으면 모든 마케팅팀을 알린 것으로 (알림이 한꺼번에 쏟아지지 않게)
+  // 댄스팀 이름에서 '컴퍼니'를 뺐다
+  if (!s.flags.ap207) {
+    s.flags.ap207 = 1;
+    const DN = { '크라운 댄스 컴퍼니': '크라운 크루', '무빙 컴퍼니': '무빙 크루', '스핀 댄스 컴퍼니': '스핀 크루', '바운스 컴퍼니': '바운스 크루' };
+    for (const k in s.coNames || {}) if (DN[s.coNames[k]]) s.coNames[k] = DN[s.coNames[k]];
+    const dt = s.tracks && s.tracks.dancer; if (dt && DN[dt.crewN]) dt.crewN = DN[dt.crewN];
+    if (s.apSeen) {
+      const mk = Object.keys(s.apSeen).some(k => /^marketer_/.test(k));
+      for (const a of JOB_APPLY) {
+        const c = a.coKey && coByKey(a.coKey); if (!c) continue;
+        const T = c.tier, id = a.id;
+        const old = /^acttrainer_/.test(id) ? 'acttrainer_' + T : /^editor_p\d/.test(id) ? 'editor_' + T : /^director_ad_p/.test(id) ? 'director_ad' : /^animator_a\d/.test(id) ? 'animator_' + T : /^adir_ep_a/.test(id) ? 'adir_ep'
+          : /_cp_/.test(id) ? id.replace(/_cp_.+$/, '_cp' + T) : /^prof_grad_u/.test(id) ? 'prof_grad' + T : /^prof_hire_u/.test(id) ? 'prof_hire' + T : /^tutor_t\d/.test(id) ? (c.kind === 'ol' ? 'tutor_ol' : 'tutor_') + T : '';
+        if ((old && s.apSeen[old]) || (mk && /^marketer_/.test(id))) s.apSeen[id] = 1;
+      }
+    }
   }
   // 회사 이름 (10-7): 이 인생의 회사 이름을 다시 붙인다. 예전 세이브는 처음 이름 그대로
   // v117 장비 정책: 아직 본가에 사는 예전 세이브의 장비는 부모님이 사 주신 장비로 본다 (유지비도 부모님이)

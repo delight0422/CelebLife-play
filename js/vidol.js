@@ -99,7 +99,7 @@ E({
   init(s, d) { d.pass = U.chance(d.p); },
   text: (s, d) => d.pass ? `${AG[d.ag].n}에서 합격 연락이 왔다! 회사가 아바타를 만들어 주고, 같은 기수 동기들과 함께 데뷔한다.` : `${AG[d.ag].n}에서 연락이 오지 않았다.`,
   ch: (s, d) => d.pass ? [
-    { t: '계약서를 받아 본다', ok: s => !agencyContract(s), h: agencyContract(s) ? contractWhy(s) : '정산 비율과 계약 기간을 협상할 수 있다', f: s => startNego(s, { kind: 'vidol', ag: d.ag, agN: AG[d.ag].n, months: 48, cut: AG[d.ag].cut, lev: U.clamp((d.p - 0.5) * 0.8 + 0.3, 0.05, 0.8) }) },
+    { t: '계약서를 받아 본다', ok: s => !agencyContract(s), h: agencyContract(s) ? contractWhy(s) : '정산 비율과 계약 기간을 협상할 수 있다', f: s => startNego(s, { kind: 'vidol', ag: d.ag, agN: AG[d.ag].n, months: 48 + coLongC(AG[d.ag]), cut: AG[d.ag].cut, lev: U.clamp((d.p - 0.5) * 0.8 + 0.3, 0.05, 0.8) }) },
     { t: '거절한다', f: () => `${AG[d.ag].n}의 제안을 거절했다.` },
   ] : [{ t: '확인', f: s => `${AG[d.ag].n} 버츄얼 아이돌 오디션에 떨어졌다.` + fx(s, { stress: 3 * pm(s, 'loseStress') }) }],
 });
