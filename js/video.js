@@ -195,7 +195,7 @@ CAREERS.actor = {
 };
 // 배우 소속사 오디션 (직업 지원)
 for (const ag of actorAgencies()) JOB_APPLY.push({
-  id: 'actor_' + ag.id, trk: 'actor', g: '🎬 배우', get n() { return `${ag.n} 배우 오디션`; }, tag: agTag(ag),
+  id: 'actor_' + ag.id, trk: 'actor', g: '🎬 배우', get n() { return `${ag.n} 배우 오디션`; }, get tag() { return agTag(ag); },
   show: s => !(trackOn(s, 'actor') && s.tracks.actor.via === 'agency') && age(s) >= 8 && age(s) <= 40,
   h: s => `합격 가능성 ${fmtPct(audP(actorScore(s) + pm(s, 'audition', 0) + (age(s) < 19 ? 4 : 0), ag.thr))} · 결과는 다음 달${age(s) < 19 ? ' · 아역 배우로 시작' : ''}`,
   ok: s => !actorBlock(s) && !agencyContract(s) && !(s.cd['aaud_' + ag.id] > s.t) && !hasQ(s, 'actor_aud') && (s.tracks.actor.proj == null),
@@ -1355,7 +1355,7 @@ CAREERS.model = {
   },
 };
 for (const ag of modelAgencies()) JOB_APPLY.push({
-  id: 'model_' + ag.id, trk: 'model', g: '📸 모델', get n() { return `${ag.n} 모델 오디션`; }, tag: agTag(ag),
+  id: 'model_' + ag.id, trk: 'model', g: '📸 모델', get n() { return `${ag.n} 모델 오디션`; }, get tag() { return agTag(ag); },
   show: s => !(trackOn(s, 'model') && s.tracks.model.ag) && age(s) >= 14 && age(s) <= 32,
   h: s => `합격 가능성 ${fmtPct(audP(modelScore(s) + modelAgeAdj(age(s)) + pm(s, 'audition', 0), ag.thr))} · 결과는 다음 달`,
   ok: s => !modelBlock(s) && !agencyContract(s) && !(s.cd['maud_' + ag.id] > s.t) && !hasQ(s, 'model_aud'),

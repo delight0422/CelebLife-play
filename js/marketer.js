@@ -39,7 +39,8 @@ function mkScore(s) { const p = me(s); return jobMix([[lv(p, 'biz'), JS_], [lv(p
 function mkSalOf(t) { return Math.round(MK_SAL[t.tier] * MK_AGM[t.agT]) * 1e4; }
 function mkBar(t) { return 38 + t.tier * 2; }
 function mkMood(v) { return v >= 70 ? '아주 좋음' : v >= 55 ? '좋음' : v >= 40 ? '보통' : v >= 25 ? '나쁨' : '아주 나쁨'; }
-function mkNewGroup(s, t, o = {}) { return Object.assign({ name: newGroupName(s), kind: U.pick(['걸그룹', '보이그룹']), sig: U.pick(TRENDS), tgt: U.pick(MK_TGTS), f: Math.round([3e3, 3e4, 3e5][t.agT - 1] * U.fl(0.5, 2)), mood: U.int(45, 60), next: U.int(2, 8) }, o); }
+// v206: 버츄얼 아이돌 기획사 마케팅팀이 맡는 것은 버츄얼 기수
+function mkNewGroup(s, t, o = {}) { return Object.assign({ name: newGroupName(s), kind: U.pick((AG[t.ag] || {}).kind === 'vtuber' ? ['버츄얼 걸그룹', '버츄얼 보이그룹'] : ['걸그룹', '보이그룹']), sig: U.pick(TRENDS), tgt: U.pick(MK_TGTS), f: Math.round([3e3, 3e4, 3e5][t.agT - 1] * U.fl(0.5, 2)), mood: U.int(45, 60), next: U.int(2, 8) }, o); }
 // 성과 평가: 기준(자리마다 오른다)을 넘으면 성과 1, 크게 넘으면 2. 업무 평가도 함께 오르내린다
 function mkEval(s, t, sc) { const bar = mkBar(t), k = sc >= bar + 10 ? 2 : sc >= bar ? 1 : 0; t.pts += k; t.rep = U.clamp(t.rep + (sc - bar) / 3, 0, 100); return k; }
 // 승진: 한 번에 한 자리씩
@@ -55,13 +56,14 @@ function mkTierUp(s, t) {
 const MK_THR = [0, 18, 26, 34];
 // v99 (8-5): 면접에서 통찰력(보통, 가산점)
 function mkApplySc(s) { return mkScore(s) + (uniDone(s) ? 4 : 0) + empExpBonus(s, 'marketer') + ((s.tracks.marketer || {}).tier || 0) * 2 + talB(me(s).tal.insight, false); }
-for (const tier of [3, 2, 1]) JOB_APPLY.push({
-  id: 'marketer_' + tier, trk: 'marketer', g: '📣 마케터', n: `${TIER_N[tier]} 기획사 마케팅팀 채용`, tag: `월급 ${Math.round(MK_SAL[0] * MK_AGM[tier])}만 원부터`,
+// v206: 회사마다 따로 (기획사 · 버츄얼 아이돌 기획사). 같은 회사는 반년 뒤 다시
+for (const ag of staffAgs(['music', 'vtuber'])) JOB_APPLY.push({
+  id: 'marketer_' + ag.id, trk: 'marketer', g: '📣 마케터', get n() { return `${ag.n} 마케팅팀 채용`; }, tag: `${TIER_N[ag.tier]} · 월급 ${Math.round(MK_SAL[0] * MK_AGM[ag.tier])}만 원부터`,
   show: s => !mkOn(s) && age(s) >= 20,
-  h: s => `합격 가능성 ${fmtPct(audP(mkApplySc(s), MK_THR[tier]))} · 결과는 다음 달`,
-  ok: s => !s.army && !agencyContract(s) && !hasQ(s, 'mk_res') && !(s.cd['mk' + tier] > s.t),
+  h: s => `합격 가능성 ${fmtPct(audP(mkApplySc(s), MK_THR[ag.tier]))} · 결과는 다음 달`,
+  ok: s => !s.army && !agencyContract(s) && !hasQ(s, 'mk_res') && !(s.cd['mk_' + ag.id] > s.t),
   why: s => s.army ? '군 복무 중' : agencyContract(s) ? contractWhy(s) : hasQ(s, 'mk_res') ? '결과를 기다리는 중' : '얼마 전에 지원했다 (반년 뒤 다시)',
-  run: s => { s.cd['mk' + tier] = s.t + 6; const ag = U.pick(musicAgencies().filter(a => a.tier === tier && a.mkt === 'kr')); queueEv(s, 'mk_res', 1, { ag: ag.id, p: audP(mkApplySc(s), MK_THR[tier]) }); return `${ag.n} 마케팅팀 채용에 지원했다.`; },
+  run: s => { s.cd['mk_' + ag.id] = s.t + 6; queueEv(s, 'mk_res', 1, { ag: ag.id, p: audP(mkApplySc(s), MK_THR[ag.tier]) }); return `${ag.n} 마케팅팀 채용에 지원했다.`; },
 });
 E({
   id: 'mk_res', cat: '채용', title: '마케팅팀 채용 결과', tag: 'career',
@@ -112,7 +114,7 @@ CAREERS.marketer = {
   mainSk() { return 'biz'; },
   info(s, t) {
     const p = me(s);
-    return [['회사', `${t.agN} (${TIER_N[t.agT]} 기획사) 마케팅팀`], ['자리', MK_TIERS[t.tier]], ['월급', fmtWon(t.sal)], ['내 실력', ['biz', 'script', 'study', 'scout'].filter(k => has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ') || '-'], ['업무 평가', `${Math.round(t.rep)}`], ['성과', `${t.pts}`], ['시장 이해도', `${Math.round(t.mi)}`],
+    return [['회사', `${t.agN} (${TIER_N[t.agT]} ${(AG[t.ag] || {}).kind === 'vtuber' ? '버츄얼 아이돌 ' : ''}기획사) 마케팅팀`], ['자리', MK_TIERS[t.tier]], ['월급', fmtWon(t.sal)], ['내 실력', ['biz', 'script', 'study', 'scout'].filter(k => has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ') || '-'], ['업무 평가', `${Math.round(t.rep)}`], ['성과', `${t.pts}`], ['시장 이해도', `${Math.round(t.mi)}`],
       { h: '맡은 그룹', items: t.groups.map(g => `${g.name} (${g.kind}) · 팬 ${fmtFans(g.f)} · 타겟 ${g.tgt} · 대표 컨셉 '${g.sig}' · 팬덤 ${mkMood(g.mood)}`) }];
   },
   actions(s, t) { return t.st === 'active' ? [{ t: '회사 그만두기', h: '직원 계약이라 위약금은 없다', ok: true, danger: true, confirm: '정말 회사를 그만둘까요?', run: s => { t.st = 'ended'; t.endNote = `${t.agN} ${MK_TIERS[t.tier]} (퇴사)`; t.hist.push(t.endNote); return `${josa(t.agN, '을를')} 그만뒀다.`; } }] : []; },

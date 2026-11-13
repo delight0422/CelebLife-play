@@ -578,13 +578,15 @@ const PIN_THR = [0, 28, 38, 48];
 // v99 (8-5): 작곡(강함) · 스카우트(보통) + 평판 · 앨범 수 + 면접 통찰력(보통, 가산점). 작사 · 악기는 뺐다
 function pinScore(s) { const p = me(s), t = s.tracks.producer || {}; return jobMix([[lv(p, 'compose'), JS_], [lv(p, 'scout'), JM_]]) + Math.max(t.rep || 0, (s.tracks.composer.rep || 0) * 0.6) * 0.25 + Math.min(10, (t.albums || 0) * 1.5) + talB(p.tal.insight, false); }
 function pinReady(s) { return producerReady(s) || (s.tracks.producer.albums || 0) > 0; }
-for (const tier of [3, 2, 1]) JOB_APPLY.push({
-  id: 'pin_' + tier, trk: 'producer', g: '🎛️ 프로듀서', n: `${TIER_N[tier]} 기획사 사내 프로듀서 채용`, tag: `월급 ${PIN_SAL[tier]}만 원`,
+// v206: 회사마다 따로 (구직활동 회사별 보기에서 그 회사 아래에). 같은 회사는 반년 뒤 다시
+function staffAgs(kinds) { return AGENCIES.filter(a => kinds.includes(a.kind) && a.mkt === 'kr'); }
+for (const ag of staffAgs(['music'])) JOB_APPLY.push({
+  id: 'pin_' + ag.id, trk: 'producer', g: '🎛️ 프로듀서', get n() { return `${ag.n} 사내 프로듀서 채용`; }, tag: `${TIER_N[ag.tier]} · 월급 ${PIN_SAL[ag.tier]}만 원`,
   show: s => !pinOn(s) && age(s) >= 20,
-  h: s => `합격 가능성 ${fmtPct(audP(pinScore(s) + empExpBonus(s, 'producer'), PIN_THR[tier]))} · 결과는 다음 달 · 회사 소속 그룹의 앨범을 맡는다 · 작곡 실력과 평판을 본다`,
-  ok: s => pinReady(s) && !s.army && !agencyContract(s) && !busyWith(s, 'produce') && !hasQ(s, 'pin_res') && !(s.cd['pin' + tier] > s.t),
+  h: s => `합격 가능성 ${fmtPct(audP(pinScore(s) + empExpBonus(s, 'producer'), PIN_THR[ag.tier]))} · 결과는 다음 달 · 회사 소속 그룹의 앨범을 맡는다 · 작곡 실력과 평판을 본다`,
+  ok: s => pinReady(s) && !s.army && !agencyContract(s) && !busyWith(s, 'produce') && !hasQ(s, 'pin_res') && !(s.cd['pin_' + ag.id] > s.t),
   why: s => s.army ? '군 복무 중' : agencyContract(s) ? contractWhy(s) : busyWith(s, 'produce') ? '맡은 앨범 작업을 먼저 끝내야 한다' : !pinReady(s) ? `아직 조건이 안 된다 (작곡 ${lvi(me(s), 'compose')}레벨 · 작곡가 평판 ${Math.round(s.tracks.composer.rep || 0)} · 히트 ${s.tracks.composer.hits || 0}곡)` : hasQ(s, 'pin_res') ? '결과를 기다리는 중' : '얼마 전에 지원했다 (반년 뒤 다시)',
-  run: s => { s.cd['pin' + tier] = s.t + 6; const ag = U.pick(musicAgencies().filter(a => a.tier === tier && a.mkt === 'kr')); queueEv(s, 'pin_res', 1, { ag: ag.id, p: audP(pinScore(s) + empExpBonus(s, 'producer'), PIN_THR[tier]) }); return `${ag.n} 사내 프로듀서 채용에 지원했다.`; },
+  run: s => { s.cd['pin_' + ag.id] = s.t + 6; queueEv(s, 'pin_res', 1, { ag: ag.id, p: audP(pinScore(s) + empExpBonus(s, 'producer'), PIN_THR[ag.tier]) }); return `${ag.n} 사내 프로듀서 채용에 지원했다.`; },
 });
 E({
   id: 'pin_res', cat: '채용', title: '사내 프로듀서 채용 결과', tag: 'career',
@@ -619,13 +621,13 @@ const ANR_SAL = [0, 170, 200, 240];
 const ANR_THR = [0, 12, 20, 28];
 // v99 (8-5): 스카우트(강함) · 학업(보통, 서류) + 음감(강함, 가산점: '귀') + 면접 통찰력(보통, 가산점). 음악 특기는 음감이 대신 본다
 function anrScore(s) { const p = me(s); return jobMix([[lv(p, 'scout'), JS_], [lv(p, 'study'), JM_]]) + talB(p.tal.music, true) + talB(p.tal.insight, false); }
-for (const tier of [3, 2, 1]) JOB_APPLY.push({
-  id: 'anr_' + tier, trk: 'anr', g: '🎧 A&R 담당자', n: `${TIER_N[tier]} 기획사 A&R 채용`, tag: `월급 ${ANR_SAL[tier]}만 원`,
+for (const ag of staffAgs(['music'])) JOB_APPLY.push({
+  id: 'anr_' + ag.id, trk: 'anr', g: '🎧 A&R 담당자', get n() { return `${ag.n} A&R 채용`; }, tag: `${TIER_N[ag.tier]} · 월급 ${ANR_SAL[ag.tier]}만 원`,
   show: s => !trackOn(s, 'anr') && age(s) >= 20,
-  h: s => `합격 가능성 ${fmtPct(audP(anrScore(s) + empExpBonus(s, 'anr'), ANR_THR[tier]))} · 결과는 다음 달 · 곡을 고르는 안목(스카우트)과 소리를 듣는 귀, 학업을 본다`,
-  ok: s => !s.army && !agencyContract(s) && !hasQ(s, 'anr_res') && !(s.cd['anr' + tier] > s.t),
+  h: s => `합격 가능성 ${fmtPct(audP(anrScore(s) + empExpBonus(s, 'anr'), ANR_THR[ag.tier]))} · 결과는 다음 달 · 곡을 고르는 안목(스카우트)과 소리를 듣는 귀, 학업을 본다`,
+  ok: s => !s.army && !agencyContract(s) && !hasQ(s, 'anr_res') && !(s.cd['anr_' + ag.id] > s.t),
   why: s => s.army ? '군 복무 중' : agencyContract(s) ? contractWhy(s) : hasQ(s, 'anr_res') ? '결과를 기다리는 중' : '얼마 전에 지원했다 (반년 뒤 다시)',
-  run: s => { s.cd['anr' + tier] = s.t + 6; const ag = U.pick(musicAgencies().filter(a => a.tier === tier && a.mkt === 'kr')); queueEv(s, 'anr_res', 1, { ag: ag.id, p: audP(anrScore(s) + empExpBonus(s, 'anr'), ANR_THR[tier]) }); return `${ag.n} A&R 채용에 지원했다.`; },
+  run: s => { s.cd['anr_' + ag.id] = s.t + 6; queueEv(s, 'anr_res', 1, { ag: ag.id, p: audP(anrScore(s) + empExpBonus(s, 'anr'), ANR_THR[ag.tier]) }); return `${ag.n} A&R 채용에 지원했다.`; },
 });
 E({
   id: 'anr_res', cat: '채용', title: 'A&R 채용 결과', tag: 'career',
@@ -838,19 +840,22 @@ const TR_THR = [0, 28, 40, 52];
 // v99 (8-5): 트레이너 계열은 특기로만 면접을 본다 (재능 안 봄)
 function trScore(s, k) { const p = me(s); return lv(p, k) * 0.6 + eduLv(p) * 0.5; }
 function trFieldN(k) { return k === 'dance' ? '댄스 트레이너 (안무가)' : `${SKILLS[k].n} 트레이너`; }
-function trFields(s) { return TR_FIELDS.filter(k => lv(me(s), k) >= 30); }
-for (const tier of [3, 2, 1]) JOB_APPLY.push({
-  id: 'tr_' + tier, trk: 'trainer', g: '🏋️ 트레이너', n: `${TIER_N[tier]} 기획사 트레이너 채용`, tag: `월급 ${TR_SAL[tier]}만 원`,
+// v206: 버츄얼 아이돌 기획사 트레이너는 보컬 · 댄스만 가르친다
+function trFields(s, ag) { return TR_FIELDS.filter(k => lv(me(s), k) >= 30 && !(ag && ag.kind === 'vtuber' && !['vocal', 'dance'].includes(k))); }
+for (const ag of staffAgs(['music', 'vtuber'])) JOB_APPLY.push({
+  id: 'tr_' + ag.id, trk: 'trainer', g: '🏋️ 트레이너', get n() { return `${ag.n} 트레이너 채용`; }, tag: `${TIER_N[ag.tier]} · 월급 ${TR_SAL[ag.tier]}만 원`,
   show: s => !trackOn(s, 'trainer') && age(s) >= 20,
-  h: s => { const f = trFields(s); return f.length ? f.map(k => `${SKILLS[k].n} ${fmtPct(audP(trScore(s, k) + empExpBonus(s, 'trainer'), TR_THR[tier]))}`).join(' · ') + ' · 결과는 다음 달' : '보컬·랩·댄스·악기 중 하나가 30레벨 이상이어야 지원할 수 있다'; },
-  ok: s => !s.army && !agencyContract(s) && trFields(s).length && !hasQ(s, 'tr_res') && !(s.cd['tr' + tier] > s.t),
-  why: s => s.army ? '군 복무 중' : agencyContract(s) ? contractWhy(s) : !trFields(s).length ? '가르칠 만한 특기가 아직 없다' : hasQ(s, 'tr_res') ? '결과를 기다리는 중' : '얼마 전에 지원했다 (반년 뒤 다시)',
-  run: s => { fireEvent(s, 'tr_pick', { tier }); return ''; },
+  h: s => { const f = trFields(s, ag); return f.length ? f.map(k => `${SKILLS[k].n} ${fmtPct(audP(trScore(s, k) + empExpBonus(s, 'trainer'), TR_THR[ag.tier]))}`).join(' · ') + ' · 결과는 다음 달' : (ag.kind === 'vtuber' ? '보컬·댄스' : '보컬·랩·댄스·악기') + ' 중 하나가 30레벨 이상이어야 지원할 수 있다'; },
+  ok: s => !s.army && !agencyContract(s) && trFields(s, ag).length && !hasQ(s, 'tr_res') && !(s.cd['tr_' + ag.id] > s.t),
+  why: s => s.army ? '군 복무 중' : agencyContract(s) ? contractWhy(s) : !trFields(s, ag).length ? '가르칠 만한 특기가 아직 없다' : hasQ(s, 'tr_res') ? '결과를 기다리는 중' : '얼마 전에 지원했다 (반년 뒤 다시)',
+  run: s => { fireEvent(s, 'tr_pick', { ag: ag.id, tier: ag.tier }); return ''; },
 });
 E({
   id: 'tr_pick', cat: '채용', title: '무엇을 가르칠까?', tag: 'career',
-  text: (s, d) => `${TIER_N[d.tier]} 기획사 트레이너 자리에 지원한다. 어떤 분야를 가르칠까?\n\n그 분야 실력과 교육 특기를 함께 본다.`,
-  ch: (s, d) => trFields(s).map(k => { const p = audP(trScore(s, k) + empExpBonus(s, 'trainer'), TR_THR[d.tier]); return { t: trFieldN(k), h: `${SKILLS[k].n} ${lvi(me(s), k)}레벨 · 교육 ${has(me(s), 'edu') ? lvi(me(s), 'edu') + '레벨' : '없음'} · 합격 가능성 ${fmtPct(p)}`, f: s => { s.cd['tr' + d.tier] = s.t + 6; const ag = U.pick(musicAgencies().filter(a => a.tier === d.tier && a.mkt === 'kr')); queueEv(s, 'tr_res', 1, { ag: ag.id, k, p }); return `${ag.n} ${trFieldN(k)} 채용에 지원했다.`; } }; }).concat([{ t: '그만둔다', f: () => '지원하지 않았다.' }]),
+  // v206: 회사를 정하고 지원한다 (d.ag). 예전 세이브의 창(d.tier만)은 그 크기의 기획사 아무 곳
+  init(s, d) { if (!d.ag) { const L = staffAgs(['music']).filter(a => a.tier === d.tier); d.ag = (U.pick(L) || staffAgs(['music'])[0]).id; } d.tier = AG[d.ag].tier; },
+  text: (s, d) => `${AG[d.ag].n} 트레이너 자리에 지원한다. 어떤 분야를 가르칠까?\n\n그 분야 실력과 교육 특기를 함께 본다.`,
+  ch: (s, d) => trFields(s, AG[d.ag]).map(k => { const p = audP(trScore(s, k) + empExpBonus(s, 'trainer'), TR_THR[d.tier]); return { t: trFieldN(k), h: `${SKILLS[k].n} ${lvi(me(s), k)}레벨 · 교육 ${has(me(s), 'edu') ? lvi(me(s), 'edu') + '레벨' : '없음'} · 합격 가능성 ${fmtPct(p)}`, f: s => { s.cd['tr_' + d.ag] = s.t + 6; queueEv(s, 'tr_res', 1, { ag: d.ag, k, p }); return `${AG[d.ag].n} ${trFieldN(k)} 채용에 지원했다.`; } }; }).concat([{ t: '그만둔다', f: () => '지원하지 않았다.' }]),
 });
 function makeStudent(s, t) {
   const k = t.k, tb = Math.max(0, (t.tier || 1) - 1);

@@ -1260,23 +1260,25 @@ function apSorted(s, L) {
 }
 // v205: 구직활동은 '회사별'(처음 보는 방식)과 '직업별' 두 가지로 본다. 백과사전에서 넘어오면 그 직업이 보이게 직업별로 (UI.apForce)
 function panelApplyJob() {
+  // v206: 지금 지원할 수 없는 곳은 보이지 않는다 (조건은 백과사전에). 숫자는 (지금 지원 가능 / 전체)
   const s = S, list = jobApplies(s), view = UI.apForce || UI.apView || 'co';
   let h = `${UI.apjFrom ? '<button class="btn sm ghost back-btn" data-dictback>← 백과사전</button>' : ''}<h2>📝 구직활동</h2><div class="ap-row pf-tabs">${[['co', '🏢 회사별'], ['job', '💼 직업별']].map(([k, n]) => `<button class="ap-tab ${view === k ? 'on' : ''}" data-apview="${k}">${n}</button>`).join('')}</div>`
-    + `<p class="p-intro">${view === 'co' ? '회사 종류를 누르면 회사가 나오고, 회사를 누르면 그 회사에 지원할 수 있는 자리가 나온다. 회사 없이 혼자 시작하는 일은 맨 아래에 있다.' : '분야를 누르면 직업이 나오고, 직업을 누르면 그 바로 아래에 지원할 수 있는 곳이 나온다. 직업 옆 숫자는 지금 바로 지원할 수 있는 곳의 수다.'}<br>직업은 ${JOB_CAP}개까지 같이 할 수 있다.</p>`;
+    + `<p class="p-intro">${view === 'co' ? '회사 종류를 누르면 회사가 나오고, 회사를 누르면 그 회사에 지원할 수 있는 자리가 나온다. 회사 없이 혼자 시작하는 일은 회사 종류마다 맨 아래 \'프리랜서\'에 있다.' : '분야를 누르면 직업이 나오고, 직업을 누르면 그 바로 아래에 지원할 수 있는 곳이 나온다. 직업 옆 숫자는 지금 바로 지원할 수 있는 곳의 수다.'}<br>지금 지원할 수 있는 곳만 보인다. 괄호 안은 (지금 지원 가능 / 전체). 직업은 ${JOB_CAP}개까지 같이 할 수 있다.</p>`;
   UI.apjOpen = UI.apjOpen || {};
-  if (!list.length) return h + `<div class="empty">지금 나이와 상황에서 지원할 수 있는 직업이 없다.</div>`;
+  if (!list.some(a => a.ok(s))) return h + `<div class="empty">지금 지원할 수 있는 곳이 없다. 직업마다 조건은 📚 백과사전에서 볼 수 있다.</div>`;
   if (view === 'co') return h + apCoHTML(s, list);
   for (const [cid, cn] of APPLY_CATS) {
-    const items = list.filter(a => applyCatOf(a) === cid);
+    const all = list.filter(a => applyCatOf(a) === cid), items = all.filter(a => a.ok(s));
     if (!items.length) continue;
-    const okAll = items.filter(a => a.ok(s)).length;
+    const okAll = items.length;
     // 분야: 처음에는 접어 둔다 (직업을 골라 둔 분야는 펼친 채로)
     const sel = UI.apTab[cid], open = UI.apjOpen[cid] != null ? UI.apjOpen[cid] : !!sel;
-    h += `<div class="ap-cat"><button class="ap-cat-h ap-tog" data-apjcat="${cid}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${cn}<span class="hint">${okAll ? `지금 지원 가능 ${okAll}곳` : '지금 바로 지원할 수 있는 곳은 없다'}</span></button>`;
+    h += `<div class="ap-cat"><button class="ap-cat-h ap-tog" data-apjcat="${cid}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${cn}<span class="hint">(${okAll}/${all.length})</span></button>`;
     if (!open) { h += `</div>`; continue; }
     // 직업별 탭: 아티스트 줄, 스태프 줄
     const groups = [];
-    for (const a of items) { const gn = a.g || '기타'; let g = groups.find(x => x.n === gn); if (!g) groups.push(g = { n: gn, side: applySideOf(a), items: [] }); g.items.push(a); }
+    for (const a of all) { const gn = a.g || '기타'; let g = groups.find(x => x.n === gn); if (!g) groups.push(g = { n: gn, side: applySideOf(a), items: [], all: [] }); g.all.push(a); if (a.ok(s)) g.items.push(a); }
+    for (let i = groups.length - 1; i >= 0; i--) if (!groups[i].items.length) groups.splice(i, 1);
     for (const [side, sn] of [['artist', '아티스트'], ['staff', '스태프'], ['biz', '']]) {
       const gs = groups.filter(g => g.side === side);
       if (!gs.length) continue;
@@ -1320,21 +1322,31 @@ function apSizeList(s, g) {
   for (const sz of ['소형', '중형', '대형']) {
     const L = g.items.filter(a => apSize(s, a) === sz);
     if (!L.length) continue;
-    const key = `${g.n}|${sz}`, open = !!UI.apSz[key], n = L.filter(a => a.ok(s)).length;
-    h += `<div class="ap-sub ap-sz"><button class="ap-cat-h ap-tog" data-apsz="${U.esc(key)}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${sz}<span class="hint">${L.length}곳${n ? ` · 지금 지원 가능 ${n}곳` : ''}</span></button>${open ? `<div class="ap-list">${apSorted(s, L).map(a => apJobRow(s, a, true)).join('')}</div>` : ''}</div>`;
+    const key = `${g.n}|${sz}`, open = !!UI.apSz[key], N = (g.all || g.items).filter(a => apSize(s, a) === sz).length;
+    h += `<div class="ap-sub ap-sz"><button class="ap-cat-h ap-tog" data-apsz="${U.esc(key)}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${sz}<span class="hint">(${L.length}/${N})</span></button>${open ? `<div class="ap-list">${apSorted(s, L).map(a => apJobRow(s, a, true)).join('')}</div>` : ''}</div>`;
   }
   return h;
 }
 // ───── 구직활동 회사별 보기 (v205) ─────
-// 회사 종류 → 회사(대형 · 중형 · 소형 순) → 그 회사에 지원할 수 있는 자리. 어느 회사인지 붙은 뒤에 정해지는 채용(대형 기획사 사내 프로듀서 등)은 '대형 기획사' 한 곳으로 묶는다
-// 회사 없이 혼자 시작하는 일(인디 · 프리랜서 · 채널 열기 등)은 맨 아래 '회사 없이 시작하기'
-const AP_CO_TY = [['label', '🎤', '기획사'], ['vidol', '🎙️', '버츄얼 아이돌 기획사'], ['mcn', '📡', 'MCN'], ['dance', '🕺', '댄스 컴퍼니'], ['actor', '🎬', '배우 소속사'], ['model', '📸', '모델 에이전시'], ['bc', '📺', '방송사'], ['vprod', '🎞️', '영상 제작사'], ['anime', '✏️', '애니메이션 제작사'], ['web', '📚', '웹툰 · 웹소설 플랫폼'], ['univ', '🎓', '대학'], ['acad', '👩‍🏫', '학원 · 인강 회사'], ['none', '🧑', '회사 없이 시작하기']];
-const AP_CO_RULE = [[/^(idol|bandtr|bandsign)_|^solo_(?!indie$)|^(pin|anr|tr|marketer)_\d$/, 'label'], [/^vidol_aud_/, 'vidol'], [/^(mcn_join|editor_mcn)_/, 'mcn'], [/^dancer_dc_/, 'dance'], [/^actor_(?!music$|indie$)|^acttrainer_\d$/, 'actor'], [/^model_(?!free$)/, 'model'], [/^voice_bc_|^variety_gong$/, 'bc'], [/^editor_\d$|^director_ad$/, 'vprod'], [/^animator_\d$|^adir_ep$/, 'anime'], [/^(webtoon|webnovel)_(contest|cp)\d$/, 'web'], [/^prof_/, 'univ'], [/^tutor_/, 'acad']];
-// 지원 하나가 어느 회사의 어떤 자리인가: { ty 회사 종류, co 회사 이름(없으면 그 종류 바로 아래), pos 자리 }
+// 회사 종류 → 회사(대형 · 중형 · 소형 순) → 그 회사에 지원할 수 있는 자리. 어느 회사인지 붙은 뒤에 정해지는 채용(대형 배우 소속사 연기 트레이너 등)은 '대형 배우 소속사' 한 곳으로 묶는다
+// v206: 회사 없이 혼자 시작하는 일(인디 · 프리랜서 · 채널 열기 등)은 그 분야 회사 종류 맨 아래 '🧑 프리랜서'에. 지금 지원할 수 없는 곳은 보이지 않는다
+const AP_CO_TY = [['label', '🎤', '기획사'], ['vidol', '🎙️', '버츄얼 아이돌 기획사'], ['mcn', '📡', 'MCN'], ['dance', '🕺', '댄스 컴퍼니'], ['actor', '🎬', '배우 소속사'], ['model', '📸', '모델 에이전시'], ['bc', '📺', '방송사'], ['vprod', '🎞️', '영상 제작사'], ['anime', '✏️', '애니메이션 제작사'], ['web', '📚', '웹툰 · 웹소설 플랫폼'], ['univ', '🎓', '대학'], ['acad', '👩‍🏫', '학원 · 인강 회사'], ['etc', '🧩', '그 밖에']];
+// 회사 종류 이름 아래 작은 설명
+const AP_CO_DESC = { web: '작가가 웹툰 · 웹소설을 회차마다 올리고 독자가 돈을 내거나 광고를 보며 읽는 인터넷 사이트 · 앱. 플랫폼 공모전에 붙거나, CP사(작가와 계약해 작품을 다듬고 플랫폼에 연재를 넣어 주는 회사)를 거쳐 연재한다.' };
+const AP_CO_RULE = [[/^(idol|bandtr|bandsign)_|^solo_(?!indie$)/, 'label'], [/^vidol_aud_/, 'vidol'], [/^(mcn_join|editor_mcn)_/, 'mcn'], [/^dancer_dc_/, 'dance'], [/^actor_(?!indie$)|^acttrainer_\d$/, 'actor'], [/^model_(?!free$)/, 'model'], [/^voice_bc_|^variety_gong$/, 'bc'], [/^editor_\d$|^director_ad$/, 'vprod'], [/^animator_\d$|^adir_ep$/, 'anime'], [/^(webtoon|webnovel)_(contest|cp)\d$/, 'web'], [/^prof_/, 'univ'], [/^tutor_/, 'acad']];
+// 프리랜서: 회사 없이 혼자 시작하는 일이 어느 회사 종류 아래에 들어가나
+const AP_FREE = [[/^(band_make|band_join|solo_indie|player_start|composer_start|lyricist_start|producer_start)$/, 'label'], [/^youtube_vt\d$/, 'vidol'], [/^(youtube_open|editor_ded)$/, 'mcn'], [/^dancer_free$/, 'dance'], [/^actor_indie$/, 'actor'], [/^model_free$/, 'model'], [/^(variety_start|voice_free)$/, 'bc'], [/^(editor_free|director_short|writer_start)$/, 'vprod'], [/^(animator_free|adir_short)$/, 'anime'], [/^(webtoon_free|webnovel_free|illust_start)$/, 'web']];
+// 지원 하나가 어느 회사의 어떤 자리인가: { ty 회사 종류, co 회사 이름(없으면 그 종류 바로 아래), pos 자리, free 프리랜서 }
 function apCoOf(a) {
-  const r = AP_CO_RULE.find(([re]) => re.test(a.id)), ty = r ? r[1] : 'none', n = String(a.n);
-  if (ty === 'none') return { ty, co: '', pos: n };
-  let m = n.match(/^((?:대형|중형|소형) (?:기획사|배우 소속사|영상 제작사|애니 제작사|대학|학원|인강 회사|CP사)) (.+)$/);
+  const n = String(a.n);
+  // v206: 회사마다 따로 뽑는 직원 자리 (사내 프로듀서 · A&R · 트레이너 · 마케팅팀)
+  let m = a.id.match(/^(pin|anr|tr|marketer)_(.+)$/);
+  if (m && AG[m[2]]) { const ag = AG[m[2]]; return { ty: ag.kind === 'vtuber' ? 'vidol' : 'label', co: ag.n, pos: n.startsWith(ag.n + ' ') ? n.slice(ag.n.length + 1) : n }; }
+  const f = AP_FREE.find(([re]) => re.test(a.id));
+  if (f) return { ty: f[1], co: '', pos: n, free: true };
+  const r = AP_CO_RULE.find(([re]) => re.test(a.id)), ty = r ? r[1] : 'etc';
+  if (ty === 'etc') return { ty, co: '', pos: n };
+  m = n.match(/^((?:대형|중형|소형) (?:기획사|배우 소속사|영상 제작사|애니 제작사|대학|학원|인강 회사|CP사)) (.+)$/);
   if (m) return { ty, co: m[1], pos: m[2], gen: true };
   m = n.match(/^(.+?)에 (밴드 데모 보내기)$/) || n.match(/^(.+?) (가입 신청|편집팀 채용) \(MCN\)$/) || n.match(/^(.+?) ((?:아이돌|밴드 연습생|솔로|배우|모델|입단) 오디션|전속 성우 공채|웹툰 공모전|웹소설 공모전|오디션)$/);
   return m ? { ty, co: m[1], pos: m[2] } : { ty, co: '', pos: n };
@@ -1347,32 +1359,39 @@ function apPosT(a, pos) {
 }
 // v205: 접고 펼치는 제목 (그룹 창 등의 트리 뷰). key마다 UI.tsec에 기억하고, 처음에는 def대로
 function treeSec(key, title, hint, body, def) { UI.tsec = UI.tsec || {}; const open = UI.tsec[key] != null ? UI.tsec[key] : !!def; return `<div class="ap-cat tsec"><button class="ap-cat-h ap-tog" data-tsec="${U.esc(key)}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${title}${hint ? `<span class="hint">${hint}</span>` : ''}</button>${open ? body : ''}</div>`; }
-function apCoRow(s, a, pos) { const ok = !!a.ok(s), tag = /^(대형|중형|소형)/.test(String(a.tag || '')) ? '' : a.tag; return actRow({ t: apPosT(a, pos), tag, h: a.h ? a.h(s) : '', ok, why: a.why ? a.why(s) : '', btn: '지원하기', run: a.run, cls: ok ? '' : 'ap-off' }); }
+// 꼬리표: 회사 크기는 회사 줄에 있어서 떼고, 회사 특징과 같으면 뺀다 (월급 등만 남는다)
+function apCoRow(s, a, pos, spec) { const ok = !!a.ok(s); let tag = String(a.tag || '').replace(/^(대형|중형|소형)( · )?/, ''); if (tag === spec) tag = ''; return actRow({ t: apPosT(a, pos), tag, h: a.h ? a.h(s) : '', ok, why: a.why ? a.why(s) : '', btn: '지원하기', run: a.run, cls: ok ? '' : 'ap-off' }); }
 function apCoHTML(s, list) {
   UI.apcTy = UI.apcTy || {}; UI.apcCo = UI.apcCo || {};
   const by = {};
-  for (const a of list) { const c = apCoOf(a); (by[c.ty] = by[c.ty] || []).push([a, c]); }
-  const okN = L => L.filter(([a]) => a.ok(s)).length, szI = sz => ['대형', '중형', '소형'].indexOf(sz) + 1 || 4;
+  for (const a of list) { const c = apCoOf(a); c.ok = !!a.ok(s); (by[c.ty] = by[c.ty] || []).push([a, c]); }
+  const okN = L => L.filter(x => x[1].ok).length, frac = L => `(${okN(L)}/${L.length})`, szI = sz => ['대형', '중형', '소형'].indexOf(sz) + 1 || 4;
+  // 지금 지원할 수 있는 자리만, 합격 가능성 순으로
+  const rows = (L, spec) => { const K = L.filter(x => x[1].ok); return `<div class="ap-list">${apSorted(s, K.map(x => x[0])).map(a => apCoRow(s, a, K.find(x => x[0] === a)[1].pos, spec)).join('')}</div>`; };
   let h = '';
   for (const [ty, ic, tn] of AP_CO_TY) {
-    const L = by[ty]; if (!L) continue;
-    const open = !!UI.apcTy[ty], n = okN(L), cos = [], ci = {};
+    const L = by[ty]; if (!L || !okN(L)) continue;
+    const open = !!UI.apcTy[ty], cos = [], ci = {}, desc = AP_CO_DESC[ty];
     for (const x of L) { const k = x[1].co; if (!k) continue; if (ci[k] == null) { ci[k] = cos.length; cos.push({ n: k, gen: x[1].gen, L: [] }); } cos[ci[k]].L.push(x); }
-    h += `<div class="ap-cat"><button class="ap-cat-h ap-tog" data-apcty="${ty}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${ic} ${tn}<span class="hint">${cos.length ? `회사 ${cos.length}곳 · ` : ''}${n ? `지금 지원할 수 있는 자리 ${n}개` : '지금 바로 지원할 수 있는 자리는 없다'}</span></button>`;
+    h += `<div class="ap-cat"><button class="ap-cat-h ap-tog" data-apcty="${ty}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${ic} ${tn}<span class="hint">${frac(L)}</span></button>${desc ? `<div class="ap-tydesc">${desc}</div>` : ''}`;
     if (!open) { h += `</div>`; continue; }
     // 회사가 따로 없는 자리 (방송사 개그맨 공채 · 겸임교수 등)는 종류 바로 아래에
-    const free = L.filter(x => !x[1].co);
-    if (free.length) h += `<div class="ap-list">${apSorted(s, free.map(x => x[0])).map(a => apCoRow(s, a, free.find(x => x[0] === a)[1].pos)).join('')}</div>`;
+    const direct = L.filter(x => !x[1].co && !x[1].free);
+    if (okN(direct)) h += rows(direct);
     for (const C of cos) {
-      const sz = C.gen ? C.n.split(' ')[0] : apSize(s, C.L[0][0]) || '';
-      C.sz = sz; C.spec = (C.L.map(x => String(x[0].tag || '').match(/^(?:대형|중형|소형) · (.+)$/)).find(Boolean) || [])[1] || '';
+      C.sz = C.gen ? C.n.split(' ')[0] : apSize(s, C.L[0][0]) || '';
+      C.spec = (C.L.map(x => String(x[0].tag || '').match(/^(?:대형|중형|소형) · (?!월급)(.+)$/)).find(Boolean) || [])[1] || '';
     }
     cos.sort((x, y) => szI(x.sz) - szI(y.sz));
     for (const C of cos) {
-      const key = `${ty}|${C.n}`, op = !!UI.apcCo[key], m = okN(C.L), nm = C.gen ? C.n.replace(/^(대형|중형|소형) /, '') : C.n;
-      h += `<div class="ap-sub ap-sz"><button class="ap-cat-h ap-tog" data-apcco="${U.esc(key)}" data-open="${op ? 1 : 0}">${op ? '▾' : '▸'} ${C.sz ? `<span class="ap-szc">${C.sz}</span>` : ''}${U.esc(nm)}<span class="hint">${C.gen ? '어느 회사인지는 붙은 뒤에 정해진다 · ' : C.spec ? `${U.esc(C.spec)} · ` : ''}자리 ${C.L.length}개${m ? ` · 지금 지원 가능 ${m}개` : ''}</span></button>`
-        + (op ? `<div class="ap-list">${apSorted(s, C.L.map(x => x[0])).map(a => apCoRow(s, a, C.L.find(x => x[0] === a)[1].pos)).join('')}</div>` : '') + `</div>`;
+      if (!okN(C.L)) continue;
+      const key = `${ty}|${C.n}`, op = !!UI.apcCo[key], nm = C.gen ? C.n.replace(/^(대형|중형|소형) /, '') : C.n;
+      h += `<div class="ap-sub ap-sz"><button class="ap-cat-h ap-tog" data-apcco="${U.esc(key)}" data-open="${op ? 1 : 0}">${op ? '▾' : '▸'} ${C.sz ? `<span class="ap-szc">${C.sz}</span>` : ''}${U.esc(nm)}<span class="hint">${C.gen ? '어느 회사인지는 붙은 뒤에 정해진다 ' : C.spec ? `${U.esc(C.spec)} ` : ''}${frac(C.L)}</span></button>`
+        + (op ? rows(C.L, C.spec) : '') + `</div>`;
     }
+    // 프리랜서: 회사 없이 혼자 시작하는 일
+    const F = L.filter(x => x[1].free);
+    if (okN(F)) { const key = `${ty}|프리랜서`, op = !!UI.apcCo[key]; h += `<div class="ap-sub ap-sz"><button class="ap-cat-h ap-tog" data-apcco="${U.esc(key)}" data-open="${op ? 1 : 0}">${op ? '▾' : '▸'} 🧑 프리랜서<span class="hint">회사 없이 혼자 시작한다 ${frac(F)}</span></button>${op ? rows(F) : ''}</div>`; }
     h += `</div>`;
   }
   return h;
@@ -1618,11 +1637,12 @@ const CAREER_REQ = {
 function dxBox(title, rows, foot) { return `<div class="dx-box">${title ? `<div class="dx-h">${title}</div>` : ''}${rows.map(([n, c]) => `<div class="dx-r"><b>${U.esc(n)}</b><span>${U.esc(c)}</span></div>`).join('')}${foot || ''}</div>`; }
 // 백과사전 → 구직활동 (v185): '시작하는 법' 칸의 '(직업) 지원하러 가기'. 구직활동에 지금 그 직업이 있으면 그 직업 탭을 고른 채로 연다
 // 회사 대표는 구직활동이 아니라 메인 화면 회사 박스에서 차려서 버튼이 없다
-function apjFor(s, id) { return jobApplies(s).find(a => a.trk === id); }
+// v206: 지원할 수 없는 곳은 구직활동에 보이지 않아서, 지금 지원할 수 있는 곳이 있어야 넘어간다
+function apjFor(s, id) { return jobApplies(s).find(a => a.trk === id && a.ok(s)); }
 function dxGoHTML(s, id) {
   if (!JOB_APPLY.some(a => a.trk === id)) return '';
   const C = CAREERS[id], has = !!apjFor(s, id);
-  return `<div class="dx-go">${has ? '' : `<span class="hint">${trackOn(s, id) ? '지금 하고 있어서 새로 지원할 곳이 없다' : '아직 구직활동에 나오지 않는다'}</span>`}<button class="btn sm primary" data-gojob="${id}"${has ? '' : ' disabled'}>${C.ic || ''} ${U.esc(C.n.replace(/ \(.*\)$/, ''))} 지원하러 가기 ›</button></div>`;
+  return `<div class="dx-go">${has ? '' : `<span class="hint">${trackOn(s, id) ? '지금 하고 있어서 새로 지원할 곳이 없다' : '지금은 지원할 수 있는 곳이 없다'}</span>`}<button class="btn sm primary" data-gojob="${id}"${has ? '' : ' disabled'}>${C.ic || ''} ${U.esc(C.n.replace(/ \(.*\)$/, ''))} 지원하러 가기 ›</button></div>`;
 }
 function goApplyJob(id) {
   const a = S && apjFor(S, id);

@@ -248,7 +248,7 @@ function continueAs(s, kidId) {
   for (const id of CAREER_IDS) ns.tracks[id] = { st: 'none' };
   ns.trend = s.trend; ns.trendTV = s.trendTV;
   // 같은 세상이 이어지니 회사 이름도 그대로 (v115: 예전엔 빠져서 다시 불러오면 처음 이름으로 돌아갔다)
-  ns.coNames = s.coNames;
+  ns.coNames = s.coNames; ns.coMod = s.coMod; ns.coGone = s.coGone;
   if (ka >= 19) { ns.edu.graduated = true; ns.money = ns.wealth >= 7 ? 3000e4 : ns.wealth >= 5 ? 1000e4 : 200e4; }
   // 이미 지나간 나이의 정해진 사건은 다시 일어나지 않게 한다
   const passed = { dol: 1, can_schedule: 7, school_start: 7, english_class: 9, jp_class: 13, job_exp: 15, club: 17, hs_choice: 16, college: 19, leave_home: 20, best_friend: 8 };

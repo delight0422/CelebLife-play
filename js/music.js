@@ -549,7 +549,7 @@ function idolBlock(s, band) {
   return '';
 }
 for (const ag of musicAgencies().filter(a => !a.soloOnly)) JOB_APPLY.push({
-  id: 'idol_' + ag.id, trk: 'idol', g: '💫 아이돌', get n() { return `${ag.n} 아이돌 오디션`; }, tag: agTag(ag),
+  id: 'idol_' + ag.id, trk: 'idol', g: '💫 아이돌', get n() { return `${ag.n} 아이돌 오디션`; }, get tag() { return agTag(ag); },
   show: s => !trackOn(s, 'idol') && age(s) >= 10 && age(s) <= 26,
   h: s => `합격 가능성 ${fmtPct(idolAudP(s, ag))} · 결과는 다음 달 · 붙으면 연습생이 되어 숙소에서 지낸다`,
   ok: s => !idolBlock(s) && !(s.cd['aud_' + ag.id] > s.t) && langOK(s, ag),
@@ -562,7 +562,7 @@ function bandTrTal(p, k) { const T = Object.entries(SKILLS[k].tal).filter(([, w]
 function bandTrScore(s, k) { const p = me(s), w = idolTalW(age(s)); return lv(p, k) * (1 - w) + (20 + (bandTrTal(p, k) - 45) * 1.5) * w; }
 function bandTrParts(s) { return BAND_PARTS.map(x => x[0]).filter(k => lv(me(s), k) >= 12); }
 for (const ag of musicAgencies().filter(a => a.mkt === 'kr' && a.tier <= 2)) JOB_APPLY.push({
-  id: 'bandtr_' + ag.id, trk: 'band', g: '🎸 밴드 멤버', get n() { return `${ag.n} 밴드 연습생 오디션`; }, tag: agTag(ag),
+  id: 'bandtr_' + ag.id, trk: 'band', g: '🎸 밴드 멤버', get n() { return `${ag.n} 밴드 연습생 오디션`; }, get tag() { return agTag(ag); },
   show: s => !trackOn(s, 'idol') && !trackOn(s, 'band') && age(s) >= 13 && age(s) <= 26,
   h: s => { const ps = bandTrParts(s); return (ps.length ? ps.map(k => `${partN(k)} ${fmtPct(audP(bandTrScore(s, k) + idolAgeAdj(age(s)) * 0.5, ag.thr - 2))}`).join(' · ') + ' · ' : '') + '붙으면 연습생이 되고, 회사가 밴드 데뷔조를 꾸린다'; },
   ok: s => !idolBlock(s, true) && bandTrParts(s).length && !(s.cd['aud_' + ag.id] > s.t),
@@ -2207,7 +2207,7 @@ function soloBlock(s) {
   return '';
 }
 for (const ag of musicAgencies()) JOB_APPLY.push({
-  id: 'solo_' + ag.id, trk: 'solo', g: '🎙️ 솔로 가수', get n() { return `${ag.n} 솔로 오디션`; }, tag: TIER_N[ag.tier],
+  id: 'solo_' + ag.id, trk: 'solo', g: '🎙️ 솔로 가수', get n() { return `${ag.n} 솔로 오디션`; }, get tag() { return agTag(ag); },
   show: s => (!trackOn(s, 'solo') || s.tracks.solo.st === 'indie') && age(s) >= 14 && age(s) <= 32,
   h: s => SOLO_TYPES.filter(([k]) => soloTypeOK(s, k)).map(([k, n]) => `${n} ${fmtPct(audP(soloScore(s, k) + pm(s, 'audition', 0) + (age(s) <= 22 ? 2 : -3), ag.thr - 4))}`).concat(['결과는 다음 달']).join(' · '),
   ok: s => !soloBlock(s) && !agencyContract(s) && age(s) <= 30 && !(s.cd['saud_' + ag.id] > s.t) && langOK(s, ag) && !hasQ(s, 'solo_aud'),

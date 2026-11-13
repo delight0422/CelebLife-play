@@ -442,17 +442,18 @@ function vtRpRaw(g) { const solo = vtPool(VT_SOLO, g), given = vtPool(VT_GIVEN, 
 function vtGiven(n) { return String(n).split(' ').pop(); }
 function vtRpName(g) { return freshName(() => vtRpRaw(g)); }
 // ───── 회사 이름 (10-7) ─────
-// 회사 수 · 등급 · 특징은 그대로 두고, 인생마다 이름만 CO_POOL에서 새로 뽑는다. s.coNames에 '열쇠 → 이름'으로 남긴다
+// v206: 처음부터 있는 회사의 이름 · 특징은 늘 같다 (예전엔 인생마다 이름을 CO_POOL에서 새로 뽑았다: 그 세이브는 s.coNames 그대로)
+// 회사가 문을 닫고 새 회사가 생기면(coBust) 그 자리의 이름은 s.coNames, 특징 · 기획력은 s.coMod에 남는다
 // 예전 세이브(s.coNames 없음)는 처음 이름 그대로. 성우 방송사(VO_BCS) 중 방송사(BROADCASTERS)와 같은 곳은 그 이름을 따라간다
 function coSlots() {
-  const S = [], add = (k, pool, o, after) => S.push({ k, pool, get: () => o.n, set: n => { o.n = n; if (after) after(n); } });
-  for (const a of AGENCIES) add('ag:' + a.id, 'ag_' + a.kind + (a.mkt === 'kr' ? '' : '_' + a.mkt), a);
-  PROD_COS.forEach((x, i) => add('prod:' + i, 'prod', x, n => { PROD_CO[i] = n; }));
-  ANIME_COS.forEach((x, i) => add('ani:' + i, 'ani', x));
+  const S = [], add = (k, pool, o, after, bust) => S.push({ k, pool, o, bust, get: () => o.n, set: n => { o.n = n; if (after) after(n); } });
+  for (const a of AGENCIES) add('ag:' + a.id, 'ag_' + a.kind + (a.mkt === 'kr' ? '' : '_' + a.mkt), a, null, true);
+  PROD_COS.forEach((x, i) => add('prod:' + i, 'prod', x, n => { PROD_CO[i] = n; }, true));
+  ANIME_COS.forEach((x, i) => add('ani:' + i, 'ani', x, null, true));
   for (const d of DISTRIBUTORS) add('dist:' + d.id, 'dist_' + d.ch, d);
   BROADCASTERS.forEach((x, i) => S.push({ k: 'bc:' + i, pool: 'bc', get: () => BROADCASTERS[i], set: n => { BROADCASTERS[i] = n; } }));
   for (const id of Object.keys(WB_PLATS)) WB_PLATS[id].forEach((x, i) => add(`plat:${id}:${i}`, 'plat_' + id, x));
-  TU_COS.forEach((x, i) => add('tu:' + i, `tu_${x.kind}_${x.tier}`, x));
+  TU_COS.forEach((x, i) => add('tu:' + i, `tu_${x.kind}_${x.tier}`, x, null, true));
   // 성우 방송사: 방송사와 처음 이름이 같은 곳은 따로 뽑지 않는다 (coVoLink). 영화 채널 · 키즈 · 애니 채널은 따로
   VO_BCS.forEach((x, i) => { if (!coVoLink(i)) add('vo:' + i, x.con === '영화 채널' ? 'vo_movie' : 'vo_kids', x); });
   // 광고 브랜드 · 대학 (v115). 둘 다 뒤에 읽히는 파일(video.js · prof.js)에 있지만, 이 함수는 게임을 시작하거나 불러올 때만 불린다
@@ -463,7 +464,7 @@ function coSlots() {
 }
 let CO_DEF = null;
 // 처음 이름을 한 번만 담아 둔다 (아직 CO_DEF가 없을 때는 성우 방송사 연결을 몰라서 모두 담긴다)
-function coDefaults() { if (!CO_DEF) { const D = {}; for (const x of coSlots()) D[x.k] = x.get(); D.vo = VO_BCS.map(v => v.n); CO_DEF = D; } return CO_DEF; }
+function coDefaults() { if (!CO_DEF) { const D = { mod: {} }; for (const x of coSlots()) { D[x.k] = x.get(); if (x.o && x.o.con) D.mod[x.k] = { con: x.o.con, plan: x.o.plan }; } D.vo = VO_BCS.map(v => v.n); CO_DEF = D; } return CO_DEF; }
 function coVoLink(i) {
   const D = CO_DEF; if (!D) return null; const n = D.vo[i];
   const b = BROADCASTERS.findIndex((x, j) => D['bc:' + j] === n); return b >= 0 ? 'bc:' + b : null;
@@ -477,8 +478,46 @@ function rollCoNames(s) {
 }
 function applyCoNames(s) {
   const D = coDefaults(), N = (s && s.coNames) || {}, cur = {};
-  for (const x of coSlots()) { const n = N[x.k] || D[x.k]; x.set(n); cur[x.k] = n; }
+  const M = (s && s.coMod) || {};
+  for (const x of coSlots()) {
+    const n = N[x.k] || D[x.k]; x.set(n); cur[x.k] = n;
+    const d = D.mod[x.k], m = M[x.k]; if (!d) continue;
+    x.o.con = (m && m.con) || d.con; if (d.plan != null) x.o.plan = m && m.plan != null ? m.plan : d.plan;
+  }
   VO_BCS.forEach((v, i) => { const k = coVoLink(i); if (k) v.n = cur[k]; });
+}
+// v206: 가끔 회사가 문을 닫고 그 자리에 새 회사가 생긴다 (창 없이 요약의 특별한 일 · 소식에만)
+// 1년에 문 닫을 확률: 소형 1% >> 중형 0.2% >>>>>> 대형 0.01% (모두 합쳐 3년에 한 곳쯤). 한 달에 한 곳까지
+// 기획사 · 배우 소속사 · 버츄얼 아이돌 기획사 · 모델 에이전시 · MCN · 댄스 컴퍼니 · CP사 · 영상 제작사 · 애니 제작사 · 학원 · 인강 회사 (방송사 · 대학 · 플랫폼은 닫지 않는다)
+// 내가 얽힌 회사(소속 · 지원 결과 기다림 · 하는 일 · 메시지)는 닫지 않는다. 새 회사는 크기가 같고, 이름은 아직 안 쓴 이름, 특징은 같은 종류 회사의 특징 가운데 하나
+const CO_BUST = [0, 0.01, 0.002, 0.0001];
+const CO_BUST_N = { music: '기획사', actor: '배우 소속사', vtuber: '버츄얼 아이돌 기획사', model: '모델 에이전시', mcn: 'MCN', dance: '댄스 컴퍼니', cp: 'CP사' };
+const CO_PLAN = [null, [30, 65], [45, 70], [75, 95]];
+function coBustKind(x) { const k = x.k.split(':')[0]; return k === 'ag' ? CO_BUST_N[x.o.kind] || '회사' : k === 'prod' ? '영상 제작사' : k === 'ani' ? '애니 제작사' : k === 'tu' ? (x.o.kind === 'ol' ? '인강 회사' : '학원') : '회사'; }
+function coBust(s) {
+  coDefaults();
+  const L = coSlots().filter(x => x.bust && x.o && x.o.tier);
+  let tied = null;
+  for (const x of U.shuffle(L.slice())) {
+    if (!U.chance((CO_BUST[x.o.tier] || 0) / 12)) continue;
+    if (tied == null) tied = JSON.stringify([s.tracks, s.queue, s.pending, s.projects, s.inbox, s.co || null]);
+    const id = x.k.startsWith('ag:') ? x.k.slice(3) : null;
+    if ((id && tied.includes(`"${id}"`)) || tied.includes(x.o.n)) continue;
+    const used = new Set(coSlots().map(y => y.get()).concat(s.coGone || [])), names = (CO_POOL[x.pool] || []).filter(n => !used.has(n));
+    if (!names.length) continue;
+    const kn = coBustKind(x), old = x.o.n, nn = U.pick(names);
+    // 특징은 같은 종류 · 같은 크기 회사의 특징에서 (없으면 같은 종류 아무 크기)
+    const conOf = M => [...new Set(M.map(y => y.o.con).filter(c => c && c !== x.o.con))], K = L.filter(y => coBustKind(y) === kn && (!x.o.mkt || y.o.mkt === x.o.mkt));
+    let cons = conOf(K.filter(y => y.o.tier === x.o.tier)); if (!cons.length) cons = conOf(K);
+    const con = cons.length ? U.pick(cons) : x.o.con, pr = x.o.plan != null && CO_PLAN[x.o.tier], plan = pr ? U.int(pr[0], pr[1]) : null;
+    (s.coGone = s.coGone || []).push(old);
+    (s.coNames = s.coNames || {})[x.k] = nn; (s.coMod = s.coMod || {})[x.k] = plan != null ? { con, plan } : { con };
+    x.set(nn); x.o.con = con; if (plan != null) x.o.plan = plan;
+    if (id && s.mcnCo && s.mcnCo[id]) delete s.mcnCo[id];
+    addLog(s, `🏚️ ${kn} 「${old}」${josa(old, '이가').slice(old.length)} 문을 닫았다. 그 자리에 ${TIER_N[x.o.tier]} ${kn} 「${nn}」(${con})${josa(nn, '이가').slice(nn.length)} 새로 생겼다.`, 'news');
+    return x.k;
+  }
+  return null;
 }
 // 예능 제목: 예능 종류(SHOW_TRENDS · 연애 프로그램 · 공부 예능)에 맞는 낱말로. 종류를 모르면 아무 종류나
 function tvShowTitle(genre) { const W = SHOW_WORDS[genre] || SHOW_WORDS[U.pick(SHOW_TRENDS)]; return freshName(() => dramaPick(W, SHOW_BAN)); }
@@ -1026,6 +1065,7 @@ function tick(s) {
   inboxMonth(s);
   scandalMonth(s);
   npcMonth(s); // 업계 인물이 스스로 움직인다 (12-2)
+  coBust(s); // v206: 가끔 회사가 문을 닫고 새 회사가 생긴다
   applyOpenMonth(s);
   careerLogMonth(s);
   // 기획사 숙소 생활이 끝나면(그룹 해체·숙소 졸업 등) 어디서 살지 고른다
@@ -1263,7 +1303,7 @@ function blankState() {
 }
 function newLife() {
   const s = blankState();
-  rollCoNames(s); applyCoNames(s);
+  s.coNames = {}; applyCoNames(s); // v206: 처음부터 있는 회사는 늘 같은 이름 · 특징
   const r = U.wpick(REGIONS, x => x.w);
   s.region = r.id; s.birthRegion = r.id; s.place = U.pick(r.places); s.birthPlace = s.place;
   s.wealth = U.int(1, 10);
@@ -1505,6 +1545,13 @@ function migrate(s) {
     s.flags.eduFix205 = 1;
     const K = (typeof kids === 'function' ? kids(s) : []).filter(k => k.alive !== false && kidAge(s, k) >= 4), told = n => s.log.some(x => String(x.x || '').includes(`${n}의 자녀 교육비`));
     if ((s.done.kid_edu_open || 0) < K.length) for (const k of K) if (kidAge(s, k) <= 17 && !((s.kidEdu || {})[k.id]) && !told(k.name)) k.eduTold = false;
+  }
+  // v206: 기획사 직원 자리(사내 프로듀서 · A&R · 트레이너 · 마케팅팀)가 회사마다 따로가 됐다. 예전에 알린 크기의 자리는 그 크기 회사들도 알린 것으로 (알림이 한꺼번에 쏟아지지 않게)
+  if (!s.flags.ap206) {
+    s.flags.ap206 = 1;
+    if (s.apSeen) for (const a of JOB_APPLY) { const m = a.id.match(/^(pin|anr|tr|marketer)_(.+)$/), ag = m && AG[m[2]]; if (ag && ag.kind === 'music' && s.apSeen[`${m[1]}_${ag.tier}`]) s.apSeen[a.id] = 1; }
+    // 트레이너 지원 창이 떠 있던 세이브: 그 크기의 기획사 한 곳으로
+    if (s.pending && s.pending.id === 'tr_pick' && s.pending.d && !s.pending.d.ag) EVENTS.tr_pick.init(s, s.pending.d);
   }
   // 회사 이름 (10-7): 이 인생의 회사 이름을 다시 붙인다. 예전 세이브는 처음 이름 그대로
   // v117 장비 정책: 아직 본가에 사는 예전 세이브의 장비는 부모님이 사 주신 장비로 본다 (유지비도 부모님이)

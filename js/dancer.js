@@ -91,7 +91,7 @@ CAREERS.dancer = {
 // ───── 지원 · 입단 ─────
 function dcAudP(s, ag) { const t = s.tracks.dancer; return audP(dancerScore(s, 'back') + dancerAgeAdj(age(s)) + pm(s, 'audition', 0) + (trackOn(s, 'dancer') ? DANCER_POW[t.tier] * 2 : 0), ag.thr); }
 for (const ag of dancerCrews()) JOB_APPLY.push({
-  id: 'dancer_' + ag.id, trk: 'dancer', g: '🕺 댄서', get n() { return `${ag.n} 입단 오디션`; }, tag: agTag(ag),
+  id: 'dancer_' + ag.id, trk: 'dancer', g: '🕺 댄서', get n() { return `${ag.n} 입단 오디션`; }, get tag() { return agTag(ag); },
   show: s => !(trackOn(s, 'dancer') && s.tracks.dancer.crew) && age(s) >= 15 && age(s) <= 35,
   h: s => `합격 가능성 ${fmtPct(dcAudP(s, ag))} · 결과는 다음 달`,
   ok: s => !dancerBlock(s) && !agencyContract(s) && !(s.cd['daud_' + ag.id] > s.t) && !hasQ(s, 'dc_aud'),

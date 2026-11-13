@@ -87,7 +87,7 @@ function viRank(s, t) { const L = viMates(s, t).map(x => x.vi.subs).concat(t.sub
 // 개인세 버튜버가 붙으면 회사 아바타로 다시 데뷔하고, 지금 채널 구독자 일부가 따라온다. 구독자가 많을수록 붙기 쉽다
 function viAudOK(s) { return !s.flags.vtBan && !viOn(s) && ((!trackOn(s, 'youtube') && age(s) >= 14) || vtSolo(s)); }
 for (const ag of vtAgencies()) JOB_APPLY.push({
-  id: 'vidol_aud_' + ag.id, trk: 'vidol', g: '🎙️ 버츄얼 아이돌', get n() { return `${ag.n} 오디션`; }, tag: agTag(ag),
+  id: 'vidol_aud_' + ag.id, trk: 'vidol', g: '🎙️ 버츄얼 아이돌', get n() { return `${ag.n} 오디션`; }, get tag() { return agTag(ag); },
   show: s => viAudOK(s),
   h: s => `합격 가능성 ${fmtPct(vtAudP(s, ag))} · ${vtSolo(s) ? `붙으면 회사 아바타로 다시 데뷔 · 「${s.tracks.youtube.ch}」 구독자는 일부만 따라온다` : '아바타와 데뷔 준비는 회사가 맡는다'}`,
   ok: s => !ytBlock(s) && !agencyContract(s) && !(s.cd['vaud_' + ag.id] > s.t) && !hasQ(s, 'vi_aud') && (!ag.needJp || lv(me(s), 'jp') >= ag.needJp),
