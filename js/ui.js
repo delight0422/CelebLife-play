@@ -800,7 +800,7 @@ function tblCnt() {
     for (const cb of ck) { const tr = cb.closest('tr'), r = tr && T.rows[+tr.dataset.ti], x = r && r.cells.g && r.cells.g[0]; if (x) G[x === '여' ? 'f' : 'm']++; }
     g = [['m', '남'], ['f', '여']].filter(([k]) => C.need[k]).map(([k, w]) => `<span class="cg ${G[k] >= C.need[k] ? 'ok' : 'no'}">${w} ${G[k]}/${C.need[k]}</span>`).join('');
   }
-  el.innerHTML = `${U.esc(C.n || '고른 사람')} <b>${n}</b>${C.max ? `/${C.max}` : ''}명${g}`;
+  el.innerHTML = `${U.esc(C.n || '고른 사람')} <b>${n}</b>${C.max ? `/${C.max}` : ''}${U.esc(C.u || '명')}${g}`;
   el.classList.toggle('bad', (C.max > 0 && n > C.max) || n < (C.min || 0));
 }
 function evTblHTML(T, form) {

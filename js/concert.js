@@ -1,6 +1,9 @@
 // ───── 아이돌 그룹 단독 콘서트 (v193) ─────
 // 앨범 5장 이상 · 그룹 팬 30만 명 이상 · 연습생 · 제작 비용을 다 회수한 우리 회사 아이돌 그룹만 연다 (1년에 한 번)
-// 대표가 정하는 순서: 공연장(대관) → 셋리스트(곡 순서 + 중간 토크 · VCR 쉬는 시간) → 토크마다 누가 말할지 → 입장료
+// 대표가 정하는 순서: 공연장(대관) → 부를 곡(10~20곡) → 셋리스트 순서 → 토크마다 누가 말할지 → 입장료
+// v197: 곡을 먼저 고르면 토크 수(3곡마다 한 번, 버림)와 턴 수(곡 + 토크)가 정해지고, 5턴마다 한 번(버림) 하이라이트 자리가 무작위로 정해진다
+//   하이라이트마다 그 자리에 어울리는 컨셉이 같이 정해진다 (공연의 어디쯤인지에 따라). 하이라이트에 든 곡의 완성도 · 컨셉은 열기에 더 크게 들어간다
+//   VCR · 쉬는 시간은 없앴다 (예전 세이브의 기획은 그대로 읽는다)
 // 다음 달에 공연. 내가 기획했으면 음악방송처럼 공연을 본다 (live.js liveConcert). 전담 프로듀서 · 자동 · CEO가 맡으면 안 보여 준다
 // 관객 수 = 그룹 팬 · 팬 충성도 · 입장료. 열기 = 무대 실력 · 곡 완성도 · 토크 멤버 예능 (v194)
 // 끝나면 결산: 열기(분위기) · 수익 · 열기가 높으면 팬 충성도 ↑ / 낮으면 그룹 팬 ↓ (토스트). CEO가 맡은 회사면 CEO 보고서에 들어간다
@@ -26,30 +29,68 @@ function ccWhy(s, t, g) {
 }
 // 부를 수 있는 곡: 앨범마다 타이틀곡 하나 + 수록곡 둘 (수록곡 이름은 처음 기획할 때 정해 둔다)
 // 예전 세이브 · 경력 회사처럼 앨범 기록이 낸 앨범 수보다 적으면 모자란 만큼 옛 앨범을 채운다
+// v197: 곡마다 컨셉 (타이틀곡은 앨범 컨셉, 수록곡은 반쯤 앨범 컨셉 · 나머지는 다른 컨셉. 처음 볼 때 정해 둔다)
 function ccSongs(s, g) {
   const D = (g.disc || []).filter(a => a && a.title), need = Math.max(0, (g.cbCount || 0) - D.length);
   if ((g.ccOld || []).length < need) { g.ccOld = (g.ccOld || []).concat(Array.from({ length: need - (g.ccOld || []).length }, () => ({ title: songTitle(), q: U.int(48, 66), sc: U.int(48, 70), y: calY(s) - 3 }))); }
   const A = (g.ccOld || []).slice(0, need).concat(D), L = [];
   for (const a of A) {
     a.bs = a.bs || [songTitle(), songTitle()];
+    if (!a.c) a.c = U.pick(TRENDS);
+    a.bc = a.bc || a.bs.map(() => U.chance(0.55) ? a.c : U.pick(TRENDS));
     const q = a.q || 55, sc = a.sc || 55;
-    L.push({ key: a.title + '|0', t: a.title, alb: a.title, tt: 1, q, sc });
-    a.bs.forEach((b, i) => L.push({ key: a.title + '|' + (i + 1), t: b, alb: a.title, tt: 0, q: q - 4 + (i ? -2 : 0), sc: sc - 15 - i * 3 }));
+    L.push({ key: a.title + '|0', t: a.title, alb: a.title, tt: 1, q, sc, c: a.c });
+    a.bs.forEach((b, i) => L.push({ key: a.title + '|' + (i + 1), t: b, alb: a.title, tt: 0, q: q - 4 + (i ? -2 : 0), sc: sc - 15 - i * 3, c: a.bc[i] }));
   }
   return L;
 }
 function ccSongBy(s, g) { const M = {}; for (const x of ccSongs(s, g)) M[x.key] = x; return M; }
 function ccTalkP(x) { return lv(x, 'variety'); }
-// 자동으로 짜기: 완성도가 가장 높은 곡으로 끝내고, 두 번째 곡으로 시작하고, 사이는 앨범 순서대로. 3곡 뒤 첫 토크, 그 뒤로 4곡마다 VCR · 토크를 번갈아
-function ccAutoSet(s, g) {
-  const L = ccSongs(s, g), pick = L.filter(x => x.tt).concat(L.filter(x => !x.tt).sort((a, b) => b.q - a.q)).slice(0, 16);
-  const hit = pick.slice().sort((a, b) => b.q - a.q), last = hit[0], first = hit[1] || hit[0];
-  const mid = L.filter(x => pick.includes(x) && x !== last && x !== first);
-  const seq = (first !== last ? [first] : []).concat(mid, [last]), out = [];
-  let brk = 0;
-  seq.forEach((x, i) => { out.push('s:' + x.key); const n = i + 1; if (n < seq.length - 1 && (n === 3 || (n > 3 && (n - 3) % 4 === 0))) out.push(brk++ % 2 ? 'v' : 't'); });
+// ───── 곡 수 · 토크 · 턴 · 하이라이트 (v197) ─────
+const CC_SONG_N = [10, 20];
+function ccTalkN(nS) { return Math.floor(nS / 3); }
+function ccTurns(nS) { return nS + ccTalkN(nS); }
+function ccHlN(n) { return Math.floor(n / 5); }
+// 하이라이트 자리에 어울리는 컨셉: 공연의 어디쯤인지에 따라 (여는 부분은 세게 · 앞쪽 가운데는 밝게 · 뒤쪽 가운데는 감성 · 끝은 다시 터뜨리기)
+const CC_HL_FIT = [[0.25, ['강렬', '힙합', '청량']], [0.5, ['청량', '큐티', '하이틴', '레트로']], [0.78, ['몽환', '성숙', '레트로']], [1.01, ['강렬', '청량', '성숙', '힙합']]];
+function ccHlFit(i, n) { const r = (i + 0.5) / Math.max(1, n); return CC_HL_FIT.find(([x]) => r < x)[1]; }
+// 하이라이트 자리를 무작위로 (서로 붙지 않게). 자리마다 어울리는 컨셉도 그 자리에 맞춰 무작위로
+function ccHlRoll(n) {
+  const k = ccHlN(n), P = [];
+  for (let guard = 0; P.length < k && guard < 500; guard++) { const i = U.int(0, n - 1); if (!P.some(p => Math.abs(p - i) < 2)) P.push(i); }
+  return P.sort((a, b) => a - b).map(i => ({ i, c: U.pick(ccHlFit(i, n)) }));
+}
+// 턴 수가 같으면 같은 하이라이트 (뒤로 갔다 와도 바뀌지 않는다)
+function ccHlFor(pl, n) { pl.hlBy = pl.hlBy || {}; if (!pl.hlBy[n]) pl.hlBy[n] = ccHlRoll(n); pl.n = n; pl.hl = pl.hlBy[n]; return pl.hl; }
+// 자동으로 고르기: 타이틀곡 모두 + 완성도 높은 수록곡, 16곡까지 (10곡은 넘게)
+function ccAutoPick(s, g) {
+  const L = ccSongs(s, g), pick = L.filter(x => x.tt).concat(L.filter(x => !x.tt).sort((a, b) => b.q - a.q)).slice(0, Math.max(Math.min(CC_SONG_N[0], L.length), 16));
+  return L.filter(x => pick.includes(x)).map(x => x.key);
+}
+// 자동으로 짜기: 하이라이트 자리에는 어울리는 컨셉 · 완성도 높은 곡부터, 토크는 고르게 (하이라이트 · 첫 · 끝 자리는 피해서),
+//   하이라이트가 아닌 마지막 자리에는 남은 곡 중 가장 좋은 곡, 첫 자리에는 그다음 곡, 나머지는 앨범 순서대로
+function ccArrange(s, g, keys, hl, n) {
+  const SB = ccSongBy(s, g), S0 = keys.filter(k => SB[k]).map(k => SB[k]), T = Math.max(0, n - S0.length), H = {}, out = Array(n).fill(null);
+  for (const o of hl || []) H[o.i] = o.c;
+  const free = i => i >= 0 && i < n && out[i] === null && H[i] == null && i !== 0 && i !== n - 1;
+  for (let j = 0; j < T; j++) {
+    const p = Math.round((j + 1) * n / (T + 1)); let i = -1;
+    for (let d = 0; d < n && i < 0; d++) for (const c of [p + d, p - d]) if (i < 0 && free(c)) i = c;
+    if (i < 0) i = out.findIndex((x, k) => x === null && H[k] == null);
+    if (i < 0) i = out.indexOf(null);
+    out[i] = 't';
+  }
+  const rest = S0.slice();
+  const take = x => { rest.splice(rest.indexOf(x), 1); return 's:' + x.key; };
+  for (const o of (hl || []).slice().sort((a, b) => b.i - a.i)) { if (out[o.i] !== null || !rest.length) continue; const b = rest.slice().sort((a, c) => ((c.c === o.c) * 100 + c.q) - ((a.c === o.c) * 100 + a.q))[0]; out[o.i] = take(b); }
+  const byQ = () => rest.slice().sort((a, b) => b.q - a.q);
+  if (out[n - 1] === null && rest.length) out[n - 1] = take(byQ()[0]);
+  if (out[0] === null && rest.length) out[0] = take(byQ()[0]);
+  for (let i = 0; i < n; i++) if (out[i] === null) out[i] = rest.length ? take(rest[0]) : 't';
   return out;
 }
+// 예전 이름 (자동 · 시험): 고르고 짜기까지
+function ccAutoSet(s, g, pl) { const keys = ccAutoPick(s, g), n = ccTurns(keys.length), hl = pl ? ccHlFor(pl, n) : ccHlRoll(n); if (pl) pl.songs = keys; return ccArrange(s, g, keys, hl, n); }
 function ccAutoTalk(s, g, set) {
   const P = coP(s, g.members).sort((a, b) => ccTalkP(b) - ccTalkP(a)), T = {};
   let k = 0;
@@ -61,8 +102,8 @@ function ccDemand(s, g, price, r) { return coGFans(g) * 0.05 * (0.4 + loyOf(g) /
 function ccAutoPlan(s, t, g, mode) {
   const d0 = ccDemand(s, g, 121000), res = coFixed(s, t, 'music') * CO_AUTO_RES;
   let v = 0; CC_VENUE.forEach((V, i) => { if (V.seat * CC_SHOWS <= d0 * 1.05 && coM(t, 'music') >= ccCost(i) + res) v = i; });
-  const set = ccAutoSet(s, g), price = d0 > CC_VENUE[v].seat * CC_SHOWS * 1.6 ? 3 : 2;
-  return { v, set, talk: ccAutoTalk(s, g, set), p: price, mode };
+  const pl = { v, mode }, set = ccAutoSet(s, g, pl), price = d0 > CC_VENUE[v].seat * CC_SHOWS * 1.6 ? 3 : 2;
+  return Object.assign(pl, { set, talk: ccAutoTalk(s, g, set), p: price });
 }
 // 확정: 대관료 · 무대 비용을 먼저 내고 다음 달에 공연한다
 function ccConfirm(s, t, g, pl) {
@@ -87,9 +128,20 @@ function ccRun(s, t, g, pl) {
   if (fill >= 0.995) N.push('표가 다 팔렸다.'); else if (fill < 0.6) N.push('빈자리가 많았다.');
   // 1. 무대 실력
   if (perf >= 72) N.push('라이브와 춤이 압도적이었다.'); else if (perf < 40) N.push('라이브가 자주 흔들렸다.');
-  // 2. 곡 완성도
-  const songQ = nS ? songs.reduce((a, x) => a + x.q, 0) / nS : 30;
+  // 2. 곡 완성도. v197: 하이라이트 자리의 곡은 네 배 무게, 그 자리에 어울리는 컨셉이면 +15 · 아니면 -10. 하이라이트에 토크가 들어가면 흐름이 끊긴다
+  const HL = {}; for (const o of pl.hl || []) HL[o.i] = o.c;
+  let qs = 0, qw = 0, hlTalk = 0; const hlGood = [], hlBad = [];
+  set.forEach((c, i) => {
+    if (c === 't' && HL[i] != null) hlTalk++;
+    if (!c.startsWith('s:')) return;
+    const x = SB[c.slice(2)]; let v = x.q, w = 1;
+    if (HL[i] != null) { w = 4; if (x.c === HL[i]) { v += 15; hlGood.push(x); } else { v -= 10; hlBad.push(x); } }
+    qs += v * w; qw += w;
+  });
+  const songQ = qw ? qs / qw : 30;
   if (songQ >= 75) N.push('완성도 높은 곡들로 꽉 채웠다.'); else if (songQ < 50) N.push('완성도가 아쉬운 곡이 많았다.');
+  if (hlGood.length) N.push(`하이라이트 ${hlGood.map(x => `「${x.t}」`).join(' · ')}에서 객석이 폭발했다.`);
+  if (hlBad.length) N.push(`하이라이트 ${hlBad.map(x => `「${x.t}」`).join(' · ')} 무대는 그 순간의 분위기와 맞지 않았다.`);
   // 3. 토크: 말하는 멤버의 예능 레벨. 모두 함께면 멤버 평균에 조금 더. 같은 사람이 여러 번 하면 덜 새롭다. 토크가 없으면 낮게 본다
   const used = {}, TK = {}, avgV = P.reduce((a, y) => a + lv(y, 'variety'), 0) / Math.max(1, P.length);
   let talkSum = 0;
@@ -106,14 +158,14 @@ function ccRun(s, t, g, pl) {
   if (tb.length && tb[0].tq >= 65) N.push(`${tb[0].n}의 토크가 큰 웃음을 줬다.`);
   if (tb.length && tb[tb.length - 1].tq < 35) N.push(`${tb[tb.length - 1].n}의 토크는 조금 어색했다.`);
   let h = perf * 0.4 + songQ * 0.35 + talkQ * 0.25;
-  // 셋리스트 짜임 (조금만)
-  if (nS < 8) { h -= (8 - nS) * 2; N.push('곡이 적어 금방 끝난 느낌이었다.'); } else if (nS > 20) { h -= (nS - 20) * 1.2; N.push('공연이 너무 길었다.'); }
+  // 셋리스트 짜임 (조금만). v197: 곡 수 · 토크 수는 정해져 있어 '곡이 적다 · 쉬는 시간' 규칙은 뺐다 (예전 기획만 곡 수를 본다)
+  if (!pl.hl) { if (nS < 8) { h -= (8 - nS) * 2; N.push('곡이 적어 금방 끝난 느낌이었다.'); } else if (nS > 20) { h -= (nS - 20) * 1.2; N.push('공연이 너무 길었다.'); } }
+  if (hlTalk) { h -= hlTalk * 4; N.push('하이라이트 자리에 토크가 들어가 흐름이 끊겼다.'); }
   const seen = {}; let dup = 0; for (const x of songs) { if (seen[x.key]) dup++; seen[x.key] = 1; }
   if (dup) { h -= dup * 4; N.push('같은 곡을 두 번 불렀다.'); }
   const rank = songs.slice().sort((a, b) => b.q - a.q), lastS = songs[nS - 1];
   if (set[0] && !set[0].startsWith('s:')) { h -= 2; N.push('시작부터 쉬어 가서 분위기가 늦게 올라왔다.'); } else if (songs[0] && rank.indexOf(songs[0]) <= 2) { h += 2; N.push('첫 곡부터 객석이 뜨거웠다.'); }
   if (lastS && nS >= 3 && rank.indexOf(lastS) <= 1) { h += 3; N.push('마지막 곡에서 떼창이 터졌다.'); }
-  if (!nB && nS) { h -= 6; N.push('쉬는 시간이 없어 뒤로 갈수록 힘이 빠졌다.'); } else if (nB > nS / 2) { h -= (nB - nS / 2) * 1.5; N.push('토크와 VCR이 너무 잦아 흐름이 자주 끊겼다.'); }
   let run = 0, maxRun = 0, tired = 0; const tiredAt = {};
   set.forEach((c, i) => { if (c.startsWith('s:')) { run++; if (run > 5) { tired++; tiredAt[i] = 1; } maxRun = Math.max(maxRun, run); } else run = 0; });
   if (tired) { h -= tired * 1.5; N.push(`쉬지 않고 ${maxRun}곡을 이어 불러 멤버들이 지쳤다.`); }
@@ -123,9 +175,9 @@ function ccRun(s, t, g, pl) {
   set.forEach((c, i) => {
     if (c === 't') B.push({ k: 't', who: TK[i].who, h: Math.round(TK[i].v * 100) / 100 });
     else if (c === 'v') B.push({ k: 'v', h: Math.round(((h - 60) / 30) * 100) / 100 });
-    else { const x = SB[c.slice(2)]; no++; B.push({ k: 's', no, t: x.t, tt: x.tt, h: Math.round(U.clamp((x.q * 0.5 + perf * 0.5 - 58) / 18 - (tiredAt[i] ? 0.6 : 0), -1, 1) * 100) / 100, tired: tiredAt[i] ? 1 : 0, first: no === 1 ? 1 : 0, last: x === lastS && no === nS ? 1 : 0 }); }
+    else { const x = SB[c.slice(2)], hl = HL[i] != null ? (x.c === HL[i] ? 2 : 1) : 0; no++; B.push({ k: 's', no, t: x.t, tt: x.tt, hl, h: Math.round(U.clamp((x.q * 0.5 + perf * 0.5 - 58) / 18 - (tiredAt[i] ? 0.6 : 0) + (hl === 2 ? 0.4 : hl === 1 ? -0.3 : 0), -1, 1) * 100) / 100, tired: tiredAt[i] ? 1 : 0, first: no === 1 ? 1 : 0, last: x === lastS && no === nS ? 1 : 0 }); }
   });
-  return { heat: h, sold, cap, fill, price, perf, songQ, talkQ, nS, nT, nV, notes: N, blocks: B };
+  return { heat: h, sold, cap, fill, price, perf, songQ, talkQ, nS, nT, nV, hlN: (pl.hl || []).length, hlGood: hlGood.length, notes: N, blocks: B };
 }
 function ccHeatW(h) { return h >= 85 ? '공연장이 터질 듯했다' : h >= 70 ? '분위기가 뜨거웠다' : h >= 55 ? '무난하게 즐겼다' : h >= 40 ? '분위기가 조금 가라앉았다' : '객석이 식어 버렸다'; }
 
@@ -139,62 +191,91 @@ E({
   init(s, d) { const g = coGroup(s, d.gid); if (!g) { d.skip = true; return; } d.pl = d.pl || {}; },
   text: (s, d) => { const { g, t } = ccPlanD(s, d); return `어디를 빌릴까. 공연은 이틀 동안 두 번 한다.\n\n그룹 팬 ${fmtFans(coGFans(g))} · 팬 충성도 ${loyTxt(g)} · 낸 앨범 ${g.cbCount || 0}장\n자본금 ${fmtWon(coM(t, 'music'))}`; },
   form: (s, d) => { const { t, pl } = ccPlanD(s, d), on = pl.v != null ? pl.v : 1; return [{ type: 'head', label: '공연장 (대관료 + 무대 · 연출비는 기획을 마칠 때 낸다)' }].concat(CC_VENUE.map((V, i) => ({ k: 'v', type: 'radio', v: String(i), on: i === on, label: `${V.n} · ${V.seat.toLocaleString()}석 × ${CC_SHOWS}회`, sub: `대관 ${fmtWon(V.rent)} · 무대 · 연출 ${fmtWon(V.stage)}${coM(t, 'music') < ccCost(i) ? ' · 자본금이 모자라다' : ''}` }))); },
-  submitT: () => '다음 · 셋리스트',
+  submitT: () => '다음 · 부를 곡',
   fbtn: (s, d) => { const g = coGroup(s, d.gid), GP = g && coGProd(s, g); return GP ? [{ t: `전담 프로듀서 ${GP.name}에게 맡기기`, h: '공연장부터 입장료까지 알아서 정한다 · 공연 장면은 안 본다', f: s => { const t = coT(s), pl = ccAutoPlan(s, t, g, 'prod'); if (coM(t, 'music') < ccCost(pl.v)) return '자본금이 모자라 맡기지 못했다.'; return ccConfirm(s, t, g, pl) + ` 전담 프로듀서 ${josa(GP.name, '이가')} 셋리스트를 짰다.`; } }] : []; },
   cancel: () => '', cancelT: () => '그만두기',
   submit(s, d, v) {
     const { g, t, pl } = ccPlanD(s, d), i = U.clamp(parseInt(v.v, 10) || 0, 0, CC_VENUE.length - 1);
     if (coM(t, 'music') < ccCost(i)) return { err: '자본금이 모자라다' };
-    pl.v = i; if (!pl.set) pl.set = ccAutoSet(s, g);
+    pl.v = i; if (!pl.songs) pl.songs = ccAutoPick(s, g);
+    fireEvent(s, 'co_cc_songs', { gid: d.gid, pl }); return {};
+  },
+});
+// ───── 2. 부를 곡 (v197): 10~20곡을 고른다. 토크 수 · 턴 수 · 하이라이트 수가 여기서 정해진다 ─────
+function ccQW(s, q) { return grade5(coViewer(s, 'anr', 'compose', 'music'), q, 'q', 'compose'); }
+function ccCntTx(nS) { const T = ccTalkN(nS), n = nS + T; return `곡 ${nS} · 토크 ${T} · 턴 ${n} · 하이라이트 ${ccHlN(n)}번`; }
+E({
+  id: 'co_cc_songs', cat: '단독 콘서트', tag: 'career', wide: true,
+  title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 단독 콘서트 · 부를 곡`,
+  cond: s => coOn(s),
+  init(s, d) { const g = coGroup(s, d.gid); if (!g || !d.pl) { d.skip = true; return; } if (!d.pl.songs) d.pl.songs = ccAutoPick(s, g); },
+  text: (s, d) => `${CC_VENUE[d.pl.v].n}. 이번 콘서트에서 부를 곡을 ${CC_SONG_N[0]}~${CC_SONG_N[1]}곡 고른다.\n\n3곡마다 토크가 한 번 들어간다 (버림). 곡 수와 토크 수를 더한 만큼이 공연의 턴이 되고, 5턴마다 한 번(버림) 하이라이트 자리가 무작위로 정해진다. 하이라이트마다 그 자리에 어울리는 컨셉이 있다. 하이라이트에 든 곡의 완성도와 컨셉은 다른 곡보다 열기에 더 크게 영향을 준다.`,
+  tbl: (s, d) => { const g = coGroup(s, d.gid), L = ccSongs(s, g), on = new Set(d.pl.songs || []); return { cols: [['t', '곡'], ['tt', '구분'], ['alb', '앨범'], ['c', '컨셉'], ['q', '완성도']], rows: L.map((x, i) => ({ k: 'c' + i, on: on.has(x.key), cells: { t: [x.t, `「${x.t}」`], tt: [x.tt, x.tt ? '타이틀곡' : '수록곡'], alb: [i, `「${x.alb}」`], c: [x.c, x.c], q: [x.q, ccQW(s, x.q)] } })), sort: ['alb', 1], cnt: { n: '고른 곡', u: '곡', min: CC_SONG_N[0], max: CC_SONG_N[1] } }; },
+  form: (s, d) => { const g = coGroup(s, d.gid), on = new Set(d.pl.songs || []); return ccSongs(s, g).map((x, i) => ({ k: 'c' + i, type: 'check', on: on.has(x.key), label: x.t })); },
+  sum: (s, d, v) => { const nS = Object.keys(v).filter(k => /^c\d+$/.test(k) && v[k]).length; return ccCntTx(nS) + (nS < CC_SONG_N[0] ? ` · ${CC_SONG_N[0] - nS}곡 더 골라야 한다` : nS > CC_SONG_N[1] ? ` · ${nS - CC_SONG_N[1]}곡 빼야 한다` : ''); },
+  submitT: () => '다음 · 순서',
+  fbtn: (s, d) => ccBack('co_cc_venue')(s, d).concat([{ t: '자동으로 고르기', h: '타이틀곡 모두 + 완성도 높은 수록곡', f: s => { d.pl.songs = ccAutoPick(s, coGroup(s, d.gid)); fireEvent(s, 'co_cc_songs', { gid: d.gid, pl: d.pl }); return ''; } }]),
+  cancel: () => '', cancelT: () => '그만두기',
+  submit(s, d, v) {
+    const { g, pl } = ccPlanD(s, d), L = ccSongs(s, g), keys = L.filter((x, i) => v['c' + i]).map(x => x.key);
+    if (keys.length < CC_SONG_N[0] || keys.length > CC_SONG_N[1]) return { err: `곡은 ${CC_SONG_N[0]}~${CC_SONG_N[1]}곡 골라야 한다 (지금 ${keys.length}곡)` };
+    const n = ccTurns(keys.length), same = pl.set && pl.n === n && (pl.songs || []).length === keys.length && keys.every(k => pl.set.includes('s:' + k));
+    pl.songs = keys; const hl = ccHlFor(pl, n);
+    if (!same) { pl.set = ccArrange(s, g, keys, hl, n); pl.talk = null; }
     fireEvent(s, 'co_cc_set', { gid: d.gid, pl }); return {};
   },
 });
-// ───── 2. 셋리스트: 곡을 눌러 넣고, ↑ ↓로 순서를 바꾸고, ✕로 뺀다. 토크 · VCR(쉬는 시간)은 몇 번이든 넣는다 ─────
-function ccItemTx(SB, c) { if (c === 't') return ['💬', '토크', '']; if (c === 'v') return ['🎬', 'VCR · 쉬는 시간', '']; const x = SB[c.slice(2)]; return x ? ['🎵', `「${x.t}」`, `${x.tt ? '타이틀곡' : '수록곡'} · 앨범 「${x.alb}」`] : ['?', '', '']; }
-function ccSum(SB, set) {
-  const nS = set.filter(c => c.startsWith('s:')).length, nT = set.filter(c => c === 't').length, nV = set.filter(c => c === 'v').length;
+// ───── 3. 순서: 턴마다 곡 · 토크를 ↑ ↓로 옮긴다. 하이라이트 자리(★)는 그대로 있고, 그 자리에 무엇을 둘지 정한다 ─────
+function ccItemTx(s, SB, c) { if (c === 't') return ['💬', '토크', '']; if (c === 'v') return ['🎬', 'VCR · 쉬는 시간', '']; const x = SB[c.slice(2)]; return x ? ['🎵', `「${x.t}」`, `${x.tt ? '타이틀곡' : '수록곡'} · 「${x.alb}」 · 컨셉 '${x.c}' · 완성도 ${ccQW(s, x.q)}`] : ['?', '', '']; }
+function ccHLm(hl) { const H = {}; for (const o of hl || []) H[o.i] = o.c; return H; }
+function ccSum(SB, set, hl) {
+  const nS = set.filter(c => c.startsWith('s:')).length, nT = set.filter(c => c === 't').length, H = ccHLm(hl);
   let run = 0, mx = 0; for (const c of set) { if (c.startsWith('s:')) { run++; mx = Math.max(mx, run); } else run = 0; }
-  return `곡 ${nS} · 토크 ${nT} · 쉬는 시간 ${nV} · 약 ${nS * 4 + nT * 6 + nV * 3 + 10}분${mx >= 6 ? ` · 쉬지 않고 ${mx}곡이 이어진다` : ''}`;
+  const ok = (hl || []).filter(o => { const c = set[o.i], x = c && c.startsWith('s:') && SB[c.slice(2)]; return x && x.c === H[o.i]; }).length;
+  return `곡 ${nS} · 토크 ${nT} · 약 ${nS * 4 + nT * 6 + 10}분 · 하이라이트에 어울리는 곡 ${ok}/${(hl || []).length}${mx >= 6 ? ` · 쉬지 않고 ${mx}곡이 이어진다` : ''}`;
 }
-function ccListHTML(SB, set) {
-  return set.length ? set.map((c, i) => { const [ic, tx, sub] = ccItemTx(SB, c); return `<li class="cc-it k-${c[0]}"><span class="cc-ix">${i + 1}</span><span class="cc-tx">${ic} ${U.esc(tx)}${sub ? `<small>${U.esc(sub)}</small>` : ''}</span><span class="cc-bt"><button class="btn sm" data-ccmv="${i}:-1" ${i ? '' : 'disabled'} aria-label="위로">↑</button><button class="btn sm" data-ccmv="${i}:1" ${i < set.length - 1 ? '' : 'disabled'} aria-label="아래로">↓</button><button class="btn sm" data-ccdel="${i}" aria-label="빼기">✕</button></span></li>`; }).join('') : '<li class="cc-empty">아래에서 곡을 눌러 넣는다</li>';
+function ccListHTML(s, SB, set, hl) {
+  const H = ccHLm(hl);
+  return set.map((c, i) => {
+    const [ic, tx, sub] = ccItemTx(s, SB, c), x = c.startsWith('s:') && SB[c.slice(2)], hc = H[i], fit = hc != null && x && x.c === hc;
+    const hb = hc != null ? `<span class="cc-hlb${fit ? ' ok' : c === 't' ? ' no' : ''}">★ 하이라이트 · 어울리는 컨셉 '${U.esc(hc)}'${fit ? ' ✓' : c === 't' ? ' · 토크가 들어가 있다' : ''}</span>` : '';
+    return `<li class="cc-it k-${c[0]}${hc != null ? ' hl' : ''}"><span class="cc-ix">${i + 1}</span><span class="cc-tx">${hb}${ic} ${U.esc(tx)}${sub ? `<small>${U.esc(sub)}</small>` : ''}</span><span class="cc-bt"><button class="btn sm" data-ccmv="${i}:-1" ${i ? '' : 'disabled'} aria-label="위로">↑</button><button class="btn sm" data-ccmv="${i}:1" ${i < set.length - 1 ? '' : 'disabled'} aria-label="아래로">↓</button></span></li>`;
+  }).join('');
 }
-function ccPoolHTML(L, set) {
-  const inS = new Set(set);
-  return `<button class="cc-chip k-t" data-ccadd="t">💬 토크</button><button class="cc-chip k-v" data-ccadd="v">🎬 VCR · 쉬는 시간</button>` + L.filter(x => !inS.has('s:' + x.key)).map(x => `<button class="cc-chip${x.tt ? ' tt' : ''}" data-ccadd="${U.esc('s:' + x.key)}">🎵 ${U.esc(x.t)}<small>${x.tt ? '타이틀' : '수록곡'} · 「${U.esc(x.alb)}」</small></button>`).join('');
+function ccHlInfoHTML(SB, set, hl) {
+  const H = ccHLm(hl);
+  return (hl || []).length ? (hl || []).map(o => { const c = set[o.i], x = c && c.startsWith('s:') && SB[c.slice(2)], fit = x && x.c === H[o.i]; return `<div class="cc-hli${fit ? ' ok' : ''}"><b>★ ${o.i + 1}번째</b> · 어울리는 컨셉 '${U.esc(o.c)}'<small>지금: ${x ? `「${U.esc(x.t)}」 ('${U.esc(x.c)}')${fit ? ' ✓' : ''}` : c === 't' ? '토크' : '-'}</small></div>`; }).join('') : '<div class="cc-hli">이번 공연에는 하이라이트가 없다.</div>';
 }
 E({
   id: 'co_cc_set', cat: '단독 콘서트', tag: 'career', wide: true,
-  title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 단독 콘서트 · 셋리스트`,
+  title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 단독 콘서트 · 셋리스트 순서`,
   cond: s => coOn(s),
-  init(s, d) { const g = coGroup(s, d.gid); if (!g || !d.pl) { d.skip = true; return; } if (!d.pl.set) d.pl.set = ccAutoSet(s, g); },
-  text: (s, d) => `${CC_VENUE[d.pl.v].n}. 부를 곡과 순서, 중간중간 토크 · VCR(멤버들이 숨 고르는 쉬는 시간)을 정한다.`,
-  html: (s, d) => { const { g, pl } = ccPlanD(s, d), L = ccSongs(s, g), SB = ccSongBy(s, g); return `<div class="cc-ed"><div class="cc-col"><div class="ck-head">셋리스트</div><ol class="cc-list" id="cc-list">${ccListHTML(SB, pl.set)}</ol><div class="cc-sum" id="cc-sum">${U.esc(ccSum(SB, pl.set))}</div></div><div class="cc-col"><div class="ck-head">넣을 수 있는 것 <span class="cc-tools"><button class="btn sm" data-ccauto>자동으로 짜기</button><button class="btn sm" data-ccclear>모두 비우기</button></span></div><div class="cc-pool" id="cc-pool">${ccPoolHTML(L, pl.set)}</div></div><input type="hidden" data-k="set" id="cc-set" value="${U.esc(JSON.stringify(pl.set))}"></div>`; },
+  init(s, d) { const g = coGroup(s, d.gid); if (!g || !d.pl) { d.skip = true; return; } const pl = d.pl; if (!pl.songs) pl.songs = ccAutoPick(s, g); const n = ccTurns(pl.songs.length); ccHlFor(pl, n); if (!pl.set || pl.set.length !== n || pl.set.includes('v')) pl.set = ccArrange(s, g, pl.songs, pl.hl, n); },
+  text: (s, d) => `${CC_VENUE[d.pl.v].n} · ${ccCntTx(d.pl.songs.length)}.\n\n↑ ↓로 곡과 토크의 순서를 바꾼다. ★ 하이라이트 자리는 움직이지 않는다. 그 자리에 어울리는 컨셉의 곡, 완성도 높은 곡을 넣으면 열기가 크게 오른다. 토크를 넣으면 흐름이 끊긴다. 쉬지 않고 6곡 넘게 이어지면 멤버들이 지친다.`,
+  html: (s, d) => { const { pl } = ccPlanD(s, d), SB = ccSongBy(s, coGroup(s, d.gid)); return `<div class="cc-ed"><div class="cc-col"><div class="ck-head">셋리스트 <span class="cc-tools"><button class="btn sm" data-ccauto>자동으로 짜기</button></span></div><ol class="cc-list" id="cc-list">${ccListHTML(s, SB, pl.set, pl.hl)}</ol><div class="cc-sum" id="cc-sum">${U.esc(ccSum(SB, pl.set, pl.hl))}</div></div><div class="cc-col"><div class="ck-head">하이라이트 ${(pl.hl || []).length}번</div><div class="cc-hls" id="cc-hls">${ccHlInfoHTML(SB, pl.set, pl.hl)}</div></div><input type="hidden" data-k="set" id="cc-set" value="${U.esc(JSON.stringify(pl.set))}"></div>`; },
   form: () => [],
   onShow(s, d, card) {
     const ed = card.querySelector('.cc-ed'); if (!ed) return;
-    const g = coGroup(s, d.gid), L = ccSongs(s, g), SB = ccSongBy(s, g), pl = d.pl;
-    const draw = () => { ed.querySelector('#cc-list').innerHTML = ccListHTML(SB, pl.set); ed.querySelector('#cc-pool').innerHTML = ccPoolHTML(L, pl.set); ed.querySelector('#cc-sum').textContent = ccSum(SB, pl.set); ed.querySelector('#cc-set').value = JSON.stringify(pl.set); };
+    const g = coGroup(s, d.gid), SB = ccSongBy(s, g), pl = d.pl;
+    const draw = () => { ed.querySelector('#cc-list').innerHTML = ccListHTML(s, SB, pl.set, pl.hl); ed.querySelector('#cc-hls').innerHTML = ccHlInfoHTML(SB, pl.set, pl.hl); ed.querySelector('#cc-sum').textContent = ccSum(SB, pl.set, pl.hl); ed.querySelector('#cc-set').value = JSON.stringify(pl.set); };
     ed.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b || !ed.contains(b) || b.disabled) return;
       e.preventDefault(); e.stopPropagation();
-      if (b.dataset.ccadd != null) pl.set.push(b.dataset.ccadd);
-      else if (b.dataset.ccdel != null) pl.set.splice(+b.dataset.ccdel, 1);
-      else if (b.dataset.ccmv != null) { const [i, dv] = b.dataset.ccmv.split(':').map(Number), j = i + dv; if (j >= 0 && j < pl.set.length) [pl.set[i], pl.set[j]] = [pl.set[j], pl.set[i]]; }
-      else if (b.dataset.ccauto != null) pl.set = ccAutoSet(s, g);
-      else if (b.dataset.ccclear != null) pl.set = [];
+      if (b.dataset.ccmv != null) { const [i, dv] = b.dataset.ccmv.split(':').map(Number), j = i + dv; if (j >= 0 && j < pl.set.length) [pl.set[i], pl.set[j]] = [pl.set[j], pl.set[i]]; }
+      else if (b.dataset.ccauto != null) pl.set = ccArrange(s, g, pl.songs, pl.hl, pl.set.length);
       else return;
       draw();
     });
   },
-  submitT: () => '다음',
-  fbtn: ccBack('co_cc_venue'),
+  submitT: () => '다음 · 토크',
+  fbtn: ccBack('co_cc_songs'),
   cancel: () => '', cancelT: () => '그만두기',
   submit(s, d, v) {
     const { g, pl } = ccPlanD(s, d), SB = ccSongBy(s, g);
     let set = pl.set; try { const x = JSON.parse(v.set || 'null'); if (Array.isArray(x)) set = x; } catch (e) { }
-    set = set.filter(c => c === 't' || c === 'v' || (typeof c === 'string' && c.startsWith('s:') && SB[c.slice(2)]));
-    if (set.filter(c => c.startsWith('s:')).length < 3) return { err: '곡을 3곡 이상 넣어야 한다' };
+    // 고른 곡과 토크가 그대로 다 있어야 한다 (순서만 바뀐다)
+    const want = pl.songs.map(k => 's:' + k).concat(Array(ccTalkN(pl.songs.length)).fill('t')).sort(), got = set.filter(c => typeof c === 'string').slice().sort();
+    if (want.join('\n') !== got.join('\n')) set = ccArrange(s, g, pl.songs, pl.hl, ccTurns(pl.songs.length));
     pl.set = set; const old = pl.talk || {}; pl.talk = {}; const auto = ccAutoTalk(s, g, set);
     set.forEach((c, i) => { if (c === 't') pl.talk[i] = old[i] && (old[i] === 'all' || g.members.includes(old[i])) ? old[i] : auto[i]; });
     fireEvent(s, set.includes('t') ? 'co_cc_talk' : 'co_cc_price', { gid: d.gid, pl }); return {};
@@ -276,7 +357,7 @@ E({
     const lv3 = b => b.k === 'v' ? '' : b.h >= 0.45 ? ' hot' : b.h < -0.2 ? ' cold' : '';
     return `<div class="cc-res"><div class="cc-heat"><span class="cc-hl">🔥 열기</span><span class="cc-hbar"><i style="width:${r.heat}%"></i></span><b>${r.heat}</b></div><div class="cc-hw">${U.esc(ccHeatW(r.heat))}</div>`
       + infoTable([['공연장', `${V.n} · ${V.seat.toLocaleString()}석 × ${CC_SHOWS}회`], ['관객', `${r.sold.toLocaleString()}명 (${r.fill >= 0.995 ? '매진' : `${Math.round(r.fill * 100)}%`})`], ['입장료', fmtWon(r.price)]])
-      + `<div class="sec-h">셋리스트</div><div class="cc-rset">${r.blocks.map(b => `<span class="cc-rb${lv3(b)}">${ic[b.k]} ${U.esc(b.k === 's' ? b.t : b.k === 't' ? `토크 · ${b.who}` : 'VCR')}</span>`).join('')}</div>`
+      + `<div class="sec-h">셋리스트</div><div class="cc-rset">${r.blocks.map(b => `<span class="cc-rb${lv3(b)}${b.hl ? ' hl' : ''}">${b.hl ? '★ ' : ''}${ic[b.k]} ${U.esc(b.k === 's' ? b.t : b.k === 't' ? `토크 · ${b.who}` : 'VCR')}</span>`).join('')}</div>`
       + (r.notes.length ? `<div class="cc-notes">${r.notes.map(x => `<div>· ${U.esc(x)}</div>`).join('')}</div>` : '')
       + billHTML({ t: '콘서트 정산', rows: ccRows(r) })
       + (d.sp && typeof liveBtnHTML === 'function' ? liveBtnHTML(d.sp, '콘서트 다시 보기') : '') + `</div>`;

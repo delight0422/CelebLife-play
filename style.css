@@ -1645,6 +1645,16 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .cc-rb { font-size: var(--fs-1); padding: 2px 7px; border-radius: 8px; background: var(--card2); color: var(--ink2); }
 .cc-rb.hot { background: #ffe3e0; color: #c0392b; font-weight: 700; }
 .cc-rb.cold { background: #e7ebf3; color: #6b7487; }
+/* v197 하이라이트 자리 */
+.cc-it.hl { background: color-mix(in srgb, var(--gold) 12%, var(--card)); box-shadow: inset 3px 0 0 var(--gold); }
+.cc-hlb { display: block; font-size: var(--fs-1); font-weight: 800; color: #9a6a00; margin-bottom: 1px; }
+.cc-hlb.ok { color: var(--mint); }
+.cc-hlb.no { color: var(--red); }
+.cc-hls { display: flex; flex-direction: column; gap: 6px; }
+.cc-hli { border: 1px solid var(--line); border-left: 3px solid var(--gold); border-radius: 10px; padding: 6px 10px; font-size: var(--fs-2); background: var(--card); }
+.cc-hli.ok { border-left-color: var(--mint); }
+.cc-hli small { display: block; color: var(--muted); font-size: var(--fs-1); margin-top: 2px; }
+.cc-rb.hl { outline: 1.5px solid var(--gold); }
 .cc-notes { margin: var(--sp-2) 0; font-size: var(--fs-2); color: var(--ink2); }
 /* v194: 사옥 상자 안 회사 배너는 2열 (하나뿐이면 한 줄을 다 쓴다) */
 .co-minis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }

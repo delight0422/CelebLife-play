@@ -309,6 +309,7 @@ function potStars(d) { return d >= POT_GAP[0] ? 5 : d >= POT_GAP[1] ? 4 : d > -P
 function potSpec(viewer, target, k, exact, unk) {
   if (!has(target, k)) return '';
   if (unk) return '?';
+  if (!S) return ''; // 시험 돌리기(CHECK)처럼 S 없이 그릴 때
   const s = S, L = lvi(target, k), r = exact ? [L, L] : lvRange(viewer, target, k), cur = (r[0] + r[1]) / 2, est = potEst(viewer, target, k), p = potStars(est - potRef(s, k));
   const c = cur >= est ? p : p > 1 ? U.clamp(Math.floor(p * cur / Math.max(1, est)), 1, p - 1) : 0;
   return `${c}${p}`;

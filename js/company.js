@@ -1812,8 +1812,8 @@ function coGActs(s, t, g) {
   const au = g.auto || {}, line = c => ` · 자동: 자본금 ${fmtWon(c + coFixed(s, t, 'music') * CO_AUTO_RES)} 이상일 때`, gw = coGGoodsWhy(s, t, g), lw = coGLiveWhy(s, t, g);
   return [
     { t: '굿즈 내기', h: `${fmtWon(coGGoodsCost(s, g))} · 팬이 많을수록 많이 팔린다 · 6개월에 한 번${au.goods ? line(coGGoodsCost(s, g)) : ''}`, why: gw, opts: [{ btn: '내기', on: true, ok: !gw, run: s => coGGoods(s, t, g) }, coVAutoBtn(g, 'goods')] },
-    // v193: 아이돌 그룹은 단독 콘서트를 직접 기획한다 (공연장 → 셋리스트 → 토크 → 입장료, concert.js). 밴드는 예전대로
-    g.kind === 'idol' && typeof ccWhy === 'function' ? (() => { const cw = ccWhy(s, t, g); return { t: '단독 콘서트', h: `앨범 ${CC_MIN.alb}장 · 그룹 팬 ${fmtFans(CC_MIN.fans)}부터 · 비용을 다 회수한 뒤 · 공연장 → 셋리스트 → 토크 → 입장료를 정한다 · 1년에 한 번${au.live ? line(ccCost(0)) : ''}`, why: cw, opts: [{ btn: '기획하기', on: true, ok: !cw, run: s => { fireEvent(s, 'co_cc_venue', { gid: g.id }); return ''; } }, coVAutoBtn(g, 'live')] }; })()
+    // v193: 아이돌 그룹은 단독 콘서트를 직접 기획한다 (공연장 → 부를 곡 → 순서 → 토크 → 입장료, concert.js). 밴드는 예전대로
+    g.kind === 'idol' && typeof ccWhy === 'function' ? (() => { const cw = ccWhy(s, t, g); return { t: '단독 콘서트', h: `앨범 ${CC_MIN.alb}장 · 그룹 팬 ${fmtFans(CC_MIN.fans)}부터 · 비용을 다 회수한 뒤 · 공연장 → 부를 곡 → 순서(하이라이트) → 토크 → 입장료를 정한다 · 1년에 한 번${au.live ? line(ccCost(0)) : ''}`, why: cw, opts: [{ btn: '기획하기', on: true, ok: !cw, run: s => { fireEvent(s, 'co_cc_venue', { gid: g.id }); return ''; } }, coVAutoBtn(g, 'live')] }; })()
       : { t: '단독 콘서트', h: `${fmtWon(CO_GLIVE.cost)} · 그룹 팬 ${fmtFans(CO_GLIVE.min)}부터 · 멤버들의 ${g.kind === 'band' ? '연주 · 노래' : '노래 · 춤 · 예능'} 실력이 좋을수록 잘된다 · 1년에 한 번${au.live ? line(CO_GLIVE.cost) : ''}`, why: lw, opts: [{ btn: '열기', on: true, ok: !lw, run: s => coGLive(s, t, g) }, coVAutoBtn(g, 'live')] }];
 }
 // 연말 결산: 버츄얼 아이돌 분야 평판은 가장 큰 기수의 구독자만큼 오른다

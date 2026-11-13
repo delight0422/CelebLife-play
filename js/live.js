@@ -608,7 +608,9 @@ function liveConcert(sp, R, pk, z, lvl, who) {
       if (b.first && l >= 1) L.push(['오프닝 미쳤다!!', 'big']);
       if (b.last && l >= 1) L.push(['♪ ♪ ♪', 'sing']);
       if (b.tired) L.push([pk(['숨이 차 보인다…', '목소리가 흔들린다…']), 'bad']);
-      B.push({ cap: `${b.no}. 「${b.t}」${b.tt ? '' : ' · 수록곡'}`, glow: 0.5 + l * 0.17, L });
+      // v197: 하이라이트 곡 (2 = 그 자리에 어울리는 컨셉)
+      if (b.hl === 2) L.push([pk(['이 순간 미쳤다!!', '소름 돋아!!', '여기서 이 곡이라니!!']), 'big']);
+      B.push({ cap: `${b.hl ? '★ 하이라이트 · ' : ''}${b.no}. 「${b.t}」${b.tt ? '' : ' · 수록곡'}`, glow: Math.min(1, 0.5 + l * 0.17 + (b.hl === 2 ? 0.15 : 0)), L });
     }
   }
   const sc = sp.sc;
