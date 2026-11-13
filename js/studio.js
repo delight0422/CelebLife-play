@@ -92,7 +92,7 @@ function coFeeF(id) { return 0.9 + hashN(`${id}:fee`) % 201 / 1000; }
 // 뒤로 가기: 앞으로 갈 때 지금 창(id · 창 정보 · 창에 들어올 때의 계획 P0)을 계획 P.bk에 쌓고, 뒤로 가면 꺼내서 그 창을 그때 모습 그대로 다시 연다
 // 같은 창을 다시 여는 것(거절당해 다시 고르기 · 조연을 더 찾기)은 쌓지 않는다
 function coSnapP(P) { const o = Object.assign({}, P); delete o.bk; return JSON.parse(JSON.stringify(o)); }
-function coIn(d) { if (d.P && !d.P0) d.P0 = coSnapP(d.P); }
+function coSnapIn(d) { if (d.P && !d.P0) d.P0 = coSnapP(d.P); }
 function coNext(s, d, from, to, x) { const dd = Object.assign({}, d); delete dd.P; delete dd.no; x.P.bk = ((d.P && d.P.bk) || []).concat([{ id: from, d: dd }]); fireEvent(s, to, x); }
 function coBack(s, d) {
   const st = ((d.P && d.P.bk) || []).slice(), prev = st.pop();
@@ -143,7 +143,7 @@ function coMyWb(s, P, sn) { return wbMyWorks(s).filter(w => w.sn === sn && !w[P.
 E({
   id: 'co_vip', cat: (s, d) => coCat(d), title: '어느 IP로 만들까?', tag: 'career', noRes: 'toast',
   cond: s => coOn(s),
-  init(s, d) { coIn(d); },
+  init(s, d) { coSnapIn(d); },
   text: (s, d) => `${josa(coPKindN(d.P), '을를')} 무엇으로 만들까? 새 이야기로 만들거나, 우리 회사 작품의 후속작을 만들거나, 웹툰 · 웹소설 판권을 사서 만든다.`,
   ch: (s, d) => {
     const P = d.P, ani = P.f === 'anime', sq = coSeqOpts(s, P), mine = coMyOrig(s, P).length, go = ip => s => { P.ip = ip; coNext(s, d, 'co_vip', 'co_vpick', { P }); return ''; };
@@ -162,7 +162,7 @@ E({
   id: 'co_vpick', cat: (s, d) => coCat(d), title: '어느 작품으로 할까?', tag: 'career', noRes: 'toast',
   cond: s => coOn(s),
   init(s, d) {
-    coIn(d);
+    coSnapIn(d);
     if (d.ms) return;
     const P = d.P, f = coPF(P), ani = f === 'anime', t = coT(s), k = coTier(t, f), G = ani ? ANIME_TRENDS : DRAMA_TRENDS, tr = (ani ? (s.trendTV || {}).anime : s.trendTV.drama) || G[0];
     const ttl = g => ani ? animeTitle(g) : dramaTitle(g), gen = i => i === 0 && U.chance(0.5) ? tr : U.pick(G);
@@ -251,7 +251,7 @@ E({
   id: 'co_vdir', cat: (s, d) => coCat(d), title: '감독 섭외', tag: 'career', noRes: 'toast',
   cond: s => coOn(s),
   init(s, d) {
-    coIn(d);
+    coSnapIn(d);
     if (d.c) return;
     const P = d.P, t = coT(s), L = coStaffPool(s, t, `dir:video:${P.kind}`, '연출감독'), back = P.seq && s.people[P.seq.prevDir];
     if (back && back.alive !== false && !L.includes(back)) L.unshift(back);
@@ -314,7 +314,7 @@ E({
     if (!P.cast) P.cast = [];
     if (!P.need) P.need = CO_NEED0;
     if (!d.role) d.role = coLeadMet(s, P) ? 'sup' : 'lead';
-    coIn(d);
+    coSnapIn(d);
     if (d.c) return;
     const t = coT(s), role = d.role, pool = coCastPool(s, t, P, role), back = role === 'lead' && P.seq && s.people[P.seq.prevLead];
     const L = (back && back.alive !== false ? [back] : []).concat(pool.ids.map(id => s.people[id])).filter((x, i, A) => x && x.alive !== false && A.indexOf(x) === i);
@@ -371,7 +371,7 @@ function coVUpfront(P) { return (P.price || 0) + (P.dirFee || 0) + coVCastFees(P
 E({
   id: 'co_vbud', cat: (s, d) => coCat(d), title: '제작비 정하기', tag: 'career', noRes: 'toast',
   cond: s => coOn(s),
-  init(s, d) { coIn(d); },
+  init(s, d) { coSnapIn(d); },
   text: (s, d) => { const t = coT(s), P = d.P; return P.f === 'anime'
     ? `「${P.title}」에 제작비를 얼마나 쓸까? 동화·채색·배경·CG, 음악과 녹음에 쓰는 돈이다. 많이 쓸수록 작화가 좋아지지만, 본전을 찾으려면 더 많이 벌어야 한다.\n\n시작할 때 낼 돈: 원작·연출·작화팀·성우 ${fmtWon(coVUpfront(P))} · 자본금 ${fmtWon(coM(t, coPF(P)))}`
     : `「${P.title}」에 제작비를 얼마나 쓸까? 세트·장소·의상, 촬영 장비와 스태프, CG·음악·편집에 쓰는 돈이다. 많이 쓸수록 볼거리가 좋아지지만, 본전을 찾으려면 더 많이 벌어야 한다.\n\n시작할 때 낼 돈: 각본료·연출료·출연료 ${fmtWon(coVUpfront(P))} · 자본금 ${fmtWon(coM(t, coPF(P)))}`; },
@@ -390,7 +390,7 @@ function coVDistP(s, t, P, D) { return U.clamp(U.sig(((P.f === 'anime' ? coAEst(
 E({
   id: 'co_vdist', cat: (s, d) => coCat(d), title: (s, d) => `${V_CH_S[coPK(d.P).ch]} 정하기`, tag: 'career', noRes: 'toast',
   cond: s => coOn(s),
-  init(s, d) { coIn(d); if (!d.ids) d.ids = DISTRIBUTORS.filter(D => D.ch === coPK(d.P).ch).map(D => D.id); },
+  init(s, d) { coSnapIn(d); if (!d.ids) d.ids = DISTRIBUTORS.filter(D => D.ch === coPK(d.P).ch).map(D => D.id); },
   text: (s, d) => { const P = d.P, all = d.ids.every(id => (P.dno || []).includes(id)); return `${josa(`「${P.title}」`, "을를")} 어디에 걸까? ${V_CH_N[coPK(P).ch]}마다 수수료와 힘이 다르다. 큰 곳일수록 많이 보여 주고 홍보도 세게 하지만, 수수료가 높고 작은 작품은 거절하기도 한다.${d.no ? `\n\n${d.no}` : ''}${all ? `\n\n받아 줄 곳이 없다. 뒤로 가서 제작비를 늘리거나 기획을 접는다.` : ''}`; },
   ch: (s, d) => {
     const t = coT(s), P = d.P;
@@ -709,7 +709,7 @@ E({
   id: 'co_adir', cat: (s, d) => coCat(d, true), title: '애니메이션 감독 섭외', tag: 'career', noRes: 'toast',
   cond: s => coOn(s),
   init(s, d) {
-    coIn(d);
+    coSnapIn(d);
     if (d.c) return;
     const P = d.P, t = coT(s), L = coStaffPool(s, t, `adir:${P.kind}`, '애니메이션 감독'), back = P.seq && P.seq.prevDir !== 'me' && s.people[P.seq.prevDir];
     if (back && back.alive !== false && !L.includes(back)) L.unshift(back);
@@ -743,7 +743,7 @@ E({
   id: 'co_akey', cat: (s, d) => coCat(d, true), title: '작화감독 섭외', tag: 'career', noRes: 'toast',
   cond: s => coOn(s),
   init(s, d) {
-    coIn(d);
+    coSnapIn(d);
     if (d.c) return;
     const P = d.P, t = coT(s);
     d.c = coStaffPool(s, t, `akey:${P.kind}`, '애니메이터').map(x => ({ id: x.id, fee: coAKeyFee(P.kind, x), p: coVHireP(s, t, P, x, 'art') }));
@@ -769,7 +769,7 @@ E({
   id: 'co_ateam', cat: (s, d) => coCat(d, true), title: '원화 애니메이터 모으기', tag: 'career', noRes: 'toast',
   cond: s => coOn(s),
   init(s, d) {
-    coIn(d);
+    coSnapIn(d);
     if (d.c) return;
     const P = d.P, t = coT(s), key = coMkt(s, t, `akey:${P.kind}`, () => []), yk = coMkt(s, t, `ykey:${P.kind}`, () => null);
     const ids = coMkt(s, t, `team:${P.kind}`, () => { const L = []; while (L.length < 7) L.push(pickIndustry(s, '애니메이터', y => !L.includes(y) && !key.includes(y.id) && y.id !== yk, 0.4)); return L.map(x => x.id); });

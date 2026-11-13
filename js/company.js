@@ -494,9 +494,9 @@ E({
 E({
   id: 'co_auto_full', cat: '자동', title: '자리가 꽉 찼다', tag: 'career', keepPop: true,
   cond: s => coOn(s),
-  text: (s, d) => d.k.startsWith('trainer') ? `「${coFName(coT(s), d.f || coMainF(coT(s)))}」 트레이너 자리가 꽉 찼다 (${coStaff(s, 'trainer', d.f).length}/${coStaffCap(coT(s), 'trainer', d.f || coMainF(coT(s)))}명). 자동으로 트레이너 뽑기를 계속 켜 둘까?` : `${CO_FIELDS[d.k].n} 연습생 자리가 꽉 찼다 (${coTrainees(s, null, d.k).length}/${CO_TR_CAP[coTier(coT(s), d.k)]}명). 자동 오디션을 계속 켜 둘까?`,
+  text: (s, d) => d.k === 'mcn' ? `MCN 크리에이터 자리가 꽉 찼다 (${coCrs(s).length}/${CO_CR_CAP[coTier(coT(s), 'mcn')]}명). 자동 영입 후보를 계속 켜 둘까?` : d.k.startsWith('trainer') ? `「${coFName(coT(s), d.f || coMainF(coT(s)))}」 트레이너 자리가 꽉 찼다 (${coStaff(s, 'trainer', d.f).length}/${coStaffCap(coT(s), 'trainer', d.f || coMainF(coT(s)))}명). 자동으로 트레이너 뽑기를 계속 켜 둘까?` : `${CO_FIELDS[d.k].n} 연습생 자리가 꽉 찼다 (${coTrainees(s, null, d.k).length}/${CO_TR_CAP[coTier(coT(s), d.k)]}명). 자동 오디션을 계속 켜 둘까?`,
   ch: (s, d) => [
-    { t: '자동을 끈다', f: s => { coAuto(coT(s)).on[d.k] = false; return d.k.startsWith('trainer') ? '자동으로 트레이너 뽑기를 껐다.' : '자동 오디션을 껐다.'; } },
+    { t: '자동을 끈다', f: s => { coAuto(coT(s)).on[d.k] = d.k === 'mcn' ? 0 : false; return d.k === 'mcn' ? '자동 영입 후보를 껐다.' : d.k.startsWith('trainer') ? '자동으로 트레이너 뽑기를 껐다.' : '자동 오디션을 껐다.'; } },
     { t: '켜 둔다', h: '자리가 나면 다시 자동으로 연다', f: () => '' },
   ],
 });
@@ -2061,7 +2061,7 @@ function panel_group() {
   let h = `<h2>🏛️ ${U.esc(coGrpName(t))} <span class="muted" style="font-size:var(--fs-3)">${coRankName(t, rk)} · 회사 ${fs.length}곳</span></h2>`;
   h += infoTable([['그룹 등급', coRankName(t, rk)], ['그룹 전체 자본금', `${fmtWon(t.money)} (${fs.map(f => `${coFName(t, f)} ${fmtWon(t.f[f].money || 0)}`).join(' · ')})`], ['지난달 그룹 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`], ['모회사', `「${t.name}」`], ['입지', `${REGION_BY[coLocR(s, t)].n}${lb > 1 ? ` · 회사 일 +${Math.round((lb - 1) * 100)}%` : ''} · 집에서 ${coDistTxt(coDist(s, t))}`]]);
   h += `<div class="sec-h">소속 회사 <span class="n">${fs.length}곳 · 누르면 그 회사 창</span></div><div class="grp-cos">${fs.map(f => coBannerHTML(s, t, f, false, true)).join('')}</div>`;
-  h += `<div class="sec-h">출자 · 배당</div><p class="hint">출자: 모회사 자본금을 자회사로 보낸다 (등록면허세 ${coPctT(CO_REG_TAX)}~). 배당: 자회사의 쌓인 이익(지난 결산까지) 안에서 모회사로 올린다.</p>`;
+  h += `<div class="sec-h">출자 · 배당</div><p class="hint">출자: 모회사(${U.esc(t.name)}) → 자회사<br>배당: 자회사 → 모회사(${U.esc(t.name)})</p>`;
   h += subs.map(x => actRow({ emo: CO_FIELDS[x].ic, t: `「${coFName(t, x)}」`, h: `자본금 ${fmtWon(coM(t, x))} · 배당할 수 있는 돈 ${fmtWon(coDivMax(t, x))} · 모회사 자본금 ${fmtWon(coM(t, m))}`, opts: [
     { btn: '출자', on: true, ok: coM(t, m) > 0, run: s => { fireEvent(s, 'co_xfer', { dir: 'inv', f: x }); return ''; } },
     { btn: '배당', on: true, ok: coDivMax(t, x) > 0, run: s => { fireEvent(s, 'co_xfer', { dir: 'div', f: x }); return ''; } }] })).join('');
@@ -2281,11 +2281,12 @@ function coAutoMonth(s, t) {
   const A = coAuto(t);
   coAutoPrune(s);
   for (const f in A.q) { if (A.q[f] === 'co_aud_pick' ? coAudBusy(s, f) : hasQ(s, A.q[f])) A.nx[f] = s.t + 3; else delete A.q[f]; }
-  if (coShortF(t)) return;
+  // v188: 자본금이 바닥난 회사만 자동을 쉰다 (예전엔 회사 하나만 바닥나도 그룹 전체 자동이 멈췄다)
+  const neg = f => coM(t, f) < 0;
   // 자리가 꽉 찼으면 자동을 끌지 한 번 묻는다 (v131). 자리가 다시 나면 다음에 꽉 찰 때 또 묻는다
   A.full = A.full || {};
   // v169: CEO가 맡은 회사는 자동을 쓰지 않는다 (CEO가 직접 한다). CEO가 떠나면 예전 자동 설정이 다시 돈다
-  const TF = coTrFields(t).filter(f => !coCeo(t, f));
+  const TF = coTrFields(t).filter(f => !coCeo(t, f) && !neg(f));
   const fullAsk = (k, full, x) => { if (!A.on[k] || !full) { A.full[k] = false; return; } if (!A.full[k] && !hasQ(s, 'co_auto_full')) { A.full[k] = true; queueEv(s, 'co_auto_full', 0, Object.assign({ k }, x || {})); } };
   for (const f of TF) fullAsk(f, coTrRoom(s, t, f) <= 0);
   for (const f of TF) { const k = 'trainer_' + f; if (A.on[k] == null && A.on.trainer) A.on[k] = true; fullAsk(k, coStaff(s, 'trainer', f).length >= coStaffCap(t, 'trainer', f), { f }); }
@@ -2293,12 +2294,14 @@ function coAutoMonth(s, t) {
   // 트레이너 뽑기 (v131): 자리가 비어 있고, 자본금이 꼭 나가는 돈 6개월치 이상일 때 3개월마다 '어떤 트레이너를 뽑을까?' 창을 연다
   for (const f of TF) { const k = 'trainer_' + f; if (coTrAutoOn(A, f) && (A.nx[k] || 0) <= s.t && !coHireOK(s, 'trainer', f) && coM(t, f) >= coFixed(s, t, f) * CO_AUTO_RES) coAutoQ(s, A, k, 'co_hire_tf', { f }); }
   for (const [f, L, why, ev] of [['video', t.vw, coVWhy, 'co_vplan'], ['anime', t.aw, coAWhy, 'co_aplan']]) {
-    if (!t.f[f] || !A.on[f] || coCeo(t, f) || why(s, t)) continue;
+    if (!t.f[f] || !A.on[f] || coCeo(t, f) || neg(f) || why(s, t)) continue;
     if (A.want[f] || (!L.length && (A.nx[f] || 0) <= s.t)) { A.want[f] = false; coAutoQ(s, A, f, ev, {}); }
   }
-  if (t.f.mcn && A.on.mcn && !coCeo(t, 'mcn') && (A.nx.mcn || 0) <= s.t && !coMcnWhy(s, t)) coAutoQ(s, A, 'mcn', 'co_mscout', { cut: A.on.mcn });
+  // v188: 크리에이터 자리가 꽉 차면 (예전엔 말없이 안 열렸다) 자동을 끌지 묻는다
+  if (t.f.mcn && !coCeo(t, 'mcn')) fullAsk('mcn', coCrs(s).length >= CO_CR_CAP[coTier(t, 'mcn')]);
+  if (t.f.mcn && A.on.mcn && !coCeo(t, 'mcn') && !neg('mcn') && (A.nx.mcn || 0) <= s.t && !coMcnWhy(s, t)) coAutoQ(s, A, 'mcn', 'co_mscout', { cut: A.on.mcn });
   // MCN 행동 (v178): 합동 콘텐츠 · 굿즈 판매는 창 없이 바로 (기록만), 개인 행사는 누구 것을 열지 고르는 창을 연다
-  if (t.f.mcn && !coCeo(t, 'mcn')) {
+  if (t.f.mcn && !coCeo(t, 'mcn') && !neg('mcn')) {
     const res = coFixed(s, t, 'mcn') * CO_AUTO_RES, mo = coM(t, 'mcn');
     if (A.on.mcoll && !coMcnCollWhy(s, t) && mo >= CO_MCOLLAB + res) addRes(s, coMcnCollab(s, t));
     if (A.on.mgoods && !coMcnGoodsWhy(s, t) && coM(t, 'mcn') >= coMcnGoodsCost(s) + res) addRes(s, coMcnGoods(s, t));

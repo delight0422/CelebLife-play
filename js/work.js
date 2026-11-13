@@ -286,21 +286,15 @@ function grade5(viewer, v, kind = 'pot', k) {
 }
 function potGrade(viewer, target, k) { return has(target, k) ? grade5(viewer, target.sk[k].pot, 'pot', k) : ''; }
 // v181: 성장성은 글자 대신 막대 그림으로 보인다. 글 속에 표시(\u0005 … \u0006)를 넣으면 그리는 곳에서 막대로 바꾼다 (ui.js potH)
-// v186: 막대 개수 = 어디까지 클지(성장성), 칠한 칸 = 지금 레벨. 둘 다 20레벨마다 한 칸 (1~20 한 칸 … 81~100 다섯 칸)
-//   성장성은 범위로 본다: 보는 눈(스카우트 60% + 그 분야 특기 40%)이 좋을수록 범위가 좁다 (폭 50 → 5). 범위 아래쪽까지는 확실한 칸, 위쪽까지는 될 수도 있는 칸
-//   표시: 'fab' = 칠한 칸 f · 확실한 칸까지 a · 될 수도 있는 칸까지 b, '?f' = 어디까지 클지 모른다 (볼 눈이 없다)
-function potW(viewer, k) { return Math.max(5, Math.round(50 - 45 * U.clamp(scoutLv(viewer, k), 0, 100) / 100)); }
+// v188: 칠한 칸 = 지금 레벨 (20레벨마다 한 칸, 1~20 한 칸 … 81~100 다섯 칸), 칸 수 = 포텐 (예전 성장성 5단계: 매우 낮음 1칸 ~ 매우 높음 5칸)
+//   포텐 단계는 예전 그대로 보는 눈(스카우트 60% + 그 분야 특기 40%)이 좋을수록 '보통'의 폭이 좁아진다 (grade5). 칠한 칸 색은 포텐 칸 수마다 다르다 (ui.js)
+//   표시: 'fp' = 칠한 칸 f · 포텐 p, '?f' = 포텐을 모른다 (볼 눈이 없다)
 function lvBars(L) { return U.clamp(Math.ceil(L / 20), 1, 5); }
 function potSpec(viewer, target, k, exact, unk) {
   if (!has(target, k)) return '';
   const L = lvi(target, k), r = exact ? [L, L] : lvRange(viewer, target, k), f = lvBars((r[0] + r[1]) / 2);
   if (unk) return '?' + f;
-  const w = potW(viewer, k), pot = Math.max(target.sk[k].pot || 0, L);
-  let lo = pot - hashN(target.id + k + viewer.id + ':pot') % (w + 1), hi = lo + w;
-  if (hi > 100) { lo -= hi - 100; hi = 100; }
-  lo = Math.max(lo, r[0]); hi = Math.max(hi, lo);
-  const a = Math.max(f, lvBars(lo)), b = Math.max(a, lvBars(hi));
-  return `${f}${a}${b}`;
+  return `${f}${GRADE_W.pot.indexOf(grade5(viewer, target.sk[k].pot || 0, 'pot', k)) + 1}`;
 }
 // exact: 레벨을 정확히 보는 사이 · unk: 어디까지 클지 모른다 (보통 !canScout)
 function potTok(viewer, target, k, exact, unk) { const g = potSpec(viewer, target, k, exact, unk); return g ? '\u0005' + g + '\u0006' : ''; }

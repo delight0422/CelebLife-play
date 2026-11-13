@@ -1560,11 +1560,15 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .potv { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; margin-left: 6px; vertical-align: -1px; flex: 0 0 auto; }
 .potv i { display: block; width: 5px; border-radius: 1px; background: #e4dff0; }
 .potv i:nth-child(1) { height: 4px; } .potv i:nth-child(2) { height: 6px; } .potv i:nth-child(3) { height: 8px; } .potv i:nth-child(4) { height: 10px; } .potv i:nth-child(5) { height: 12px; }
-/* v186: 칸 수 = 어디까지 클지, 칠한 칸 = 지금 레벨 */
+/* v188: 칠한 칸 = 지금 레벨, 칸 수 = 포텐. 칠한 칸 색은 포텐마다 (1 검정 · 2 하늘 · 3 보라 · 4 노랑 · 5 초록), 모르면 회색 + ? */
 .potv i.on { background: #7558e8; }
-.potv i.cap { background: #d6cbfa; }
-.potv i.may { background: transparent; box-shadow: inset 0 0 0 1px #a993f0; }
-.potv i.unk { background: transparent; box-shadow: inset 0 0 0 1px #cfc9dc; }
+.potv.p1 i.on { background: #26232e; }
+.potv.p2 i.on { background: #2f9be8; }
+.potv.p3 i.on { background: #8a52f0; }
+.potv.p4 i.on { background: #f0b400; }
+.potv.p5 i.on { background: #3dbb3d; }
+.potv.unk i.on { background: #aaa5b8; }
+.potv b { font-size: 10px; line-height: 12px; font-weight: 700; color: #aaa5b8; margin-left: 1px; }
 .pi-sk .potv { margin-left: 8px; }
 /* 만든 작품 칸의 공개 예정 줄 (v181) */
 .ms.rel { color: var(--ink); }
