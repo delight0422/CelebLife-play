@@ -55,7 +55,7 @@ function turnGo(max) {
   if (UI.overlay) closePanel();
   const p = me(s);
   // 요약에는 이번에 넘어간 동안 생긴 일만 넣는다 (창에서 고른 결과 · 버튼으로 한 일은 이미 아는 일이라 넣지 않는다)
-  UI.turn = { max, kid: !slotCount(s), n: 0, last: s.log[s.log.length - 1] || null, t0: s.t, inbox: new Set(s.inbox.map(m => m.id)), money: s.money, fans: totalFans(s), stress: Math.round(s.stress), g0: growSnap(s), why: '', co: trackOn(s, 'agency') ? s.tracks.agency.money : null, inc: (MONEY_TAP = {}) };
+  UI.turn = { max, kid: !slotCount(s), n: 0, last: s.log[s.log.length - 1] || null, t0: s.t, inbox: new Set(s.inbox.map(m => m.id)), money: s.money, fans: totalFans(s), stress: Math.round(s.stress), g0: growSnap(s), why: '', co: trackOn(s, 'agency') ? s.tracks.agency.money : null, inc: (MONEY_TAP = {}), acc0: ledSnapA(s), gf0: ledGF(s) };
   $('#tcard').innerHTML = turnRunHTML(s);
   $('#turn').classList.remove('hidden');
   UI.timer = setTimeout(turnStep, TURN_MS);
@@ -136,7 +136,62 @@ function tsItemHTML(s, x, mo) {
 }
 // 기록의 제목 (창 없이 처리된 사건의 제목). 예전 세이브의 창 준비 표시(알 수 없는 글자)는 빼고
 function logSp(x) { return x && x.sp && !(x.tk == null && /^[a-z0-9]{5,9}$/.test(x.sp)) ? x.sp : ''; }
-// v202: 결산표 — 🏆 성과 (무엇 · 결과 · 바뀐 평가) 표, 💰 들어온 돈 표
+// v204: 결산표 — CEO 보고서 같은 종이 한 장. 대상(나 · 그룹 · 회사)마다 표 하나: 왼쪽 위에 대상, 오른쪽에 수입 · 지출 · 팬 · 평가, 왼쪽에 활동
+//   사건 줄(s.led)은 game.js ledPop이 남긴다. 사건에 들지 않은 돈 · 팬(월급 · 생활비 · 운영비 · 매달 늘고 준 팬)은 '그 밖에' 줄로 채워, 합계가 실제로 바뀐 만큼이 되게 한다
+//   돈: 나는 내 돈, 그룹 · 회사는 회사 돈. 평가: 나는 바뀐 평가 · 평판 · 인지도, 그룹 · 회사는 회사 평판. 결과 글(성과)은 활동 아래 작게. 줄이 없는 성과는 맨 아래 '그 밖의 성과'
+function ledWon(v) { v = Math.round(Math.abs(v)); return v >= 1e8 ? `${(Math.round(v / 1e7) / 10).toLocaleString()}억` : v >= 1e4 ? `${Math.round(v / 1e4).toLocaleString()}만` : `${v.toLocaleString()}원`; }
+function ledFans(v) { const a = Math.abs(Math.round(v)); return (v >= 0 ? '+' : '−') + (a >= 1e4 ? `${(Math.round(a / 1e3) / 10).toLocaleString()}만` : a.toLocaleString()); }
+function tsLed(s, T, P, W, inc, mo, range) {
+  // 지난 결산표 뒤로 생긴 일 모두 (진행을 멈춘 창 · 진행 전에 고르고 누른 일도 다음 결산표에). 지금 떠 있는 창 몫은 그 창을 본 뒤 다음 결산표로
+  const pre = P && P.pre, E = pre && pre.acc ? pre.acc : ledSnapA(s), GF = pre && pre.gf ? pre.gf : ledGF(s), MK = s.ledMk, A0 = MK ? MK.a : T.acc0 || E, GF0 = MK ? MK.gf : T.gf0 || GF, F0 = MK ? MK.fans : T.fans, FE = pre ? pre.fans : totalFans(s);
+  const R = (s.led || []).filter(r => !r.sh && r.t > s.t - 36 && !(P && (r.tok === P.tok || (P.d && r.tok === P.d._lt))));
+  if (new Set(R.map(r => r.t)).size > 1) mo = true;
+  const logOf = new Map(); for (const x of W) if (x.lt) logOf.set(x.lt, x);
+  const tabs = new Map(), tb = o => { if (!tabs.has(o.k)) tabs.set(o.k, Object.assign({ rows: [] }, o)); return tabs.get(o.k); };
+  const sum = (L, f) => L.reduce((a, r) => a + (f(r) || 0), 0), cio = (r, k) => Object.values(r.c || {}).reduce((a, c) => a + c[k], 0);
+  const repTx = v => Math.abs(v) >= 0.05 ? `평판 ${v > 0 ? '+' : ''}${Math.round(v * 10) / 10}` : '';
+  for (const r of R) {
+    const me = r.k === 'me';
+    tb({ k: r.k, n: r.n, kd: r.kd, ic: r.ic, g: r.g, f: r.f }).rows.push({ t: r.t, a: (me && r.j && CAREERS[r.j] ? jobName(r.j) + ' · ' : '') + r.a, inc: me ? r.pi : cio(r, 'i'), exp: me ? r.po : cio(r, 'o'), fans: r.fans, ev: me ? (r.dv || []).map(([k, d]) => `${k} ${d > 0 ? '+' : ''}${d}`).join(' · ') : repTx(r.rep), lg: logOf.get(r.tok), x: r.x });
+  }
+  // 나: 사건에 들지 않은 돈 · 팬
+  const meR = R.filter(r => r.k === 'me'), oi = Math.max(0, E.pi - A0.pi - sum(meR, r => r.pi)), oe = Math.max(0, E.po - A0.po - sum(meR, r => r.po)), of = Math.round(FE - F0 - sum(meR, r => r.fans));
+  if (oi >= 1 || oe >= 1 || of) { const rg = inc.filter(([, o]) => o.reg).slice(0, 3).map(([k]) => k); tb({ k: 'me', n: me(s).name, kd: '나', ic: '👤' }).rows.push({ other: true, a: '그 밖에', sub: `${rg.length ? `매달 들어오는 돈(${rg.join(' · ')}) · ` : ''}생활비 · 학원비 · 늘고 준 팬 등`, inc: oi, exp: oe, fans: of }); }
+  if (ledCoOn(s)) {
+    const t = coT(s), rest = [];
+    for (const g of t.groups || []) {
+      const k = 'g:' + g.id, d = GF[g.id] != null && GF0[g.id] != null ? GF[g.id] - GF0[g.id] : 0, o = Math.round(d - sum(R.filter(r => r.k === k), r => r.fans));
+      if (tabs.has(k)) { if (o) tabs.get(k).rows.push({ other: true, a: '그 밖에', sub: '매달 늘고 준 팬', fans: o }); }
+      else if (Math.round(d)) { const G = ledGT(g); rest.push({ a: `${G.ic} 「${g.name}」 · ${G.kd}`, fans: d }); }
+    }
+    if (rest.length) tb({ k: 'grest', n: '다른 그룹 · 기수', kd: '이번에 활동이 없었다 · 매달 늘고 준 팬', ic: '👥' }).rows.push(...rest);
+    const disp = R.filter(r => r.k !== 'me');
+    for (const f of coFields(t)) {
+      const e = E.c[f] || { i: 0, o: 0 }, a0 = A0.c[f] || { i: 0, o: 0 }, ci = Math.max(0, e.i - a0.i - sum(disp, r => (r.c[f] || {}).i)), co = Math.max(0, e.o - a0.o - sum(disp, r => (r.c[f] || {}).o));
+      if (ci >= 1 || co >= 1) tb(ledCT(t, f)).rows.push({ other: true, a: '그 밖에', sub: '운영비 · 직원 월급 · 연습생 비용 · 매달 들어오는 수익 등', inc: ci, exp: co });
+    }
+  }
+  const ord = k => k === 'me' ? 0 : /^g:/.test(k) ? 1 : k === 'grest' ? 2 : 3, TB = [...tabs.values()].sort((a, b) => ord(a.k) - ord(b.k));
+  const cell = (v, cls, f) => v && Math.abs(v) >= 1 ? `<td class="${cls}">${f(v)}</td>` : '<td class="led-0">-</td>';
+  const row = (x, last) => `<tr class="${x.other ? 'led-o' : ''}"><td class="led-a">${mo && x.t != null ? `<span class="led-mo">${ymOfT(s, x.t).m}월</span>` : ''}${U.esc(x.a)}${x.lg ? `<div class="led-x">${U.esc(String(x.lg.x || '').replace(/<[^>]+>/g, '').split('\n')[0])}${x.lg.lv ? liveBtnHTML(x.lg.lv, '무대 보기') : ''}${x.lg.pl ? plioBtnHTML(x.lg.pl) : ''}</div>` : x.x ? `<div class="led-x">${U.esc(x.x)}</div>` : x.sub ? `<div class="led-x">${U.esc(x.sub)}</div>` : ''}</td>`
+    + cell(x.inc, 'pos', v => '+' + ledWon(v)) + cell(x.exp, 'neg', v => '−' + ledWon(v)) + cell(x.fans, x.fans > 0 ? 'pos' : 'neg', ledFans) + `<td class="led-ev">${U.esc(x.ev || '') || '<span class="led-0">-</span>'}</td></tr>`;
+  let h = '', ow = '';
+  for (const B of TB) {
+    const si = sum(B.rows, x => x.inc), se = sum(B.rows, x => x.exp), sf = Math.round(sum(B.rows, x => x.fans)), money = B.k !== 'grest';
+    h += `<table class="led-t"><thead><tr><th class="led-who">${B.ic || ''} ${U.esc(B.k === 'me' || B.k === 'grest' ? B.n : `「${B.n}」`)}<span>${U.esc(B.kd || '')}</span></th><th>수입</th><th>지출</th><th>팬</th><th>평가</th></tr></thead><tbody>${B.rows.map(x => row(x)).join('')}</tbody>`
+      + (B.rows.length > 1 ? `<tfoot><tr><td class="led-a">합계${money && (si || se) ? ` <span class="led-net ${si - se >= 0 ? 'pos' : 'neg'}">${si - se >= 0 ? '남은 돈 +' : '손해 −'}${ledWon(si - se)}</span>` : ''}</td>${cell(si, 'pos', v => '+' + ledWon(v))}${cell(se, 'neg', v => '−' + ledWon(v))}${cell(sf, sf > 0 ? 'pos' : 'neg', ledFans)}<td></td></tr></tfoot>` : '') + `</table>`;
+  }
+  // 줄이 없는 성과 (시상식 · 1위처럼 돈 · 팬이 바로 바뀌지 않은 것)
+  const used = new Set(R.map(r => r.tok)), OW = W.filter(x => !(x.lt && used.has(x.lt)));
+  if (OW.length) ow = `<div class="ts-sec">🏆 그 밖의 성과</div><div class="ts-box win">` + OW.map(x => tsItemHTML(s, x, mo).replace('</span></div>', `${x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}</span></div>`)).join('') + `</div>`;
+  // 여기까지 보여 줬다 (다음 결산표는 여기서부터)
+  s.ledMk = { a: E, gf: GF, fans: FE }; for (const r of R) r.sh = 1;
+  if (!h && !ow) return { n: 0, html: `<div class="empty">이번에는 결산할 일이 없다.</div>` };
+  // 기간: 지난 결산표 뒤로 처음 생긴 일부터 지금까지
+  const t1 = Math.min(T.t0 + 1, ...R.map(r => r.t)), a1 = ymOfT(s, t1), b1 = ymOfT(s, s.t), rg = t1 >= s.t ? `${b1.y}년 ${b1.m}월` : `${a1.y}년 ${a1.m}월 ~ ${a1.y === b1.y ? '' : b1.y + '년 '}${b1.m}월`;
+  return { n: R.length + OW.length, html: `<div class="ceo-rep led"><div class="rep-doc-h">🧾 결산표 <span>${U.esc(rg || range || '')}</span></div>${h ? `<div class="led-wrap">${h}</div>` : ''}${ow}</div>` };
+}
+// (v202 결산표 — 쓰지 않는다)
 function tsResHTML(s, W, inc, dm, mo) {
   let h = `<div class="ts-sec">🏆 성과</div>`;
   if (!W.length) h += `<div class="empty">이번에는 성과가 없다.</div>`;
@@ -177,9 +232,9 @@ function turnSumHTML(s, T) {
   //   (실시간 창 · 결과 기사로 뜨는 것은 그대로 따로 뜬다). 마지막에 본 장을 기억하고, 그 장이 비었으면 다른 장을 먼저 연다
   const W = box.win || []; delete box.win;
   const inc = Object.entries(T.inc || {}).filter(([k, o]) => o.v > 0 && !(pre && pre.tap && pre.tap[k])).sort((a, b) => b[1].v - a[1].v);
-  const mo = T.n > 1, nEv = Object.values(box).reduce((a, B) => a + B.length, 0), nRes = W.length;
+  const mo = T.n > 1, nEv = Object.values(box).reduce((a, B) => a + B.length, 0), LG = tsLed(s, T, P, W, inc, mo, range), nRes = LG.n;
   let tab = UI.tsTab === 'res' ? 'res' : 'ev';
-  if (tab === 'ev' && !nEv && (nRes || inc.length)) tab = 'res'; else if (tab === 'res' && !nRes && !inc.length && nEv) tab = 'ev';
+  if (tab === 'ev' && !nEv && nRes) tab = 'res'; else if (tab === 'res' && !nRes && nEv) tab = 'ev';
   h += `<div class="ap-row pf-tabs ts-tabs"><button class="ap-tab${tab === 'ev' ? ' on' : ''}" data-tstab="ev">✨ 특별한 일${nEv ? ` <span class="ap-n">${nEv}</span>` : ''}</button><button class="ap-tab${tab === 'res' ? ' on' : ''}" data-tstab="res">🧾 결산표${nRes ? ` <span class="ap-n">${nRes}</span>` : ''}</button></div>`;
   h += `<div class="ts-body${tab === 'ev' ? '' : ' hidden'}" data-tsp="ev">`;
   if (!nEv) h += `<div class="empty">특별한 일 없이 지나갔다.${nRes ? ' 성과는 결산표에 있다.' : ''}</div>`;
@@ -191,7 +246,7 @@ function turnSumHTML(s, T) {
   if (dlg.length) h += `<details class="ts-more ts-dl"><summary>🤝 맡긴 일 ${dlg.length}건</summary>${dlg.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   if (flav.length) h += `<details class="ts-more" open><summary>☕ 일상 ${flav.length}건</summary>${flav.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   h += `</div>`;
-  h += `<div class="ts-body${tab === 'res' ? '' : ' hidden'}" data-tsp="res">${tsResHTML(s, W, inc, dm, mo)}</div>`;
+  h += `<div class="ts-body${tab === 'res' ? '' : ' hidden'}" data-tsp="res">${LG.html}</div>`;
   const why = T.why === 'ev' ? '📌 결정할 일이 생겼다' : T.why === 'msg' ? '📨 새 메시지가 왔다' : T.why === 'warn' ? '⚠️ 살펴볼 일이 생겼다' : '';
   if (why) h += `<div class="ts-why">${why}</div>`;
   h += `<div class="choices ts-btns">${T.why === 'msg' ? `<button class="btn" data-turnok="inbox">📨 메시지함 열기</button>` : ''}<button class="btn primary" data-turnok="">확인 <kbd>Space</kbd></button></div>`;

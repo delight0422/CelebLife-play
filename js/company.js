@@ -169,8 +169,10 @@ function coSync(t) { t.money = coFields(t).reduce((a, f) => a + (t.f[f].money ||
 function coLedF(F, label, v) { F.L = F.L || {}; F.Y = F.Y || {}; F.L[label] = (F.L[label] || 0) + v; F.Y[label] = (F.Y[label] || 0) + v; }
 // inner: 회사끼리 옮긴 돈은 그 회사 장부에만 적는다
 function coLed(t, label, v, f, inner) { v = Math.round(v); if (!v) return; if (!inner) { t.L[label] = (t.L[label] || 0) + v; t.Y[label] = (t.Y[label] || 0) + v; } const F = coF(t, f); if (F) coLedF(F, label, v); }
-function coIn(t, v, label, f) { v = Math.round(v); if (!(v > 0)) return 0; const F = coF(t, f); F.money = (F.money || 0) + v; coSync(t); coLed(t, label, v, f); return v; }
-function coOut(t, v, label, f) { v = Math.round(v); if (!(v > 0)) return 0; const F = coF(t, f); F.money = (F.money || 0) - v; coSync(t); coLed(t, label, -v, f); return v; }
+// v204: 결산표 장부 (game.js ledCo) — 내가 넣고 꺼낸 돈 · 출자 · 배당은 회사 사이를 오간 돈이라 세지 않는다
+function coLedA(t, label, v, f) { if (typeof S !== 'undefined' && S && !CO_IO.includes(label)) ledCo(S, coFk(t, f), v); }
+function coIn(t, v, label, f) { v = Math.round(v); if (!(v > 0)) return 0; const F = coF(t, f); F.money = (F.money || 0) + v; coSync(t); coLed(t, label, v, f); coLedA(t, label, v, f); return v; }
+function coOut(t, v, label, f) { v = Math.round(v); if (!(v > 0)) return 0; const F = coF(t, f); F.money = (F.money || 0) - v; coSync(t); coLed(t, label, -v, f); coLedA(t, label, -v, f); return v; }
 function coSum(L) { let inc = 0, exp = 0; for (const k in L || {}) { if (CO_IO.includes(k)) continue; if (L[k] > 0) inc += L[k]; else exp -= L[k]; } return { inc, exp, net: inc - exp }; }
 // 법인세를 매길 순이익: 법인세 낸 돈 · 돌려받은 돈은 빼고 센다
 function coTaxBase(L) { let n = 0; for (const k in L || {}) { if (CO_IO.includes(k) || CO_TAXL.includes(k)) continue; n += L[k]; } return n; }
@@ -352,7 +354,7 @@ E({
   }).concat([{ t: '그만 뽑는다', h: '나중에 회사 창에서 뽑을 수 있다', f: () => '' }]),
 });
 E({
-  id: 'co_found', cat: '창업', title: (s, d) => d.sub ? `${coGrpFirst(coT(s)) ? '자회사 · 그룹' : '자회사'} 이름 짓기 · ${CO_FIELDS[d.f].n}` : `회사 이름 · 입지 · ${CO_FIELDS[d.f].n}`, tag: 'career',
+  id: 'co_found', cat: '창업', ledA: (s, d) => d.sub ? '자회사 세우기' : '회사 차리기 (설립 등기)', title: (s, d) => d.sub ? `${coGrpFirst(coT(s)) ? '자회사 · 그룹' : '자회사'} 이름 짓기 · ${CO_FIELDS[d.f].n}` : `회사 이름 · 입지 · ${CO_FIELDS[d.f].n}`, tag: 'career',
   init(s, d) { d.name = d.sub ? coSubName(coT(s), d.f) : coName(d.f); },
   text: (s, d) => d.sub ? `${coGrpFirst(coT(s)) ? `첫 자회사를 세우면 「${coT(s).name}」은 모회사가 되고, 회사들이 한 그룹으로 묶인다. 그룹 이름도 정한다.\n\n` : ''}${coGrpName(coT(s))}의 새 ${josa(CO_FIELDS[d.f].n, '을를')} 세운다. 모회사가 ${fmtWon(CO_ADD_COST)}을 출자한다 (등록면허세는 자회사가 낸다).\n\n모회사 자본금 ${fmtWon(coM(coT(s)))}`
     : `내 ${josa(CO_FIELDS[d.f].n, '을를')} 차린다. 어디에 차릴지 고르고 자본금을 정한다. 자본금은 내 돈에서 옮겨진다.\n\n입지가 좋을수록 일이 잘 풀리지만 자본금이 더 있어야 하고 사무실 임대료도 비싸다. 집에서 멀면 내가 직접 하는 회사 일이 덜 된다.\n\n내 돈 ${fmtWon(s.money)} · 지금 사는 곳 ${REGION_BY[s.region].n}`,
@@ -1506,7 +1508,7 @@ function coAlbumCard(s, t, g, o, r) {
 }
 E({
   // v131: 내가 아이돌일 때처럼 늘 창으로 뜬다 (예전엔 요약에만 남았다). 아이돌 그룹은 무대 창도 먼저 나온다
-  id: 'co_res', cat: '앨범 성적', tag: 'career', keepPop: true,
+  id: 'co_res', cat: '앨범 성적', tag: 'career', keepPop: true, ledA: (s, d) => { const g = coGroup(s, d.gid); return `${g && g.proj ? '프로젝트' : d.r && d.r.debut ? '데뷔' : '컴백'} 앨범 「${d.title}」`; },
   plio: (s, d) => typeof plioSong === 'function' ? plioSong(s, d, 'co') : null,
   // v177: 전담 프로듀서에게 맡긴 그룹 · CEO가 맡은 회사의 그룹은 무대 창 없이 결과 기사만 (무대는 기사 안 '무대 다시 보기'로 볼 수 있다)
   live: (s, d) => { const g = coGroup(s, d.gid); return g && (coGProd(s, g) || coCeo(coT(s), coFOfKind(g.kind))) ? null : d.card && d.card.live; },
@@ -1812,7 +1814,8 @@ function coVActs(s, t, g) {
 function coVAutoBtn(g, k) { const on = !!(g.auto || {})[k]; return { btn: on ? '🔁 자동 켜짐' : '🔁 자동', on, ok: true, run: () => { (g.auto = g.auto || {})[k] = !on; return ''; } }; }
 function coVGoodsCost(s, g) { return CO_VGOODS * coP(s, g.members).length; }
 function coVGoodsWhy(s, t, g) { return g.goodsT > s.t ? `${g.goodsT - s.t}개월 뒤에 다시 낼 수 있다` : coM(t, 'vidol') < coVGoodsCost(s, g) ? '자본금이 모자라다' : ''; }
-function coVGoods(s, t, g) {
+function coVGoods(s, t, g) { return ledWrap(s, ledGT(g), '굿즈', () => coVGoods0(s, t, g)); }
+function coVGoods0(s, t, g) {
   const c = coVGoodsCost(s, g);
   g.goodsT = s.t + 6; coOut(t, c, '굿즈 제작비', 'vidol');
   const inc = coVSubs(s, g) * U.fl(300, 600) * (coSalesOn(s, t, 'vidol') ? coWithCeo(s, t, 'vidol', () => coSalesM(s, 1.3)) : 1) * (1 + 0.3 * coMkc(s, 'vidol'));
@@ -1823,7 +1826,8 @@ function coVLiveWhy(s, t, g) {
   const P = coP(s, g.members), sub = coVSubs(s, g), all3d = P.every(x => x.co.d3);
   return g.liveT > s.t ? `${g.liveT - s.t}개월 뒤에 다시 열 수 있다` : !all3d ? '멤버 모두 3D 모델이 있어야 한다' : sub < CO_VLIVE.min ? `기수 구독자가 ${fmtFans(CO_VLIVE.min)}을 넘어야 한다` : !coMk(s, 'vidol') ? CO_MK_NO : coM(t, 'vidol') < CO_VLIVE.cost ? '자본금이 모자라다' : '';
 }
-function coVLive(s, t, g, quiet) {
+function coVLive(s, t, g, quiet) { return ledWrap(s, ledGT(g), '3D 라이브 콘서트', () => coVLive0(s, t, g, quiet)); }
+function coVLive0(s, t, g, quiet) {
   const P = coP(s, g.members), sub = coVSubs(s, g);
   {
     g.liveT = s.t + 12; coOut(t, CO_VLIVE.cost, '3D 라이브 제작비', 'vidol');
@@ -1848,7 +1852,8 @@ const CO_GGOODS = CO_VGOODS, CO_GLIVE = { cost: 2e8, min: 20e4 };
 function coGActGrps(t) { return t.groups.filter(g => g.kind !== 'vt' && g.debuted && !g.proj); }
 function coGGoodsCost(s, g) { return CO_GGOODS * coP(s, g.members).length; }
 function coGGoodsWhy(s, t, g) { return !g.debuted ? '데뷔한 뒤에 낼 수 있다' : g.goodsT > s.t ? `${g.goodsT - s.t}개월 뒤에 다시 낼 수 있다` : coM(t, 'music') < coGGoodsCost(s, g) ? '자본금이 모자라다' : ''; }
-function coGGoods(s, t, g) {
+function coGGoods(s, t, g) { return ledWrap(s, ledGT(g), '굿즈', () => coGGoods0(s, t, g)); }
+function coGGoods0(s, t, g) {
   const c = coGGoodsCost(s, g);
   g.goodsT = s.t + 6; coOut(t, c, '굿즈 제작비', 'music');
   const inc = Math.round(coGFans(g) * U.fl(300, 600) * (coSalesOn(s, t, 'music') ? coWithCeo(s, t, 'music', () => coSalesM(s, 1.3)) : 1) * (1 + 0.3 * coMkc(s, 'music')));
@@ -1856,7 +1861,8 @@ function coGGoods(s, t, g) {
   return `「${g.name}」 굿즈를 냈다. 매출 ${fmtWon(inc)} (제작비 ${fmtWon(c)}).`;
 }
 function coGLiveWhy(s, t, g) { return !g.debuted ? '데뷔한 뒤에 열 수 있다' : g.liveT > s.t ? `${g.liveT - s.t}개월 뒤에 다시 열 수 있다` : coGFans(g) < CO_GLIVE.min ? `그룹 팬이 ${fmtFans(CO_GLIVE.min)}을 넘어야 한다` : !coMk(s, 'music') ? CO_MK_NO : coM(t, 'music') < CO_GLIVE.cost ? '자본금이 모자라다' : ''; }
-function coGLive(s, t, g, quiet) {
+function coGLive(s, t, g, quiet) { return ledWrap(s, ledGT(g), '단독 콘서트', () => coGLive0(s, t, g, quiet)); }
+function coGLive0(s, t, g, quiet) {
   const P = coP(s, g.members), fans = coGFans(g), band = g.kind === 'band';
   g.liveT = s.t + 12; coOut(t, CO_GLIVE.cost, '콘서트 제작비', 'music');
   const avg = P.reduce((a, x) => a + (band ? lv(x, x.co.part || 'vocal') * 0.7 + lv(x, 'vocal') * 0.3 : lv(x, 'vocal') * 0.4 + lv(x, 'dance') * 0.4 + lv(x, 'variety') * 0.2), 0) / Math.max(1, P.length);
@@ -2038,7 +2044,8 @@ E({
 // v178: 셋 다 '🔁 자동'을 켤 수 있다 (자동 탭과 같은 스위치). 합동 콘텐츠 · 굿즈는 창 없이 바로 하고 기록만, 개인 행사는 누구 것을 열지 고르는 창을 연다
 function coMcnBig(s) { return coCrs(s).filter(x => x.yt.subs >= 5e4); }
 function coMcnCollWhy(s, t) { return t.mcollT > s.t ? `${t.mcollT - s.t}개월 뒤에 다시 할 수 있다` : coCrs(s).length < 2 ? '크리에이터가 두 명 이상 있어야 한다' : coM(t, 'mcn') < CO_MCOLLAB ? '자본금이 모자라다' : ''; }
-function coMcnCollab(s, t) {
+function coMcnCollab(s, t) { return ledWrap(s, ledCT(t, 'mcn'), '합동 콘텐츠', () => coMcnCollab0(s, t)); }
+function coMcnCollab0(s, t) {
   const L = coCrs(s); t.mcollT = s.t + 6; coOut(t, CO_MCOLLAB, '합동 콘텐츠', 'mcn');
   let g = 0; for (const x of L) { const b = x.yt.subs; x.yt.subs = Math.round(b * U.fl(1.03, 1.08)); x.yt.tg = Math.round(x.yt.tg * U.fl(1.01, 1.03)); g += x.yt.subs - b; }
   coVRepF(t, 'mcn', 0.5);
@@ -2047,7 +2054,8 @@ function coMcnCollab(s, t) {
 // 굿즈 판매: 구독자 5만 명이 넘는 크리에이터 모두의 굿즈를 만든다. 제작비는 회사가 내고, 판 돈은 계약한 몫대로 나눈다 (1년에 한 번)
 function coMcnGoodsCost(s) { return coMcnBig(s).length * CO_MGOODS; }
 function coMcnGoodsWhy(s, t) { return t.mgoodsT > s.t ? `${t.mgoodsT - s.t}개월 뒤에 다시 할 수 있다` : !coMcnBig(s).length ? '구독자 5만 명이 넘는 크리에이터가 있어야 한다' : coM(t, 'mcn') < coMcnGoodsCost(s) ? '자본금이 모자라다' : ''; }
-function coMcnGoods(s, t) {
+function coMcnGoods(s, t) { return ledWrap(s, ledCT(t, 'mcn'), '크리에이터 굿즈 판매', () => coMcnGoods0(s, t)); }
+function coMcnGoods0(s, t) {
   const B = coMcnBig(s), cost = coMcnGoodsCost(s); t.mgoodsT = s.t + 12; coOut(t, cost, '굿즈 제작비', 'mcn');
   let u = 0, inc = 0; const mk = 1 + 0.3 * coMkc(s, 'mcn');
   for (const x of B) { const n = Math.round(mcnGoodsUnits(x.yt.subs, x.yt.mode === 'vt') * mk); u += n; inc += n * MCN_GOODS_PER * x.co.cut; }

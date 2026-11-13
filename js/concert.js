@@ -101,12 +101,12 @@ function ccAutoTalk(s, g, set) {
 // 기대 관객 수 (두 번 공연을 합친 것): 그룹 팬 수 × 팬 충성도(0이면 0.4배 · 50이면 1배 · 100이면 1.6배) × 입장료(쌀수록 많이)
 function ccDemand(s, g, price, r) { return coGFans(g) * 0.05 * (0.4 + loyOf(g) / 100 * 1.2) * Math.pow(121000 / price, 1.3) * (1 + 0.15 * coMkc(s, 'music')) * (r == null ? 1 : r); }
 // v203: 마케터의 예상 수요 (공연장 · 입장료 창 아래). 실제 관객은 예상 수요 × 0.85~1.15 (ccRun)
-//   마케터 실력(사업)의 곡선 c가 높을수록 덜 빗나가고(빗나감은 기획마다 한 번 정한다, 마케터가 바뀌면 다시) 범위도 좁다 → 실제가 범위 안에 들 가능성이 높다
+//   마케터 실력(사업)의 곡선 c가 높을수록 덜 빗나가고 (v204 맞힐 가능성: 사업 30이면 49% · 50이면 55% · 70이면 66% · 90이면 87%)(빗나감은 기획마다 한 번 정한다, 마케터가 바뀌면 다시) 범위도 좁다 → 실제가 범위 안에 들 가능성이 높다
 function ccMkGuess(s, pl) {
   const x = coMk(s, 'music'); if (!x) return null;
   const c = coHHc(lv(x, 'biz'));
-  if (!pl.mkG || pl.mkG.id !== x.id) pl.mkG = { id: x.id, b: U.clamp(U.normal(0, 0.45 * (1 - 0.92 * c)), -0.6, 0.8) };
-  return { x, c, b: pl.mkG.b, w: 0.16 + 0.06 * (1 - c) };
+  if (!pl.mkG || pl.mkG.id !== x.id) pl.mkG = { id: x.id, b: U.clamp(U.normal(0, 0.35 * (1 - 0.95 * c)), -0.6, 0.8) };
+  return { x, c, b: pl.mkG.b, w: 0.17 + 0.05 * (1 - c) };
 }
 function ccMkRange(s, g, pl, price) { const G = ccMkGuess(s, pl); if (!G) return null; const m = ccDemand(s, g, price) * (1 + G.b); return { x: G.x, lo: m * (1 - G.w), hi: m * (1 + G.w) }; }
 function ccPplN(n) { n = Math.max(0, Math.round(n / 100) * 100); return n < 1e4 ? n.toLocaleString() + '명' : fmtFans(n); }
@@ -373,7 +373,7 @@ E({
 });
 // ───── 4. 입장료 ─────
 E({
-  id: 'co_cc_price', cat: '단독 콘서트', tag: 'career',
+  id: 'co_cc_price', cat: '단독 콘서트', tag: 'career', ledA: () => '단독 콘서트 준비 (대관 · 무대)',
   title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 단독 콘서트 · 입장료`,
   cond: s => coOn(s),
   init(s, d) { if (!coGroup(s, d.gid) || !d.pl) d.skip = true; },
@@ -393,7 +393,7 @@ E({
 // ───── 공연 · 결산 ─────
 function ccRows(r) { return [[`티켓 (${r.sold.toLocaleString()}석 × ${fmtWon(r.price)})`, Math.round(r.ticket)], [`예매 수수료 (${Math.round(CC_FEE * 100)}%)`, -Math.round(r.fee)], ['현장 굿즈', Math.round(r.goods)], ['대관 · 무대 · 연출', -Math.round(r.cost)], [`멤버 몫`, -Math.round(r.pay)], '-', [r.net >= 0 ? '회사에 남는 돈' : '손해', Math.round(r.net), 1]]; }
 E({
-  id: 'co_cc_res', cat: '단독 콘서트', tag: 'career', keepPop: true, wide: true,
+  id: 'co_cc_res', cat: '단독 콘서트', tag: 'career', keepPop: true, wide: true, ledA: (s, d) => `단독 콘서트 · ${(CC_VENUE[d.pl && d.pl.v] || CC_VENUE[0]).n}`,
   title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || d.gn || ''}」 단독 콘서트 결산`,
   cond: s => coOn(s),
   live: (s, d) => d.mode === 'me' ? d.sp : null,

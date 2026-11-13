@@ -270,11 +270,82 @@ function fx(s, o) {
 }
 
 let MONEY_TAP = null;
+// ───── 결산표 장부 (v204) ─────
+// 사건(창) 하나가 준비(init)하고 고르는 동안 바뀐 돈 · 팬 · 평가를 그 사건 줄(s.led)에 모은다. 요약 창 '🧾 결산표'가 대상(나 · 그룹 · 회사)마다 표로 보여 준다 (ui.js tsLed)
+// 돈은 쌓이기만 하는 합계(s.ledA: 내 돈 들어옴 · 나감, 회사마다 들어옴 · 나감)를 사건 앞뒤로 견준다. 사건 안에서 또 열린 사건은 그 줄로 가고 바깥 줄에서는 뺀다
+// 굿즈 · 콘서트처럼 사건이 아닌 일은 ledWrap으로 감싼다 (company.js)
+const LED_ST = [];
+function ledA(s) { return s.ledA || (s.ledA = { pi: 0, po: 0, c: {} }); }
+function ledCo(s, f, v) { if (!s || !v) return; const A = ledA(s), o = A.c[f] || (A.c[f] = { i: 0, o: 0 }); if (v > 0) o.i += v; else o.o -= v; }
+function ledSnapA(s) { const A = ledA(s), c = {}; for (const f in A.c) c[f] = { i: A.c[f].i, o: A.c[f].o }; return { pi: A.pi, po: A.po, c }; }
+function ledCoOn(s) { return typeof coOn === 'function' && coOn(s); }
+function ledGF(s) { const o = {}; if (ledCoOn(s)) for (const g of coT(s).groups || []) o[g.id] = coGFans(g); return o; }
+function ledRep(s) { const o = {}; if (ledCoOn(s)) { const t = coT(s); for (const f in t.f) o[f] = t.f[f].rep || 0; } return o; }
+function ledGT(g) { return { k: 'g:' + g.id, n: g.name, kd: g.kind === 'band' ? '밴드' : g.kind === 'vt' ? '버츄얼 아이돌' : g.members.length === 1 ? '솔로' : '아이돌 그룹', f: coFOfKind(g.kind), g: g.id, ic: g.kind === 'band' ? '🎸' : g.kind === 'vt' ? '🎙️' : '🎤' }; }
+function ledCT(t, f) { return { k: 'c:' + f, n: coFName(t, f), kd: CO_FIELDS[f] ? CO_FIELDS[f].n : '회사', f, ic: CO_FIELDS[f] ? CO_FIELDS[f].ic : '🏢' }; }
+// 사건의 대상: 그룹(d.gid) → 그 그룹, 회사 일(co_) → 그 회사, 내 직업 일 → 나. 직업과 상관없는 생활 일은 줄을 만들지 않는다 ('그 밖에'로 간다)
+function ledTgt(s, id, d) {
+  const ev = EVENTS[id] || {}; d = d || {};
+  if (/^co_/.test(id) && ledCoOn(s)) {
+    const t = coT(s), g = d.gid != null ? coGroup(s, d.gid) : null;
+    if (g) return ledGT(g);
+    let f = null; try { f = coEvF(s, id, d); } catch (e) { }
+    return ledCT(t, f && t.f[f] ? f : d.f && t.f[d.f] ? d.f : coMainF(t));
+  }
+  const j = evJobOf(s, id, d);
+  return j || ev.tag === 'career' ? { k: 'me', n: me(s).name, kd: '나', j, ic: '👤' } : null;
+}
+function ledAct(s, id, d, T) {
+  const ev = EVENTS[id] || {};
+  if (ev.ledA) { try { return ev.ledA(s, d); } catch (e) { } }
+  let ti = ''; try { ti = typeof ev.title === 'function' ? ev.title(s, d) : ev.title; } catch (e) { }
+  ti = String(ti || ev.cat || '').replace(/\s+/g, ' ');
+  return T && T.n ? ti.replace(`「${T.n}」의 `, '').replace(`「${T.n}」 `, '') : ti;
+}
+function ledZ() { return { pi: 0, po: 0, c: {}, fans: 0, gf: {}, rep: {}, dv: [] }; }
+function ledAddTo(a, b, sg) {
+  sg = sg || 1; a.pi += sg * b.pi; a.po += sg * b.po; a.fans += sg * b.fans;
+  for (const f in b.c) { const o = a.c[f] || (a.c[f] = { i: 0, o: 0 }); o.i += sg * b.c[f].i; o.o += sg * b.c[f].o; }
+  for (const k in b.gf) a.gf[k] = (a.gf[k] || 0) + sg * b.gf[k];
+  for (const k in b.rep) a.rep[k] = (a.rep[k] || 0) + sg * b.rep[k];
+  a.dv = dvAdd(a.dv, sg > 0 ? b.dv : b.dv.map(([k, v]) => [k, -v]));
+  return a;
+}
+function ledPush(s, id, d, tgt) { LED_ST.push({ id, d, tgt, a: ledSnapA(s), fans: totalFans(s), gf: ledGF(s), rep: ledRep(s), e0: evalSnap(s), ch: ledZ() }); }
+function ledPop(s, tok, x) {
+  const fr = LED_ST.pop(); if (!fr) return;
+  const A = ledSnapA(s), gf = ledGF(s), rep = ledRep(s), tot = ledZ();
+  tot.pi = A.pi - fr.a.pi; tot.po = A.po - fr.a.po; tot.fans = totalFans(s) - fr.fans; tot.dv = evalDiff(fr.e0, evalSnap(s));
+  for (const f in A.c) { const o = fr.a.c[f] || { i: 0, o: 0 }, di = A.c[f].i - o.i, dO = A.c[f].o - o.o; if (di || dO) tot.c[f] = { i: di, o: dO }; }
+  for (const k in gf) if (fr.gf[k] != null && gf[k] !== fr.gf[k]) tot.gf[k] = gf[k] - fr.gf[k];
+  for (const f in rep) if (fr.rep[f] != null && Math.abs(rep[f] - fr.rep[f]) > 1e-6) tot.rep[f] = rep[f] - fr.rep[f];
+  const up = LED_ST[LED_ST.length - 1]; if (up) ledAddTo(up.ch, tot);
+  const own = ledAddTo(ledAddTo(ledZ(), tot), fr.ch, -1);
+  let T = fr.tgt; if (!T) { try { T = ledTgt(s, fr.id, fr.d); } catch (e) { T = null; } }
+  if (T) ledRowAdd(s, tok, T, fr.id, fr.d, own, x);
+}
+function ledRowAdd(s, tok, T, id, d, o, x) {
+  const fans = T.g != null ? Math.round(o.gf[T.g] || 0) : T.k === 'me' ? Math.round(o.fans) : 0, rep = T.f && T.k !== 'me' ? o.rep[T.f] || 0 : 0, dv = T.k === 'me' ? o.dv : [];
+  const cs = Object.keys(o.c).filter(f => o.c[f].i || o.c[f].o), L = s.led = s.led || [];
+  let r = null; for (let i = L.length - 1; i >= Math.max(0, L.length - 60); i--) if (L[i].tok === tok) { r = L[i]; break; }
+  // 바뀐 게 없으면 줄을 새로 만들지 않는다 (준비 때 이미 만든 줄이면 결과 글만 붙인다)
+  if (!o.pi && !o.po && !cs.length && !fans && Math.abs(rep) < 0.05 && !dv.length) { if (r && x && !r.x) r.x = ledX(x); return; }
+  if (!r) { r = { t: s.t, tok, k: T.k, n: T.n, kd: T.kd, ic: T.ic, f: T.f || null, g: T.g != null ? T.g : null, j: T.j || null, a: T.act || ledAct(s, id, d, T), pi: 0, po: 0, c: {}, fans: 0, rep: 0, dv: [] }; L.push(r); if (L.length > 600) L.splice(0, L.length - 600); }
+  r.pi += o.pi; r.po += o.po; r.fans += fans; r.rep += rep; r.dv = dvAdd(r.dv, dv);
+  for (const f of cs) { const c = r.c[f] || (r.c[f] = { i: 0, o: 0 }); c.i += o.c[f].i; c.o += o.c[f].o; }
+  if (x && !r.x) r.x = ledX(x);
+}
+// 결과 글 첫 줄 (결산표 활동 아래 작게)
+function ledX(x) { return String(x).replace(/<[^>]+>/g, '').split('\n')[0].slice(0, 160);
+}
+// 사건이 아닌 일(굿즈 · 콘서트 · 합동 콘텐츠)을 한 줄로: T 대상, act 활동 이름
+function ledWrap(s, T, act, fn) { const tok = U.uid(); ledPush(s, null, null, Object.assign({}, T, { act })); let r; try { r = fn(); } finally { ledPop(s, tok, typeof r === 'string' ? r : ''); } return r; }
 function addMoney(s, v, label, ent) {
   v = Math.round(v);
   // 고등학교 졸업 전 일상 지출은 가족 생활비로 처리한다
   if (v < 0 && !graduated(s) && parentsAlive(s).length && ['기타 지출', '군것질·용품'].includes(label)) { s.mon.familyPaid = (s.mon.familyPaid || 0) - v; return; }
   s.money += v;
+  { const LA = ledA(s); if (v > 0) LA.pi += v; else LA.po -= v; } // v204 결산표 장부
   if (v > 0) { s.mon.inc += v; if (ent) { s.mon.ent += v; s.earned += v; s.lastEntT = s.t; } }
   else s.mon.exp += -v;
   if (label) { s.mon.items[label] = (s.mon.items[label] || 0) + v; s.yinc[label] = (s.yinc[label] || 0) + v; }
@@ -523,9 +594,10 @@ function fireEvent(s, id, d = {}) {
   const e0 = evalSnap(s);
   // 창이 준비(init)하며 바꾼 것을 따로 적어 둔다 (v129): 그 창을 보기 전에 요약 창에 결과가 새어 나가지 않게 (ui.js turnSumHTML)
   const n0 = s.log.length, tok = U.uid(), ag = s.tracks && s.tracks.agency;
-  const pre = { money: s.money, fans: totalFans(s), stress: s.stress, co: ag && typeof ag.money === 'number' ? ag.money : null, grow: typeof growSnap === 'function' ? growSnap(s) : null };
+  const pre = { money: s.money, fans: totalFans(s), stress: s.stress, co: ag && typeof ag.money === 'number' ? ag.money : null, grow: typeof growSnap === 'function' ? growSnap(s) : null, acc: ledSnapA(s), gf: ledGF(s) };
+  d._lt = tok; // v204: 다시 띄워도 같은 결산표 줄로
   const tap0 = MONEY_TAP ? Object.fromEntries(Object.entries(MONEY_TAP).map(([k, o]) => [k, o.v])) : null;
-  if (ev.init) { ev.init(s, d); jfAdd(s, evJobOf(s, id, d), totalFans(s) - pre.fans); }
+  if (ev.init) { ledPush(s, id, d); try { ev.init(s, d); } finally { ledPop(s, tok); } jfAdd(s, evJobOf(s, id, d), totalFans(s) - pre.fans); }
   // v202: 표시는 tk에 (예전엔 sp에 넣어 결과 창 제목 자리에 알 수 없는 글자가 뜰 수 있었다)
   for (let i = n0; i < s.log.length; i++) s.log[i].tk = tok;
   if (tap0) { pre.tap = {}; for (const k in MONEY_TAP) if (MONEY_TAP[k].v !== (tap0[k] || 0)) pre.tap[k] = 1; }
@@ -586,8 +658,8 @@ function submitForm(s, vals) {
   if (!p) return '';
   const ev = EVENTS[p.id];
   s.pending = null;
-  const jf0 = totalFans(s);
-  const r = ev.submit(s, p.d, vals) || {};
+  const jf0 = totalFans(s), lt = p.tok || p.d._lt || U.uid();
+  let r; ledPush(s, p.id, p.d); try { r = ev.submit(s, p.d, vals) || {}; } finally { ledPop(s, lt, r && r.log); }
   jfAdd(s, evJobOf(s, p.id, p.d), totalFans(s) - jf0);
   applyLocks(s);
   if (r.err) { if (!s.pending) s.pending = p; return r.err; }
@@ -600,7 +672,7 @@ function cancelForm(s) {
   const p = s.pending;
   if (!p || !EVENTS[p.id].cancel) return;
   s.pending = null;
-  const r = EVENTS[p.id].cancel(s, p.d);
+  let r; ledPush(s, p.id, p.d); try { r = EVENTS[p.id].cancel(s, p.d); } finally { ledPop(s, p.tok || p.d._lt || U.uid(), r); }
   if (r) addLog(s, r, 'ev');
   pullBack(s);
   save(s);
@@ -612,7 +684,7 @@ function fbtnRun(s, i) {
   const ev = EVENTS[p.id], b = (ev.fbtn ? ev.fbtn(s, p.d) || [] : [])[i];
   if (!b || b.ok === false) return;
   s.pending = null;
-  const r = b.f ? b.f(s, p.d) : '';
+  let r; ledPush(s, p.id, p.d); try { r = b.f ? b.f(s, p.d) : ''; } finally { ledPop(s, p.tok || p.d._lt || U.uid(), r); }
   applyLocks(s);
   if (r) addLog(s, r, ev.tag || 'ev');
   autoEvs(s); chMark(s); pullNow(s); pullBack(s); autoEvs(s);
@@ -625,12 +697,12 @@ function choose(s, i) {
   const c = evChoices(s)[i];
   if (!c || (c.ok && !c.ok(s))) return;
   s.pending = null;
-  const jf0 = totalFans(s);
-  const r = c.f ? c.f(s, p.d) : '';
+  const jf0 = totalFans(s), lt = p.tok || (p.d && p.d._lt) || U.uid();
+  let r; ledPush(s, p.id, p.d); try { r = c.f ? c.f(s, p.d) : ''; } finally { ledPop(s, lt, r); }
   jfAdd(s, evJobOf(s, p.id, p.d), totalFans(s) - jf0);
   applyLocks(s);
   if (r) {
-    addLog(s, r, ev.tag || 'ev'); s.log[s.log.length - 1].e = ev.id;
+    addLog(s, r, ev.tag || 'ev'); s.log[s.log.length - 1].e = ev.id; s.log[s.log.length - 1].lt = lt;
     // 실시간 창이 있던 사건은 기록에 장면(spec)을 남긴다: 요약 창의 '▶ 무대 보기' (12-1)
     if (ev.live) { try { const sp = ev.live(s, p.d); if (sp) s.log[s.log.length - 1].lv = sp; } catch (e) { } }
     // 공개 뒤 반응(라이브온)도 기록에 남긴다: 요약 창 · 걸어온 길의 배너 (12-3)
@@ -698,8 +770,8 @@ function autoEvs(s) {
     try { tx = ev.text ? ev.text(s, d) : ''; hh = ev.html && !ev.autoNoHtml ? ev.html(s, d) : ''; } catch (e) { }
     const k0 = learnedSkills(me(s)).length, e0 = evalSnap(s), dv0 = EV_E0 && EV_E0.id === p.id ? EV_E0.dv : [];
     s.pending = null;
-    const jf0 = totalFans(s);
-    const r = c.f ? c.f(s, d) : '';
+    const jf0 = totalFans(s), lt = p.tok || (d && d._lt) || U.uid();
+    let r; ledPush(s, p.id, d); try { r = c.f ? c.f(s, d) : ''; } finally { ledPop(s, lt, r || (ev.noCh ? tx : '')); }
     jfAdd(s, evJobOf(s, p.id, d), totalFans(s) - jf0);
     const dv = dvAdd(dv0, evalDiff(e0, evalSnap(s))).filter(([k]) => !(/→/.test(r || '') && / 평가$/.test(k)));
     applyLocks(s);
@@ -711,7 +783,7 @@ function autoEvs(s) {
     if (k === 'flavor') { addLog(s, x, 'flavor'); continue; }
     addLog(s, x, ev.tag || 'ev');
     const L = s.log[s.log.length - 1];
-    const cat = evCat(ev, s, d); L.sp = ti || cat || '알림'; L.c = cat; L.e = ev.id;
+    const cat = evCat(ev, s, d); L.sp = ti || cat || '알림'; L.c = cat; L.e = ev.id; L.lt = lt;
     // 창 없이 처리된 결과도 요약 창에서 장면(▶ 무대 보기)과 라이브온 반응을 볼 수 있게 남긴다 (12-3)
     if (ev.live) { try { const sp = ev.live(s, d); if (sp) L.lv = sp; } catch (e) { } }
     if (ev.plio) { try { const pl = ev.plio(s, d); if (pl) L.pl = pl; } catch (e) { } }

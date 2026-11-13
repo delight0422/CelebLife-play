@@ -1713,3 +1713,21 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 
 /* v203: 표 아래 왼쪽 '전체 해제' */
 .tbl-foot { display: flex; justify-content: flex-start; margin-top: var(--sp-2); }
+
+/* v204: 결산표 — 대상마다 표 (왼쪽 위 대상, 오른쪽 수입 · 지출 · 팬 · 평가) */
+.ceo-rep.led { padding: var(--sp-3); }
+.led-wrap { overflow-x: auto; }
+.led-t { width: 100%; border-collapse: collapse; font-size: var(--fs-2); margin-bottom: var(--sp-3); }
+.led-t th { font-weight: 800; color: var(--ink2); text-align: right; white-space: nowrap; padding: 6px 8px; border-bottom: 2px solid var(--ink); background: var(--card2); }
+.led-t th.led-who { text-align: left; color: var(--ink); font-size: var(--fs-3); width: 46%; }
+.led-t th.led-who span { font-weight: 600; font-size: var(--fs-1); color: var(--muted); margin-left: 6px; }
+.led-t td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; font-weight: 700; vertical-align: top; }
+.led-t td.led-a { text-align: left; white-space: normal; font-weight: 600; color: var(--ink); }
+.led-t td.led-ev { white-space: normal; font-weight: 600; font-size: var(--fs-1); color: var(--ink2); min-width: 70px; }
+.led-t .led-0 { color: var(--muted); font-weight: 500; }
+.led-t .led-mo { display: inline-block; min-width: 30px; font-size: var(--fs-1); font-weight: 700; color: var(--muted); }
+.led-t .led-x { font-size: var(--fs-1); font-weight: 500; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+.led-t .led-x .lv-re { margin: 4px 0 0; }
+.led-t tr.led-o td.led-a { color: var(--ink2); }
+.led-t tfoot td { border-top: 2px solid var(--ink); border-bottom: 0; background: var(--card2); font-weight: 800; }
+.led-t .led-net { font-size: var(--fs-1); font-weight: 700; margin-left: 6px; }

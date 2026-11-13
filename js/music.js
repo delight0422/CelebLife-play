@@ -848,7 +848,8 @@ function songSubActs(s, t) {
 function groupAges(s, g) { const a = [age(s)].concat(g.members.map(id => s.people[id]).filter(Boolean).map(x => pAge(s, x))); return { avg: a.reduce((x, y) => x + y, 0) / a.length, min: Math.min(...a) }; }
 // v192: 아이돌 그룹 멤버 평균 나이가 30세를 넘으면 인기가 빠르게 떨어진다 (28~30세는 예전처럼 천천히, 밴드 · 버츄얼은 예전대로)
 // v201: 버튜버(버츄얼 아이돌 · 버튜버 크리에이터)는 아이돌보다 전성기가 훨씬 길다: 36세까지 그대로, 40세까지 아주 조금, 40세가 넘으면 눈에 띄게 (한 달에 1%부터 46세 3%까지)
-function vtAgeFade(a) { if (a <= 36) return 1; if (a <= 40) return 1 - (a - 36) * 0.0015; return 1 - Math.min(0.03, 0.006 + (a - 40) * 0.004); }
+// v204: 36세부터 꾸준히 완만하게 줄어든다 (1년에 남는 구독자: 36세 97% · 40세 95% · 45세 92% · 50세 89%)
+function vtAgeFade(a) { return a < 36 ? 1 : 1 - Math.min(0.03, 0.0025 + (a - 36) * 0.0005); }
 function idolAgeFade(avg, idol) { if (avg <= 28) return 1; if (avg <= 30 || !idol) return 1 - Math.min(0.02, (avg - 28) * 0.004); return 1 - Math.min(0.06, 0.015 + (avg - 30) * 0.01); }
 // v192: 아이돌 멤버 하나가 재계약할 가능성. 30세가 넘으면 잘 안 남고, 그룹 안에서 실력이 낮을수록 남으려 한다 (혼자 설 자신이 적다). 그룹이 클수록 조금 더 남는다
 function idolMemPow(x) { return x.co && x.co.kind === 'band' ? lv(x, x.co.part) : (Math.max(lv(x, 'vocal'), lv(x, 'rap')) + lv(x, 'dance') + lv(x, 'variety') * 0.5) / 2.5; }

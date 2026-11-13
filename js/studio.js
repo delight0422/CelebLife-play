@@ -391,7 +391,7 @@ E({
 function coVEst(s, P) { const dir = P.dir === 'me' ? me(s) : s.people[P.dir], lead = s.people[P.lead]; return P.q * 0.28 + (dir ? lv(dir, 'direct') : 40) * 0.32 + (lead ? lv(lead, 'acting') : 35) * 0.1 + (lead ? Math.log10(1 + (lead.fame || 0)) : 1) + coASrcHype(P) + V_BUD_SC[P.lvl] + 9; }
 function coVDistP(s, t, P, D) { return U.clamp(U.sig(((P.f === 'anime' ? coAEst(s, P) : coVEst(s, P)) - 55 + P.lvl * 4 + (coTier(t, coPF(P)) - 1) * 4 - (D.tier - 1) * 8 + 6 + 8 * coMkc(s, coPF(P))) / 6), 0.05, 0.97); }
 E({
-  id: 'co_vdist', cat: (s, d) => coCat(d), title: (s, d) => `${V_CH_S[coPK(d.P).ch]} 정하기`, tag: 'career', noRes: 'toast',
+  id: 'co_vdist', cat: (s, d) => coCat(d), title: (s, d) => `${V_CH_S[coPK(d.P).ch]} 정하기`, tag: 'career', ledA: (s, d) => `「${d.P.title}」 제작 시작 (각본 · 연출 · 출연료)`, noRes: 'toast',
   cond: s => coOn(s),
   init(s, d) { coSnapIn(d); if (!d.ids) d.ids = DISTRIBUTORS.filter(D => D.ch === coPK(d.P).ch).map(D => D.id); },
   text: (s, d) => { const P = d.P, all = d.ids.every(id => (P.dno || []).includes(id)); return `${josa(`「${P.title}」`, "을를")} 어디에 걸까? ${V_CH_N[coPK(P).ch]}마다 수수료와 힘이 다르다. 큰 곳일수록 많이 보여 주고 홍보도 세게 하지만, 수수료가 높고 작은 작품은 거절하기도 한다.${d.no ? `\n\n${d.no}` : ''}${all ? `\n\n받아 줄 곳이 없다. 뒤로 가서 제작비를 늘리거나 기획을 접는다.` : ''}`; },
@@ -536,7 +536,7 @@ function coVRev(s, t, pj, sc) {
   return { L, res, total: L.reduce((a, x) => a + x[1], 0) };
 }
 E({
-  id: 'co_vres', cat: '작품 성적', title: '우리 회사 작품 공개', tag: 'career',
+  id: 'co_vres', cat: '작품 성적', title: '우리 회사 작품 공개', tag: 'career', ledA: (s, d) => `${vKindN(d.pj.kind)} 「${d.pj.title}」 공개`,
   plio: (s, d) => d.pl !== undefined ? d.pl : (d.pl = typeof plioSpec === 'function' ? plioSpec({ k: 'film', t: `「${d.pj.title}」 하이라이트`, ch: coT(s).name, me: d.pj.dir === 'me' ? `${me(s).name} 감독` : '', sc: d.sc, rv: plioRv(d.review) }) : null),
   cond: s => coOn(s),
   init(s, d) {
@@ -884,7 +884,7 @@ function coARev(s, t, pj, sc) {
   return { L, res, total: L.reduce((a, x) => a + x[1], 0) };
 }
 E({
-  id: 'co_ares', cat: '애니 성적', title: '우리 회사 애니 공개', tag: 'career',
+  id: 'co_ares', cat: '애니 성적', title: '우리 회사 애니 공개', tag: 'career', ledA: (s, d) => `${aKindN(d.pj.kind)} 「${d.pj.title}」 공개`,
   plio: (s, d) => d.pl !== undefined ? d.pl : (d.pl = typeof plioSpec === 'function' ? plioSpec({ k: 'animk', t: `「${d.pj.title}」 본편 클립`, ch: coT(s).name, me: d.pj.dir === 'me' ? `${me(s).name} 감독` : '', sc: d.sc, rv: plioRv(d.review) }) : null),
   cond: s => coOn(s),
   init(s, d) {
