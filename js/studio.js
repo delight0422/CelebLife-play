@@ -242,7 +242,9 @@ function coVDirFee(kind, x) { return Math.round((V_KIND[kind].dir * (0.5 + lv(x,
 function coVHireP(s, t, P, x, k, sup) {
   // v186: 우리 회사 작품으로 처음 캐스팅한 신인(x.myDeb)은 나중에 크게 떠도 우리 작품 제안을 잘 받아 준다: 유명세로 까다로워지는 몫이 40%만, 의리 +8
   const star = Math.log10(1 + (x.fame || 0)), f = coPF(P), F = t.f[f], loyal = x.myDeb ? 1 : 0;
-  return U.clamp(U.sig((P.q * 0.4 + coTier(t, f) * 7 + F.rep * 0.15 + (P.lvlHint || 0) + (sup ? 10 : 0) - star * 6 * (loyal ? 0.4 : 1) + loyal * 8 - lv(x, k) * 0.15 + 16) / 7) + relBonus(s, x), 0.05, 0.95);
+  // v199: 그 회사 헤드헌터가 설득한다 (곡선 coHHc: 스카우트 30이면 +1 · 70이면 +7 · 100이면 +14, 반반이던 사람이면 30 → 55% · 70 → 73% · 90 → 83%)
+  const hh = typeof coHHSc === 'function' ? 14 * coHHc(coHHSc(s, f)) : 0;
+  return U.clamp(U.sig((P.q * 0.4 + coTier(t, f) * 7 + F.rep * 0.15 + (P.lvlHint || 0) + (sup ? 10 : 0) - star * 6 * (loyal ? 0.4 : 1) + loyal * 8 - lv(x, k) * 0.15 + 16 + hh) / 7) + relBonus(s, x), 0.05, 0.95);
 }
 // v178: 감독 · 배우 · 성우 · 작화감독 섭외도 오디션처럼 표로 (company.js chPplTbl): 이름 · 성별 · 나이 · 실력(보는 눈의 범위) · 팬 · 돈 · 섭외 가능성 · 관계 · 비고
 const CO_PJ_COLS = Object.fromEntries([['direct', '연출', '연출료'], ['acting', '연기', '출연료'], ['art', '그림', '계약금']].map(([k, n, fee]) => [k, [[k, n], ['fame', '팬'], ['fee', fee], ['p', '섭외 가능성'], ['rel', '관계'], ['nt', '비고']]]));

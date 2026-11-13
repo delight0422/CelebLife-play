@@ -1051,6 +1051,8 @@ function memberIncome(s, t, rev, label, n) {
 // 포지션: 메인보컬·메인래퍼·비주얼은 꼭 한 명씩. 나머지는 잘하는 쪽으로
 function assignIdolPos(s, ids) {
   const P = id => s.people[id], left = ids.slice(), pos = {};
+  // v199: 혼자 데뷔한 아이돌(솔로)은 포지션 대신 '솔로'
+  if (ids.length === 1) { pos[ids[0]] = '솔로'; return pos; }
   const take = (name, f) => { if (!left.length) return; const b = left.slice().sort((a, c) => f(P(c)) - f(P(a)))[0]; pos[b] = name; left.splice(left.indexOf(b), 1); };
   take('메인보컬', x => lv(x, 'vocal'));
   take('메인래퍼', x => lv(x, 'rap') + lv(x, 'dance') * 0.1);
