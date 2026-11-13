@@ -49,7 +49,10 @@ const CO_SAL_M = 1.6;
 const CO_SIDE_FULL = 10e4, CO_SIDE_P = 0.7;
 function coSideM(g) { return Math.pow(Math.min(1, coGFans(g) / CO_SIDE_FULL), CO_SIDE_P); }
 const CO_AUD_COST = [0, 300e4, 1000e4, 3000e4];
-const CO_TR_CAP = [0, 8, 14, 24], CO_GRP_CAP = [0, 2, 3, 5], CO_TRAINER_CAP = [0, 2, 4, 6];
+// v189: 대형이 되면 연습생 · 그룹(활동 기수) · 크리에이터 수 제한이 사실상 없다 (CO_NOCAP, 보일 때는 'n명'만). 대신 사옥 연습실 정원이 차면 연습 효율이 떨어진다
+const CO_NOCAP = 999;
+function coCapN(n, cap, u) { return cap >= CO_NOCAP ? `${n}${u}` : `${n}/${cap}${u}`; }
+const CO_TR_CAP = [0, 8, 14, CO_NOCAP], CO_GRP_CAP = [0, 2, 3, CO_NOCAP], CO_TRAINER_CAP = [0, 2, 4, 8], CO_PROD_CAP = [0, 2, 3, 10];
 // v117 밸런스 B: 연습실 차이를 키웠다 (1.25 · 1.5 · 2 → 1.4 · 1.8 · 2.4)
 const CO_EQ = { n: ['없음', '기본 연습실', '좋은 연습실', '최고급 연습실'], cost: [0, 3000e4, 1e8, 3e8], up: [0, 100e4, 250e4, 600e4], mult: [1, 1.4, 1.8, 2.4] };
 // 연습실 장비 (v166): 내 개인 장비처럼 용도마다 따로 들인다. 그 용도의 특기를 배우는 연습생 · 소속 아티스트가 더 빨리 는다 (단계마다 CO_EQ.mult)
@@ -61,12 +64,36 @@ const CO_ROOMS = [
   { id: 'show', ic: '🎬', n: '연기 · 예능 연습실', k: ['acting', 'variety'], w: 0.2, fs: ['music', 'vidol'] },
   { id: 'game', ic: '🎮', n: '방송 · 게임 장비', k: ['game'], w: 0.15, fs: ['vidol'] },
 ];
-function coRoomLv(t, id) { return (t.rooms || {})[id] || 0; }
+// ───── 사옥 · 연습실 정원 (v189) ─────
+// 회사들은 모회사 사옥에 같이 있다. 자회사는 '사옥 독립'(co_own)으로 건물을 따로 얻는다 (F.own): 연습실 장비 · 장비 유지비 · 정원이 따로, 사무실 임대료는 30% 더
+// 사옥 이름(b) = 그 건물 주인 회사 분야 (본사 = 모회사 분야). f를 안 주면 본사
+// 연습실 정원: 그 사옥에서 연습실을 쓰는 회사(기획사 · 버츄얼) 중 가장 큰 회사 크기로 (소형 20 · 중형 35 · 대형 60명). 연습생 + 데뷔한 그룹 · 기수 멤버
+// 정원을 넘으면 그 사옥의 연습 효율 = 정원 / 사람 수 (50%까지)
+const CO_ROOM_CAP = [0, 20, 35, 60], CO_ROOM_FS = ['music', 'vidol'], CO_MOVE_COST = [0, 1e8, 3e8, 6e8], CO_OWN_RENT = 1.3;
+function coBld(t, f) { const m = coMainF(t); f = f ? coFk(t, f) : m; return f !== m && t.f[f] && t.f[f].own ? f : m; }
+function coBldFs(t, b) { const m = coMainF(t), L = coFields(t).filter(f => coBld(t, f) === b); return L.includes(m) ? [m].concat(L.filter(x => x !== m)) : L; }
+function coBlds(t) { const m = coMainF(t); return [m].concat(coFields(t).filter(f => f !== m && coBld(t, f) === f)); }
+function coBldN(t, b) { return b === coMainF(t) ? '본사 사옥' : `「${coFName(t, b)}」 사옥`; }
+function coRooms(t, f) { const b = coBld(t, f); if (b === coMainF(t)) return t.rooms = t.rooms || {}; const F = t.f[b]; return F.rooms = F.rooms || {}; }
+function coRoomLv(t, id, f) { return coRooms(t, f)[id] || 0; }
 function coRoomOf(k) { return CO_ROOMS.find(r => r.k.includes(k)); }
-function coEqM(t, k) { const r = coRoomOf(k); return r ? CO_EQ.mult[coRoomLv(t, r.id)] : 1; }
+function coEqM(t, k, f) { const r = coRoomOf(k); return r ? CO_EQ.mult[coRoomLv(t, r.id, f)] : 1; }
 function coRoomCost(r, lv) { return Math.round(CO_EQ.cost[lv] * r.w / 1e6) * 1e6; }
-function coRoomUp1(t, r) { return Math.round(CO_EQ.up[coRoomLv(t, r.id)] * r.w / 1e4) * 1e4; }
-function coRoomUp(t) { return CO_ROOMS.reduce((a, r) => a + coRoomUp1(t, r), 0); }
+function coRoomUp1(t, r, f) { return Math.round(CO_EQ.up[coRoomLv(t, r.id, f)] * r.w / 1e4) * 1e4; }
+// 장비 유지비: f를 주면 그 회사가 든 사옥 것, 안 주면 모든 사옥 합
+function coRoomUpB(t, b) { return CO_ROOMS.reduce((a, r) => a + coRoomUp1(t, r, b), 0); }
+function coRoomUp(t) { return coBlds(t).reduce((a, b) => a + coRoomUpB(t, b), 0); }
+function coBldPpl(s, t, b) {
+  const fs = coBldFs(t, b).filter(f => CO_ROOM_FS.includes(f)); if (!fs.length) return [];
+  return coP(s, (t.tr || []).filter(id => { const x = s.people[id]; return x && x.co && fs.includes(x.co.f || coFOfKind(x.co.kind)); }).concat(...t.groups.filter(g => g.debuted && !g.proj && fs.includes(coFOfKind(g.kind))).map(g => g.members)));
+}
+function coBldCap(t, b) { const fs = coBldFs(t, b).filter(f => CO_ROOM_FS.includes(f)); return fs.length ? CO_ROOM_CAP[Math.max(...fs.map(f => coTier(t, f)))] : 0; }
+function coCrowd(s, t, f) { const b = coBld(t, f), cap = coBldCap(t, b), n = cap ? coBldPpl(s, t, b).length : 0; return !cap || n <= cap ? 1 : Math.max(0.5, cap / n); }
+// 연습에 붙는 회사 몫: 연습실 장비 × 정원 (한 달에 한 번만 센다)
+const CO_CROWD = new WeakMap();
+function coTrainM(s, t, k, f) { let C = CO_CROWD.get(t); if (!C || C.t !== s.t) CO_CROWD.set(t, C = { t: s.t }); const b = coBld(t, f); if (C[b] == null) C[b] = coCrowd(s, t, b); return coEqM(t, k, f) * C[b]; }
+function coRoomTxt(s, t, b) { const cap = coBldCap(t, b); if (!cap) return ''; const n = coBldPpl(s, t, b).length; return `연습실 ${n}/${cap}명${n > cap ? ` · 꽉 찼다 (연습 효율 ${Math.round(Math.max(0.5, cap / n) * 100)}%)` : n === cap ? ' · 꽉 찼다' : ''}`; }
+function coBldFull(s, t, f) { const b = coBld(t, f), cap = coBldCap(t, b); return !!cap && coBldPpl(s, t, b).length >= cap; }
 // 앨범 제작비: 회사 크기별 최대, 그룹 팬이 30만 명이 되면 다 쓴다. 밴드는 절반
 const CO_PROD = [0, 1.1e8, 3.3e8, 6.6e8];
 const CO_CUT = 0.7, CO_TERM = 84;
@@ -82,7 +109,7 @@ const CO_JOBS = { cast: '헤드헌터', anr: 'A&R 팀장', trainer: '트레이�
 // 사내 프로듀서 (v155): 그룹 수만큼 둘 수 있다. 그룹에 전담으로 붙이면 그 그룹 앨범의 기획 · 데모곡 확보 · 선정을 나 대신 한다
 const CO_MULTI = ['trainer', 'edit', 'prod'];
 // MCN: 소속 크리에이터 수(크기별) · 영입 제안 때 고르는 회사 몫 · 편집자 한 명이 맡는 크리에이터 수 · 합동 콘텐츠 비용
-const CO_CR_CAP = [0, 8, 16, 30], CO_ED_CAP = [0, 2, 4, 6], CO_MCN_CUTS = [0.2, 0.25, 0.3], CO_ED_PER = 5, CO_MCOLLAB = 1000e4, CO_MADS = 3.5, CO_MGOODS = 200e4, CO_MEVENT_MIN = 3000e4;
+const CO_CR_CAP = [0, 8, 16, CO_NOCAP], CO_ED_CAP = [0, 2, 4, 20], CO_MCN_CUTS = [0.2, 0.25, 0.3], CO_ED_PER = 5, CO_MCOLLAB = 1000e4, CO_MADS = 3.5, CO_MGOODS = 200e4, CO_MEVENT_MIN = 3000e4;
 const CO_TR_FIELDS = ['vocal', 'rap', 'dance', 'guitar', 'bass', 'drum', 'keyboard', 'variety', 'game', 'acting'];
 // 수입 · 지출이 아닌 돈: 내가 넣고 꺼낸 돈, 회사끼리 옮긴 돈 (출자 · 배당). 장부에는 따로 보여 준다
 const CO_IO = ['내가 넣은 돈', '내가 꺼낸 돈', '출자', '출자 받음', '배당', '배당 받음', '자회사 정리'];
@@ -157,13 +184,13 @@ function coSumText(L) { const x = coSum(L); return `수입 ${fmtWon(x.inc)} · �
 // 연습생 한 명의 매달 비용: 버츄얼 아이돌 연습생은 춤 연습실이 필요 없어 덜 든다
 function coTrCost(t, f) { return CO_TR_COST[coTier(t, f)] * (f === 'vidol' ? 0.7 : 1); }
 // 운영비: 분야마다 크기만큼. MCN은 연습실이 없어 다른 분야의 90%
-function coOfficeF(t, f) { return Math.round(CO_OFFICE[coTier(t, f)] * (CO_OFFICE_F[f] || 1) * coLocRent(t) / 1e4) * 1e4; }
+function coOfficeF(t, f) { return Math.round(CO_OFFICE[coTier(t, f)] * (CO_OFFICE_F[f] || 1) * coLocRent(t) * (coBld(t, f) === f && f !== coMainF(t) ? CO_OWN_RENT : 1) / 1e4) * 1e4; }
 function coOffice(t) { return coFields(t).reduce((a, f) => a + coOfficeF(t, f), 0); }
 // 매달 꼭 나가는 돈: f를 주면 그 회사 몫만 (연습실 유지비는 건물을 가진 모회사가 낸다), 안 주면 그룹 전체
 function coFixed(s, t, f) {
   if (!f) return coOffice(t) + coTrainees(s).reduce((a, x) => a + coTrCost(t, x.co.f), 0) + coStaff(s).reduce((a, x) => a + (x.co.sal || 0), 0) + coRoomUp(t) + coCeoSal(t);
   f = coFk(t, f);
-  return coOfficeF(t, f) + coTrainees(s, null, f).reduce((a, x) => a + coTrCost(t, f), 0) + coStaff(s, null, f).reduce((a, x) => a + (x.co.sal || 0), 0) + (f === coMainF(t) ? coRoomUp(t) : 0) + coCeoSal(t, f);
+  return coOfficeF(t, f) + coTrainees(s, null, f).reduce((a, x) => a + coTrCost(t, f), 0) + coStaff(s, null, f).reduce((a, x) => a + (x.co.sal || 0), 0) + (coBld(t, f) === f ? coRoomUpB(t, f) : 0) + coCeoSal(t, f);
 }
 
 // ───── 돈 넣기 · 돈 꺼내기 ─────
@@ -455,14 +482,14 @@ const CO_HIRE_CD = 3;
 // 사내 프로듀서 자리 수 (v166): 그룹에 전담으로 붙은 사람은 세지 않는다 (5명 중 2명이 전담이면 3명으로 친다)
 function coProdDed(t, P) { return t.groups.some(g => g.prod === P.id); }
 function coProdCount(s) { const t = coT(s); return coStaff(s, 'prod', 'music').filter(P => !coProdDed(t, P)).length; }
-function coStaffCap(t, job, f) { return job === 'trainer' ? CO_TRAINER_CAP[coTier(t, f)] : job === 'prod' ? CO_GRP_CAP[coTier(t, 'music')] : job === 'edit' ? CO_ED_CAP[coTier(t, 'mcn')] : 0; }
+function coStaffCap(t, job, f) { return job === 'trainer' ? CO_TRAINER_CAP[coTier(t, f)] : job === 'prod' ? CO_PROD_CAP[coTier(t, 'music')] : job === 'edit' ? CO_ED_CAP[coTier(t, 'mcn')] : 0; }
 function coHireOK(s, job, f) {
   const t = coT(s); f = f || coMainF(t); const H = t.hireCd || {}, cd = Math.max(H[`${job}:${f}`] || 0, f === coMainF(t) ? H[job] || 0 : 0);
   if (hasQ(s, 'co_hire') || hasQ(s, 'co_hire_tf')) return '지원서를 보는 중';
   if (cd > s.t) return `${cd - s.t}개월 뒤에 다시 뽑을 수 있다`;
   // 트레이너는 자리가 꽉 차 있어도 뽑을 수 있다 (v131): 새로 뽑은 다음에 내보낼 사람을 고른다 (co_tr_out)
   if (job === 'edit') { const m = coTier(t, 'mcn'); if (coStaff(s, 'edit', 'mcn').length >= CO_ED_CAP[m]) return `${TIER_N[m]} MCN은 편집자를 ${CO_ED_CAP[m]}명까지 둔다`; }
-  if (job === 'prod') { const m = coTier(t, 'music'); if (coProdCount(s) >= CO_GRP_CAP[m]) return `${TIER_N[m]} 기획사는 사내 프로듀서를 ${CO_GRP_CAP[m]}명까지 둔다 (전담 프로듀서는 제외됨)`; }
+  if (job === 'prod') { const m = coTier(t, 'music'); if (coProdCount(s) >= CO_PROD_CAP[m]) return `${TIER_N[m]} 기획사는 사내 프로듀서를 ${CO_PROD_CAP[m]}명까지 둔다 (전담 프로듀서는 제외됨)`; }
   return '';
 }
 // 그 특기를 배우는 연습생 · 아티스트 수
@@ -494,7 +521,7 @@ E({
 E({
   id: 'co_auto_full', cat: '자동', title: '자리가 꽉 찼다', tag: 'career', keepPop: true,
   cond: s => coOn(s),
-  text: (s, d) => d.k === 'mcn' ? `MCN 크리에이터 자리가 꽉 찼다 (${coCrs(s).length}/${CO_CR_CAP[coTier(coT(s), 'mcn')]}명). 자동 영입 후보를 계속 켜 둘까?` : d.k.startsWith('trainer') ? `「${coFName(coT(s), d.f || coMainF(coT(s)))}」 트레이너 자리가 꽉 찼다 (${coStaff(s, 'trainer', d.f).length}/${coStaffCap(coT(s), 'trainer', d.f || coMainF(coT(s)))}명). 자동으로 트레이너 뽑기를 계속 켜 둘까?` : `${CO_FIELDS[d.k].n} 연습생 자리가 꽉 찼다 (${coTrainees(s, null, d.k).length}/${CO_TR_CAP[coTier(coT(s), d.k)]}명). 자동 오디션을 계속 켜 둘까?`,
+  text: (s, d) => d.room ? (() => { const t = coT(s), b = coBld(t, d.k); return `${coBldN(t, b)} 연습실이 꽉 찼다 (${coBldPpl(s, t, b).length}/${coBldCap(t, b)}명). 더 들어오면 연습 효율이 떨어진다. 자동 오디션을 계속 켜 둘까?`; })() : d.k === 'mcn' ? `MCN 크리에이터 자리가 꽉 찼다 (${coCrs(s).length}/${CO_CR_CAP[coTier(coT(s), 'mcn')]}명). 자동 영입 후보를 계속 켜 둘까?` : d.k.startsWith('trainer') ? `「${coFName(coT(s), d.f || coMainF(coT(s)))}」 트레이너 자리가 꽉 찼다 (${coStaff(s, 'trainer', d.f).length}/${coStaffCap(coT(s), 'trainer', d.f || coMainF(coT(s)))}명). 자동으로 트레이너 뽑기를 계속 켜 둘까?` : `${CO_FIELDS[d.k].n} 연습생 자리가 꽉 찼다 (${coTrainees(s, null, d.k).length}/${CO_TR_CAP[coTier(coT(s), d.k)]}명). 자동 오디션을 계속 켜 둘까?`,
   ch: (s, d) => [
     { t: '자동을 끈다', f: s => { coAuto(coT(s)).on[d.k] = d.k === 'mcn' ? 0 : false; return d.k === 'mcn' ? '자동 영입 후보를 껐다.' : d.k.startsWith('trainer') ? '자동으로 트레이너 뽑기를 껐다.' : '자동 오디션을 껐다.'; } },
     { t: '켜 둔다', h: '자리가 나면 다시 자동으로 연다', f: () => '' },
@@ -675,7 +702,7 @@ E({
   title: (s, d) => `${coKindN(d.kind)} 오디션 지원자`,
   cond: s => coOn(s),
   init(s, d) { const t = coT(s); d.ids = Array.from({ length: U.int(4, 6) }, () => coCand(s, t, d.kind, d.g === 'any' ? (U.chance(0.5) ? '여' : '남') : d.g).id); },
-  text: (s, d) => { const t = coT(s), f = coFOfKind(d.kind), k = coTier(t, f); return `내 스카우트 ${lvi(me(s), 'scout')}\n\n${coKindN(d.kind)} 오디션에서 ${d.ids.length}명이 최종까지 올라왔다. 계약할 사람을 체크하자.\n\n${CO_FIELDS[f].n} 연습생 ${coTrainees(s, null, f).length}/${CO_TR_CAP[k]}명 · 한 명당 매달 ${fmtWon(coTrCost(t, f))}`; },
+  text: (s, d) => { const t = coT(s), f = coFOfKind(d.kind), k = coTier(t, f); return `내 스카우트 ${lvi(me(s), 'scout')}\n\n${coKindN(d.kind)} 오디션에서 ${d.ids.length}명이 최종까지 올라왔다. 계약할 사람을 체크하자.\n\n${CO_FIELDS[f].n} 연습생 ${coCapN(coTrainees(s, null, f).length, CO_TR_CAP[k], '명')} · 한 명당 매달 ${fmtWon(coTrCost(t, f))}`; },
   form: (s, d) => d.ids.map(id => s.people[id]).filter(Boolean).map(x => ({ k: x.id, type: 'check', label: coCandLabel(s, x), sub: coCandSub(s, x) })),
   cancel: (s, d) => { coClean(s, d.ids, []); return '이번 오디션에서는 아무도 뽑지 않았다.'; },
   submit(s, d, v) {
@@ -729,7 +756,7 @@ function coTrainMonth(s, t, teach) {
       if (teach && !C && has(p, k)) base += teachLv(p, k) / 12 * coLocM(s);
       // CEO는 연습생 교육도 챙긴다 (경영 방향이 '신인 키우기'면 가장 힘써서, CEO 실력에 따라 1.1~1.5배)
       if (C) base *= 1 + (0.1 + ceoLv(s, C) / 250) * ceoW(s, C, 'rookie');
-      practice(s, x, k, base, coEqM(t, k));
+      practice(s, x, k, base, coTrainM(s, t, k, fx));
     }
     // 데뷔를 오래 기다린 연습생은 나이가 차면 떠난다
     const a = pAge(s, x);
@@ -745,7 +772,7 @@ function coTrainMonth(s, t, teach) {
     if (q.ids.length < 2) { t.squads = t.squads.filter(x => x !== q); addLog(s, `데뷔조 「${q.name}」에 남은 사람이 없어 데뷔조를 풀었다.`, 'career'); continue; }
     q.tw = Math.min(CO_SQ_MAX, (q.tw || 0) + 2.2);
     if (q.tw >= 30 && !q.told) { q.told = 1; queueEv(s, 'co_sq_ready', 0, { kind: q.kind }, true); }
-    for (const id of q.ids) { const x = s.people[id], k = q.kind === 'band' ? x.co.part : q.kind === 'vt' ? 'variety' : 'dance'; if (has(x, k)) practice(s, x, k, 1, coEqM(t, k)); }
+    for (const id of q.ids) { const x = s.people[id], k = q.kind === 'band' ? x.co.part : q.kind === 'vt' ? 'variety' : 'dance'; if (has(x, k)) practice(s, x, k, 1, coTrainM(s, t, k, coFOfKind(q.kind))); }
   }
   for (const x of coStaff(s, 'trainer')) if (U.chance(0.3)) practice(s, x, 'edu', 0.5);
   for (const x of coStaff(s, 'edit')) if (U.chance(0.3)) practice(s, x, 'edit', 0.5);
@@ -1431,7 +1458,7 @@ function coGroupMonth(s, t, g, sales) {
   g.months++;
   qFront(s, ['co_res']);
   if (g.proj) { if (coP(s, g.members).length < 2 || (g.debuted && g.promo <= 0 && !g.cbQ && !(g.rel > s.t))) { coProjEnd(s, t, g); return; } }
-  else for (const x of coP(s, g.members)) for (const k of coSkillsOf(x)) { const tr = coTrainer(s, k, coFOfKind(g.kind)); practice(s, x, k, (k === 'variety' ? 0.4 : 0.9) * (tr ? 1 + teachLv(tr, k) / 80 : 1), coEqM(t, k)); }
+  else for (const x of coP(s, g.members)) for (const k of coSkillsOf(x)) { const tr = coTrainer(s, k, coFOfKind(g.kind)); practice(s, x, k, (k === 'variety' ? 0.4 : 0.9) * (tr ? 1 + teachLv(tr, k) / 80 : 1), coTrainM(s, t, k, coFOfKind(g.kind))); }
   if (coProjHas(t, g) && !g.cbQ && g.nextCb <= 1) g.nextCb = 2;
   // 전담 프로듀서가 기획한 지 한 달: 곡을 고른다 (v155)
   if (g.alb && g.alb.auto && g.alb.auto <= s.t) dlRun(() => coProdPick(s, g));
@@ -1528,7 +1555,7 @@ function coVGenMonth(s, t, g, sales) {
   const sat = 1 + t.groups.filter(y => y.kind === 'vt').reduce((a, y) => a + coVSubs(s, y), 0) / CO_VSAT;
   let rev = 0;
   for (const x of coP(s, g.members)) {
-    for (const k of coSkillsOf(x)) { const tr = coTrainer(s, k, 'vidol'); practice(s, x, k, (k === 'variety' ? 1.5 : 0.8) * (tr ? 1 + teachLv(tr, k) / 80 : 1), coEqM(t, k)); }
+    for (const k of coSkillsOf(x)) { const tr = coTrainer(s, k, 'vidol'); practice(s, x, k, (k === 'variety' ? 1.5 : 0.8) * (tr ? 1 + teachLv(tr, k) / 80 : 1), coTrainM(s, t, k, 'vidol')); }
     const c = x.co, tg = viTarget(coVAppeal(s, t, x), false) / sat, before = c.subs || 0;
     c.subs = before < tg ? before + Math.round((tg - before) * U.fl(0.02, 0.06) * 1.6 + U.int(3, 20)) : Math.round(before * U.fl(0.99, 1));
     c.peak = Math.max(c.peak || 0, c.subs);
@@ -1696,7 +1723,7 @@ E({
   },
   cond: s => coOn(s),
   init(s, d) { const t = coT(s), L = []; for (let i = U.int(4, 6); i > 0; i--) { const x = coMcnCand(s, t); if (!L.includes(x.id)) L.push(x.id); } d.ids = L; },
-  text: (s, d) => { const t = coT(s); return `영입 제안을 보낼 크리에이터를 체크하자. 기본 회사 몫 ${pctN(d.cut)} · 계약 2년.\n\n크리에이터 ${coCrs(s).length}/${CO_CR_CAP[coTier(t, 'mcn')]}명`; },
+  text: (s, d) => { const t = coT(s); return `영입 제안을 보낼 크리에이터를 체크하자. 기본 회사 몫 ${pctN(d.cut)} · 계약 2년.\n\n크리에이터 ${coCapN(coCrs(s).length, CO_CR_CAP[coTier(t, 'mcn')], '명')}`; },
   form: (s, d) => { const t = coT(s); return d.ids.map(id => s.people[id]).filter(Boolean).map(x => ({ k: x.id, type: 'check', label: coCrLabel(s, x), tr: (x.yt.mode === 'vt' ? '버튜버' : '캠튜버') === s.trendTV.yt, sub: `구독자 ${fmtFans(x.yt.subs)} · 최근 1년 ${mcnTrend(x) >= 0 ? '+' : ''}${mcnTrend(x)}% · ${x.yt.mcn ? `지금 ${AG[x.yt.mcn] ? AG[x.yt.mcn].n : '다른 MCN'} 소속` : '소속 없음'} · 회사 몫 ${pctN(coMcnCut(t, x, d.cut))} · 받아들일 가능성 ${fmtPct(coMcnP(s, t, x, coMcnCut(t, x, d.cut)))}` })); },
   cancel: () => '이번엔 영입 제안을 보내지 않았다.',
   submit(s, d, v) {
@@ -1913,7 +1940,7 @@ function coMonth(s, t) {
   // 연습생 비용: 한 명마다 쌓아 두었다가 데뷔하면 그룹이 갚을 비용(g.debt)이 된다
   for (const x of coTrainees(s)) { const c = coTrCost(t, x.co.f); coOut(t, c, '연습생 비용', x.co.f); x.co.cost = (x.co.cost || 0) + c; }
   for (const x of coStaff(s)) coOut(t, x.co.sal || 0, '직원 월급', coStaffF(t, x));
-  coOut(t, coRoomUp(t), '연습실 장비', coMainF(t));
+  for (const b of coBlds(t)) coOut(t, coRoomUpB(t, b), '연습실 장비', b);
   coCeoMonth(s, t);
   if (t.hire) hireMonth(s, t);
   coTrainMonth(s, t, task === 'teach');
@@ -2051,6 +2078,44 @@ function coCoRO(t, f, tab) { return ['home', 'fin', 'ceo'].includes(tab) ? null 
 // 자회사가 생기면 메인 화면 박스가 '그룹'이 되고, 누르면 이 창: 그룹 이름 · 등급 · 소속 회사 · 그룹 전체 자본금 · 출자 · 배당 · 자회사 세우기
 // 회사 창에서는 이것들을 뺐다 (겹치지 않게). 회사 배너를 누르면 그 회사 창, 회사 창 위 '← 그룹'으로 돌아온다
 function coIsGrp(t) { return !!t && !t.hire && coFields(t).length > 1; }
+// 회사 탭 '사옥' 줄 (v189): 어느 사옥에 있는지 · 같이 쓰는 회사 · 연습실 정원
+function coBldRow(s, t, f) {
+  const b = coBld(t, f), fs = coBldFs(t, b), rt = coRoomTxt(s, t, b);
+  if (fs.length < 2 && !rt && !coIsGrp(t)) return null;
+  return ['사옥', `${coBldN(t, b)}${fs.length > 1 ? ` (같이 씀: ${fs.filter(x => x !== f).map(x => `「${coFName(t, x)}」`).join(' · ')})` : ''}${rt ? ` · ${rt}` : ''}`];
+}
+// 사옥 독립 (v189): 자회사가 본사 사옥에서 나와 건물을 따로 얻는다 (입지는 그룹과 같다). 이사 · 보증금은 자회사 자본금에서
+function coOwnWhy(s, t, f) {
+  if (f === coMainF(t)) return '모회사는 본사 사옥에 있다';
+  if (coBld(t, f) === f) return '이미 사옥이 따로 있다';
+  if (!CO_ROOM_FS.includes(f)) return '연습실을 쓰는 회사(기획사 · 버츄얼)만 따로 나간다';
+  const c = CO_MOVE_COST[coTier(t, f)]; if (coM(t, f) < c) return `「${coFName(t, f)}」 자본금이 모자라다 (${fmtWon(c)} 필요)`;
+  return '';
+}
+E({
+  id: 'co_own', cat: '회사', title: (s, d) => `「${coFName(coT(s), d.f)}」 사옥 독립`, tag: 'career',
+  cond: s => coOn(s),
+  text: (s, d) => {
+    const t = coT(s), f = d.f, m = coMainF(t), c = CO_MOVE_COST[coTier(t, f)], r0 = coOfficeF(t, f), r1 = Math.round(r0 * CO_OWN_RENT / 1e4) * 1e4;
+    const n = coBldPpl(s, t, m).length, mine = coBldPpl(s, t, m).filter(x => (x.co.f || coFOfKind(x.co.kind)) === f).length;
+    return `「${coFName(t, f)}」${josa(coFName(t, f), '이가').slice(-1)} 본사 사옥에서 나와 건물을 따로 얻는다. 이사 · 보증금 ${fmtWon(c)}은 「${coFName(t, f)}」 자본금에서 낸다.
+
+• 연습실 정원이 따로 생긴다 (${TIER_N[coTier(t, f)]} ${CO_ROOM_CAP[coTier(t, f)]}명)
+• 연습실 장비는 새로 들여야 한다 (본사 장비는 본사에 남는다)
+• 사무실 임대료가 30% 더 든다 (월 ${fmtWon(r0)} → ${fmtWon(r1)})
+
+지금 본사 연습실 ${n}/${coBldCap(t, m)}명 (그중 「${coFName(t, f)}」 ${mine}명)`;
+  },
+  ch: (s, d) => [
+    { t: '독립한다', ok: s => !coOwnWhy(s, coT(s), d.f), h: coOwnWhy(s, coT(s), d.f), f: s => {
+      const t = coT(s), f = d.f, c = CO_MOVE_COST[coTier(t, f)];
+      coOut(t, c, '사옥 이전', f); t.f[f].own = 1; t.f[f].rooms = {}; CO_CROWD.delete(t);
+      addLog(s, `「${coFName(t, f)}」${josa(coFName(t, f), '이가').slice(-1)} 본사에서 나와 사옥을 따로 얻었다. (이사 · 보증금 ${fmtWon(c)})`, 'career');
+      return `「${coFName(t, f)}」 사옥을 따로 얻었다. 연습실 장비는 그 회사 연습실 탭에서 새로 들일 수 있다.`;
+    } },
+    { t: '그만둔다', f: () => '' },
+  ],
+});
 function panel_group() {
   const s = S;
   if (!coOn(s)) return '<div class="empty">운영 중인 회사가 없다.</div>';
@@ -2061,6 +2126,10 @@ function panel_group() {
   let h = `<h2>🏛️ ${U.esc(coGrpName(t))} <span class="muted" style="font-size:var(--fs-3)">${coRankName(t, rk)} · 회사 ${fs.length}곳</span></h2>`;
   h += infoTable([['그룹 등급', coRankName(t, rk)], ['그룹 전체 자본금', `${fmtWon(t.money)} (${fs.map(f => `${coFName(t, f)} ${fmtWon(t.f[f].money || 0)}`).join(' · ')})`], ['지난달 그룹 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`], ['모회사', `「${t.name}」`], ['입지', `${REGION_BY[coLocR(s, t)].n}${lb > 1 ? ` · 회사 일 +${Math.round((lb - 1) * 100)}%` : ''} · 집에서 ${coDistTxt(coDist(s, t))}`]]);
   h += `<div class="sec-h">소속 회사 <span class="n">${fs.length}곳 · 누르면 그 회사 창</span></div><div class="grp-cos">${fs.map(f => coBannerHTML(s, t, f, false, true)).join('')}</div>`;
+  // v189: 사옥마다 든 회사 · 연습실 정원, 본사에 있는 자회사(연습실을 쓰는 회사)는 사옥 독립
+  const blds = coBlds(t), mv = subs.filter(x => coBld(t, x) === m && CO_ROOM_FS.includes(x));
+  h += `<div class="sec-h">사옥 <span class="n">${blds.length}곳</span></div>` + blds.map(b => { const cap = coBldCap(t, b), n = cap ? coBldPpl(s, t, b).length : 0; return actRow({ emo: '🏢', t: coBldN(t, b), noBtn: true, tag: cap && n >= cap ? '연습실 꽉 참' : '', h: `${coBldFs(t, b).map(x => `${CO_FIELDS[x].ic} ${coFName(t, x)}`).join(' · ')}${cap ? ` · ${coRoomTxt(s, t, b)}` : ''}` }); }).join('');
+  h += mv.map(x => { const w = coOwnWhy(s, t, x); return actRow({ emo: CO_FIELDS[x].ic, t: `「${coFName(t, x)}」 사옥 독립`, h: `이사 · 보증금 ${fmtWon(CO_MOVE_COST[coTier(t, x)])} (자회사 자본금) · 연습실 정원 · 장비가 따로 생긴다 · 사무실 임대료 30% 더`, ok: !w, why: w, btn: '알아보기', run: s => { fireEvent(s, 'co_own', { f: x }); return ''; } }); }).join('');
   h += `<div class="sec-h">출자 · 배당</div><p class="hint">출자: 모회사(${U.esc(t.name)}) → 자회사<br>배당: 자회사 → 모회사(${U.esc(t.name)})</p>`;
   h += subs.map(x => actRow({ emo: CO_FIELDS[x].ic, t: `「${coFName(t, x)}」`, h: `자본금 ${fmtWon(coM(t, x))} · 배당할 수 있는 돈 ${fmtWon(coDivMax(t, x))} · 모회사 자본금 ${fmtWon(coM(t, m))}`, opts: [
     { btn: '출자', on: true, ok: coM(t, m) > 0, run: s => { fireEvent(s, 'co_xfer', { dir: 'inv', f: x }); return ''; } },
@@ -2079,7 +2148,7 @@ function coTabHome(s, t, f) {
   const ownIds = main ? Object.keys(OWN_CO_N).filter(j => ownCo(s, j)) : [], own = ownIds.map(j => CAREERS[j].n);
   // v187: 입지 · 집에서의 거리. 그룹이면 등급 · 자회사 · 모회사는 그룹 창에 (겹치지 않게)
   const lb = coLocB(s, t), grp = subs.length > 0 || !main;
-  let h = infoTable([[`${CO_FIELDS[f].ic} ${CO_TYPE_N[f]}`, `평판 ${Math.round(t.f[f].rep)} · ${TIER_N[t.f[f].tier]}`], ['입지', `${REGION_BY[coLocR(s, t)].n} · 사무실 월 ${fmtWon(coOfficeF(t, f))}${lb > 1 ? ` · 회사 일(회사 운영 · 직접 가르치기 · 영업) +${Math.round((lb - 1) * 100)}%` : ''}`], ['집에서', `${REGION_BY[s.region].n}에서 다닌다 · ${coDistTxt(coDist(s, t))}`], own.length ? ['내 회사 소속 내 활동', `${own.join(' · ')} (비용 · 수익은 자본금)`] : null, grp ? null : ['등급', coRankName(t, rk)], t.f.music ? ['받은 상', `${t.awN}개`] : null]);
+  let h = infoTable([[`${CO_FIELDS[f].ic} ${CO_TYPE_N[f]}`, `평판 ${Math.round(t.f[f].rep)} · ${TIER_N[t.f[f].tier]}`], ['입지', `${REGION_BY[coLocR(s, t)].n} · 사무실 월 ${fmtWon(coOfficeF(t, f))}${lb > 1 ? ` · 회사 일(회사 운영 · 직접 가르치기 · 영업) +${Math.round((lb - 1) * 100)}%` : ''}`], ['집에서', `${REGION_BY[s.region].n}에서 다닌다 · ${coDistTxt(coDist(s, t))}`], coBldRow(s, t, f), own.length ? ['내 회사 소속 내 활동', `${own.join(' · ')} (비용 · 수익은 자본금)`] : null, grp ? null : ['등급', coRankName(t, rk)], t.f.music ? ['받은 상', `${t.awN}개`] : null]);
   // 내 회사 소속 내 활동은 눌러서 그 직업 창으로 간다 (v116 버그 11)
   if (ownIds.length) h += `<div class="ap-row">${ownIds.map(j => `<button class="btn sm" data-job="${j}" data-from="company">${jobIc(j)} ${U.esc(jobName(j))} 창 열기</button>`).join('')}</div>`;
   // v169: 내 돈은 모회사에만 넣고 꺼낸다. 자회사 창에는 모회사로 배당 · 이 자회사 정리
@@ -2095,12 +2164,15 @@ function coTabHome(s, t, f) {
   return h + `<div class="sec-h">할 수 있는 일</div>` + A.map(actRow).join('') + (main && t.hist && t.hist.length ? `<div class="sec-h">예전에 운영한 회사</div>${t.hist.map(x => `<div class="ms">· ${U.esc(x)}</div>`).join('')}` : '');
 }
 // 연습실 탭 (v166): 그 회사가 쓰는 연습실만. 단계를 올리면 그 용도 특기의 연습이 빨라진다
+// v189: 그 회사가 든 사옥의 연습실 (본사면 같이 쓰는 회사들과 나눠 쓴다). 장비 값 · 유지비는 사옥 주인 회사 자본금에서. 위에 정원
 function coTabRoom(s, t, f) {
-  const R = CO_ROOMS.filter(r => r.fs.includes(f)), pct = l => Math.round((CO_EQ.mult[l] - 1) * 100);
-  let h = `<div class="lnote">연습실은 그룹(모회사 · 자회사)이 같이 쓴다. 그 용도의 특기를 배우는 연습생 · 소속 아티스트가 더 빨리 는다 · 연습실 유지비 합계 <b>월 ${fmtWon(coRoomUp(t))}</b></div>`;
+  const b = coBld(t, f), R = CO_ROOMS.filter(r => r.fs.includes(f)), pct = l => Math.round((CO_EQ.mult[l] - 1) * 100), P = coBldPpl(s, t, b), cap = coBldCap(t, b), fs = coBldFs(t, b);
+  const who = fs.length > 1 ? ` · ${fs.map(x => `「${coFName(t, x)}」`).join(' · ')}이 같이 쓴다` : '', pay = b !== f ? ` · 장비 값 · 유지비는 「${coFName(t, b)}」 자본금에서` : '';
+  let h = `<div class="lnote">🏢 <b>${coBldN(t, b)}</b>${who}${pay}. 그 용도의 특기를 배우는 연습생 · 소속 아티스트가 더 빨리 는다 · 연습실 유지비 <b>월 ${fmtWon(coRoomUpB(t, b))}</b></div>`;
+  if (cap) h += `<div class="lnote${P.length > cap ? ' warn' : ''}">연습실 정원 <b>${P.length}/${cap}명</b> (연습생 + 데뷔한 그룹 멤버)${P.length > cap ? ` · 꽉 찼다: 연습 효율 <b>${Math.round(Math.max(0.5, cap / P.length) * 100)}%</b>. 회사가 커지면 정원이 늘고, 자회사는 그룹 창에서 사옥을 따로 얻을 수 있다` : P.length === cap ? ' · 꽉 찼다 (더 들어오면 연습 효율이 떨어진다)' : ''}</div>`;
   h += R.map(r => {
-    const l = coRoomLv(t, r.id), nx = l + 1, cost = l < 3 ? coRoomCost(r, nx) : 0, n = coP(s, t.tr.concat(...t.groups.map(g => g.members))).filter(x => r.k.some(k => has(x, k))).length;
-    return actRow({ emo: r.ic, t: r.n, tag: l ? `${l}단계` : '', price: l < 3 ? `${l ? '올리기' : '들이기'} ${fmtWon(cost)} (자본금)` : '최고 단계', eff: `${r.k.map(k => SKILLS[k].n).join(' · ')} 연습 ${l ? `+${pct(l)}%` : '그대로'}${l < 3 ? ` → +${pct(nx)}%` : ''}`, note: `유지비 월 ${fmtWon(coRoomUp1(t, r))}${l < 3 ? ` → ${fmtWon(Math.round(CO_EQ.up[nx] * r.w / 1e4) * 1e4)}` : ''} · 이 특기를 배우는 사람 ${n}명`, ok: l < 3 && coM(t) >= cost, why: l >= 3 ? '최고 단계다' : '자본금이 모자라다', btn: l ? '올리기' : '들이기', run: s => { coOut(t, cost, '연습실 장비', coMainF(t)); (t.rooms = t.rooms || {})[r.id] = nx; return `${josa(r.n, '을를')} ${nx}단계로 ${l ? '올렸다' : '들였다'}. ${r.k.map(k => SKILLS[k].n).join(' · ')} 연습이 ${pct(nx)}% 더 빨라진다.`; } });
+    const l = coRoomLv(t, r.id, f), nx = l + 1, cost = l < 3 ? coRoomCost(r, nx) : 0, n = P.filter(x => r.k.some(k => has(x, k))).length;
+    return actRow({ emo: r.ic, t: r.n, tag: l ? `${l}단계` : '', price: l < 3 ? `${l ? '올리기' : '들이기'} ${fmtWon(cost)} (자본금)` : '최고 단계', eff: `${r.k.map(k => SKILLS[k].n).join(' · ')} 연습 ${l ? `+${pct(l)}%` : '그대로'}${l < 3 ? ` → +${pct(nx)}%` : ''}`, note: `유지비 월 ${fmtWon(coRoomUp1(t, r, f))}${l < 3 ? ` → ${fmtWon(Math.round(CO_EQ.up[nx] * r.w / 1e4) * 1e4)}` : ''} · 이 특기를 배우는 사람 ${n}명`, ok: l < 3 && coM(t, b) >= cost, why: l >= 3 ? '최고 단계다' : '자본금이 모자라다', btn: l ? '올리기' : '들이기', run: s => { coOut(t, cost, '연습실 장비', b); coRooms(t, f)[r.id] = nx; return `${josa(r.n, '을를')} ${nx}단계로 ${l ? '올렸다' : '들였다'}. ${r.k.map(k => SKILLS[k].n).join(' · ')} 연습이 ${pct(nx)}% 더 빨라진다.`; } });
   }).join('');
   return h;
 }
@@ -2128,12 +2200,12 @@ function coTabTr(s, t, f0) {
     const k = coTier(t, f), aw = coAudWhy(s, f), gs = coGroupsF(t, f).length;
     // 오디션 줄에서 바로 자동을 켜고 끈다 (🔁 자동 탭과 같은 스위치, 피드백 30)
     const AU = coAuto(t), au = !!AU.on[f];
-    A.push({ t: multi ? `${CO_FIELDS[f].n} 오디션` : '오디션 열기', h: `${fmtWon(CO_AUD_COST[k])} · 3개월에 한 번 · 연습생 ${coTrainees(s, null, f).length}/${CO_TR_CAP[k]}명${au ? ` · 자동: 자본금 ${fmtWon(coAutoAudLine(s, t, f))} 이상일 때` : ''}`, why: aw, opts: [
+    A.push({ t: multi ? `${CO_FIELDS[f].n} 오디션` : '오디션 열기', h: `${fmtWon(CO_AUD_COST[k])} · 3개월에 한 번 · 연습생 ${coCapN(coTrainees(s, null, f).length, CO_TR_CAP[k], '명')}${au ? ` · 자동: 자본금 ${fmtWon(coAutoAudLine(s, t, f))} 이상일 때` : ''}`, why: aw, opts: [
       { btn: '열기', on: true, ok: !aw, run: s => { fireEvent(s, 'co_aud_pick', { f }); return ''; } },
       { btn: au ? '🔁 자동 켜짐' : '🔁 자동', on: au, ok: true, run: () => { AU.on[f] = !au; return ''; } }] });
     if (f === 'music') {
       const iw = coMakeWhy(s, 'idol'), bw = coMakeWhy(s, 'band');
-      A.push({ t: '데뷔조 편성', h: `아이돌 연습생 ${coTrainees(s, 'idol').length}명 · 그룹 ${gs}/${CO_GRP_CAP[k]}팀`, ok: !iw, why: iw, btn: '편성하기', run: s => { fireEvent(s, 'co_make', { kind: 'idol' }); return ''; } });
+      A.push({ t: '데뷔조 편성', h: `아이돌 연습생 ${coTrainees(s, 'idol').length}명 · 그룹 ${coCapN(gs, CO_GRP_CAP[k], '팀')}`, ok: !iw, why: iw, btn: '편성하기', run: s => { fireEvent(s, 'co_make', { kind: 'idol' }); return ''; } });
       A.push({ t: '밴드 만들기', h: `밴드 연습생 ${coTrainees(s, 'band').length}명`, ok: !bw, why: bw, btn: '만들기', run: s => { fireEvent(s, 'co_make', { kind: 'band' }); return ''; } });
       // 데뷔조 (v131): 같이 연습하며 합을 맞추는 중인 멤버들. 준비되면 여기서 데뷔 확인 창으로 간다
       for (const q of (t.squads || []).filter(q => q.kind !== 'vt')) A.push({ ppl: q.ids, t: `${coKindN(q.kind)} 데뷔조 「${q.name}」 · ${q.ids.length}명`, h: `같이 연습한 지 ${s.t - q.t0}개월 · ${coTwWord(q.tw || 0)}`, opts: [
@@ -2147,7 +2219,7 @@ function coTabTr(s, t, f0) {
       for (const q of (t.squads || []).filter(q => q.kind === 'vt')) A.push({ ppl: q.ids, t: `버츄얼 아이돌 데뷔조 「${q.name}」 · ${q.ids.length}명`, h: `같이 연습한 지 ${s.t - q.t0}개월 · ${coTwWord(q.tw || 0)}`, opts: [
         { btn: '데뷔시키기', on: true, ok: !coMakeWhy(s, 'vt'), run: s => { fireEvent(s, 'co_make_ok', { kind: 'vt', name: q.name, fandom: q.fandom, ids: q.ids.slice() }); return ''; } },
         { btn: '무산', ok: true, confirm: `데뷔조 「${q.name}」의 데뷔를 무산시킬까요?\n맞춰 온 합은 사라져요.`, run: s => { t.squads = t.squads.filter(x => x !== q); return `데뷔조 「${q.name}」의 데뷔가 무산됐다.`; } }] });
-      A.push({ t: '데뷔조 편성', h: `${coNextGen(t)}기 · 버츄얼 아이돌 연습생 ${coTrainees(s, 'vt').length}명 · 활동 기수 ${gs}/${CO_GRP_CAP[k]}개 · 아바타 제작비가 든다`, ok: !vw, why: vw, btn: '편성하기', run: s => { fireEvent(s, 'co_make', { kind: 'vt' }); return ''; } });
+      A.push({ t: '데뷔조 편성', h: `${coNextGen(t)}기 · 버츄얼 아이돌 연습생 ${coTrainees(s, 'vt').length}명 · 활동 기수 ${coCapN(gs, CO_GRP_CAP[k], '개')} · 아바타 제작비가 든다`, ok: !vw, why: vw, btn: '편성하기', run: s => { fireEvent(s, 'co_make', { kind: 'vt' }); return ''; } });
     }
   }
   let h = `<div class="sec-h">할 수 있는 일</div>` + A.map(actRow).join('');
@@ -2225,7 +2297,7 @@ function coTabStaff(s, t, f) {
     { btn: '뽑기', on: true, ok: !tw, run: s => { fireEvent(s, 'co_hire_tf', { f }); return ''; } },
     { btn: ta ? '🔁 자동 켜짐' : '🔁 자동', on: ta, ok: true, run: () => { TA.on['trainer_' + f] = !ta; return ''; } }] });
   const pds = coStaff(s, 'prod', f);
-  if (has('music')) { const pw = coHireOK(s, 'prod', f); rows.push({ t: '사내 프로듀서 뽑기', h: `사내 프로듀서 ${coProdCount(s)}/${CO_GRP_CAP[coTier(t, 'music')]}명${pds.length > coProdCount(s) ? ' (전담 프로듀서는 제외됨)' : ''} · 그룹에 전담으로 붙이면 앨범 기획 · 선정을 맡는다 · 붙이지 않아도 '사내 제작'으로 곡을 쓴다`, ok: !pw, why: pw, btn: '뽑기', run: s => { fireEvent(s, 'co_hire', { job: 'prod', f }); return ''; } }); }
+  if (has('music')) { const pw = coHireOK(s, 'prod', f); rows.push({ t: '사내 프로듀서 뽑기', h: `사내 프로듀서 ${coProdCount(s)}/${CO_PROD_CAP[coTier(t, 'music')]}명${pds.length > coProdCount(s) ? ' (전담 프로듀서는 제외됨)' : ''} · 그룹에 전담으로 붙이면 앨범 기획 · 선정을 맡는다 · 붙이지 않아도 '사내 제작'으로 곡을 쓴다`, ok: !pw, why: pw, btn: '뽑기', run: s => { fireEvent(s, 'co_hire', { job: 'prod', f }); return ''; } }); }
   if (has('mcn')) { const ew = coHireOK(s, 'edit', f), ea = coAuto(t).on.edit; rows.push({ t: '편집자 뽑기', h: `편집자 ${eds.length}/${CO_ED_CAP[coTier(t, 'mcn')]}명 · 한 명이 크리에이터 ${CO_ED_PER}명까지 맡는다${ea ? ' · 자동: 편집자가 모자라면 3개월마다 지원자를 본다' : ''}`, why: ew, opts: [{ btn: '뽑기', on: true, ok: !ew, run: s => { fireEvent(s, 'co_hire', { job: 'edit', f }); return ''; } }, coAutoSw(t, 'edit')] }); }
   let h = `<div class="sec-h">직원 <span class="n">월급 합계 ${fmtWon(coStaff(s, null, f).reduce((a, x) => a + x.co.sal, 0))}</span></div>` + rows.map(actRow).join('');
   if (tr && trs.length) h += `<div class="sec-h">트레이너</div>` + trs.map(x => actRow({ who: x.id, t: `${trFieldN(x.co.k)} ${x.name} (${gNn(x)} · ${pAge(s, x)}세)`, h: coStaffLine(x), ok: true, danger: true, btn: '내보내기', confirm: `${x.name}을 내보낼까요?`, run: s => coFire(s, x) })).join('');
@@ -2238,7 +2310,7 @@ function coTabCr(s, t) {
   const L = coCrs(s), w = coMcnWhy(s, t), cap = CO_CR_CAP[coTier(t, 'mcn')];
   // 영입 제안 줄에서 바로 자동을 켜고 끈다 (v178, 오디션 줄처럼). 켜면 회사 몫은 25%로 시작하고, 자동 탭에서 바꾼다
   const AU = coAuto(t), au = AU.on.mcn;
-  const A = [{ t: '영입 제안 보내기', h: `크리에이터 ${L.length}/${cap}명 · 3개월에 한 번${au ? ` · 자동: 회사 몫 ${pctN(au)}로 제안` : ''}`, why: w, opts: [
+  const A = [{ t: '영입 제안 보내기', h: `크리에이터 ${coCapN(L.length, cap, '명')} · 3개월에 한 번${au ? ` · 자동: 회사 몫 ${pctN(au)}로 제안` : ''}`, why: w, opts: [
     { btn: '보내기', on: true, ok: !w, run: s => { fireEvent(s, 'co_mpick', {}); return ''; } },
     { btn: au ? '🔁 자동 켜짐' : '🔁 자동', on: !!au, ok: true, run: () => { AU.on.mcn = au ? 0 : CO_MCN_CUTS[1]; return ''; } }] }].concat(coMcnActs(s, t));
   let h = `<div class="sec-h">할 수 있는 일</div>` + A.map(actRow).join('');
@@ -2288,9 +2360,10 @@ function coAutoMonth(s, t) {
   // v169: CEO가 맡은 회사는 자동을 쓰지 않는다 (CEO가 직접 한다). CEO가 떠나면 예전 자동 설정이 다시 돈다
   const TF = coTrFields(t).filter(f => !coCeo(t, f) && !neg(f));
   const fullAsk = (k, full, x) => { if (!A.on[k] || !full) { A.full[k] = false; return; } if (!A.full[k] && !hasQ(s, 'co_auto_full')) { A.full[k] = true; queueEv(s, 'co_auto_full', 0, Object.assign({ k }, x || {})); } };
-  for (const f of TF) fullAsk(f, coTrRoom(s, t, f) <= 0);
+  // v189: 연습실 정원이 차도 자동 오디션을 끌지 묻는다 (대형은 연습생 자리 제한이 없다)
+  for (const f of TF) fullAsk(f, coTrRoom(s, t, f) <= 0 || coBldFull(s, t, f), { room: coTrRoom(s, t, f) > 0 ? 1 : 0 });
   for (const f of TF) { const k = 'trainer_' + f; if (A.on[k] == null && A.on.trainer) A.on[k] = true; fullAsk(k, coStaff(s, 'trainer', f).length >= coStaffCap(t, 'trainer', f), { f }); }
-  for (const f of TF) if (A.on[f] && (A.nx[f] || 0) <= s.t && !coAudWhy(s, f) && coM(t, f) >= coAutoAudLine(s, t, f)) coAutoQ(s, A, f, 'co_aud_pick', { f });
+  for (const f of TF) if (A.on[f] && (A.nx[f] || 0) <= s.t && !coAudWhy(s, f) && !coBldFull(s, t, f) && coM(t, f) >= coAutoAudLine(s, t, f)) coAutoQ(s, A, f, 'co_aud_pick', { f });
   // 트레이너 뽑기 (v131): 자리가 비어 있고, 자본금이 꼭 나가는 돈 6개월치 이상일 때 3개월마다 '어떤 트레이너를 뽑을까?' 창을 연다
   for (const f of TF) { const k = 'trainer_' + f; if (coTrAutoOn(A, f) && (A.nx[k] || 0) <= s.t && !coHireOK(s, 'trainer', f) && coM(t, f) >= coFixed(s, t, f) * CO_AUTO_RES) coAutoQ(s, A, k, 'co_hire_tf', { f }); }
   for (const [f, L, why, ev] of [['video', t.vw, coVWhy, 'co_vplan'], ['anime', t.aw, coAWhy, 'co_aplan']]) {
@@ -2761,12 +2834,12 @@ function ceoManage(s, t, f, C) {
     const k = coTier(t, f), kind = f === 'vidol' ? 'vt' : 'idol', nTr = coTrainees(s, null, f).length, deb = coGroupsF(t, f).filter(g => g.debuted);
     if (coStaff(s, 'trainer', f).length < Math.min(f === 'music' && (C.dir !== 'profit' || deb.length) ? 2 : 1, coStaffCap(t, 'trainer', f)) && nTr >= 2 && !coHireOK(s, 'trainer', f) && can(fixed * 6)) { ceoOpen(s, 'co_hire_tf', { f }); return; }
     if (!coMakeWhy(s, kind) && ceoDebut(s, t, f, kind, C, sm)) return;
-    const want = !deb.length || C.dir === 'rookie' ? 7 : deb.length < CO_GRP_CAP[k] && deb.every(g => coGFans(g) >= 15000) && C.dir !== 'profit' ? 6 : 0;
+    const want = !deb.length || C.dir === 'rookie' ? 7 : deb.length < Math.min(CO_GRP_CAP[k], 6) && deb.every(g => coGFans(g) >= 15000) && C.dir !== 'profit' ? 6 : 0;
     if (want && coTrainees(s, kind).length < want && coTrRoom(s, t, f) > 0 && !coAudWhy(s, f) && can(CO_AUD_COST[k])) { ceoOpen(s, 'co_aud_pick', { f }); return; }
-    // 연습실 장비 (모회사 건물): 모회사 CEO가 흑자일 때 노래 · 춤부터
-    if (f === coMainF(t) && deb.length && F_net(t.f[f]) > 0) {
-      const RM = CO_ROOMS.filter(r => r.fs.includes(f) && coRoomLv(t, r.id) < 3 && (r.k.includes('vocal') || r.k.includes('dance'))).sort((a, b) => coRoomLv(t, a.id) - coRoomLv(t, b.id))[0], nl = RM ? coRoomLv(t, RM.id) + 1 : 0;
-      if (RM && mo > coRoomCost(RM, nl) * 3 + fixed * 24 && C.dir !== 'profit') { coOut(t, coRoomCost(RM, nl), '연습실 장비', f); (t.rooms = t.rooms || {})[RM.id] = nl; addLog(s, `「${coFName(t, f)}」 CEO가 연습실 장비를 ${nl}단계로 바꿨다.`, 'career'); return; }
+    // 연습실 장비 (그 회사가 든 사옥 v189): 사옥 주인 회사 CEO가 흑자일 때 노래 · 춤부터
+    if (coBld(t, f) === f && deb.length && F_net(t.f[f]) > 0) {
+      const RM = CO_ROOMS.filter(r => r.fs.includes(f) && coRoomLv(t, r.id, f) < 3 && (r.k.includes('vocal') || r.k.includes('dance'))).sort((a, b) => coRoomLv(t, a.id, f) - coRoomLv(t, b.id, f))[0], nl = RM ? coRoomLv(t, RM.id, f) + 1 : 0;
+      if (RM && mo > coRoomCost(RM, nl) * 3 + fixed * 24 && C.dir !== 'profit') { coOut(t, coRoomCost(RM, nl), '연습실 장비', f); coRooms(t, f)[RM.id] = nl; addLog(s, `「${coFName(t, f)}」 CEO가 연습실 장비를 ${nl}단계로 바꿨다.`, 'career'); return; }
     }
   }
   if (f === 'vidol') for (const g of coVAutoGens(t)) {

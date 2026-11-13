@@ -521,8 +521,10 @@ function renderPeopleCard() {
 // 회사 박스 안의 회사 배너: 첫 회사(모회사)는 돈 줄 + 규모 줄, 자회사는 분야 규모 줄. 누르면 그 회사 창 (회사마다 따로, UI.coF)
 function coFieldFacts(s, t, f) {
   const v = t.groups.filter(g => g.kind === 'vt').length, m = t.groups.length - v, mk = (n, w) => w ? ` (만드는 중 ${w})` : '';
-  if (f === 'music') return [['연습생', `${coTrainees(s, null, 'music').length}명`], ['그룹', `${m}팀`]];
-  if (f === 'vidol') return [['연습생', `${coTrainees(s, null, 'vidol').length}명`], ['기수', `${v}개`]];
+  // v189: 연습실 정원 (그 회사가 든 사옥). 꽉 차면 빨갛게
+  const room = () => { if (typeof coBldCap !== 'function') return []; const b = coBld(t, f), cap = coBldCap(t, b), n = coBldPpl(s, t, b).length; return cap ? [['연습실', `${n}/${cap}명${n >= cap ? ' 꽉 참' : ''}`, n > cap ? 'neg' : '']] : []; };
+  if (f === 'music') return [['연습생', `${coTrainees(s, null, 'music').length}명`], ['그룹', `${m}팀`]].concat(room());
+  if (f === 'vidol') return [['연습생', `${coTrainees(s, null, 'vidol').length}명`], ['기수', `${v}개`]].concat(room());
   if (f === 'mcn') return [['크리에이터', `${(t.crs || []).length}명`]];
   if (f === 'video') return [['작품', `${(t.vdone || []).length}편${mk(0, (t.vw || []).length)}`]];
   if (f === 'anime') return [['애니', `${(t.adone || []).length}편${mk(0, (t.aw || []).length)}`]];
@@ -574,7 +576,10 @@ function renderCoCard() {
   if (typeof coIsGrp === 'function' && coIsGrp(t)) {
     el.className = 'card co-card';
     let h = `<div class="card-h">🏢 회사<span class="sub">회사 ${fs.length}곳</span></div><button class="job-bn co-bn co-grp-bn" data-panel="group">${coGrpBoxHTML(s, t)}</button>`;
-    h += [main].concat(fs.filter(f => f !== main)).map(f => coBannerHTML(s, t, f, false, true)).join('');
+    // v189: 사옥이 둘 이상이면 사옥마다 묶어서 (사옥 이름 · 연습실 정원 아래에 그 사옥의 회사 배너)
+    const B = typeof coBlds === 'function' ? coBlds(t) : [main];
+    if (B.length > 1) h += B.map(b => { const rt = coRoomTxt(s, t, b); return `<div class="co-bld-h">🏢 ${coBldN(t, b)}${rt ? ` <span class="${/꽉/.test(rt) ? 'neg' : ''}">· ${U.esc(rt)}</span>` : ''}</div>` + coBldFs(t, b).map(f => coBannerHTML(s, t, f, false, true)).join(''); }).join('');
+    else h += [main].concat(fs.filter(f => f !== main)).map(f => coBannerHTML(s, t, f, false, true)).join('');
     if (coSubLeft(t).length) h += coNewBannerHTML(true, coSubWhy(s, t));
     el.innerHTML = h;
     return;

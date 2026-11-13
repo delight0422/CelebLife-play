@@ -1426,7 +1426,7 @@ function matePot(m, k) { const o = m && m.sk && m.sk[k]; if (!o || o.potUp) retu
 // 멤버 연습에 붙는 회사 몫: 내 회사 소속이면 내 회사 연습실 · 트레이너, 기획사 소속이면 그 회사 연습실 (밴드 악기 트레이너는 따로 없다: 외부 레슨)
 function mateEqM(s, tm, k) {
   const own = tm.k === 'band' ? ownCo(s, 'band') : null;
-  if (own) { const tr = typeof coTrainer === 'function' ? coTrainer(s, k, 'music') : null; return (typeof coEqM === 'function' ? coEqM(own, k) : 1) * (tr ? 1 + teachLv(tr, k) / 50 : 1); }
+  if (own) { const tr = typeof coTrainer === 'function' ? coTrainer(s, k, 'music') : null; return (typeof coTrainM === 'function' ? coTrainM(s, own, k, 'music') : 1) * (tr ? 1 + teachLv(tr, k) / 50 : 1); }
   const ag = tm.t.ag && AG[tm.t.ag];
   return ag && AG_EQ.some(id => EQUIP[id].k.includes(k)) ? 1 + eqPct(ag.eq || 1) / 100 : 1;
 }
