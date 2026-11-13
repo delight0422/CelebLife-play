@@ -839,7 +839,7 @@ function evTblHTML(T, form) {
   const tr = ord.map(i => [T.rows[i], i]).map(([r, i]) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}${r.rec ? ' rec' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}${r.ok === false ? ' disabled' : ''}>` : '<span class="tdot"></span>'}</td>${form && T.radio ? `<td class="tc"><input type="radio" name="tbl-r" data-k="${T.radio.k}" value="${r.k}"></td>` : ''}` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${potH(U.esc(String(c[1])))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}${j === 0 && r.rec && !r.cells.rec ? `<span class="trb rec">${U.esc(r.rec)}</span>` : ''}${j === 0 && S && S.people[r.pid || r.k] ? `<button type="button" class="pi-btn" data-pinfo="${r.pid || r.k}">정보</button>` : ''}</td>`; }).join('') + `</tr>`).join('');
   // 추천 묶음 (v132): 버튼을 누르면 그 줄들만 체크된다 (트레이너가 권하는 데뷔 멤버 등)
   const pre = form && T.presets && T.presets.length ? `<div class="tbl-pre">${T.presets.map((p, i) => `<button type="button" class="btn sm rec" data-tpre="${i}">${U.esc(p.n)}</button>`).join('')}</div>` : '';
-  return pre + `<div class="tbl-tools">${form && T.cnt ? `<span class="tbl-cnt" id="tbl-cnt"></span>` : ''}<input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc">${form ? T.ckN || (T.radio ? '실을 곡' : '') : ''}</th>${form && T.radio ? `<th class="tc">${U.esc(T.radio.n)}</th>` : ''}${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
+  return pre + `<div class="tbl-tools">${form && T.cnt ? `<span class="tbl-cnt" id="tbl-cnt"></span>` : ''}<input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc">${form ? T.ckN || (T.radio ? '실을 곡' : '') : ''}</th>${form && T.radio ? `<th class="tc">${U.esc(T.radio.n)}</th>` : ''}${th}</tr></thead><tbody>${tr}</tbody></table></div>` + (form && T.clear ? `<div class="tbl-foot"><button type="button" class="btn sm" data-tclear>전체 해제</button></div>` : '');
 }
 function evTblSort(k) {
   const T = UI.tblT, tb = $('#ev-tbl tbody');
@@ -2485,6 +2485,8 @@ document.addEventListener('click', e => {
   // 표 (v131): 칸 이름을 누르면 정렬, 줄을 누르면 고르기 (체크 칸이 있으면 체크)
   const tp0 = e.target.closest('[data-tpre]');
   if (tp0 && UI.tblT && UI.tblT.presets) { const ids = UI.tblT.presets[+tp0.dataset.tpre].ids; document.querySelectorAll('#ev-tbl tbody tr').forEach(tr => { const cb = tr.querySelector('input[type=checkbox]'); if (!cb) return; cb.checked = ids.includes(cb.dataset.k); tr.classList.toggle('sel', cb.checked); }); formSum(); return; }
+  // v203: 표 아래 '전체 해제' — 체크를 모두 푼다
+  if (e.target.closest('[data-tclear]')) { document.querySelectorAll('#ev-tbl tbody tr').forEach(tr => { const cb = tr.querySelector('input[type=checkbox]'); if (cb && !cb.disabled) { cb.checked = false; tr.classList.remove('sel'); } const rd = tr.querySelector('input[type=radio]'); if (rd) rd.checked = false; }); formSum(); return; }
   const th0 = e.target.closest('#ev-tbl th[data-tsort]');
   if (th0) { evTblSort(th0.dataset.tsort); return; }
   const row0 = e.target.closest('#ev-tbl tbody tr');

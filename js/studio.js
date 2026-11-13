@@ -389,7 +389,7 @@ E({
 // 받아 줄 가능성: 각본·감독·주연을 정확히 보고 작품이 얼마나 될지 가늠한다. 큰 곳일수록 까다롭다
 // v182: 받아 줄지는 곳 · 작품마다 그해 정해져 있다 (coRoll). 거절한 곳은 흐리게 남는다 (P.dno). 다 거절하면 뒤로 가서 제작비를 늘리거나 그만둔다
 function coVEst(s, P) { const dir = P.dir === 'me' ? me(s) : s.people[P.dir], lead = s.people[P.lead]; return P.q * 0.28 + (dir ? lv(dir, 'direct') : 40) * 0.32 + (lead ? lv(lead, 'acting') : 35) * 0.1 + (lead ? Math.log10(1 + (lead.fame || 0)) : 1) + coASrcHype(P) + V_BUD_SC[P.lvl] + 9; }
-function coVDistP(s, t, P, D) { return U.clamp(U.sig(((P.f === 'anime' ? coAEst(s, P) : coVEst(s, P)) - 55 + P.lvl * 4 + (coTier(t, coPF(P)) - 1) * 4 - (D.tier - 1) * 8 + 6) / 6), 0.05, 0.97); }
+function coVDistP(s, t, P, D) { return U.clamp(U.sig(((P.f === 'anime' ? coAEst(s, P) : coVEst(s, P)) - 55 + P.lvl * 4 + (coTier(t, coPF(P)) - 1) * 4 - (D.tier - 1) * 8 + 6 + 8 * coMkc(s, coPF(P))) / 6), 0.05, 0.97); }
 E({
   id: 'co_vdist', cat: (s, d) => coCat(d), title: (s, d) => `${V_CH_S[coPK(d.P).ch]} 정하기`, tag: 'career', noRes: 'toast',
   cond: s => coOn(s),
@@ -398,8 +398,9 @@ E({
   ch: (s, d) => {
     const t = coT(s), P = d.P;
     return d.ids.map(id => DIST[id]).map(D => {
-      const T = DIST_T[D.tier], p = coVDistP(s, t, P, D), ott = D.ch === 'ott', no = (P.dno || []).includes(D.id);
-      return { t: `${D.n} (${vChLabel(D)})`, ok: () => !no, h: no ? '거절했다' : `${ott ? `제작비에 이윤 ${Math.round((T.margin - 1) * 100)}%를 얹어 산다` : `수수료 ${Math.round(T.fee * 100)}% · ${D.ch === 'film' ? '상영관' : D.ch === 'tv' ? '편성' : '노출'} ${'★'.repeat(D.tier)}`} · 홍보 ${'★'.repeat(D.tier)} · 받아 줄 가능성 ${fmtPct(p)}`, f: s => {
+      // v203: 큰 곳(★★★)은 마케터가 있어야 걸 수 있다
+      const T = DIST_T[D.tier], p = coVDistP(s, t, P, D), ott = D.ch === 'ott', no = (P.dno || []).includes(D.id), nmk = D.tier >= 3 && !coMk(s, coPF(P));
+      return { t: `${D.n} (${vChLabel(D)})`, ok: () => !no && !nmk, h: no ? '거절했다' : nmk ? `큰 곳은 ${CO_MK_NO}` : `${ott ? `제작비에 이윤 ${Math.round((T.margin - 1) * 100)}%를 얹어 산다` : `수수료 ${Math.round(T.fee * 100)}% · ${D.ch === 'film' ? '상영관' : D.ch === 'tv' ? '편성' : '노출'} ${'★'.repeat(D.tier)}`} · 홍보 ${'★'.repeat(D.tier)} · 받아 줄 가능성 ${fmtPct(p)}`, f: s => {
         if (coRoll(s, `${D.id}:${P.mkId || P.title}`, 'dist') < p) { coMktUse(t, P); for (const k of ['bk', 'no', 'dno', 'mk', 'mkId']) delete P[k]; const msg = (P.f === 'anime' ? coAStart : coVStart)(s, t, Object.assign(P, { dist: D.id })), L = (P.f === 'anime' ? t.aw : t.vw) || []; fireEvent(s, 'co_vgo', { f: coPF(P), id: (L[L.length - 1] || {}).id, msg }); return ''; }
         (P.dno = P.dno || []).push(D.id);
         fireEvent(s, 'co_vdist', { P, ids: d.ids, P0: d.P0, no: `${josa(D.n, '이가')} 거절했다.` });
@@ -508,7 +509,7 @@ function coVScore(s, t, pj) {
   // 후속작: 전작이 잘됐을수록 기대가 크지만, 여러 편 이어질수록 질린다. 전작 감독·주연이 돌아오면 반응이 좋다
   hype = coASrcHype(pj);
   if (pj.seq) hype += U.clamp((pj.seq.prevSc - 60) / 4, -4, 5) - 3 * Math.max(0, pj.seq.n - 2) + (pj.dir === pj.seq.prevDir ? 1.5 : 0) + (leads.some(c => c.x.id === pj.seq.prevLead) ? 1.5 : 0);
-  return U.clamp(dl * 0.32 + pj.q * 0.28 + la * 0.1 + sa * 0.05 + star + ens + V_BUD_SC[pj.lvl] + coVTier(t) + DIST_T[DIST[pj.dist].tier].promo + (pj.genre === s.trendTV.drama ? 4 : 0) + hype - 1 + U.normal(0, 7), 0, 100);
+  return U.clamp(dl * 0.32 + pj.q * 0.28 + la * 0.1 + sa * 0.05 + star + ens + V_BUD_SC[pj.lvl] + coVTier(t) + DIST_T[DIST[pj.dist].tier].promo + (pj.genre === s.trendTV.drama ? 4 : 0) + hype - 1 + 5 * coMkc(s, 'video') + U.normal(0, 7), 0, 100);
 }
 // 수입 (회사로 들어오는 돈). 점수 62가 대략 본전이고, 12점 오를 때마다 극장·해외 쪽 수입이 두 배가 된다 (네 배까지)
 function coVRev(s, t, pj, sc) {
@@ -854,7 +855,7 @@ function coAScore(s, t, pj) {
   const ka = key ? lv(key, 'art') : 35, ta = team.length ? team.reduce((a, x) => a + lv(x, 'art'), 0) / team.length : 30, tb = Math.min(3, Math.max(0, team.length - CO_A_TEAM.min) * 0.6);
   let hype = coASrcHype(pj);
   if (pj.seq) hype += U.clamp((pj.seq.prevSc - 60) / 4, -4, 5) - 3 * Math.max(0, pj.seq.n - 2) + (pj.dir === pj.seq.prevDir ? 1.5 : 0) + (leads.some(c => c.x.id === pj.seq.prevLead) ? 1.5 : 0);
-  return U.clamp(dl * 0.24 + ka * 0.16 + ta * 0.08 + tb + pj.q * 0.26 + la * 0.05 + sa * 0.03 + star * 0.6 + ens + V_BUD_SC[pj.lvl] + coATier(t) + DIST_T[DIST[pj.dist].tier].promo + (pj.genre === (s.trendTV || {}).anime ? 4 : 0) + hype - 2 + U.normal(0, 7), 0, 100);
+  return U.clamp(dl * 0.24 + ka * 0.16 + ta * 0.08 + tb + pj.q * 0.26 + la * 0.05 + sa * 0.03 + star * 0.6 + ens + V_BUD_SC[pj.lvl] + coATier(t) + DIST_T[DIST[pj.dist].tier].promo + (pj.genre === (s.trendTV || {}).anime ? 4 : 0) + hype - 2 + 5 * coMkc(s, 'anime') + U.normal(0, 7), 0, 100);
 }
 // 수입 (회사로 들어오는 돈). 점수 62가 대략 본전, 12점 오를 때마다 해외·극장·굿즈 쪽 수입이 두 배 (세 배까지, 극장 관객은 500만까지). 굿즈는 원작 팬이 많을수록 더 팔린다 (최대 1.3배)
 function coARev(s, t, pj, sc) {
