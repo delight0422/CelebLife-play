@@ -98,11 +98,14 @@ E({
 E({
   id: 'kid_edu_open', cat: '가족', title: '자녀 교육비',
   cond: s => true,
-  init(s, d) { const k = s.people[d.id]; if (!k || !k.alive || k.rel !== '자녀' || kidEduOf(s, k)) d.skip = true; },
-  text: (s, d) => { const k = s.people[d.id]; return `${josa(k.name, '이가')} 네 살이 됐다. 이제 과외·코칭을 붙여 줄 수 있다.\n\n자녀 교육비를 내면 ${k.name}의 잘하는 특기 세 개가 매달 빨리 는다. 많이 낼수록 더 빨리 는다. 18세까지 내고, 생활 → 지속 관리에서 언제든 바꿀 수 있다.`; },
+  init(s, d) { const k = s.people[d.id]; if (!k || !k.alive || k.rel !== '자녀' || kidEduOf(s, k) || kidAge(s, k) > 18) { if (k) k.eduTold = true; d.skip = true; } },
+  text: (s, d) => { const k = s.people[d.id], ka = kidAge(s, k); return `${ka <= 4 ? `${josa(k.name, '이가')} 네 살이 됐다. 이제` : `${k.name}(${ka}세)에게`} 과외·코칭을 붙여 줄 수 있다.\n\n자녀 교육비를 내면 ${k.name}의 잘하는 특기 세 개가 매달 빨리 는다. 많이 낼수록 더 빨리 는다. 18세까지 내고, 생활 → 지속 관리에서 언제든 바꿀 수 있다.`; },
   kid: (s, d) => d.id,
-  ch: (s, d) => { const k = s.people[d.id]; return KIDEDU.slice(1).map((e, i) => ({ t: `${e.n} (월 ${e.c}만 원)`, ok: s => s.money >= e.c * 1e4, h: s.money >= e.c * 1e4 ? '' : '지금 가진 돈이 모자라다', f: s => { s.kidEdu = s.kidEdu || {}; s.kidEdu[k.id] = i + 1; return `${k.name}의 자녀 교육비를 '${e.n}'${josa(e.n, '으로').slice(e.n.length)} 정했다. (월 ${e.c}만 원)`; } })).concat([{ t: '지금은 안 한다', h: '생활 → 지속 관리에서 나중에 정할 수 있다', f: () => `${k.name}의 자녀 교육비는 나중에 정하기로 했다.` }]); },
+  // v205: 이 창에 답해야 '알렸다'(eduTold)가 된다. 그 전에 창이 사라져도 다음 달에 다시 뜬다 (familyMonth)
+  ch: (s, d) => { const k = s.people[d.id]; return KIDEDU.slice(1).map((e, i) => ({ t: `${e.n} (월 ${e.c}만 원)`, ok: s => s.money >= e.c * 1e4, h: s.money >= e.c * 1e4 ? '' : '지금 가진 돈이 모자라다', f: s => { k.eduTold = true; s.kidEdu = s.kidEdu || {}; s.kidEdu[k.id] = i + 1; return `${k.name}의 자녀 교육비를 '${e.n}'${josa(e.n, '으로').slice(e.n.length)} 정했다. (월 ${e.c}만 원)`; } })).concat([{ t: '지금은 안 한다', h: '생활 → 지속 관리에서 나중에 정할 수 있다', f: () => { k.eduTold = true; return `${k.name}의 자녀 교육비는 나중에 정하기로 했다.`; } }]); },
 });
+// 자녀 교육비 창이 줄 서 있거나 떠 있는지 (그 아이 몫)
+function kidEduQ(s, k) { return s.queue.some(q => q.id === 'kid_edu_open' && q.d && q.d.id === k.id) || !!(s.pending && s.pending.id === 'kid_edu_open' && s.pending.d && s.pending.d.id === k.id); }
 // 매달: 자녀 학원비와 양육비
 // ───── 아이 계획 (피드백 20) ─────
 // 결혼하면 10~16개월마다 배우자와 아이 이야기를 한다 (아이 계획 창). 갖기로 하면 1년 반 동안 매달 아이가 생길 수 있고(엄마 나이가 많을수록 낮다),
@@ -161,6 +164,8 @@ function familyMonth(s) {
       practice(s, k, sk, 1, 1.5);
     }
     // 자녀 교육비(생활 → 지속 관리, 아이마다 없음·약간·보통·많이)를 내면 4~18세 아이는 잘하는 특기 세 개가 매달 과외만큼 는다
+    // v205: 네 살이 넘었는데 아직 자녀 교육비 창에 답하지 않았으면 (예전엔 네 살이 된 해 1월에 한 번만 띄웠다) 창을 띄운다
+    if (ka >= 4 && ka <= 17 && !k.eduTold && !kidEduOf(s, k) && !kidEduQ(s, k)) queueEv(s, 'kid_edu_open', 0, { id: k.id }, true);
     const eb = KIDEDU[kidEduOf(s, k)].base;
     if (eb && ka >= 4 && ka <= 18) for (const sk of learnedSkills(k).sort((x, y) => lv(k, y) - lv(k, x)).slice(0, 3)) practice(s, k, sk, eb, 1.5);
     // 성인이 된 자녀는 주인공처럼 매달 세 칸을 연습한다 (잘하는 특기 세 개에 한 칸씩)
@@ -183,8 +188,7 @@ function familyYear(s) {
   if (typeof sibYear === 'function') sibYear(s);
   for (const k of kids(s)) {
     const ka = kidAge(s, k);
-    // 네 살이 되면 자녀 교육비를 정할 수 있다고 알려 준다 (아이마다 한 번)
-    if (ka === 4 && !k.eduTold) { k.eduTold = true; queueEv(s, 'kid_edu_open', 0, { id: k.id }, true); }
+    // 네 살이 되면 자녀 교육비를 정할 수 있다고 알려 준다 (아이마다 한 번, 답할 때까지 · v205: familyMonth)
     if (ka === 7) { learnSkill(s, k, 'study'); k.job = '학생'; addLog(s, `${josa(k.name, '이가')} 초등학교에 입학했다.`, 'news'); }
     if (ka >= 7 && ka < 19) for (const sk of learnedSkills(k)) practice(s, k, sk, 6);
     if (ka === 19) k.job = U.chance(0.5) ? '대학생' : '사회초년생';

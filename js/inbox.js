@@ -46,7 +46,8 @@ E({
 // 직업 지원 항목은 trk(직업 id)로 분야(음악·방송·영상·회사)와 아티스트·스태프를 정하고, 활동 지원 항목은 cat으로 분야를 정한다
 const JOB_APPLY = [];
 const ACT_APPLY = [];
-const APPLY_CATS = [['music', '🎵 음악'], ['video', '🎬 방송·영상'], ['biz', '🏢 회사 경영']];
+// v205: 사무직(A&R · 마케터 · 교수 · 강사)이 빠져 있어 구직활동에 안 보였다
+const APPLY_CATS = [['music', '🎵 음악'], ['video', '🎬 방송·영상'], ['office', '🗂️ 사무직'], ['biz', '🏢 회사 경영']];
 function applyCatOf(a) { if (a.cat) return a.cat; const c = CAREER_PLAN.find(x => x.id === a.trk); return c ? c.sub : 'music'; }
 function applySideOf(a) { const c = CAREER_PLAN.find(x => x.id === a.trk); return c ? c.g : 'artist'; }
 function jobApplies(s) { return JOB_APPLY.filter(a => !a.show || a.show(s)); }

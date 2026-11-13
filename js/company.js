@@ -205,8 +205,8 @@ function coFixed(s, t, f) {
 }
 
 // ───── 돈 넣기 · 돈 꺼내기 ─────
-// 돈 적는 칸 (v118 UI D4): 천만 원 단위로 적는다. 0.5처럼 소수도 된다 (만 원 단위로 반올림)
-function wonVal(x) { const n = parseFloat(String(x == null ? '' : x).replace(/[^0-9.]/g, '')); return n > 0 ? Math.round(n * 1000) * 1e4 : 0; }
+// 돈 적는 칸 (v118 UI D4 → v205): 억 단위로 적는다. 1.5라고 적으면 1억 5천만 원 (0.1처럼 소수도 된다, 만 원 단위로 반올림)
+function wonVal(x) { const n = parseFloat(String(x == null ? '' : x).replace(/[^0-9.]/g, '')); return n > 0 ? Math.round(n * 1e4) * 1e4 : 0; }
 // 내 돈은 모회사에만 넣고 꺼낸다 (v169). 꺼내는 돈에는 한도 · 세금이 없다 (사용자 결정)
 function coDeposit(s, t, v) { if (t.hire) return; v = Math.round(v); addMoney(s, -v, '회사에 넣은 돈'); const F = coF(t); F.money = (F.money || 0) + v; coSync(t); t.inv += v; coLed(t, '내가 넣은 돈', v); }
 // 넣은 돈보다 많이 꺼낸 만큼만 '업계에서 번 돈'이 된다
@@ -223,7 +223,7 @@ E({
   id: 'co_money', cat: '자본금', tag: 'career',
   title: (s, d) => d.dir === 'in' ? '회사에 돈 넣기' : '회사에서 돈 꺼내기',
   cond: s => coOn(s),
-  text: (s, d) => { const t = coT(s), sub = coFields(t).length > 1; return `${sub ? `모회사 「${t.name}」 ` : ''}자본금 ${fmtWon(coM(t))} · 내 돈 ${fmtWon(s.money)}\n매달 꼭 나가는 돈 ${fmtWon(coFixed(s, t, coMainF(t)))}${sub ? '\n\n내 돈은 모회사에만 넣고 꺼낸다. 자회사 돈은 출자 · 배당으로 옮긴다.' : ''}\n\n얼마를 ${d.dir === 'in' ? '넣을까' : '꺼낼까'}? (천만 원 단위)`; },
+  text: (s, d) => { const t = coT(s), sub = coFields(t).length > 1; return `${sub ? `모회사 「${t.name}」 ` : ''}자본금 ${fmtWon(coM(t))} · 내 돈 ${fmtWon(s.money)}\n매달 꼭 나가는 돈 ${fmtWon(coFixed(s, t, coMainF(t)))}${sub ? '\n\n내 돈은 모회사에만 넣고 꺼낸다. 자회사 돈은 출자 · 배당으로 옮긴다.' : ''}\n\n얼마를 ${d.dir === 'in' ? '넣을까' : '꺼낼까'}? (억 단위 · 1.5라고 적으면 1억 5천만 원)`; },
   form: (s, d) => { const mx = d.dir === 'in' ? s.money : coM(coT(s)); return [{ k: 'v', type: 'won', label: d.dir === 'in' ? '넣을 돈' : '꺼낼 돈', value: Math.min(mx, 1e8), max: mx }]; },
   cancel: () => '',
   submit(s, d, v) {
@@ -246,8 +246,8 @@ E({
   init(s, d) { const t = coT(s); if (!t.f[d.f] || d.f === coMainF(t)) d.skip = true; },
   text: (s, d) => {
     const t = coT(s), m = coMainF(t), F = t.f[d.f];
-    if (d.dir === 'inv') return `모회사 「${t.name}」 자본금 ${fmtWon(coM(t, m))} → 자회사 「${coFName(t, d.f)}」 자본금 ${fmtWon(coM(t, d.f))}\n\n출자한 돈은 자회사 자본금이 된다. 모회사로 돌려받으려면 자회사가 이익을 내서 배당해야 한다.\n등록면허세 ${coPctT(coRegRate(s, t, d.f))} (자회사가 낸다${coRegRate(s, t, d.f) > CO_REG_TAX ? ' · 서울 · 경기 · 인천에서 세운 지 5년이 안 돼 3배' : ''})\n\n얼마를 넣을까? (천만 원 단위)`;
-    return `자회사 「${coFName(t, d.f)}」 자본금 ${fmtWon(coM(t, d.f))} · 쌓인 이익 ${fmtWon(Math.max(0, F.re || 0))}\n\n배당은 지난 결산까지 쌓인 이익 안에서만 할 수 있다 (지금 ${fmtWon(coDivMax(t, d.f))}까지). 모회사가 받는 배당에는 세금이 없다.\n\n얼마를 올릴까? (천만 원 단위)`;
+    if (d.dir === 'inv') return `모회사 「${t.name}」 자본금 ${fmtWon(coM(t, m))} → 자회사 「${coFName(t, d.f)}」 자본금 ${fmtWon(coM(t, d.f))}\n\n출자한 돈은 자회사 자본금이 된다. 모회사로 돌려받으려면 자회사가 이익을 내서 배당해야 한다.\n등록면허세 ${coPctT(coRegRate(s, t, d.f))} (자회사가 낸다${coRegRate(s, t, d.f) > CO_REG_TAX ? ' · 서울 · 경기 · 인천에서 세운 지 5년이 안 돼 3배' : ''})\n\n얼마를 넣을까? (억 단위 · 1.5라고 적으면 1억 5천만 원)`;
+    return `자회사 「${coFName(t, d.f)}」 자본금 ${fmtWon(coM(t, d.f))} · 쌓인 이익 ${fmtWon(Math.max(0, F.re || 0))}\n\n배당은 지난 결산까지 쌓인 이익 안에서만 할 수 있다 (지금 ${fmtWon(coDivMax(t, d.f))}까지). 모회사가 받는 배당에는 세금이 없다.\n\n얼마를 올릴까? (억 단위 · 1.5라고 적으면 1억 5천만 원)`;
   },
   form: (s, d) => { const t = coT(s), mx = Math.max(0, d.dir === 'inv' ? coM(t, coMainF(t)) : coDivMax(t, d.f)); return [{ k: 'v', type: 'won', label: d.dir === 'inv' ? '출자할 돈' : '배당할 돈', value: Math.min(mx, 1e8), max: mx }]; },
   cancel: () => '',
@@ -478,9 +478,9 @@ function coViewer(s, job, k, f) {
   return best || p;
 }
 function coLvSee(viewer, x, k) { const r = lvRange(viewer, x, k); return r[0] === r[1] ? String(r[0]) : `${r[0]}~${r[1]}`; }
-// 회사 사람(연습생·소속 아티스트)이 가진 특기: 아이돌은 노래·랩·춤·예능, 밴드는 파트와 노래, 버츄얼 아이돌은 예능·노래·게임·연기
+// 회사 사람(연습생·소속 아티스트)이 가진 특기: 아이돌은 노래·랩·춤·예능, 밴드는 파트와 노래, 버츄얼 아이돌은 예능·노래·게임·연기·춤 (v205: 춤 — 크게 보지는 않는다)
 // 연습생이 연습하는 특기 (그 종류의 분야 전부 · 가진 것만)
-function coSkillsAll(x) { const ks = x.co.kind === 'band' ? [x.co.part, 'vocal'] : x.co.kind === 'vt' ? ['variety', 'vocal', 'game', 'acting'] : ['vocal', 'rap', 'dance', 'variety']; return [...new Set(ks)]; }
+function coSkillsAll(x) { const ks = x.co.kind === 'band' ? [x.co.part, 'vocal'] : x.co.kind === 'vt' ? ['variety', 'vocal', 'game', 'acting', 'dance'] : ['vocal', 'rap', 'dance', 'variety']; return [...new Set(ks)]; }
 function coSkillsOf(x) { return coSkillsAll(x).filter(k => has(x, k)); }
 
 // ───── 직원 뽑기 (헤드헌터 · A&R 팀장 · 트레이너) ─────
@@ -671,6 +671,8 @@ function coCand(s, t, kind, g) {
     // 버츄얼 아이돌: 예능(말솜씨)이 바탕이고, 노래·게임·연기 중 한두 가지를 더 한다
     sk.variety = base + 6;
     for (const k of U.shuffle(['vocal', 'game', 'acting']).slice(0, U.int(1, 2))) sk[k] = base + (k === 'vocal' ? 2 : 0);
+    // v205: 춤을 조금 추는 지원자도 있다 (3D 라이브 · 댄스 커버)
+    if (U.chance(0.3)) sk.dance = base - 2;
   } else {
     const main = U.pick(['vocal', 'dance', 'rap', 'vocal', 'dance']);
     sk.vocal = base + (main === 'vocal' ? 8 : 0); sk.dance = base + (main === 'dance' ? 8 : 0);
@@ -707,7 +709,7 @@ function coCellTal(v) { return [v >= 85 ? 4 : v >= 70 ? 3 : v >= 50 ? 2 : v >= 3
 // kind가 없으면(연습생을 내보낼 때처럼 아이돌 · 밴드가 섞인 표) 가진 특기를 모두 칸으로 두고 '종류' 칸을 더한다
 function coPplTbl(s, P, kind, exact, on) {
   const mix = !kind, hasPart = P.some(x => x.co.part), allVt = P.length > 0 && P.every(x => x.co.kind === 'vt');
-  const ks = mix ? CO_TR_FIELDS.filter(k => P.some(x => coSkillsOf(x).includes(k))) : kind === 'band' ? [...new Set(P.map(x => x.co.part).concat(P.some(x => has(x, 'vocal')) ? ['vocal'] : []))] : kind === 'vt' ? ['variety', 'vocal', 'game', 'acting'] : ['vocal', 'rap', 'dance', 'variety'];
+  const ks = mix ? CO_TR_FIELDS.filter(k => P.some(x => coSkillsOf(x).includes(k))) : kind === 'band' ? [...new Set(P.map(x => x.co.part).concat(P.some(x => has(x, 'vocal')) ? ['vocal'] : []))] : kind === 'vt' ? ['variety', 'vocal', 'game', 'acting', 'dance'] : ['vocal', 'rap', 'dance', 'variety'];
   const vt = kind === 'vt' || (mix && allVt);
   const cols = [['n', '이름'], ['g', '성별'], ['a', '나이']].concat(mix ? [['kd', '종류']] : [], (mix ? hasPart : kind === 'band') ? [['part', '파트']] : [], ks.map(k => [k, SKILLS[k].n]), [['lk', vt ? '목소리' : '외모'], ['st', '스타성']], exact ? [['mo', '연습']] : []);
   const rows = P.map(x => {
@@ -750,7 +752,7 @@ function coJobRow(s, x, job, k, f) { const c = pplCells(s, x, null, coJobKs(job,
 // 트레이너가 권하는 데뷔 멤버 (v133): 트레이너마다 딱 한 명. 표에서 그 줄에 초록 테두리와 '○○ 트레이너 추천'이 붙는다
 // 자기 분야를 더 무겁게 보고, 가르치는 실력이 낮을수록 잘못 본다 (같은 해에는 같은 추천). 돌려주는 값: { 연습생 id: '보컬 트레이너 추천' }
 // v177: 밴드(파트마다) · 버츄얼 아이돌(예능 · 노래 · 게임 · 연기)도 추천한다. 돌려주는 값: { 연습생 id: [분야, …] }
-const CO_REC_KS = { idol: ['vocal', 'rap', 'dance'], band: ['vocal', 'guitar', 'bass', 'drum', 'keyboard'], vt: ['variety', 'vocal', 'game', 'acting'] };
+const CO_REC_KS = { idol: ['vocal', 'rap', 'dance'], band: ['vocal', 'guitar', 'bass', 'drum', 'keyboard'], vt: ['variety', 'vocal', 'game', 'acting', 'dance'] };
 function coTrRecs(s, kind) {
   const L = coTrainees(s, kind), ks = CO_REC_KS[kind] || CO_REC_KS.idol, out = {};
   if (L.length < 2) return out;
@@ -923,7 +925,7 @@ function coSquadSet(s, d) { const t = coT(s); t.squads = (t.squads || []).filter
 function coSquadSame(t, d) { const q = coSquad(t, d.kind); return !!q && q.ids.length === d.ids.length && d.ids.every(id => q.ids.includes(id)); }
 // 데뷔조의 합이 가장 높은 단계('합이 잘 맞는다')가 됐다 (v133): 창으로 알린다
 E({
-  id: 'co_sq_ready', cat: '데뷔조', title: '데뷔조의 합이 맞기 시작했다', tag: 'career', keepPop: true,
+  id: 'co_sq_ready', cat: '데뷔조', title: '데뷔조의 합이 맞기 시작했다', tag: 'career', keepPop: true, noToast: true,
   cond: s => coOn(s),
   init(s, d) { if (!coSquad(coT(s), d.kind)) d.skip = true; },
   text: (s, d) => { const q = coSquad(coT(s), d.kind); return `${coKindN(q.kind)} 데뷔조 「${q.name}」(${coP(s, q.ids).map(x => x.name).join(', ')})가 같이 연습한 지 ${s.t - q.t0}개월이 됐다.\n\n${evG('이제 합이 잘 맞는다.')} 무대에 세워 볼 만해졌다.`; },
@@ -1739,7 +1741,8 @@ E({
 const CO_VAV = [[2, 'Live2D 아바타', 300e4], [3, '고급 Live2D 아바타', 800e4], [4, '처음부터 3D 모델', 3000e4]];
 const CO_V3D = { cost: 3000e4 }, CO_VGOODS = 300e4, CO_VLIVE = { cost: 2e8, min: 20e4 }, CO_VSAT = 300e4;
 function coVAppeal(s, t, x) {
-  const C = VI_CORP, sk = lv(x, 'variety') * 0.6 + Math.max(lv(x, 'vocal'), lv(x, 'game'), lv(x, 'acting')) * 0.4;
+  // v205: 춤도 조금 본다 (가산점, 없어도 손해는 없다: 춤 60이면 +2.4)
+  const C = VI_CORP, sk = lv(x, 'variety') * 0.6 + Math.max(lv(x, 'vocal'), lv(x, 'game'), lv(x, 'acting')) * 0.4 + lv(x, 'dance') * 0.04;
   // 운: 기수마다(g.mo, 같이 뜨거나 같이 묻힌다) · 멤버마다(x.co.luck) 다르다
   const g = coGroup(s, x.co.gid);
   return sk * 0.8 + C.edit + Math.min(3, x.co.av || 2) * C.av + coTier(t, 'vidol') * C.tier + (x.co.d3 ? C.d3 : 0) + (x.tal.star - 50) * 0.3 + (g ? g.mo * 0.75 + U.clamp(g.tw0 || 0, 0, CO_SQ_MAX) / 8 : 0) + (x.co.luck || 0);
@@ -2429,16 +2432,16 @@ function panel_group() {
   let h = `<h2>🏛️ ${U.esc(coGrpName(t))} <span class="muted" style="font-size:var(--fs-3)">${coRankName(t, rk)} · 회사 ${fs.length}곳</span></h2><div class="ap-row pf-tabs">${GT.map(([k, n]) => `<button class="ap-tab ${gt === k ? 'on' : ''}" data-grptab="${k}">${n}</button>`).join('')}</div>`;
   if (gt === 'edu') return h + coTabEdu(s, t);
   h += infoTable([['그룹 등급', coRankName(t, rk)], ['그룹 전체 자본금', fmtWon(t.money)], ['지난달 그룹 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`], ['모회사', `「${t.name}」`], ['입지', `${REGION_BY[coLocR(s, t)].n}${lb > 1 ? ` · 회사 일 +${Math.round((lb - 1) * 100)}%` : ''} · 집에서 ${coDistTxt(coDist(s, t))}`]]);
-  h += `<div class="sec-h">소속 회사 <span class="n">${fs.length}곳 · 누르면 그 회사 창</span></div><div class="grp-cos">${fs.map(f => coBannerHTML(s, t, f, false, true)).join('')}</div>`;
+  // v205: 제목마다 접고 펼친다 (트리 뷰). 처음에는 소속 회사만 펼쳐 둔다
+  h += treeSec('grp:cos', '🏢 소속 회사', `${fs.length}곳 · 누르면 그 회사 창`, `<div class="grp-cos">${fs.map(f => coBannerHTML(s, t, f, false, true)).join('')}</div>`, true);
   // v189: 사옥마다 든 회사 · 연습실 정원 (v198: ✏️ 사옥 이름 짓기), 자회사마다 사옥 옮기기 (새 사옥 얻기 · 다른 사옥으로 · 본사로)
-  const blds = coBlds(t);
-  h += `<div class="sec-h">사옥 <span class="n">${blds.length}곳</span></div>` + blds.map(b => { const cap = coBldCap(t, b), n = cap ? coBldPpl(s, t, b).length : 0; return actRow({ emo: '🏢', t: coBldN(t, b), tag: cap && n >= cap ? '연습실 꽉 참' : '', h: `${coBldFs(t, b).map(x => `${CO_FIELDS[x].ic} ${coFName(t, x)}`).join(' · ')}${cap ? ` · ${coRoomTxt(s, t, b)}` : ''}`, ok: true, btn: '✏️ 이름', run: s => { fireEvent(s, 'co_bld_name', { b }); return ''; } }); }).join('');
-  h += `<div class="sec-h">사옥 옮기기 <span class="n">새 사옥을 얻거나 다른 사옥으로</span></div>` + subs.map(x => { const cur = coBld(t, x); return actRow({ emo: CO_FIELDS[x].ic, t: `「${coFName(t, x)}」`, h: `지금 ${coBldN(t, cur)}${cur === x ? ' (이 회사가 얻은 사옥)' : ''} · 새 사옥 이사 · 보증금 ${fmtWon(coMoveCost(t, x, null))} · 있는 사옥으로 이사비 ${fmtWon(coMoveCost(t, x, m))}`, ok: true, btn: '옮기기', run: s => { fireEvent(s, 'co_own', { f: x }); return ''; } }); }).join('');
-  h += `<div class="sec-h">출자 · 배당</div><p class="hint">출자: 모회사(${U.esc(t.name)}) → 자회사<br>배당: 자회사 → 모회사(${U.esc(t.name)})</p>`;
-  h += subs.map(x => actRow({ emo: CO_FIELDS[x].ic, t: `「${coFName(t, x)}」`, h: `자본금 ${fmtWon(coM(t, x))} · 배당할 수 있는 돈 ${fmtWon(coDivMax(t, x))} · 모회사 자본금 ${fmtWon(coM(t, m))}`, opts: [
+  const blds = coBlds(t), full = blds.filter(b => { const cap = coBldCap(t, b); return cap && coBldPpl(s, t, b).length >= cap; }).length;
+  h += treeSec('grp:bld', '🏠 사옥', `${blds.length}곳${full ? ` · 연습실 꽉 참 ${full}곳` : ''}`, blds.map(b => { const cap = coBldCap(t, b), n = cap ? coBldPpl(s, t, b).length : 0; return actRow({ emo: '🏢', t: coBldN(t, b), tag: cap && n >= cap ? '연습실 꽉 참' : '', h: `${coBldFs(t, b).map(x => `${CO_FIELDS[x].ic} ${coFName(t, x)}`).join(' · ')}${cap ? ` · ${coRoomTxt(s, t, b)}` : ''}`, ok: true, btn: '✏️ 이름', run: s => { fireEvent(s, 'co_bld_name', { b }); return ''; } }); }).join(''));
+  h += treeSec('grp:move', '🚚 사옥 옮기기', '새 사옥을 얻거나 다른 사옥으로', subs.map(x => { const cur = coBld(t, x); return actRow({ emo: CO_FIELDS[x].ic, t: `「${coFName(t, x)}」`, h: `지금 ${coBldN(t, cur)}${cur === x ? ' (이 회사가 얻은 사옥)' : ''} · 새 사옥 이사 · 보증금 ${fmtWon(coMoveCost(t, x, null))} · 있는 사옥으로 이사비 ${fmtWon(coMoveCost(t, x, m))}`, ok: true, btn: '옮기기', run: s => { fireEvent(s, 'co_own', { f: x }); return ''; } }); }).join(''));
+  h += treeSec('grp:xfer', '💸 출자 · 배당', `모회사 자본금 ${fmtWon(coM(t, m))}`, `<p class="hint">출자: 모회사(${U.esc(t.name)}) → 자회사<br>배당: 자회사 → 모회사(${U.esc(t.name)})</p>` + subs.map(x => actRow({ emo: CO_FIELDS[x].ic, t: `「${coFName(t, x)}」`, h: `자본금 ${fmtWon(coM(t, x))} · 배당할 수 있는 돈 ${fmtWon(coDivMax(t, x))} · 모회사 자본금 ${fmtWon(coM(t, m))}`, opts: [
     { btn: '출자', on: true, ok: coM(t, m) > 0, run: s => { fireEvent(s, 'co_xfer', { dir: 'inv', f: x }); return ''; } },
-    { btn: '배당', on: true, ok: coDivMax(t, x) > 0, run: s => { fireEvent(s, 'co_xfer', { dir: 'div', f: x }); return ''; } }] })).join('');
-  if (coSubLeft(t).length) h += `<div class="sec-h">자회사 세우기</div>` + coNewBannerHTML(true, coSubWhy(s, t));
+    { btn: '배당', on: true, ok: coDivMax(t, x) > 0, run: s => { fireEvent(s, 'co_xfer', { dir: 'div', f: x }); return ''; } }] })).join(''));
+  if (coSubLeft(t).length) h += treeSec('grp:new', '🏗️ 자회사 세우기', `${coSubLeft(t).length}가지 더 세울 수 있다`, coNewBannerHTML(true, coSubWhy(s, t)));
   return h;
 }
 // ───── 정기 직원교육 (v195) ─────

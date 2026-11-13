@@ -56,7 +56,7 @@ function turnGo(max) {
   const p = me(s);
   // 요약에는 이번에 넘어간 동안 생긴 일만 넣는다 (창에서 고른 결과 · 버튼으로 한 일은 이미 아는 일이라 넣지 않는다)
   UI.turn = { max, kid: !slotCount(s), n: 0, last: s.log[s.log.length - 1] || null, t0: s.t, inbox: new Set(s.inbox.map(m => m.id)), money: s.money, fans: totalFans(s), stress: Math.round(s.stress), g0: growSnap(s), why: '', co: trackOn(s, 'agency') ? s.tracks.agency.money : null, inc: (MONEY_TAP = {}), acc0: ledSnapA(s), gf0: ledGF(s) };
-  $('#tcard').innerHTML = turnRunHTML(s);
+  $('#tcard').innerHTML = turnRunHTML(s); $('#tcard').classList.add('run'); // v205: 진행 중 화면은 작게 그대로
   $('#turn').classList.remove('hidden');
   UI.timer = setTimeout(turnStep, TURN_MS);
 }
@@ -69,7 +69,7 @@ function turnStep() {
   save(s); render();
   // v196: 경고(s.warnT, 그만둘까 고민하는 연습생)가 생긴 달에도 멈춘다
   T.why = s.ended ? 'end' : s.pending ? 'ev' : s.inbox.some(m => !T.inbox.has(m.id)) ? 'msg' : s.warnT === s.t ? 'warn' : T.n >= T.max ? 'max' : T.kid && (slotCount(s) || turnKidSpecial(s, T)) ? 'sp' : '';
-  $('#tcard').innerHTML = T.why ? turnSumHTML(s, T) : turnRunHTML(s);
+  $('#tcard').innerHTML = T.why ? turnSumHTML(s, T) : turnRunHTML(s); $('#tcard').classList.toggle('run', !T.why);
   if (!T.why) UI.timer = setTimeout(turnStep, TURN_MS);
 }
 // 넘어가는 중: 가운데에 날짜와 몇 번째 달인지
@@ -130,9 +130,9 @@ function growLines(a, b) {
   return L;
 }
 // 요약 창 '특별한 일' 한 줄
-function tsItemHTML(s, x, mo) {
+function tsItemHTML(s, x, mo, noSub) {
   const hh = LOG_HTML.get(x), si = x.e ? songIdx(s, x) : -1;
-  return `<div class="ts-i${si !== -1 ? ' ts-song' : ''}"${si !== -1 ? ` data-song="${si}"` : ''}>${mo ? `<span class="ts-mo">${x.up ? '' : ymOfT(s, x.t).m + '월'}</span>` : ''}<span class="ts-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${x.lv ? liveBtnHTML(x.lv, '무대 보기') : ''}${x.pl ? plioBtnHTML(x.pl) : ''}</span></div>`;
+  return `<div class="ts-i${si !== -1 ? ' ts-song' : ''}"${si !== -1 ? ` data-song="${si}"` : ''}>${mo ? `<span class="ts-mo">${x.up ? '' : ymOfT(s, x.t).m + '월'}</span>` : ''}<span class="ts-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub && !noSub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${x.lv ? liveBtnHTML(x.lv, '무대 보기') : ''}${x.pl ? plioBtnHTML(x.pl) : ''}</span></div>`;
 }
 // 기록의 제목 (창 없이 처리된 사건의 제목). 예전 세이브의 창 준비 표시(알 수 없는 글자)는 빼고
 function logSp(x) { return x && x.sp && !(x.tk == null && /^[a-z0-9]{5,9}$/.test(x.sp)) ? x.sp : ''; }
@@ -158,38 +158,44 @@ function tsLed(s, T, P, W, inc, mo, range) {
   const meR = R.filter(r => r.k === 'me'), oi = Math.max(0, E.pi - A0.pi - sum(meR, r => r.pi)), oe = Math.max(0, E.po - A0.po - sum(meR, r => r.po)), of = Math.round(FE - F0 - sum(meR, r => r.fans));
   if (oi >= 1 || oe >= 1 || of) { const rg = inc.filter(([, o]) => o.reg).slice(0, 3).map(([k]) => k); tb({ k: 'me', n: me(s).name, kd: '나', ic: '👤' }).rows.push({ other: true, a: '그 밖에', sub: `${rg.length ? `매달 들어오는 돈(${rg.join(' · ')}) · ` : ''}생활비 · 학원비 · 늘고 준 팬 등`, inc: oi, exp: oe, fans: of }); }
   if (ledCoOn(s)) {
-    const t = coT(s), rest = [];
+    const t = coT(s);
+    // v205: 이번에 활동이 없던 그룹 · 기수 표('다른 그룹 · 기수')는 뺐다. 활동이 있던 그룹만 '그 밖에' 줄로 팬을 맞춘다
     for (const g of t.groups || []) {
       const k = 'g:' + g.id, d = GF[g.id] != null && GF0[g.id] != null ? GF[g.id] - GF0[g.id] : 0, o = Math.round(d - sum(R.filter(r => r.k === k), r => r.fans));
-      if (tabs.has(k)) { if (o) tabs.get(k).rows.push({ other: true, a: '그 밖에', sub: '매달 늘고 준 팬', fans: o }); }
-      else if (Math.round(d)) { const G = ledGT(g); rest.push({ a: `${G.ic} 「${g.name}」 · ${G.kd}`, fans: d }); }
+      if (tabs.has(k) && o) tabs.get(k).rows.push({ other: true, a: '그 밖에', fans: o });
     }
-    if (rest.length) tb({ k: 'grest', n: '다른 그룹 · 기수', kd: '이번에 활동이 없었다 · 매달 늘고 준 팬', ic: '👥' }).rows.push(...rest);
     const disp = R.filter(r => r.k !== 'me');
     for (const f of coFields(t)) {
       const e = E.c[f] || { i: 0, o: 0 }, a0 = A0.c[f] || { i: 0, o: 0 }, ci = Math.max(0, e.i - a0.i - sum(disp, r => (r.c[f] || {}).i)), co = Math.max(0, e.o - a0.o - sum(disp, r => (r.c[f] || {}).o));
-      if (ci >= 1 || co >= 1) tb(ledCT(t, f)).rows.push({ other: true, a: '그 밖에', sub: '운영비 · 직원 월급 · 연습생 비용 · 매달 들어오는 수익 등', inc: ci, exp: co });
+      if (ci >= 1 || co >= 1) tb(ledCT(t, f)).rows.push({ other: true, a: '그 밖에', inc: ci, exp: co });
     }
   }
-  const ord = k => k === 'me' ? 0 : /^g:/.test(k) ? 1 : k === 'grest' ? 2 : 3, TB = [...tabs.values()].sort((a, b) => ord(a.k) - ord(b.k));
+  const ord = k => k === 'me' ? 0 : /^g:/.test(k) ? 1 : 3, TB = [...tabs.values()].sort((a, b) => ord(a.k) - ord(b.k));
   const cell = (v, cls, f) => v && Math.abs(v) >= 1 ? `<td class="${cls}">${f(v)}</td>` : '<td class="led-0">-</td>';
-  const row = (x, last) => `<tr class="${x.other ? 'led-o' : ''}"><td class="led-a">${mo && x.t != null ? `<span class="led-mo">${ymOfT(s, x.t).m}월</span>` : ''}${U.esc(x.a)}${x.lg ? `<div class="led-x">${U.esc(String(x.lg.x || '').replace(/<[^>]+>/g, '').split('\n')[0])}${x.lg.lv ? liveBtnHTML(x.lg.lv, '무대 보기') : ''}${x.lg.pl ? plioBtnHTML(x.lg.pl) : ''}</div>` : x.x ? `<div class="led-x">${U.esc(x.x)}</div>` : x.sub ? `<div class="led-x">${U.esc(x.sub)}</div>` : ''}</td>`
-    + cell(x.inc, 'pos', v => '+' + ledWon(v)) + cell(x.exp, 'neg', v => '−' + ledWon(v)) + cell(x.fans, x.fans > 0 ? 'pos' : 'neg', ledFans) + `<td class="led-ev">${U.esc(x.ev || '') || '<span class="led-0">-</span>'}</td></tr>`;
+  // v205: 작고 흐린 설명(결과 글 · '그 밖에'가 무엇인지 · 대상 종류)은 뺐다. 평가 칸은 그 표에 바뀐 평가가 하나라도 있을 때만
+  const row = (x, ev) => `<tr class="${x.other ? 'led-o' : ''}"><td class="led-a">${mo && x.t != null ? `<span class="led-mo">${ymOfT(s, x.t).m}월</span>` : ''}${U.esc(x.a)}</td>`
+    + cell(x.inc, 'pos', v => '+' + ledWon(v)) + cell(x.exp, 'neg', v => '−' + ledWon(v)) + cell(x.fans, x.fans > 0 ? 'pos' : 'neg', ledFans) + (ev ? `<td class="led-ev">${U.esc(x.ev || '') || '<span class="led-0">-</span>'}</td>` : '') + `</tr>`;
   let h = '', ow = '';
   for (const B of TB) {
-    const si = sum(B.rows, x => x.inc), se = sum(B.rows, x => x.exp), sf = Math.round(sum(B.rows, x => x.fans)), money = B.k !== 'grest';
-    h += `<table class="led-t"><thead><tr><th class="led-who">${B.ic || ''} ${U.esc(B.k === 'me' || B.k === 'grest' ? B.n : `「${B.n}」`)}<span>${U.esc(B.kd || '')}</span></th><th>수입</th><th>지출</th><th>팬</th><th>평가</th></tr></thead><tbody>${B.rows.map(x => row(x)).join('')}</tbody>`
-      + (B.rows.length > 1 ? `<tfoot><tr><td class="led-a">합계${money && (si || se) ? ` <span class="led-net ${si - se >= 0 ? 'pos' : 'neg'}">${si - se >= 0 ? '남은 돈 +' : '손해 −'}${ledWon(si - se)}</span>` : ''}</td>${cell(si, 'pos', v => '+' + ledWon(v))}${cell(se, 'neg', v => '−' + ledWon(v))}${cell(sf, sf > 0 ? 'pos' : 'neg', ledFans)}<td></td></tr></tfoot>` : '') + `</table>`;
+    const si = sum(B.rows, x => x.inc), se = sum(B.rows, x => x.exp), net = si - se, ev = B.rows.some(x => x.ev);
+    // 맨 아래는 순이익 한 줄만 (수입 · 지출 합계는 따로 쓰지 않는다)
+    h += `<table class="led-t"><thead><tr><th class="led-who">${B.ic || ''} ${U.esc(B.k === 'me' ? B.n : `「${B.n}」`)}</th><th>수입</th><th>지출</th><th>팬</th>${ev ? '<th>평가</th>' : ''}</tr></thead><tbody>${B.rows.map(x => row(x, ev)).join('')}</tbody>`
+      + (si >= 1 || se >= 1 ? `<tfoot><tr><td class="led-a">순이익</td><td colspan="2" class="led-net ${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : '−'}${ledWon(net)}</td><td></td>${ev ? '<td></td>' : ''}</tr></tfoot>` : '') + `</table>`;
   }
-  // 줄이 없는 성과 (시상식 · 1위처럼 돈 · 팬이 바로 바뀌지 않은 것)
-  const used = new Set(R.map(r => r.tok)), OW = W.filter(x => !(x.lt && used.has(x.lt)));
-  if (OW.length) ow = `<div class="ts-sec">🏆 그 밖의 성과</div><div class="ts-box win">` + OW.map(x => tsItemHTML(s, x, mo).replace('</span></div>', `${x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}</span></div>`)).join('') + `</div>`;
+  // v205: 성과는 한곳에 (표 안의 결과 글과 '그 밖의 성과'가 겹쳐서 하나로 합쳤다)
+  //   이 결산표 줄의 결과 기록(진행 전 · 진행을 멈춘 창에서 고른 결과)도 여기에 모은다
+  const toks = new Set(R.map(r => r.tok)), seen = new Set(W);
+  W = W.slice();
+  for (let i = Math.max(0, s.log.length - 800); i < s.log.length; i++) { const x = s.log[i]; if (x.lt && toks.has(x.lt) && !seen.has(x) && x.k !== 'flavor' && !x.dl && tsCat(x) === 'win') { W.push(x); seen.add(x); } }
+  W.sort((a, b) => a.t - b.t);
+  if (W.length && new Set(W.map(x => x.t)).size > 1) mo = true;
+  if (W.length) ow = `<div class="ts-sec">🏆 성과</div><div class="ts-box win">` + W.map(x => tsItemHTML(s, x, mo, true).replace('</span></div>', `${x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}</span></div>`)).join('') + `</div>`;
   // 여기까지 보여 줬다 (다음 결산표는 여기서부터)
   s.ledMk = { a: E, gf: GF, fans: FE }; for (const r of R) r.sh = 1;
   if (!h && !ow) return { n: 0, html: `<div class="empty">이번에는 결산할 일이 없다.</div>` };
   // 기간: 지난 결산표 뒤로 처음 생긴 일부터 지금까지
   const t1 = Math.min(T.t0 + 1, ...R.map(r => r.t)), a1 = ymOfT(s, t1), b1 = ymOfT(s, s.t), rg = t1 >= s.t ? `${b1.y}년 ${b1.m}월` : `${a1.y}년 ${a1.m}월 ~ ${a1.y === b1.y ? '' : b1.y + '년 '}${b1.m}월`;
-  return { n: R.length + OW.length, html: `<div class="ceo-rep led"><div class="rep-doc-h">🧾 결산표 <span>${U.esc(rg || range || '')}</span></div>${h ? `<div class="led-wrap">${h}</div>` : ''}${ow}</div>` };
+  return { n: R.length + W.length, html: `<div class="ceo-rep led"><div class="rep-doc-h">🧾 결산표 <span>${U.esc(rg || range || '')}</span></div>${h ? `<div class="led-wrap">${h}</div>` : ''}${ow}</div>` };
 }
 // (v202 결산표 — 쓰지 않는다)
 function tsResHTML(s, W, inc, dm, mo) {
@@ -248,8 +254,8 @@ function turnSumHTML(s, T) {
   h += `</div>`;
   h += `<div class="ts-body${tab === 'res' ? '' : ' hidden'}" data-tsp="res">${LG.html}</div>`;
   const why = T.why === 'ev' ? '📌 결정할 일이 생겼다' : T.why === 'msg' ? '📨 새 메시지가 왔다' : T.why === 'warn' ? '⚠️ 살펴볼 일이 생겼다' : '';
-  if (why) h += `<div class="ts-why">${why}</div>`;
-  h += `<div class="choices ts-btns">${T.why === 'msg' ? `<button class="btn" data-turnok="inbox">📨 메시지함 열기</button>` : ''}<button class="btn primary" data-turnok="">확인 <kbd>Space</kbd></button></div>`;
+  // v205: 큰 창 맨 아래에 (ts-end)
+  h += `<div class="ts-end">${why ? `<div class="ts-why">${why}</div>` : ''}<div class="choices ts-btns">${T.why === 'msg' ? `<button class="btn" data-turnok="inbox">📨 메시지함 열기</button>` : ''}<button class="btn primary" data-turnok="">확인 <kbd>Space</kbd></button></div></div>`;
   return h;
 }
 // 장래희망 발표 (피드백): 정해진 달이 없다. 9세가 된 해에 진행이 멈추면 요약 창 다음에 덧붙여 뜬다
@@ -912,10 +918,10 @@ function evTblFilter(q) {
 }
 // 작은 창에 띄울 글을 버튼에 걸어 둔다 (정산서 버튼처럼 번호로)
 function popBtnHTML(label, html) { UI.popMap = UI.popMap || {}; const k = UI.popN = (UI.popN || 0) + 1; UI.popMap[k] = html; delete UI.popMap[k - 200]; return `<button class="lv-re" data-pop="${k}">${U.esc(label)}</button>`; }
-// 돈 적는 칸 (v118 UI D4): 천만 원 단위로 적고, 아래 버튼으로 ±1억 · ±10억 (가진 돈까지만). 옆에 'X억 원'으로 읽어 준다
+// 돈 적는 칸 (v118 UI D4 → v205): 억 단위로 적고(1.5 = 1억 5천만 원, 0.1억 단위까지 알아듣는다), 아래 버튼으로 ±1억 · ±10억 (가진 돈까지만). 옆에 'X억 원'으로 읽어 준다
 function wonFieldHTML(f) {
-  const v = Math.max(0, Math.floor((f.value || 0) / 1e6) / 10), mx = f.max != null ? Math.max(0, Math.floor(f.max / 1e6) / 10) : '';
-  return `<div class="field won-f"><label>${U.esc(f.label)} (천만 원)</label><div class="won-row"><input data-k="${f.k}" data-won data-wmax="${mx}" value="${v}" inputmode="decimal" maxlength="8"><span class="won-eq">${v > 0 ? '= ' + fmtWon(wonVal(v)) : ''}</span></div><div class="won-btns">${[-100, -10, 10, 100].map(n => `<button type="button" class="btn sm" data-wonadd="${n}" data-wk="${f.k}">${n < 0 ? '−' : '+'}${Math.abs(n) / 10}억</button>`).join('')}</div></div>`;
+  const v = Math.max(0, Math.floor((f.value || 0) / 1e6) / 100), mx = f.max != null ? Math.max(0, Math.floor(f.max / 1e4) / 1e4) : '';
+  return `<div class="field won-f"><label>${U.esc(f.label)} (억 원)</label><div class="won-row"><input data-k="${f.k}" data-won data-wmax="${mx}" value="${v}" inputmode="decimal" maxlength="10"><span class="won-eq">${v > 0 ? '= ' + fmtWon(wonVal(v)) : ''}</span></div><div class="won-btns">${[-10, -1, 1, 10].map(n => `<button type="button" class="btn sm" data-wonadd="${n}" data-wk="${f.k}">${n < 0 ? '−' : '+'}${Math.abs(n)}억</button>`).join('')}</div></div>`;
 }
 function wonEq(i) { const e = i.parentNode.querySelector('.won-eq'), w = wonVal(i.value); if (e) e.textContent = w > 0 ? '= ' + fmtWon(w) : ''; }
 function wonAdd(k, n) {
@@ -923,7 +929,7 @@ function wonAdd(k, n) {
   let v = (parseFloat(String(i.value).replace(/[^0-9.]/g, '')) || 0) + n;
   const mx = i.dataset.wmax === '' ? Infinity : +i.dataset.wmax;
   v = Math.max(0, Math.min(mx, v));
-  i.value = String(Math.round(v * 10) / 10); wonEq(i);
+  i.value = String(Math.round(v * 1e4) / 1e4); wonEq(i);
 }
 // 글자 적는 창에서 Enter = 확인. 한글을 적는 중(조합 중)에 누른 Enter는 조합이 끝난 뒤 확인한다. 두 번 눌리지 않게 0.4초 안의 Enter는 한 번만
 function formEnter() {
@@ -959,7 +965,7 @@ function resPre(s) {
   if (!ev) return null;
   let title = '';
   try { title = typeof ev.title === 'function' ? ev.title(s, p.d) : ev.title; } catch (e) { }
-  return { L0: s.log[s.log.length - 1], cat: evCat(ev, s, p.d), title, form: !!ev.form, noRes: ev.noRes || false, C: ev.form ? [] : evChoices(s) };
+  return { L0: s.log[s.log.length - 1], cat: evCat(ev, s, p.d), title, form: !!ev.form, noRes: ev.noRes || false, noToast: !!ev.noToast, C: ev.form ? [] : evChoices(s) };
 }
 // v202: 고른 결과와 그사이 생긴 일을 나눈다. M: 고른 결과의 끝 기록 (game.js CH_END). 모르면 모두 고른 결과
 //   다음에 뜰 창이 준비하며 남긴 기록(tk)은 그 창에서 보여 주니 빼고, 그사이 생긴 일에서는 일상 · 맡긴 일도 뺀다
@@ -978,7 +984,8 @@ function resAfter(pre, i) {
   const { mine, other } = resSplit(S, pre.L0, M), one = !pre.form && pre.C.length < 2 && pre.noRes !== 'toast';
   // noRes 'toast' (작품 기획 중 고르는 창): 제작 시작 창처럼 따로 그리는 창이 바로 뜨면 그 창이 결과를 보여 주니 생략
   const nx = S.pending && EVENTS[S.pending.id], c = pre.C[i];
-  if (mine.length && !one && !(pre.noRes === 'toast' && nx && nx.card)) ctoastShow({ cat: pre.cat, title: pre.title, pick: c ? c.t : '', L: mine });
+  // v205: ev.noToast — 창 글을 되풀이할 뿐인 결과(데뷔조의 합이 맞기 시작했다 등)는 토스트를 띄우지 않는다 (기록에는 남는다)
+  if (mine.length && !one && !pre.noToast && !(pre.noRes === 'toast' && nx && nx.card)) ctoastShow({ cat: pre.cat, title: pre.title, pick: c ? c.t : '', L: mine });
   if (!other.length) return false;
   resShow({ cat: '방금 고른 것과 따로', title: '그사이 생긴 일', L: other, next: afterChoice });
   return true;
@@ -1171,6 +1178,7 @@ function renderPanel() {
   else if (typeof window['panel_' + k] === 'function') h += window['panel_' + k]();
   h += pResHTML();
   $('#pcard').classList.toggle('wide', k === 'company' || k === 'group'); // 회사 창은 넓게 (v131)
+  $('#pcard').classList.toggle('p-small', k === 'menu' || k === 'pastecode'); // v205: 메뉴 · 세이브 코드 창은 작게 그대로
   $('#panel').classList.toggle('top', panelTop(k));
   $('#pcard').innerHTML = h;
   apPlace();
@@ -1250,11 +1258,14 @@ function apSorted(s, L) {
   const ok = L.filter(a => a.ok(s)), no = L.filter(a => !a.ok(s));
   return ok.map((a, i) => [a, apP(s, a), i]).sort((x, y) => y[1] - x[1] || x[2] - y[2]).map(x => x[0]).concat(no);
 }
+// v205: 구직활동은 '회사별'(처음 보는 방식)과 '직업별' 두 가지로 본다. 백과사전에서 넘어오면 그 직업이 보이게 직업별로 (UI.apForce)
 function panelApplyJob() {
-  const s = S, list = jobApplies(s);
-  let h = `${UI.apjFrom ? '<button class="btn sm ghost back-btn" data-dictback>← 백과사전</button>' : ''}<h2>📝 구직활동</h2><p class="p-intro">분야를 누르면 직업이 나오고, 직업을 누르면 그 바로 아래에 지원할 수 있는 곳이 나온다. 직업 옆 숫자는 지금 바로 지원할 수 있는 곳의 수다.<br>직업은 ${JOB_CAP}개까지 같이 할 수 있다.</p>`;
+  const s = S, list = jobApplies(s), view = UI.apForce || UI.apView || 'co';
+  let h = `${UI.apjFrom ? '<button class="btn sm ghost back-btn" data-dictback>← 백과사전</button>' : ''}<h2>📝 구직활동</h2><div class="ap-row pf-tabs">${[['co', '🏢 회사별'], ['job', '💼 직업별']].map(([k, n]) => `<button class="ap-tab ${view === k ? 'on' : ''}" data-apview="${k}">${n}</button>`).join('')}</div>`
+    + `<p class="p-intro">${view === 'co' ? '회사 종류를 누르면 회사가 나오고, 회사를 누르면 그 회사에 지원할 수 있는 자리가 나온다. 회사 없이 혼자 시작하는 일은 맨 아래에 있다.' : '분야를 누르면 직업이 나오고, 직업을 누르면 그 바로 아래에 지원할 수 있는 곳이 나온다. 직업 옆 숫자는 지금 바로 지원할 수 있는 곳의 수다.'}<br>직업은 ${JOB_CAP}개까지 같이 할 수 있다.</p>`;
   UI.apjOpen = UI.apjOpen || {};
   if (!list.length) return h + `<div class="empty">지금 나이와 상황에서 지원할 수 있는 직업이 없다.</div>`;
+  if (view === 'co') return h + apCoHTML(s, list);
   for (const [cid, cn] of APPLY_CATS) {
     const items = list.filter(a => applyCatOf(a) === cid);
     if (!items.length) continue;
@@ -1311,6 +1322,58 @@ function apSizeList(s, g) {
     if (!L.length) continue;
     const key = `${g.n}|${sz}`, open = !!UI.apSz[key], n = L.filter(a => a.ok(s)).length;
     h += `<div class="ap-sub ap-sz"><button class="ap-cat-h ap-tog" data-apsz="${U.esc(key)}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${sz}<span class="hint">${L.length}곳${n ? ` · 지금 지원 가능 ${n}곳` : ''}</span></button>${open ? `<div class="ap-list">${apSorted(s, L).map(a => apJobRow(s, a, true)).join('')}</div>` : ''}</div>`;
+  }
+  return h;
+}
+// ───── 구직활동 회사별 보기 (v205) ─────
+// 회사 종류 → 회사(대형 · 중형 · 소형 순) → 그 회사에 지원할 수 있는 자리. 어느 회사인지 붙은 뒤에 정해지는 채용(대형 기획사 사내 프로듀서 등)은 '대형 기획사' 한 곳으로 묶는다
+// 회사 없이 혼자 시작하는 일(인디 · 프리랜서 · 채널 열기 등)은 맨 아래 '회사 없이 시작하기'
+const AP_CO_TY = [['label', '🎤', '기획사'], ['vidol', '🎙️', '버츄얼 아이돌 기획사'], ['mcn', '📡', 'MCN'], ['dance', '🕺', '댄스 컴퍼니'], ['actor', '🎬', '배우 소속사'], ['model', '📸', '모델 에이전시'], ['bc', '📺', '방송사'], ['vprod', '🎞️', '영상 제작사'], ['anime', '✏️', '애니메이션 제작사'], ['web', '📚', '웹툰 · 웹소설 플랫폼'], ['univ', '🎓', '대학'], ['acad', '👩‍🏫', '학원 · 인강 회사'], ['none', '🧑', '회사 없이 시작하기']];
+const AP_CO_RULE = [[/^(idol|bandtr|bandsign)_|^solo_(?!indie$)|^(pin|anr|tr|marketer)_\d$/, 'label'], [/^vidol_aud_/, 'vidol'], [/^(mcn_join|editor_mcn)_/, 'mcn'], [/^dancer_dc_/, 'dance'], [/^actor_(?!music$|indie$)|^acttrainer_\d$/, 'actor'], [/^model_(?!free$)/, 'model'], [/^voice_bc_|^variety_gong$/, 'bc'], [/^editor_\d$|^director_ad$/, 'vprod'], [/^animator_\d$|^adir_ep$/, 'anime'], [/^(webtoon|webnovel)_(contest|cp)\d$/, 'web'], [/^prof_/, 'univ'], [/^tutor_/, 'acad']];
+// 지원 하나가 어느 회사의 어떤 자리인가: { ty 회사 종류, co 회사 이름(없으면 그 종류 바로 아래), pos 자리 }
+function apCoOf(a) {
+  const r = AP_CO_RULE.find(([re]) => re.test(a.id)), ty = r ? r[1] : 'none', n = String(a.n);
+  if (ty === 'none') return { ty, co: '', pos: n };
+  let m = n.match(/^((?:대형|중형|소형) (?:기획사|배우 소속사|영상 제작사|애니 제작사|대학|학원|인강 회사|CP사)) (.+)$/);
+  if (m) return { ty, co: m[1], pos: m[2], gen: true };
+  m = n.match(/^(.+?)에 (밴드 데모 보내기)$/) || n.match(/^(.+?) (가입 신청|편집팀 채용) \(MCN\)$/) || n.match(/^(.+?) ((?:아이돌|밴드 연습생|솔로|배우|모델|입단) 오디션|전속 성우 공채|웹툰 공모전|웹소설 공모전|오디션)$/);
+  return m ? { ty, co: m[1], pos: m[2] } : { ty, co: '', pos: n };
+}
+// 자리 이름: 직업 아이콘 + 자리 ('오디션' · '투고'처럼 짧으면 직업 이름을 붙인다)
+function apPosT(a, pos) {
+  const g = String(a.g || ''), ic = (g.match(/^\S+/) || [''])[0], jb = g.replace(/^\S+\s*/, '').replace(/ \(.*\)$/, '');
+  if (pos === '오디션') pos = `${jb} 오디션`; else if (pos === '투고') pos = `${jb.replace(/ 작가$/, '')} 투고`;
+  return `${ic} ${pos}`;
+}
+// v205: 접고 펼치는 제목 (그룹 창 등의 트리 뷰). key마다 UI.tsec에 기억하고, 처음에는 def대로
+function treeSec(key, title, hint, body, def) { UI.tsec = UI.tsec || {}; const open = UI.tsec[key] != null ? UI.tsec[key] : !!def; return `<div class="ap-cat tsec"><button class="ap-cat-h ap-tog" data-tsec="${U.esc(key)}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${title}${hint ? `<span class="hint">${hint}</span>` : ''}</button>${open ? body : ''}</div>`; }
+function apCoRow(s, a, pos) { const ok = !!a.ok(s), tag = /^(대형|중형|소형)/.test(String(a.tag || '')) ? '' : a.tag; return actRow({ t: apPosT(a, pos), tag, h: a.h ? a.h(s) : '', ok, why: a.why ? a.why(s) : '', btn: '지원하기', run: a.run, cls: ok ? '' : 'ap-off' }); }
+function apCoHTML(s, list) {
+  UI.apcTy = UI.apcTy || {}; UI.apcCo = UI.apcCo || {};
+  const by = {};
+  for (const a of list) { const c = apCoOf(a); (by[c.ty] = by[c.ty] || []).push([a, c]); }
+  const okN = L => L.filter(([a]) => a.ok(s)).length, szI = sz => ['대형', '중형', '소형'].indexOf(sz) + 1 || 4;
+  let h = '';
+  for (const [ty, ic, tn] of AP_CO_TY) {
+    const L = by[ty]; if (!L) continue;
+    const open = !!UI.apcTy[ty], n = okN(L), cos = [], ci = {};
+    for (const x of L) { const k = x[1].co; if (!k) continue; if (ci[k] == null) { ci[k] = cos.length; cos.push({ n: k, gen: x[1].gen, L: [] }); } cos[ci[k]].L.push(x); }
+    h += `<div class="ap-cat"><button class="ap-cat-h ap-tog" data-apcty="${ty}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${ic} ${tn}<span class="hint">${cos.length ? `회사 ${cos.length}곳 · ` : ''}${n ? `지금 지원할 수 있는 자리 ${n}개` : '지금 바로 지원할 수 있는 자리는 없다'}</span></button>`;
+    if (!open) { h += `</div>`; continue; }
+    // 회사가 따로 없는 자리 (방송사 개그맨 공채 · 겸임교수 등)는 종류 바로 아래에
+    const free = L.filter(x => !x[1].co);
+    if (free.length) h += `<div class="ap-list">${apSorted(s, free.map(x => x[0])).map(a => apCoRow(s, a, free.find(x => x[0] === a)[1].pos)).join('')}</div>`;
+    for (const C of cos) {
+      const sz = C.gen ? C.n.split(' ')[0] : apSize(s, C.L[0][0]) || '';
+      C.sz = sz; C.spec = (C.L.map(x => String(x[0].tag || '').match(/^(?:대형|중형|소형) · (.+)$/)).find(Boolean) || [])[1] || '';
+    }
+    cos.sort((x, y) => szI(x.sz) - szI(y.sz));
+    for (const C of cos) {
+      const key = `${ty}|${C.n}`, op = !!UI.apcCo[key], m = okN(C.L), nm = C.gen ? C.n.replace(/^(대형|중형|소형) /, '') : C.n;
+      h += `<div class="ap-sub ap-sz"><button class="ap-cat-h ap-tog" data-apcco="${U.esc(key)}" data-open="${op ? 1 : 0}">${op ? '▾' : '▸'} ${C.sz ? `<span class="ap-szc">${C.sz}</span>` : ''}${U.esc(nm)}<span class="hint">${C.gen ? '어느 회사인지는 붙은 뒤에 정해진다 · ' : C.spec ? `${U.esc(C.spec)} · ` : ''}자리 ${C.L.length}개${m ? ` · 지금 지원 가능 ${m}개` : ''}</span></button>`
+        + (op ? `<div class="ap-list">${apSorted(s, C.L.map(x => x[0])).map(a => apCoRow(s, a, C.L.find(x => x[0] === a)[1].pos)).join('')}</div>` : '') + `</div>`;
+    }
+    h += `</div>`;
   }
   return h;
 }
@@ -1566,6 +1629,7 @@ function goApplyJob(id) {
   if (!a) return;
   const cid = applyCatOf(a), y = $('#pcard').scrollTop;
   UI.apTab[cid] = a.g || '기타'; UI.apjOpen = UI.apjOpen || {}; UI.apjOpen[cid] = true;
+  UI.apForce = 'job'; // v205: 백과사전에서 넘어오면 그 직업이 보이게 직업별로
   openPanel('applyjob');
   UI.apjFrom = { y }; renderPanel();
   requestAnimationFrame(() => requestAnimationFrame(() => { const b = $('#pcard .ap-tab.on'); if (b) b.scrollIntoView({ block: 'center' }); }));
@@ -2604,7 +2668,7 @@ document.addEventListener('click', e => {
   if (t.dataset.turnok != null) { turnClose(t.dataset.turnok); return; }
   // v202: 요약 창 두 장 (특별한 일 · 결산표)
   if (t.dataset.tstab) { UI.tsTab = t.dataset.tstab; document.querySelectorAll('#tcard [data-tsp]').forEach(e => e.classList.toggle('hidden', e.dataset.tsp !== UI.tsTab)); document.querySelectorAll('#tcard [data-tstab]').forEach(b => b.classList.toggle('on', b.dataset.tstab === UI.tsTab)); return; }
-  if (t.dataset.panel) { UI.apjFrom = null; if (t.dataset.panel === 'group' && !UI.overlay) UI.grpTab = 'home'; if (t.dataset.cofx) { UI.coF = t.dataset.cofx; UI.coTab = 'home'; UI.coGrp = null; } if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
+  if (t.dataset.panel) { UI.apjFrom = null; UI.apForce = null; if (t.dataset.panel === 'group' && !UI.overlay) UI.grpTab = 'home'; if (t.dataset.cofx) { UI.coF = t.dataset.cofx; UI.coTab = 'home'; UI.coGrp = null; } if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
   if (t.dataset.close != null) return closePanel();
   if (t.dataset.logsize) { setLogSize(+t.dataset.logsize); if (UI.overlay === 'menu') renderPanel(); return; }
   if (t.dataset.min != null) { UI.minimized = true; showEvent(); return; }
@@ -2657,6 +2721,11 @@ document.addEventListener('click', e => {
   if (t.dataset.cofound) { if (S.pending) { UI.minimized = false; showEvent(); return; } fireEvent(S, 'co_new', { sub: t.dataset.cofound === 'sub' }); UI.minimized = false; save(S); showEvent(); return; }
   if (t.dataset.soon != null) { openPanel('soon'); return; }
   if (t.dataset.apjcat) { UI.apjOpen = UI.apjOpen || {}; UI.apjOpen[t.dataset.apjcat] = t.dataset.open !== '1'; renderPanel(); return; }
+  // v205: 구직활동 회사별 · 직업별, 회사 종류 · 회사 접기 펼치기
+  if (t.dataset.apview) { UI.apView = t.dataset.apview; UI.apForce = null; renderPanel(); return; }
+  if (t.dataset.apcty) { UI.apcTy = UI.apcTy || {}; UI.apcTy[t.dataset.apcty] = t.dataset.open !== '1'; renderPanel(); return; }
+  if (t.dataset.apcco) { UI.apcCo = UI.apcCo || {}; UI.apcCo[t.dataset.apcco] = t.dataset.open !== '1'; renderPanel(); return; }
+  if (t.dataset.tsec) { UI.tsec = UI.tsec || {}; UI.tsec[t.dataset.tsec] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.apcat) { UI.actOpen[t.dataset.apcat] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.apsz) { UI.apSz = UI.apSz || {}; UI.apSz[t.dataset.apsz] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.homecat) { UI.homeOpen[t.dataset.homecat] = t.dataset.open !== '1'; renderPanel(); return; }

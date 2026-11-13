@@ -34,7 +34,9 @@ function viName(x) { return x.vi ? x.vi.given : x.name; }
 function viSk(s, c) {
   const p = me(s), F = YT_FIT[c] || [], w = F.length > 1 ? JM_ : JS_;
   return jobMix([[lv(p, 'variety'), JS_], [Math.max(lv(p, 'vocal'), lv(p, 'rap')), JS_]].concat(F.filter(k => !TALENT_BY[k] && k !== 'edit').map(k => [lv(p, k), w])))
-    + F.filter(k => TALENT_BY[k]).reduce((a, k) => a + talB(p.tal[k], F.length === 1), 0) + talB(p.tal.voice, true) + talB(p.tal.grit, false);
+    + F.filter(k => TALENT_BY[k]).reduce((a, k) => a + talB(p.tal[k], F.length === 1), 0) + talB(p.tal.voice, true) + talB(p.tal.grit, false)
+    // v205: 춤도 조금 본다 (가산점, 없어도 손해는 없다: 춤 60이면 +2.4)
+    + lv(p, 'dance') * 0.04;
 }
 // 방송 컨셉 고르는 창: 나한테 잘 맞는 컨셉부터
 function viCatSort(s) { return ytCats(true).map((c, i) => [c, viSk(s, c), i]).sort((a, b) => b[1] - a[1] || a[2] - b[2]).map(x => x[0]); }

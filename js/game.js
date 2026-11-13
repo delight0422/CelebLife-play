@@ -1498,7 +1498,14 @@ function migrate(s) {
   for (const id of ['anr', 'trainer']) { const t = s.tracks[id]; if (t && t.st === 'active' && !t.salBase) t.salBase = t.sal; }
   (s.slots || []).forEach((sl, i) => { if (sl.prev === 'p_model') sl.prev = null; if (sl.act === 'p_model') { sl.act = defaultAct(s, i); sl.lesson = false; } });
   // 예전 세이브: 이미 네 살이 넘은 아이에게는 자녀 교육비 알림을 다시 띄우지 않는다
-  for (const k of (typeof kids === 'function' ? kids(s) : [])) if (kidAge(s, k) >= 4) k.eduTold = true;
+  //   v205: 한 번만 (예전엔 불러올 때마다 했다)
+  if (!s.flags.eduOld) { s.flags.eduOld = 1; for (const k of (typeof kids === 'function' ? kids(s) : [])) if (kidAge(s, k) >= 4) k.eduTold = true; }
+  // v205: 자녀 교육비 창을 못 보고 지나간 아이 (기록에 그 아이의 자녀 교육비를 정한 줄이 없으면)는 다음 달에 창을 띄운다 (4~17세 · 아직 안 정한 아이만)
+  if (!s.flags.eduFix205) {
+    s.flags.eduFix205 = 1;
+    const K = (typeof kids === 'function' ? kids(s) : []).filter(k => k.alive !== false && kidAge(s, k) >= 4), told = n => s.log.some(x => String(x.x || '').includes(`${n}의 자녀 교육비`));
+    if ((s.done.kid_edu_open || 0) < K.length) for (const k of K) if (kidAge(s, k) <= 17 && !((s.kidEdu || {})[k.id]) && !told(k.name)) k.eduTold = false;
+  }
   // 회사 이름 (10-7): 이 인생의 회사 이름을 다시 붙인다. 예전 세이브는 처음 이름 그대로
   // v117 장비 정책: 아직 본가에 사는 예전 세이브의 장비는 부모님이 사 주신 장비로 본다 (유지비도 부모님이)
   if (s.eqPar == null) { s.eqPar = {}; if (s.home && s.home.mode !== 'alone') for (const id in s.equip || {}) if (eqLv(s, id) && EQUIP[id] && !EQUIP[id].slot) s.eqPar[id] = true; }
