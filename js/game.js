@@ -276,8 +276,15 @@ let MONEY_TAP = null;
 // 굿즈 · 콘서트처럼 사건이 아닌 일은 ledWrap으로 감싼다 (company.js)
 const LED_ST = [];
 function ledA(s) { return s.ledA || (s.ledA = { pi: 0, po: 0, c: {} }); }
-function ledCo(s, f, v) { if (!s || !v) return; const A = ledA(s), o = A.c[f] || (A.c[f] = { i: 0, o: 0 }); if (v > 0) o.i += v; else o.o -= v; }
-function ledSnapA(s) { const A = ledA(s), c = {}; for (const f in A.c) c[f] = { i: A.c[f].i, o: A.c[f].o }; return { pi: A.pi, po: A.po, c }; }
+// v210: 그룹 달 처리(매달 방송 수익 · 음원 · 정산 등) 중에 오간 회사 돈은 그 그룹 몫으로 따로 센다 (A.g[그룹][회사]) → 결산표에서 회사 '기타'가 아니라 그 그룹 줄로
+//   그 사이 사건 줄(ledWrap 등)이 열리면 그 줄 몫이니 세지 않는다 (LED_GMD: 그룹 달 처리를 시작할 때 사건 줄 깊이)
+let LED_GM = null, LED_GMD = 0, LED_GT = null;
+function ledGM(g, fn) { const p = LED_GM, pd = LED_GMD, pt = LED_GT; LED_GM = g.id; LED_GMD = LED_ST.length; LED_GT = ledGT(g); try { return fn(); } finally { LED_GM = p; LED_GMD = pd; LED_GT = pt; } }
+function ledCo(s, f, v) {
+  if (!s || !v) return; const A = ledA(s), o = A.c[f] || (A.c[f] = { i: 0, o: 0 }); if (v > 0) o.i += v; else o.o -= v;
+  if (LED_GM != null && LED_ST.length === LED_GMD) { const G = A.g || (A.g = {}), x = G[LED_GM] || (G[LED_GM] = {}), y = x[f] || (x[f] = { i: 0, o: 0 }); if (v > 0) y.i += v; else y.o -= v; if (LED_GT) (A.gt || (A.gt = {}))[LED_GM] = LED_GT; }
+}
+function ledSnapA(s) { const A = ledA(s), c = {}, g = {}; for (const f in A.c) c[f] = { i: A.c[f].i, o: A.c[f].o }; for (const id in A.g || {}) { g[id] = {}; for (const f in A.g[id]) g[id][f] = { i: A.g[id][f].i, o: A.g[id][f].o }; } return { pi: A.pi, po: A.po, c, g }; }
 function ledCoOn(s) { return typeof coOn === 'function' && coOn(s); }
 function ledGF(s) { const o = {}; if (ledCoOn(s)) for (const g of coT(s).groups || []) o[g.id] = coGFans(g); return o; }
 function ledRep(s) { const o = {}; if (ledCoOn(s)) { const t = coT(s); for (const f in t.f) o[f] = t.f[f].rep || 0; } return o; }

@@ -1839,3 +1839,16 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
   .led-one td.led-a { padding-left: 16px; }
   .led-one .led-tot td { font-size: var(--fs-2); }
 }
+/* v210: 결산표 — 회사 줄 → 그룹 줄 → 활동 줄, 그룹들 아래 기타 줄 */
+.led-one thead th:first-child { width: 38%; }
+.led-one .led-cb tr.led-co td { background: #ebe4ff; font-weight: 800; border-top: 2px solid var(--ink2); }
+.led-one .led-cb tr.led-co td.led-a { padding-left: 12px; font-size: var(--fs-3); color: var(--ink); }
+.led-one tr.led-g td { background: #f7f4ff; font-weight: 800; }
+.led-one tr.led-g.etc td { background: #f5f5f8; }
+.led-one tr.led-g td.led-a { padding-left: 30px; color: var(--ink); }
+.led-one td.led-a.l2 { padding-left: 54px; }
+@media (max-width: 640px) {
+  .led-one .led-cb tr.led-co td.led-a { padding-left: 8px; font-size: var(--fs-2); }
+  .led-one tr.led-g td.led-a { padding-left: 16px; }
+  .led-one td.led-a.l2 { padding-left: 28px; }
+}

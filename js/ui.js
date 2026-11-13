@@ -160,36 +160,53 @@ function tsLed(s, T, P, W, inc, mo, range) {
   const meR = R.filter(r => r.k === 'me'), oi = Math.max(0, E.pi - A0.pi - sum(meR, r => r.pi)), oe = Math.max(0, E.po - A0.po - sum(meR, r => r.po)), of = Math.round(FE - F0 - sum(meR, r => r.fans));
   if (!noMe && (oi >= 1 || oe >= 1 || of)) { const rg = inc.filter(([, o]) => o.reg).slice(0, 3).map(([k]) => k); tb({ k: 'me', n: me(s).name, kd: '나', ic: '👤' }).rows.push({ other: true, a: '그 밖에', sub: `${rg.length ? `매달 들어오는 돈(${rg.join(' · ')}) · ` : ''}생활비 · 학원비 · 늘고 준 팬 등`, inc: oi, exp: oe, fans: of }); }
   if (ledCoOn(s)) {
-    const t = coT(s);
+    const t = coT(s), gm = {};
     // v205: 이번에 활동이 없던 그룹 · 기수 표('다른 그룹 · 기수')는 뺐다. 활동이 있던 그룹만 '그 밖에' 줄로 팬을 맞춘다
-    for (const g of t.groups || []) {
-      const k = 'g:' + g.id, d = GF[g.id] != null && GF0[g.id] != null ? GF[g.id] - GF0[g.id] : 0, o = Math.round(d - sum(R.filter(r => r.k === k), r => r.fans));
-      if (tabs.has(k) && o) tabs.get(k).rows.push({ other: true, a: '그 밖에', fans: o });
+    // v210: 그룹 달 처리 몫 돈(매달 방송 수익 · 정산 등, game.js ledGM)도 그 그룹 '매달 수입 · 지출' 줄로. 이 돈이 있으면 사건이 없던 그룹도 나온다
+    //   기간 중에 해체 · 정리돼 지금은 없는 그룹 몫도 (A.gt에 적어 둔 이름으로) 그 그룹 줄로 간다. 회사 키는 실제로 돈이 오간 키를 모두 본다
+    const EG = E.g || {}, AG = A0.g || {}, GT = ledA(s).gt || {}, alive = new Map((t.groups || []).map(g => [g.id, g]));
+    for (const id of new Set([...alive.keys(), ...Object.keys(EG)])) {
+      const g = alive.get(id), T = g ? ledGT(g) : GT[id]; if (!T) continue;
+      const k = 'g:' + id, o = g && GF[id] != null && GF0[id] != null ? Math.round(GF[id] - GF0[id] - sum(R.filter(r => r.k === k), r => r.fans)) : 0;
+      let gi = 0, go = 0;
+      for (const f in EG[id] || {}) { const a = EG[id][f], b = (AG[id] || {})[f] || { i: 0, o: 0 }, di = Math.max(0, a.i - b.i), dO = Math.max(0, a.o - b.o); if (di || dO) { const m = gm[f] || (gm[f] = { i: 0, o: 0 }); m.i += di; m.o += dO; gi += di; go += dO; } }
+      const money = gi >= 1 || go >= 1;
+      if (money || (tabs.has(k) && o)) tb(T).rows.push({ other: true, a: money ? '매달 들고 난 돈' : '그 밖에', inc: gi, exp: go, fans: o });
     }
     const disp = R.filter(r => r.k !== 'me');
     for (const f of coFields(t)) {
-      const e = E.c[f] || { i: 0, o: 0 }, a0 = A0.c[f] || { i: 0, o: 0 }, ci = Math.max(0, e.i - a0.i - sum(disp, r => (r.c[f] || {}).i)), co = Math.max(0, e.o - a0.o - sum(disp, r => (r.c[f] || {}).o));
-      if (ci >= 1 || co >= 1) tb(ledCT(t, f)).rows.push({ other: true, a: '그 밖에', inc: ci, exp: co });
+      const e = E.c[f] || { i: 0, o: 0 }, a0 = A0.c[f] || { i: 0, o: 0 }, ci = Math.max(0, e.i - a0.i - sum(disp, r => (r.c[f] || {}).i) - (gm[f] ? gm[f].i : 0)), co = Math.max(0, e.o - a0.o - sum(disp, r => (r.c[f] || {}).o) - (gm[f] ? gm[f].o : 0));
+      if (ci >= 1 || co >= 1) tb(ledCT(t, f)).rows.push({ other: true, a: '매달 들고 난 돈 (월급 · 운영비 · 매출 등)', inc: ci, exp: co });
     }
   }
-  const ord = k => k === 'me' ? 0 : /^g:/.test(k) ? 1 : 3, TB = [...tabs.values()].filter(B => B.rows.length).sort((a, b) => ord(a.k) - ord(b.k));
-  // v209: 결산표는 표 하나 (사용자 양식). 칸: 수입 · 지출 · 순수익 · 팬수
-  //   그룹 줄: 그 그룹의 총수입 · 총지출 · 순수익 · 이번에 바뀐 팬 / 그 아래 활동 줄: 활동마다 수입 · 지출 · 순수익 · 팬 변화
-  //   두 줄 선 아래 '그룹 총수입': 그룹들의 순수익을 더한 값. 회사 운영(월급 · 운영비 등 그룹에 들지 않은 돈)은 그 아래 따로
+  const TB = [...tabs.values()].filter(B => B.rows.length && B.k !== 'me');
+  // v210: 결산표는 표 하나 (사용자 양식). 칸: 수입 · 지출 · 순수익 · 팬수
+  //   회사 줄(그 회사의 총수입 · 총지출 · 순수익) → 그룹 줄(그룹 총수입 · 총지출 · 순수익 · 팬 변화) → 활동 줄 → 그룹들 아래 '기타'(회사 몫: 월급 · 운영비 · 작품 · 채용 등)
+  //   회사가 여럿이면 모회사부터 차례로. 맨 아래 두 줄 선 밑에 '그룹 전체'(회사가 하나면 '전체') 순수익
   const won = (v, sg) => Math.abs(v) >= 1 ? `<td class="${sg > 0 ? 'pos' : 'neg'}">${sg > 0 ? '+' : '−'}${ledWon(v)}</td>` : '<td class="led-0">-</td>';
   const net = v => Math.abs(v) >= 1 ? `<td class="led-n ${v >= 0 ? 'pos' : 'neg'}">${v >= 0 ? '+' : '−'}${ledWon(v)}</td>` : '<td class="led-0">-</td>';
   const fan = v => v && Math.abs(v) >= 1 ? `<td class="${v > 0 ? 'pos' : 'neg'}">${ledFans(v)}</td>` : '<td class="led-0">-</td>';
-  const row = x => `<tr class="led-r${x.other ? ' led-o' : ''}"><td class="led-a">${mo && x.t != null ? `<span class="led-mo">${ymOfT(s, x.t).m}월</span>` : ''}${U.esc(x.a)}</td>${won(x.inc, 1)}${won(x.exp, -1)}${net((x.inc || 0) - (x.exp || 0))}${fan(x.fans)}</tr>`;
-  const blk = B => { const si = sum(B.rows, x => x.inc), se = sum(B.rows, x => x.exp), sf = sum(B.rows, x => x.fans);
-    return `<tbody class="led-blk${/^g:/.test(B.k) ? ' g' : ''}"><tr class="led-gh"><th class="led-gn">${B.ic || ''} ${U.esc(B.k === 'me' ? B.n : `「${B.n}」`)}</th>${won(si, 1)}${won(se, -1)}${net(si - se)}${fan(sf)}</tr>${B.rows.length === 1 && B.rows[0].other ? '' : B.rows.map(row).join('')}</tbody>`; }; // '그 밖에' 한 줄뿐이면 위 줄과 같으니 뺀다
-  const GB = TB.filter(B => /^g:/.test(B.k)), OB = TB.filter(B => !/^g:/.test(B.k)), gNet = sum(GB, B => sum(B.rows, x => (x.inc || 0) - (x.exp || 0)));
-  let h = '';
-  if (TB.length) h = `<table class="led-one"><thead><tr><th></th><th>수입</th><th>지출</th><th>순수익</th><th>팬수</th></tr></thead>${GB.map(blk).join('')}`
-    + (GB.length ? `<tbody class="led-tot"><tr><td class="led-a">그룹 총수입${GB.length > 1 ? ` (${GB.length}팀)` : ''}</td><td></td><td></td>${net(gNet)}<td></td></tr></tbody>` : '')
-    + (OB.length ? (GB.length ? `<tbody class="led-sp"><tr><td colspan="5">회사 운영</td></tr></tbody>` : '') + OB.map(blk).join('') : '') + `</table>`;
-  const n = TB.reduce((a, B) => a + (B.rows.filter(x => !x.other).length || 1), 0);
+  const tot = L => ({ i: sum(L, x => x.inc), e: sum(L, x => x.exp), f: sum(L, x => x.fans) });
+  const row = x => `<tr class="led-r${x.other ? ' led-o' : ''}"><td class="led-a l2">${mo && x.t != null ? `<span class="led-mo">${ymOfT(s, x.t).m}월</span>` : ''}${U.esc(x.a)}</td>${won(x.inc, 1)}${won(x.exp, -1)}${net((x.inc || 0) - (x.exp || 0))}${fan(x.fans)}</tr>`;
+  // 그룹 줄 · 기타 줄 (그 아래 활동 줄. '그 밖에' 한 줄뿐이면 위 줄과 같으니 뺀다)
+  const sub = (name, rows, etc) => { const o = tot(rows); return `<tr class="led-g${etc ? ' etc' : ''}"><td class="led-a l1">${name}</td>${won(o.i, 1)}${won(o.e, -1)}${net(o.i - o.e)}${etc && !o.f ? '<td></td>' : fan(o.f)}</tr>` + (rows.length === 1 && rows[0].other ? '' : rows.map(row).join('')); };
+  const tc = ledCoOn(s) ? coT(s) : null, FS = tc ? [coMainF(tc), ...coFields(tc).filter(f => f !== coMainF(tc))] : [];
+  const fOf = B => FS.includes(B.f) ? B.f : /^c:/.test(B.k) && FS.includes(B.k.slice(2)) ? B.k.slice(2) : FS[0];
+  const GIX = new Map(((tc && tc.groups) || []).map((g, i) => ['g:' + g.id, i])), gix = B => GIX.has(B.k) ? GIX.get(B.k) : 999;
+  const byF = new Map(); for (const B of TB) { const f = fOf(B); if (!f) continue; if (!byF.has(f)) byF.set(f, { g: [], c: [] }); byF.get(f)[/^g:/.test(B.k) ? 'g' : 'c'].push(B); }
+  let h = '', all = 0;
+  for (const f of FS) {
+    const C = byF.get(f); if (!C) continue;
+    const etc = [].concat(...C.c.map(B => B.rows)), o = tot([].concat(...C.g.map(B => B.rows), etc)); all += o.i - o.e;
+    h += `<tbody class="led-cb"><tr class="led-co"><td class="led-a">${CO_FIELDS[f] ? CO_FIELDS[f].ic : '🏢'} ${U.esc(coFName(tc, f))}</td>${won(o.i, 1)}${won(o.e, -1)}${net(o.i - o.e)}<td></td></tr>`
+      + C.g.sort((a, b) => gix(a) - gix(b)).map(B => sub(`${B.ic || ''} 「${U.esc(B.n)}」`, B.rows)).join('')
+      + (!etc.length ? '' : C.g.length ? sub('기타', etc, true) : etc.length === 1 && etc[0].other ? '' : etc.map(x => row(x).replace('led-a l2', 'led-a l1')).join('')) + `</tbody>`;
+  }
+  if (h) h = `<table class="led-one"><thead><tr><th></th><th>수입</th><th>지출</th><th>순수익</th><th>팬수</th></tr></thead>${h}<tbody class="led-tot"><tr><td class="led-a">${FS.length > 1 ? '그룹 전체' : '전체'}</td><td></td><td></td>${net(all)}<td></td></tr></tbody></table>`;
+  const n = Math.max(h ? 1 : 0, TB.reduce((a, B) => a + B.rows.filter(x => !x.other).length, 0));
   // 여기까지 보여 줬다 (다음 결산표는 여기서부터)
   s.ledMk = { a: E, gf: GF, fans: FE }; for (const r of R) r.sh = 1;
+  if (tc) { const LA = ledA(s), on = new Set((tc.groups || []).map(g => g.id)); for (const id of Object.keys(LA.g || {})) if (!on.has(id)) { delete LA.g[id]; if (LA.gt) delete LA.gt[id]; } }
   if (!h) return { n: 0, html: `<div class="empty">이번에는 결산할 일이 없다.</div>` };
   // 기간: 지난 결산표 뒤로 처음 생긴 일부터 지금까지
   const t1 = Math.min(T.t0 + 1, ...R.map(r => r.t)), a1 = ymOfT(s, t1), b1 = ymOfT(s, s.t), rg = t1 >= s.t ? `${b1.y}년 ${b1.m}월` : `${a1.y}년 ${a1.m}월 ~ ${a1.y === b1.y ? '' : b1.y + '년 '}${b1.m}월`;

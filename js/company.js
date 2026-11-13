@@ -844,6 +844,9 @@ E({
   ch: (s, d) => [{ t: '확인', f: () => d.L.map(coTrLeftLine).join(' ') }],
 });
 // 연습생 키우기: 트레이너(그 분야 가르치는 실력) · 연습실 장비 · 대표가 직접 가르치기
+// v210: 관리형 회사(아이돌 · 밴드 · 버츄얼 아이돌, 앞으로 만들 배우 기획사 등)는 기본으로 특기를 배운다 — 새 관리형 회사도 달마다 이 함수를 부른다
+//   회사(분야 f)에 그 특기 트레이너가 있으면 없던 특기를 달마다 p 확률로 새로 배운다. extra(k): 트레이너가 없어도 조금씩 배우는 특기의 확률
+function coLearnMissing(s, x, f, p, extra) { for (const k of coSkillsAll(x)) { if (has(x, k)) continue; const q = coTrainer(s, k, f) ? p : extra ? extra(k) : 0; if (q > 0 && U.chance(q)) learnSkill(s, x, k, 1); } }
 function coTrainer(s, k, f) { return coStaff(s, 'trainer', f).filter(x => x.co.k === k).sort((a, b) => teachLv(b, k) - teachLv(a, k))[0] || null; }
 // v196: 그만둘까 고민하는 연습생 경고 (요약 창 '⚠️ 경고' 칸 · 진행이 멈춘다, ui.js turnStep)
 function coTrWorryWarn(s, L) {
@@ -1230,7 +1233,7 @@ function coMeeting(s, g, fromTick) {
   g.cbQ = true; g.nextCb = 99;
   // 전담 프로듀서가 붙어 있으면 그 사람이 정한다 (v155). 이미 추려 둔 다섯 곡이 있으면 다음 달에 거기서 고른다
   const P = coGProd(s, g);
-  if (P) { if (g.alb && g.alb.five && g.alb.five.length) { g.alb.auto = s.t + 1; g.alb.prod = P.id; } else dlRun(() => coProdPlan(s, g, P)); return; }
+  if (P) { if (g.alb && g.alb.five && g.alb.five.length) { g.alb.auto = s.t + 1; g.alb.prod = P.id; } else dlRun(() => ledWrap(s, ledGT(g), '전담 프로듀서 앨범 기획', () => coProdPlan(s, g, P))); return; }
   if (g.alb) g.alb.auto = 0;
   const id = g.alb && g.alb.five && g.alb.five.length ? 'co_pick' : 'co_plan', d = { gid: g.id, debut: !g.debuted };
   if (fromTick || s.pending) { queueEv(s, id, 0, d, true); qFront(s, [id]); } else fireEvent(s, id, d);
@@ -1644,10 +1647,11 @@ function coGroupMonth(s, t, g, sales) {
   g.months++;
   qFront(s, ['co_res']);
   if (g.proj) { if (coP(s, g.members).length < 2 || (g.debuted && g.promo <= 0 && !g.cbQ && !(g.rel > s.t))) { coProjEnd(s, t, g); return; } }
-  else for (const x of coP(s, g.members)) for (const k of coSkillsOf(x)) { const tr = coTrainer(s, k, coFOfKind(g.kind)); practice(s, x, k, (k === 'variety' ? 0.4 : 0.9) * (tr ? 1 + teachLv(tr, k) / 80 : 1), coTrainM(s, t, k, coFOfKind(g.kind))); }
+  // v210: 아이돌 · 밴드 멤버(데뷔조 포함)도 그 특기 트레이너가 있으면 없던 특기를 배운다 (달마다 20%, 버츄얼 기수와 같다)
+  else for (const x of coP(s, g.members)) { coLearnMissing(s, x, coFOfKind(g.kind), 0.2); for (const k of coSkillsOf(x)) { const tr = coTrainer(s, k, coFOfKind(g.kind)); practice(s, x, k, (k === 'variety' ? 0.4 : 0.9) * (tr ? 1 + teachLv(tr, k) / 80 : 1), coTrainM(s, t, k, coFOfKind(g.kind))); } }
   if (coProjHas(t, g) && !g.cbQ && g.nextCb <= 1) g.nextCb = 2;
   // 전담 프로듀서가 기획한 지 한 달: 곡을 고른다 (v155)
-  if (g.alb && g.alb.auto && g.alb.auto <= s.t) dlRun(() => coProdPick(s, g));
+  if (g.alb && g.alb.auto && g.alb.auto <= s.t) dlRun(() => ledWrap(s, ledGT(g), '전담 프로듀서 곡 선정', () => coProdPick(s, g)));
   coUnstick(s, g);
   if (!g.debuted) { if (!g.cbQ && --g.nextCb <= 0) coMeeting(s, g, true); return; }
   // 다음 앨범 기획은 발매 3~5달 뒤에 시작한다 (v165, 예전엔 활동 중에)
@@ -1804,7 +1808,7 @@ function coVGenMonth(s, t, g, sales) {
   for (const x of coP(s, g.members)) {
     // v209: 데뷔한 기수 멤버도 그 특기 트레이너가 있으면 없던 특기를 배운다 (달마다 20%). 게임은 트레이너가 없어도 방송하며 조금씩 (6%)
     //   예전엔 연습생만 배워서, 연습생 기간이 짧은 버츄얼 아이돌은 특기가 빈 채로 데뷔해 그대로였다
-    for (const k of coSkillsAll(x)) if (!has(x, k) && (coTrainer(s, k, 'vidol') ? U.chance(0.2) : k === 'game' && U.chance(0.06))) learnSkill(s, x, k, 1);
+    coLearnMissing(s, x, 'vidol', 0.2, k => k === 'game' ? 0.06 : 0);
     for (const k of coSkillsOf(x)) { const tr = coTrainer(s, k, 'vidol'); practice(s, x, k, (k === 'variety' ? 1.5 : 0.8) * (tr ? 1 + teachLv(tr, k) / 80 : 1), coTrainM(s, t, k, 'vidol')); }
     const c = x.co, tg = viTarget(coVAppeal(s, t, x), false) / sat, before = c.subs || 0;
     c.subs = before < tg ? before + Math.round((tg - before) * U.fl(0.02, 0.06) * 1.6 + U.int(3, 20)) : Math.round(before * U.fl(0.99, 1));
@@ -2297,7 +2301,7 @@ function coMonth(s, t) {
   coCeoMonth(s, t);
   if (t.hire) hireMonth(s, t);
   coTrainMonth(s, t, task === 'teach');
-  for (const g of t.groups.slice()) { const f = coFOfKind(g.kind); coWithCeo(s, t, f, () => (g.kind === 'vt' ? coVGenMonth : coGroupMonth)(s, t, g, coSalesOn(s, t, f))); }
+  for (const g of t.groups.slice()) { const f = coFOfKind(g.kind); coWithCeo(s, t, f, () => ledGM(g, () => (g.kind === 'vt' ? coVGenMonth : coGroupMonth)(s, t, g, coSalesOn(s, t, f)))); }
   // v192: 회사 논란 (드물게). 우리 회사 아이돌 · 밴드 모두의 팬 충성도가 흔들린다
   if (t.f.music && !hasQ(s, 'co_gsc') && t.groups.some(g => g.kind !== 'vt' && g.debuted && !g.proj) && U.chance(0.002)) coWithCeo(s, t, 'music', () => queueEv(s, 'co_gsc', 0, { lvl: 'co' }));
   if (t.f.mcn) coWithCeo(s, t, 'mcn', () => coMcnMonth(s, t, coSalesOn(s, t, 'mcn')));
