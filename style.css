@@ -1556,19 +1556,17 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .choices:has(> .fbtn) > [data-cancel] { grid-column: 1 / -1; }
 .choices:has(> .fbtn) > .btn { margin: 0; width: 100%; }
 
-/* ───── v181: 성장성 막대 (글자 없이 다섯 칸, 채운 칸 = 등급) ───── */
-.potv { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; margin-left: 6px; vertical-align: -1px; flex: 0 0 auto; }
-.potv i { display: block; width: 5px; border-radius: 1px; background: #e4dff0; }
-.potv i:nth-child(1) { height: 4px; } .potv i:nth-child(2) { height: 6px; } .potv i:nth-child(3) { height: 8px; } .potv i:nth-child(4) { height: 10px; } .potv i:nth-child(5) { height: 12px; }
-/* v188: 칠한 칸 = 지금 레벨, 칸 수 = 포텐. 칠한 칸 색은 포텐마다 (1 검정 · 2 하늘 · 3 보라 · 4 노랑 · 5 초록), 모르면 회색 + ? */
-.potv i.on { background: #7558e8; }
-.potv.p1 i.on { background: #26232e; }
-.potv.p2 i.on { background: #2f9be8; }
-.potv.p3 i.on { background: #8a52f0; }
-.potv.p4 i.on { background: #f0b400; }
-.potv.p5 i.on { background: #3dbb3d; }
-.potv.unk i.on { background: #aaa5b8; }
-.potv b { font-size: 10px; line-height: 12px; font-weight: 700; color: #aaa5b8; margin-left: 1px; }
+/* ───── v190: 성장성 별 (별 수 = 포텐, 색칠한 별 = 지금 채운 만큼, 흰 별 = 남은 만큼. 색은 별 수마다: 1 검정 · 2 하늘 · 3 보라 · 4 노랑 · 5 초록) ───── */
+.potv { display: inline-flex; align-items: center; gap: 0; margin-left: 5px; vertical-align: -1px; flex: 0 0 auto; line-height: 1; white-space: nowrap; }
+.potv i { font-style: normal; font-size: 13px; line-height: 1; color: #fff; -webkit-text-stroke: 0.8px #b3adc4; paint-order: stroke fill; }
+.potv i.on { -webkit-text-stroke: 0.8px rgba(0, 0, 0, .18); }
+.potv.p1 i.on { color: #26232e; }
+.potv.p2 i.on { color: #2f9be8; }
+.potv.p3 i.on { color: #8a52f0; }
+.potv.p4 i.on { color: #f2b600; }
+.potv.p5 i.on { color: #34b934; }
+.potv.unk i.on { color: #c4bfd2; -webkit-text-stroke: 0; }
+.potv b { font-size: 10px; font-weight: 700; color: #aaa5b8; margin-left: 1px; }
 .pi-sk .potv { margin-left: 8px; }
 /* 만든 작품 칸의 공개 예정 줄 (v181) */
 .ms.rel { color: var(--ink); }

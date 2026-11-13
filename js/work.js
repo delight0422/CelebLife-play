@@ -286,15 +286,31 @@ function grade5(viewer, v, kind = 'pot', k) {
 }
 function potGrade(viewer, target, k) { return has(target, k) ? grade5(viewer, target.sk[k].pot, 'pot', k) : ''; }
 // v181: 성장성은 글자 대신 막대 그림으로 보인다. 글 속에 표시(\u0005 … \u0006)를 넣으면 그리는 곳에서 막대로 바꾼다 (ui.js potH)
-// v188: 칠한 칸 = 지금 레벨 (20레벨마다 한 칸, 1~20 한 칸 … 81~100 다섯 칸), 칸 수 = 포텐 (예전 성장성 5단계: 매우 낮음 1칸 ~ 매우 높음 5칸)
-//   포텐 단계는 예전 그대로 보는 눈(스카우트 60% + 그 분야 특기 40%)이 좋을수록 '보통'의 폭이 좁아진다 (grade5). 칠한 칸 색은 포텐 칸 수마다 다르다 (ui.js)
-//   표시: 'fp' = 칠한 칸 f · 포텐 p, '?f' = 포텐을 모른다 (볼 눈이 없다)
+// v190: 별 (FM처럼). 별 수 = 포텐: 우리 회사에서 그 특기를 가진 사람들(연습생 + 데뷔한 멤버)의 실제 포텐 평균과 견준다
+//   10 이상 높으면 ★5 · 5~10 높으면 ★4 · 비슷하면(5 안쪽) ★3 · 5~10 낮으면 ★2 · 10 이상 낮으면 ★1
+//   우리 회사에 그 특기를 가진 사람이 3명이 안 되면 업계 전체 평균과 견준다 (한 달에 한 번 센다)
+//   보는 사람이 짐작한 포텐: 보는 눈(스카우트 60% + 그 분야 특기 40%)이 나쁠수록 실제와 어긋난다 (±12 → ±2, 사람마다 정해짐)
+//   색칠한 별 = 그 포텐을 지금 얼마나 채웠나 (지금 레벨 ÷ 짐작한 포텐), 흰 별 = 아직 남은 만큼. 색은 별 수마다 (ui.js)
+//   표시: 'cp' = 색칠한 별 c(0~5) · 별 수 p(1~5), '?' = 포텐을 모른다 (볼 눈이 없다)
+const POT_GAP = [10, 5], POT_REF_MIN = 3, POT_REF = new WeakMap();
 function lvBars(L) { return U.clamp(Math.ceil(L / 20), 1, 5); }
+function potRef(s, k) {
+  const t = typeof coOn === 'function' && coOn(s) ? coT(s) : null, key = t || s;
+  let C = POT_REF.get(key); if (!C || C.t !== s.t) POT_REF.set(key, C = { t: s.t });
+  if (C[k] != null) return C[k];
+  const avg = L => { const V = L.filter(x => x && x.alive && has(x, k)).map(x => x.sk[k].pot || 0); return V.length >= POT_REF_MIN ? V.reduce((a, v) => a + v, 0) / V.length : null; };
+  let v = t ? avg((t.tr || []).concat(...(t.groups || []).filter(g => g.debuted).map(g => g.members)).map(id => s.people[id])) : null;
+  if (v == null) v = avg(Object.values(s.people)) || 50;
+  return C[k] = v;
+}
+function potEst(viewer, target, k) { const pot = target.sk[k].pot || 0; if (viewer === target) return pot; const w = Math.round(12 - 10 * U.clamp(scoutLv(viewer, k), 0, 100) / 100); return pot + (hashN(target.id + k + viewer.id + ':pe') % (2 * w + 1)) - w; }
+function potStars(d) { return d >= POT_GAP[0] ? 5 : d >= POT_GAP[1] ? 4 : d > -POT_GAP[1] ? 3 : d > -POT_GAP[0] ? 2 : 1; }
 function potSpec(viewer, target, k, exact, unk) {
   if (!has(target, k)) return '';
-  const L = lvi(target, k), r = exact ? [L, L] : lvRange(viewer, target, k), f = lvBars((r[0] + r[1]) / 2);
-  if (unk) return '?' + f;
-  return `${f}${GRADE_W.pot.indexOf(grade5(viewer, target.sk[k].pot || 0, 'pot', k)) + 1}`;
+  if (unk) return '?';
+  const s = S, L = lvi(target, k), r = exact ? [L, L] : lvRange(viewer, target, k), cur = (r[0] + r[1]) / 2, est = potEst(viewer, target, k), p = potStars(est - potRef(s, k));
+  const c = cur >= est ? p : p > 1 ? U.clamp(Math.floor(p * cur / Math.max(1, est)), 1, p - 1) : 0;
+  return `${c}${p}`;
 }
 // exact: 레벨을 정확히 보는 사이 · unk: 어디까지 클지 모른다 (보통 !canScout)
 function potTok(viewer, target, k, exact, unk) { const g = potSpec(viewer, target, k, exact, unk); return g ? '\u0005' + g + '\u0006' : ''; }

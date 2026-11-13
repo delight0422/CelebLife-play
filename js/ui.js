@@ -13,18 +13,17 @@ function nl(t) { return U.esc(t).replace(/\n/g, '<br>'); }
 // 평가 색 (v132): \u0005…\u0007 = 좋은 평(초록), \u0006…\u0007 = 나쁜 평(빨강). 표시가 없으면 애매한 평(검정). music.js evG · evB가 붙인다
 function evCol(html) { return html.replace(/\u0005([^\u0007]*)\u0007/g, '<span class="ev-g">$1</span>').replace(/\u0006([^\u0007]*)\u0007/g, '<span class="ev-b">$1</span>'); }
 function rich(t) { return potH(evCol(nl(t).replace(/\u0001([^\u0002]*)\u0002/g, '<s class="was">$1</s>').replace(/\u0003([^\u0004]*)\u0004/g, '<b class="now">$1</b>'))); }
-// 성장성 막대 (v181): 글자 없이 다섯 칸 막대. 채운 칸 수 = 등급 (매우 낮음 1칸 ~ 매우 높음 5칸), 색도 등급마다. '?' = 볼 눈이 없어 점선만
-// v186: 막대 (work.js potSpec 'fab' · '?f'): 칸 수 = 어디까지 클지, 칠한 칸(on) = 지금 레벨, 연한 칸(cap) = 확실히 클 수 있는 데까지, 테두리 칸(may) = 거기까지 클 수도 있다, 회색 테두리(unk) = 모른다
-// v188: 'fp' = 칠한 칸 f(지금 레벨) · 칸 수 p(포텐). 칠한 칸 색은 포텐마다 (p1 검정 · p2 하늘 · p3 보라 · p4 노랑 · p5 초록). '?f' = 포텐을 모른다: 회색으로 칠한 칸 + ?
-//   지금 레벨이 포텐보다 높으면 칠한 칸만큼 그린다. 예전 표시 'fab'(v186)는 b를 포텐으로 친다
+// v190: 별 (work.js potSpec 'cp' · '?'): 별 수 p = 포텐 (우리 회사 사람들과 견줌), 색칠한 별 c = 그 포텐을 지금 채운 만큼, 흰 별 = 남은 만큼
+//   색은 별 수마다 (p1 검정 · p2 하늘 · p3 보라 · p4 노랑 · p5 초록). '?' = 포텐을 모른다: 회색 별 하나 + ?
+//   예전 표시 'fp'(v188) · 'fab'(v186) · '?f'도 읽는다 (c는 p를 넘지 않게)
 function potBars(g) {
-  g = String(g || ''); if (!/^(\?[1-5]|[1-5]{2,3})$/.test(g)) return '';
-  const unk = g[0] === '?', f = +(unk ? g[1] : g[0]), p = unk ? 0 : +g[g.length - 1], n = Math.max(f, p);
-  const lab = `지금 레벨 ${f}칸 · ${unk ? '포텐은 모른다' : `포텐 ${p}칸`}`;
-  return `<span class="potv${unk ? ' unk' : ` p${p}`}" role="img" aria-label="${lab}" title="${lab}">${Array.from({ length: n }, (_, i) => `<i${i < f ? ' class="on"' : ''}></i>`).join('')}${unk ? '<b>?</b>' : ''}</span>`;
+  g = String(g || ''); if (!/^(\?[1-5]?|[0-5][1-5]|[1-5]{3})$/.test(g)) return '';
+  if (g[0] === '?') return `<span class="potv unk" role="img" aria-label="포텐은 모른다" title="포텐은 모른다"><i class="on">★</i><b>?</b></span>`;
+  const p = +g[g.length - 1], c = Math.min(+g[0], p), lab = `포텐 별 ${p}개 · 지금 ${c}개만큼 찼다`;
+  return `<span class="potv p${p}" role="img" aria-label="${lab}" title="${lab}">${Array.from({ length: p }, (_, i) => `<i${i < c ? ' class="on"' : ''}>★</i>`).join('')}</span>`;
 }
-// 이미 HTML로 바꾼 글 속의 성장성 표시(work.js potTok)를 막대로
-function potH(h) { return String(h).replace(/\u0005(\?[1-5]|[1-5]{2,3})\u0006/g, (m, g) => potBars(g)); }
+// 이미 HTML로 바꾼 글 속의 성장성 표시(work.js potTok)를 별로
+function potH(h) { return String(h).replace(/\u0005(\?[1-5]?|[0-5][1-5]|[1-5]{3})\u0006/g, (m, g) => potBars(g)); }
 let toastTimer = null;
 // cls 'pt' (v180): 작품 기획처럼 창이 이어질 때 위쪽에 띄우는 여러 줄 토스트
 function toast(msg, cls) { const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (cls ? ' ' + cls : ''); void t.offsetWidth; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), cls ? 3600 : 2600); }
@@ -569,28 +568,19 @@ function renderCoCard() {
     el.className = 'card co-card'; el.innerHTML = `<div class="card-h">🏢 회사</div>` + coNewBannerHTML(false, w);
     return;
   }
-  // v187: 회사가 하나면 박스 자체가 배너 → 누르면 바로 그 회사 창
-  // v188: 자회사가 생기면 예전처럼 회사 배너들 + 자회사 설립, 맨 위에 그룹 배너 하나 (누르면 그룹 창)
-  const fs = coFields(t), main = coMainF(t);
-  delete el.dataset.cofx;
-  if (typeof coIsGrp === 'function' && coIsGrp(t)) {
-    el.className = 'card co-card';
-    let h = `<div class="card-h">🏢 회사<span class="sub">회사 ${fs.length}곳</span></div><button class="job-bn co-bn co-grp-bn" data-panel="group">${coGrpBoxHTML(s, t)}</button>`;
-    // v189: 사옥이 둘 이상이면 사옥마다 묶어서 (사옥 이름 · 연습실 정원 아래에 그 사옥의 회사 배너)
+  // v190: 박스 전체가 배너 하나 ('회사/그룹'). 누르면 회사가 하나면 그 회사 창, 둘 이상이면 그룹 창
+  //   안에는 회사마다 요약 (사옥이 둘 이상이면 사옥 이름 · 연습실 정원 아래에 그 사옥의 회사들). 자회사 세우기는 회사 창 · 그룹 창에서
+  const fs = coFields(t), main = coMainF(t), grp = typeof coIsGrp === 'function' && coIsGrp(t), inner = (f, m) => `<div class="job-bn co-bn">${coBnInner(s, t, f, m, !m)}</div>`;
+  el.className = 'card co-card bn-card'; el.dataset.panel = grp ? 'group' : 'company';
+  if (grp) delete el.dataset.cofx; else el.dataset.cofx = main;
+  let h = `<div class="card-h">🏢 회사/그룹${grp ? `<span class="sub">${U.esc(coGrpName(t))} · 회사 ${fs.length}곳</span>` : ''}</div>`;
+  if (!grp) h += inner(main, true);
+  else {
     const B = typeof coBlds === 'function' ? coBlds(t) : [main];
-    if (B.length > 1) h += B.map(b => { const rt = coRoomTxt(s, t, b); return `<div class="co-bld-h">🏢 ${coBldN(t, b)}${rt ? ` <span class="${/꽉/.test(rt) ? 'neg' : ''}">· ${U.esc(rt)}</span>` : ''}</div>` + coBldFs(t, b).map(f => coBannerHTML(s, t, f, false, true)).join(''); }).join('');
-    else h += [main].concat(fs.filter(f => f !== main)).map(f => coBannerHTML(s, t, f, false, true)).join('');
-    if (coSubLeft(t).length) h += coNewBannerHTML(true, coSubWhy(s, t));
-    el.innerHTML = h;
-    return;
+    if (B.length > 1) h += B.map(b => { const rt = coRoomTxt(s, t, b); return `<div class="co-bld-h">🏢 ${coBldN(t, b)}${rt ? ` <span class="${/꽉/.test(rt) ? 'neg' : ''}">· ${U.esc(rt)}</span>` : ''}</div>` + coBldFs(t, b).map(f => inner(f, false)).join(''); }).join('');
+    else h += [main].concat(fs.filter(f => f !== main)).map(f => inner(f, false)).join('');
   }
-  el.className = 'card co-card bn-card'; el.dataset.panel = 'company'; el.dataset.cofx = main;
-  el.innerHTML = `<div class="card-h">🏢 회사</div><div class="job-bn co-bn">${coBnInner(s, t, main, true)}</div>`;
-}
-function coGrpBoxHTML(s, t) {
-  const fs = coFields(t), [net, out] = coNetRow(t.lastL), R = [['그룹 자본금', fmtWon(t.money), t.money < 0 ? 'neg' : ''], ['지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg']];
-  if (net < 0 && out > 0) R.push(['버틸 수 있는 기간', t.money > 0 ? `약 ${Math.floor(t.money / out)}개월` : '바닥났다', 'neg']);
-  return `<span class="jb-top"><span class="sb-ic">🏛️</span><span class="sb-t">${U.esc(coGrpName(t))}</span><span class="jb-auto">${coRankName(t, Math.max(coRank(t), t.rankMax || 0))}</span><span class="sb-n">›</span></span>${coBnFacts(R)}`;
+  el.innerHTML = h;
 }
 // 상태: 군 복무·병은 맨 위에 눈에 띄게 (누르면 자세히)
 // 집에 따라 바뀌는 배경 (v151): img/bg/ 안에 그림이 있으면 게임 화면 뒤에 깐다. 없으면 지금 바탕 그대로. 원본은 img/home/ 에 두고 python dev/make_bg.py 로 가볍게 줄여 img/bg/ 에 만든다 (v152)
@@ -2479,7 +2469,7 @@ document.addEventListener('click', e => {
   if (t.dataset.fbtn != null) { if (t.disabled) return; const pre = resPre(S); fbtnRun(S, +t.dataset.fbtn); if (!resAfter(pre, -1)) afterChoice(); return; }
   if (t.dataset.cancel != null) { cancelForm(S); afterChoice(); return; }
   // 창을 내려 둔 채 패널 버튼으로 새 창(자본금 꺼내기 등)을 열면 그 창은 바로 보여 준다. 내려 둔 창은 대기열에 돌아가 있다가 새 창을 마치면 다시 뜬다 (v116 버그 1)
-  if (t.dataset.act != null) { const a = UI.acts[+t.dataset.act]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, jf0 = totalFans(S), jfJ = UI.overlay === 'job' ? UI.jobId : null, r = a.run(S); jfAdd(S, jfJ, totalFans(S) - jf0); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t, () => { if (UI.overlay === 'company') S.uiOpen = 'company'; }); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
+  if (t.dataset.act != null) { const a = UI.acts[+t.dataset.act]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, jf0 = totalFans(S), jfJ = UI.overlay === 'job' ? UI.jobId : null, r = a.run(S); jfAdd(S, jfJ, totalFans(S) - jf0); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t, () => { if (UI.overlay === 'company' || UI.overlay === 'group') S.uiOpen = UI.overlay; }); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
   // 오른쪽 생활 카드의 버튼과 탭
   if (t.dataset.lact != null) { const a = (UI.lacts || [])[+t.dataset.lact]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, r = a.run(S); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
   // 오른쪽 생활 칸의 묶음을 누르면 그 묶음 창이 뜬다 (휴대폰 생활 창에서 누르면 그 창이 바뀐다)
@@ -2649,6 +2639,6 @@ function pinfoHTML(s, x) {
   const sk = ks.length ? ks.map(([k, v]) => `<div class="pi-sk"><span class="pi-n">${U.esc(SKILLS[k].n)}</span><span class="pi-bar"><i style="left:0;width:${v.lo}%"></i>${v.hi > v.lo ? `<i class="rg" style="left:${v.lo}%;width:${v.hi - v.lo}%"></i>` : ''}</span><span class="pi-lv">${v.t}</span>${v.pot ? potBars(v.pot) : ''}</div>`).join('') : '<div class="muted">특기 없음</div>';
   return `<div class="pinfo"><div class="pi-h">${pAvHTML(x, true)}<div><div class="pi-name">${U.esc(x.name)} <span class="gchip ${x.g === '여' ? 'f' : 'm'}">${x.g === '여' ? '여성' : '남성'}</span></div><div class="pi-sub">${U.esc(x.job || '')}${x.soul ? ' · <span class="soul-hint">어딘가 낯익은 얼굴</span>' : ''}</div></div></div>`
     + infoTable(R) + `<div class="sec-h">특기 <span class="n">${ks.length}개 · 레벨 높은 순</span></div><div class="pi-sks">${sk}</div>`
-    + (ks.length ? `<p class="hint">막대 ${potBars('24')} 칠한 칸은 지금 레벨 (20레벨마다 한 칸), 칸 수는 포텐 · 색도 포텐마다 ${[1, 2, 3, 4, 5].map(p => potBars('1' + p)).join('')}${ks.some(([, v]) => v.pot[0] === '?') ? ` · ${potBars('?2')} 회색: 포텐을 모른다 (스카우트 특기와 그 분야 특기가 있어야 보인다)` : ''}</p>` : '') + `</div>`;
+    + (ks.length ? `<p class="hint">별 ${potBars('24')} 별 수는 포텐 (우리 회사 사람들과 견줘서), 색칠한 별은 지금까지 채운 만큼 · 흰 별은 아직 클 수 있는 만큼${ks.some(([, v]) => v.pot[0] === '?') ? ` · ${potBars('?')} 포텐을 모른다 (스카우트 특기와 그 분야 특기가 있어야 보인다)` : ''}</p>` : '') + `</div>`;
 }
 function pinfoOpen(id) { const x = S && S.people[id]; if (!x) return; popOpen(pinfoHTML(S, x), 'pinfo-card'); }

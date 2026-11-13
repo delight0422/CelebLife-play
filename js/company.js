@@ -733,11 +733,13 @@ E({
   },
 });
 // 데뷔를 기다리다 지쳐 떠난 연습생 (피드백 31: 기록만이 아니라 창으로). 같은 달에 여럿이면 한 창에 모은다
-function coTrLeftLine(x) { return `연습생 ${x.n}(${x.a}세)${josa(x.n, '이가').slice(x.n.length)} 데뷔를 기다리다 지쳐 회사를 떠났다.`; }
+// v190: 누가 떠났는지 알아보게 분야 · 연습한 기간을 쓰고, 아래에 그 사람 배너 (누르면 정보 창). 데뷔조에 든 연습생은 떠나지 않는다
+function coTrLeftLine(x) { return `${x.k ? coKindN(x.k) + ' ' : ''}연습생 ${x.n}(${x.a}세${x.m ? ` · 연습 ${x.m}개월` : ''})${josa(x.n, '이가').slice(x.n.length)} 데뷔를 기다리다 지쳐 회사를 떠났다.`; }
 E({
-  id: 'co_tr_left', cat: '연습생', title: '연습생이 떠났다', tag: 'career',
+  id: 'co_tr_left', cat: '연습생', title: (s, d) => d.L.length > 1 ? `연습생 ${d.L.length}명이 떠났다` : `연습생 ${d.L[0].n}${josa(d.L[0].n, '이가').slice(d.L[0].n.length)} 떠났다`, tag: 'career',
   cond: s => coOn(s),
   text: (s, d) => d.L.map(coTrLeftLine).join('\n'),
+  html: (s, d) => typeof pbnHTML === 'function' ? `<div class="m-text">${U.esc(d.L.map(coTrLeftLine).join('\n')).replace(/\n/g, '<br>')}</div><div class="pbn-list">${d.L.map(x => s.people[x.id] ? pbnHTML(s.people[x.id], x.n, x.sk || '') : '').join('')}</div>` : '',
   ch: (s, d) => [{ t: '확인', f: () => d.L.map(coTrLeftLine).join(' ') }],
 });
 // 연습생 키우기: 트레이너(그 분야 가르치는 실력) · 연습실 장비 · 대표가 직접 가르치기
@@ -760,9 +762,10 @@ function coTrainMonth(s, t, teach) {
     }
     // 데뷔를 오래 기다린 연습생은 나이가 차면 떠난다
     const a = pAge(s, x);
-    if (a >= (x.co.kind === 'idol' ? 23 : 27) && s.t - x.co.since >= 12 && U.chance(0.08)) {
+    if (a >= (x.co.kind === 'idol' ? 23 : 27) && s.t - x.co.since >= 12 && !(t.squads || []).some(q => q.ids.includes(x.id)) && U.chance(0.08)) {
+      const info = { id: x.id, n: x.name, a, k: x.co.kind, m: s.t - x.co.since, sk: coSkillsOf(x).map(k => `${SKILLS[k].n} ${lvi(x, k)}`).join(' · ') };
       t.tr = t.tr.filter(id => id !== x.id); x.co = null; x.job = '전 연습생';
-      left.push({ n: x.name, a });
+      left.push(info);
     }
   }
   if (left.length) { const q = s.queue.find(q => q.id === 'co_tr_left'); if (q) q.d.L.push(...left); else queueEv(s, 'co_tr_left', 0, { L: left }, true); }
@@ -2124,7 +2127,7 @@ function panel_group() {
   const m = coMainF(t), fs = [m].concat(coFields(t).filter(f => f !== m)), subs = fs.slice(1), rk = Math.max(coRank(t), t.rankMax || 0);
   const net = Object.values(t.lastL || {}).reduce((a, v) => a + v, 0), lb = coLocB(s, t);
   let h = `<h2>🏛️ ${U.esc(coGrpName(t))} <span class="muted" style="font-size:var(--fs-3)">${coRankName(t, rk)} · 회사 ${fs.length}곳</span></h2>`;
-  h += infoTable([['그룹 등급', coRankName(t, rk)], ['그룹 전체 자본금', `${fmtWon(t.money)} (${fs.map(f => `${coFName(t, f)} ${fmtWon(t.f[f].money || 0)}`).join(' · ')})`], ['지난달 그룹 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`], ['모회사', `「${t.name}」`], ['입지', `${REGION_BY[coLocR(s, t)].n}${lb > 1 ? ` · 회사 일 +${Math.round((lb - 1) * 100)}%` : ''} · 집에서 ${coDistTxt(coDist(s, t))}`]]);
+  h += infoTable([['그룹 등급', coRankName(t, rk)], ['그룹 전체 자본금', fmtWon(t.money)], ['지난달 그룹 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`], ['모회사', `「${t.name}」`], ['입지', `${REGION_BY[coLocR(s, t)].n}${lb > 1 ? ` · 회사 일 +${Math.round((lb - 1) * 100)}%` : ''} · 집에서 ${coDistTxt(coDist(s, t))}`]]);
   h += `<div class="sec-h">소속 회사 <span class="n">${fs.length}곳 · 누르면 그 회사 창</span></div><div class="grp-cos">${fs.map(f => coBannerHTML(s, t, f, false, true)).join('')}</div>`;
   // v189: 사옥마다 든 회사 · 연습실 정원, 본사에 있는 자회사(연습실을 쓰는 회사)는 사옥 독립
   const blds = coBlds(t), mv = subs.filter(x => coBld(t, x) === m && CO_ROOM_FS.includes(x));
