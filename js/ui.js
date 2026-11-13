@@ -526,22 +526,31 @@ function coFieldFacts(s, t, f) {
   if (f === 'anime') return [['애니', `${(t.adone || []).length}편${mk(0, (t.aw || []).length)}`]];
   return [];
 }
-function coBannerHTML(s, t, f, main) {
-  const facts = L => `<span class="jb-facts">${L.map(([k, v, c]) => `<span class="jf"><i>${k}</i><span class="${c || ''}">${U.esc(v)}</span></span>`).join('')}</span>`;
+// v187: grp = 그룹 창 안의 회사 배너 (자본금 · 지난달 순수익 · 분야 · 직원 · CEO)
+function coBannerHTML(s, t, f, main, grp) { return `<button class="job-bn co-bn" data-cof="${f}">${coBnInner(s, t, f, main, grp)}</button>`; }
+function coBnFacts(L) { return `<span class="jb-facts">${L.map(([k, v, c]) => `<span class="jf"><i>${k}</i><span class="${c || ''}">${U.esc(v)}</span></span>`).join('')}</span>`; }
+function coNetRow(L) { const V = Object.values(L || {}), net = V.reduce((a, v) => a + v, 0); return [net, -V.filter(v => v < 0).reduce((a, v) => a + v, 0)]; }
+function coBnInner(s, t, f, main, grp) {
+  const facts = coBnFacts;
   let rows = '';
+  if (grp) {
+    const F = t.f[f], [net] = coNetRow(Object.fromEntries(Object.entries(F.lastL || {}).filter(([k]) => !CO_IO.includes(k))));
+    rows = facts([['자본금', fmtWon(F.money || 0), (F.money || 0) < 0 ? 'neg' : ''], ['지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg']]) + facts(coFieldFacts(s, t, f).concat([['직원', `${coStaff(s, null, f).length}명`]], coCeo(t, f) ? [['CEO', ceoName(s, t, f)]] : []));
+    return `<span class="jb-top"><span class="sb-ic">${CO_FIELDS[f].ic}</span><span class="sb-t">${U.esc(coFName(t, f))}</span><span class="jb-auto">${f === coMainF(t) ? '모회사 · ' : ''}${TIER_N[t.f[f].tier]} ${CO_TYPE_N[f] || CO_FIELDS[f].n}</span><span class="sb-n">›</span></span>${rows}`;
+  }
   if (main) {
     const V = Object.values(t.lastL || {}), net = V.reduce((a, v) => a + v, 0), out = -V.filter(v => v < 0).reduce((a, v) => a + v, 0);
     // 돈 줄: 자본금(그룹 전체) · 지난달 순수익 · (적자면) 버틸 수 있는 기간
     const R = [[coFields(t).length > 1 ? '그룹 자본금' : '자본금', fmtWon(t.money), t.money < 0 ? 'neg' : ''], ['지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg']];
     if (net < 0 && out > 0) R.push(['버틸 수 있는 기간', t.money > 0 ? `약 ${Math.floor(t.money / out)}개월` : '바닥났다', 'neg']);
-    rows = facts(R) + facts([['그룹 등급', coRankName(t, coRank(t))]].concat(coFieldFacts(s, t, f), [['직원', `${coStaff(s, null, f).length}명`]].concat(typeof coCeo === 'function' && coCeo(t, f) ? [['CEO', ceoName(s, t, f)]] : t.hire ? [['내 자리', 'CEO']] : [])));
+    rows = facts(R) + facts([[coFields(t).length > 1 ? '그룹 등급' : '등급', coRankName(t, coRank(t))]].concat(coFieldFacts(s, t, f), [['직원', `${coStaff(s, null, f).length}명`]].concat(typeof coCeo === 'function' && coCeo(t, f) ? [['CEO', ceoName(s, t, f)]] : t.hire ? [['내 자리', 'CEO']] : [])));
   } else rows = facts([['모회사', t.name], ['자본금', fmtWon(coM(t, f)), coM(t, f) < 0 ? 'neg' : '']].concat(coFieldFacts(s, t, f), [['직원', `${coStaff(s, null, f).length}명`]].concat(typeof coCeo === 'function' && coCeo(t, f) ? [['CEO', ceoName(s, t, f)]] : [])));
-  return `<button class="job-bn co-bn" data-cof="${f}"><span class="jb-top"><span class="sb-ic">${CO_FIELDS[f].ic}</span><span class="sb-t">${U.esc(coFName(t, f))}</span><span class="jb-auto">${TIER_N[t.f[f].tier]} ${CO_TYPE_N[f] || CO_FIELDS[f].n}</span><span class="sb-n">›</span></span>${rows}</button>`;
+  return `<span class="jb-top"><span class="sb-ic">${CO_FIELDS[f].ic}</span><span class="sb-t">${U.esc(coFName(t, f))}</span><span class="jb-auto">${TIER_N[t.f[f].tier]} ${CO_TYPE_N[f] || CO_FIELDS[f].n}</span><span class="sb-n">›</span></span>${rows}`;
 }
 // 회사 설립 배너: 첫 회사는 내 현금이 1억 원 이상일 때만 보인다. 자회사는 세울 분야가 남아 있으면 늘 보이고, 조건이 안 되면 잠금 + 빨간 이유
 // 아랫줄은 설립 비용만 (절차는 누르면 차례로 나온다)
 function coNewBannerHTML(sub, why) {
-  const t = sub ? '자회사 설립' : '회사 설립', h = sub ? `설립 비용 ${fmtWon(CO_ADD_COST)} (그룹 자본금)` : `설립 비용 ${fmtWon(CO_SEED)} (내 돈)`;
+  const t = sub ? '자회사 설립' : '회사 설립', h = sub ? `설립 비용 ${fmtWon(CO_ADD_COST)} (그룹 자본금)` : `자본금 ${fmtWon(CO_SEED)}부터 (입지마다 다름 · 내 돈)`;
   return `<button class="co-new${why ? ' chainlk' : ''}"${why ? '' : ` data-cofound="${sub ? 'sub' : 'new'}"`}><span class="co-new-t">＋ ${t}</span><span class="co-new-h">${h}</span>${why ? `<span class="co-why">${U.esc(why)}</span>` : ''}</button>`;
 }
 function renderCoCard() {
@@ -556,11 +565,21 @@ function renderCoCard() {
     el.className = 'card co-card'; el.innerHTML = `<div class="card-h">🏢 회사</div>` + coNewBannerHTML(false, w);
     return;
   }
+  // v187: 박스 자체가 배너. 회사가 하나면 누르면 바로 그 회사 창, 자회사가 생기면 '그룹' 박스 → 그룹 창 (자회사 세우기는 회사 창 · 그룹 창으로 옮겼다)
   const fs = coFields(t), main = coMainF(t);
-  let h = `<div class="card-h">🏢 회사${fs.length > 1 ? `<span class="sub">${U.esc(coGrpName(t))} · 회사 ${fs.length}곳</span>` : ''}</div>`;
-  h += coBannerHTML(s, t, main, true) + fs.filter(f => f !== main).map(f => coBannerHTML(s, t, f, false)).join('');
-  if (coSubLeft(t).length && !t.hire) h += coNewBannerHTML(true, coSubWhy(s, t));
-  el.className = 'card co-card'; el.innerHTML = h;
+  delete el.dataset.cofx;
+  if (typeof coIsGrp === 'function' && coIsGrp(t)) {
+    el.className = 'card co-card bn-card co-grp'; el.dataset.panel = 'group';
+    el.innerHTML = `<div class="card-h">🏛️ 그룹<span class="sub">회사 ${fs.length}곳</span></div><div class="job-bn co-bn">${coGrpBoxHTML(s, t)}</div>`;
+    return;
+  }
+  el.className = 'card co-card bn-card'; el.dataset.panel = 'company'; el.dataset.cofx = main;
+  el.innerHTML = `<div class="card-h">🏢 회사</div><div class="job-bn co-bn">${coBnInner(s, t, main, true)}</div>`;
+}
+function coGrpBoxHTML(s, t) {
+  const fs = coFields(t), [net, out] = coNetRow(t.lastL), R = [['그룹 자본금', fmtWon(t.money), t.money < 0 ? 'neg' : ''], ['지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg']];
+  if (net < 0 && out > 0) R.push(['버틸 수 있는 기간', t.money > 0 ? `약 ${Math.floor(t.money / out)}개월` : '바닥났다', 'neg']);
+  return `<span class="jb-top"><span class="sb-ic">🏛️</span><span class="sb-t">${U.esc(coGrpName(t))}</span><span class="jb-auto">${coRankName(t, Math.max(coRank(t), t.rankMax || 0))}</span><span class="sb-n">›</span></span>${coBnFacts(R)}<span class="co-chips">${fs.map(f => `<span class="co-chip">${CO_FIELDS[f].ic} ${U.esc(coFName(t, f))}</span>`).join('')}</span>`;
 }
 // 상태: 군 복무·병은 맨 위에 눈에 띄게 (누르면 자세히)
 // 집에 따라 바뀌는 배경 (v151): img/bg/ 안에 그림이 있으면 게임 화면 뒤에 깐다. 없으면 지금 바탕 그대로. 원본은 img/home/ 에 두고 python dev/make_bg.py 로 가볍게 줄여 img/bg/ 에 만든다 (v152)
@@ -1009,7 +1028,7 @@ function renderPanel() {
   if (P[k]) h += P[k]();
   else if (typeof window['panel_' + k] === 'function') h += window['panel_' + k]();
   h += pResHTML();
-  $('#pcard').classList.toggle('wide', k === 'company'); // 회사 창은 넓게 (v131)
+  $('#pcard').classList.toggle('wide', k === 'company' || k === 'group'); // 회사 창은 넓게 (v131)
   $('#panel').classList.toggle('top', panelTop(k));
   $('#pcard').innerHTML = h;
   apPlace();
@@ -2181,7 +2200,7 @@ function lifeSecBody(s, k) {
   if (k === 'home') {
     const hn = homeNow(s);
     h += `<div class="home-now big"><span class="hn-ic">${hn.ic}</span><div><div class="hn-k">지금 사는 곳 · ${hn.k}</div><div class="hn-n">${U.esc(hn.n)}</div><div class="hn-d">${U.esc(hn.d)}</div>${houseAsset(s) ? `<div class="hn-a">${houseLabel(s)} <b>${fmtWon(houseAsset(s))}</b> · ${houseNote(s)}</div>` : ''}</div></div>`;
-    h += `<div class="lnote">${r.d}. 서울에 가까울수록 오디션·섭외 기회가 많다.${typeof coOn === 'function' && coOn(s) && coLocM(s) > 1 ? ` 회사 대표라 회사 일(회사 운영 · 직접 가르치기 · 영업) 효율도 +${Math.round((coLocM(s) - 1) * 100)}%.` : ''}</div>`;
+    h += `<div class="lnote">${r.d}. 서울에 가까울수록 오디션·섭외 기회가 많다.${typeof coOn === 'function' && coOn(s) && !coT(s).hire ? ` 회사(${REGION_BY[coLocR(s, coT(s))].n})까지 ${coDistTxt(coDist(s, coT(s)))}.` : ''}</div>`;
     h += sec('loan', '💳 대출 · 빚', '');
     if (age(s) < 19) h += `<div class="sec-h">🏠 이사</div><div class="lnote">성인이 되면(19세) 혼자 나가 살 집을 구할 수 있다.</div>`;
     else {
@@ -2434,7 +2453,7 @@ document.addEventListener('click', e => {
   if (t.id === 'btn-go') { turnGo(turnMax(S)); return; }
   if (t.id === 'btn-month') { turnGo(1); return; }
   if (t.dataset.turnok != null) { turnClose(t.dataset.turnok); return; }
-  if (t.dataset.panel) { UI.apjFrom = null; if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
+  if (t.dataset.panel) { UI.apjFrom = null; if (t.dataset.cofx) { UI.coF = t.dataset.cofx; UI.coTab = 'home'; UI.coGrp = null; } if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
   if (t.dataset.close != null) return closePanel();
   if (t.dataset.logsize) { setLogSize(+t.dataset.logsize); if (UI.overlay === 'menu') renderPanel(); return; }
   if (t.dataset.min != null) { UI.minimized = true; showEvent(); return; }

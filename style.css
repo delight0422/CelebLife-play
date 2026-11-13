@@ -1569,3 +1569,10 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 /* 만든 작품 칸의 공개 예정 줄 (v181) */
 .ms.rel { color: var(--ink); }
 .ms.rel b { color: var(--violet); }
+
+/* ───── 그룹 박스 · 그룹 창 (v187) ───── */
+.co-card.bn-card .co-bn { pointer-events: none; }
+.co-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: var(--sp-1); }
+.co-chip { font-size: var(--fs-1, 11px); padding: 1px 8px; border-radius: 999px; background: var(--violet-soft); color: var(--ink2); white-space: nowrap; }
+.grp-cos { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--sp-2); margin-bottom: var(--sp-2); }
+.grp-cos .co-bn + .co-bn { margin-top: 0; }

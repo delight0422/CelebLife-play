@@ -12,6 +12,28 @@
 
 const CO_FIELDS = { music: { n: '기획사', ic: '🎤', kinds: ['idol', 'band'], what: '연습생을 뽑아 키우고 아이돌 그룹이나 밴드로 데뷔시킨다' }, vidol: { n: '버츄얼 아이돌 기획사', ic: '🎙️', kinds: ['vt'], what: '연습생을 뽑아 키우고 기수로 묶어 버츄얼 아이돌로 데뷔시킨다' }, mcn: { n: 'MCN', ic: '📡', kinds: [], what: '활동 중인 스트리머·버튜버를 영입해 광고를 잡아 주고 수익을 나눈다' }, video: { n: '영상 제작사', ic: '🎬', kinds: [], what: '웹드라마·드라마·OTT 시리즈·영화를 기획해 만들고 플랫폼·방송사·극장에 건다' }, anime: { n: '애니메이션 제작사', ic: '🎨', kinds: [], what: '웹 애니·TV 애니·OTT 애니·극장판을 기획해 만들고 플랫폼·방송사·극장에 건다' } };
 const CO_SEED = 1e8;
+// 회사 입지 (v187): 처음 차릴 때 고른다. 입지마다 최소 자본금과 사무실 임대료(배율)가 다르다. 가장 싼 농어촌이 예전처럼 1억 원부터
+//   입지가 좋을수록 회사 일(회사 운영 · 직접 가르치기 · 영업)이 잘 풀린다 (coLocB, 예전엔 내가 사는 곳으로 쳤다)
+//   내가 직접 하는 회사 일은 집과 회사가 멀수록 떨어진다 (coDist · CO_DIST_M). CEO가 하는 일은 그대로
+const CO_LOC = { rural: { cap: 1e8, rent: 0.6 }, town: { cap: 1.5e8, rent: 0.75 }, city: { cap: 2e8, rent: 0.9 }, metro: { cap: 3e8, rent: 1 }, seoul: { cap: 5e8, rent: 1.4 }, gangnam: { cap: 8e8, rent: 2 } };
+const CO_LOC_ORD = ['rural', 'town', 'city', 'metro', 'seoul', 'gangnam'];
+const CO_CAPA = ['gangnam', 'seoul', 'metro'], CO_DIST_M = [1, 0.92, 0.8, 0.7], CO_DIST_W = ['가깝다', '조금 멀다', '멀다', '아주 멀다'];
+function coLocR(s, t) { return (t && t.loc) || s.region; }
+function coLocRent(t) { return ((t && CO_LOC[t.loc]) || { rent: 1 }).rent; }
+function coLocBR(rid) { const R = REGION_BY[rid]; return 1 + U.clamp(((R && R.access) || 0.65) - 0.8, 0, 0.32); }
+function coLocB(s, t) { return coLocBR(coLocR(s, t)); }
+// 집(a)과 회사(b) 사이: 같은 곳 0 · 서울 안 0 · 서울과 경기·인천 1 · 지방끼리 2 · 수도권과 지방 3
+function coDistAB(a, b) { if (a === b) return 0; const ca = CO_CAPA.includes(a), cb = CO_CAPA.includes(b); if (ca && cb) return a === 'metro' || b === 'metro' ? 1 : 0; return ca || cb ? 3 : 2; }
+function coDist(s, t) { return t && t.hire ? 0 : coDistAB(s.region, coLocR(s, t)); }
+function coDistTxt(d) { return `${CO_DIST_W[d]}${d ? ` (내가 하는 회사 일 -${Math.round((1 - CO_DIST_M[d]) * 100)}%)` : ''}`; }
+// 회사를 차릴 때 처음 골라 둔 입지: 사는 곳 (돈이 모자라면 낼 수 있는 곳 중 가장 비싼 곳)
+function coLocDef(s) { if (CO_LOC[s.region] && s.money >= CO_LOC[s.region].cap) return s.region; return CO_LOC_ORD.filter(r => s.money >= CO_LOC[r].cap).pop() || 'rural'; }
+function coLocForm(s) {
+  const d0 = coLocDef(s);
+  return CO_LOC_ORD.map(rid => { const L = CO_LOC[rid], b = coLocBR(rid), dd = coDistAB(s.region, rid); return { k: 'loc', type: 'radio', v: rid, on: rid === d0, label: REGION_BY[rid].n, sub: `자본금 ${fmtWon(L.cap)}부터 · 사무실 임대료 ${L.rent === 1 ? '보통' : L.rent < 1 ? `${Math.round((1 - L.rent) * 100)}% 싸다` : `${Math.round((L.rent - 1) * 100)}% 비싸다`}${b > 1 ? ` · 회사 일 +${Math.round((b - 1) * 100)}%` : ''} · 집에서 ${coDistTxt(dd)}` }; });
+}
+// 첫 자회사를 세울 때 그룹 이름을 정한다 (v187)
+function coGrpFirst(t) { return !!t && !t.hire && coFields(t).length === 1 && !t.gname; }
 // 자회사 세우기: 어느 분야든 중형이 되면, 자본금 5억 원으로 다른 분야의 자회사를 세운다 (이름은 따로, 자본금 · 직원은 그룹이 같이 쓴다)
 const CO_ADD_COST = 5e8;
 // 평판 40이면 중형, 70이면 대형. 내려갈 때는 8 낮은 데서 내려간다
@@ -119,7 +141,7 @@ function coSum(L) { let inc = 0, exp = 0; for (const k in L || {}) { if (CO_IO.i
 function coTaxBase(L) { let n = 0; for (const k in L || {}) { if (CO_IO.includes(k) || CO_TAXL.includes(k)) continue; n += L[k]; } return n; }
 function coTaxOf(x) { let tax = 0, lo = 0; for (const [hi, r] of CO_TAX) { if (x <= lo) break; tax += (Math.min(x, hi) - lo) * r; lo = hi; } return Math.round(tax / 1e4) * 1e4; }
 // 회사 사이 돈 옮기기: 출자(모회사 → 자회사, 등록면허세는 받는 회사가 낸다) · 배당(자회사 → 모회사, 쌓인 이익까지만)
-function coRegRate(s, t, f) { const F = coF(t, f); return CO_REG_TAX * (CO_REG_CROWD.includes(s.region) && s.t - (F.since || 0) < 60 ? 3 : 1); }
+function coRegRate(s, t, f) { const F = coF(t, f); return CO_REG_TAX * (CO_REG_CROWD.includes(coLocR(s, t)) && s.t - (F.since || 0) < 60 ? 3 : 1); }
 function coInvest(s, t, f, v) {
   v = Math.round(v); const m = coMainF(t), F = coF(t, f), P = coF(t, m);
   P.money -= v; coLed(t, '출자', -v, m, true);
@@ -135,7 +157,7 @@ function coSumText(L) { const x = coSum(L); return `수입 ${fmtWon(x.inc)} · �
 // 연습생 한 명의 매달 비용: 버츄얼 아이돌 연습생은 춤 연습실이 필요 없어 덜 든다
 function coTrCost(t, f) { return CO_TR_COST[coTier(t, f)] * (f === 'vidol' ? 0.7 : 1); }
 // 운영비: 분야마다 크기만큼. MCN은 연습실이 없어 다른 분야의 90%
-function coOfficeF(t, f) { return Math.round(CO_OFFICE[coTier(t, f)] * (CO_OFFICE_F[f] || 1) / 1e4) * 1e4; }
+function coOfficeF(t, f) { return Math.round(CO_OFFICE[coTier(t, f)] * (CO_OFFICE_F[f] || 1) * coLocRent(t) / 1e4) * 1e4; }
 function coOffice(t) { return coFields(t).reduce((a, f) => a + coOfficeF(t, f), 0); }
 // 매달 꼭 나가는 돈: f를 주면 그 회사 몫만 (연습실 유지비는 건물을 가진 모회사가 낸다), 안 주면 그룹 전체
 function coFixed(s, t, f) {
@@ -240,7 +262,7 @@ E({
   id: 'co_new', cat: '창업', tag: 'career',
   title: (s, d) => d.sub ? '자회사 세우기 · 분야 고르기' : '회사 차리기 · 분야 고르기',
   text: (s, d) => d.sub ? `${coGrpName(coT(s))} 아래에 어떤 자회사를 세울까? 모회사가 ${fmtWon(CO_ADD_COST)}을 출자해 세운다 (자회사 자본금이 된다). 처음 평판은 그룹 등급을 따른다 (지금 ${Math.round(coSubRep(coT(s)))}).\n\n모회사 자본금 ${fmtWon(coM(coT(s)))}`
-    : `어떤 회사를 차릴까? 분야마다 하는 일이 다르다. 자본금은 내 돈에서 ${fmtWon(CO_SEED)}부터 넣는다.\n\n내 돈 ${fmtWon(s.money)}`,
+    : `어떤 회사를 차릴까? 분야마다 하는 일이 다르다. 자본금은 내 돈에서 넣는다 (어디에 차리느냐에 따라 ${fmtWon(CO_SEED)}부터).\n\n내 돈 ${fmtWon(s.money)}`,
   ch: (s, d) => (d.sub ? coSubLeft(coT(s)) : Object.keys(CO_FIELDS)).map(f => ({ fid: f, t: `${CO_FIELDS[f].ic} ${CO_FIELDS[f].n}`, h: CO_FIELDS[f].what, f: s => { fireEvent(s, 'co_found', { f, sub: !!d.sub }); return ''; } }))
     .concat([{ t: '다음에 한다', f: () => '' }]),
 });
@@ -265,11 +287,13 @@ E({
   }).concat([{ t: '그만 뽑는다', h: '나중에 회사 창에서 뽑을 수 있다', f: () => '' }]),
 });
 E({
-  id: 'co_found', cat: '창업', title: (s, d) => `${d.sub ? '자회사' : '회사'} 이름 짓기 · ${CO_FIELDS[d.f].n}`, tag: 'career',
+  id: 'co_found', cat: '창업', title: (s, d) => d.sub ? `${coGrpFirst(coT(s)) ? '자회사 · 그룹' : '자회사'} 이름 짓기 · ${CO_FIELDS[d.f].n}` : `회사 이름 · 입지 · ${CO_FIELDS[d.f].n}`, tag: 'career',
   init(s, d) { d.name = d.sub ? coSubName(coT(s), d.f) : coName(); },
-  text: (s, d) => d.sub ? `${coGrpName(coT(s))}의 새 ${josa(CO_FIELDS[d.f].n, '을를')} 세운다. 모회사가 ${fmtWon(CO_ADD_COST)}을 출자한다 (등록면허세는 자회사가 낸다).\n\n모회사 자본금 ${fmtWon(coM(coT(s)))}`
-    : `내 ${josa(CO_FIELDS[d.f].n, '을를')} 차린다. 자본금은 내 돈에서 옮겨진다.\n\n내 돈 ${fmtWon(s.money)} · 자본금은 1억 원부터 (천만 원 단위)`,
-  form: (s, d) => [{ k: 'name', label: d.sub ? '자회사 이름' : '회사 이름', value: d.name, max: 20 }].concat(d.sub ? [] : [{ k: 'cap', type: 'won', label: '자본금', value: CO_SEED, max: s.money }]),
+  text: (s, d) => d.sub ? `${coGrpFirst(coT(s)) ? `첫 자회사를 세우면 「${coT(s).name}」은 모회사가 되고, 회사들이 한 그룹으로 묶인다. 그룹 이름도 정한다.\n\n` : ''}${coGrpName(coT(s))}의 새 ${josa(CO_FIELDS[d.f].n, '을를')} 세운다. 모회사가 ${fmtWon(CO_ADD_COST)}을 출자한다 (등록면허세는 자회사가 낸다).\n\n모회사 자본금 ${fmtWon(coM(coT(s)))}`
+    : `내 ${josa(CO_FIELDS[d.f].n, '을를')} 차린다. 어디에 차릴지 고르고 자본금을 정한다. 자본금은 내 돈에서 옮겨진다.\n\n입지가 좋을수록 일이 잘 풀리지만 자본금이 더 있어야 하고 사무실 임대료도 비싸다. 집에서 멀면 내가 직접 하는 회사 일이 덜 된다.\n\n내 돈 ${fmtWon(s.money)} · 지금 사는 곳 ${REGION_BY[s.region].n}`,
+  form: (s, d) => d.sub ? [{ k: 'name', label: '자회사 이름', value: d.name, max: 20 }].concat(coGrpFirst(coT(s)) ? [{ k: 'gname', label: '그룹 이름', value: coGrpName(coT(s)), max: 20 }] : [])
+    : [{ k: 'name', label: '회사 이름', value: d.name, max: 20 }, { type: 'head', label: '어디에 차릴까 (입지)', grid: true }].concat(coLocForm(s), [{ k: 'cap', type: 'won', label: '자본금', value: CO_LOC[coLocDef(s)].cap, max: s.money }]),
+  sum: (s, d, v) => { if (d.sub) return ''; const L = CO_LOC[v.loc]; return L ? `${REGION_BY[v.loc].n}: 자본금 ${fmtWon(L.cap)}부터${wonVal(v.cap) < L.cap ? ' · 적은 자본금이 모자라다' : ''}` : ''; },
   cancel: (s, d) => d && d.sub ? '자회사 세우기를 미뤘다.' : '회사 차리기를 미뤘다.',
   submit(s, d, v) {
     const name = (v.name || '').trim(), cap = wonVal(v.cap);
@@ -278,16 +302,18 @@ E({
       const t = coT(s), w = coSubWhy(s, t);
       if (w) return { err: w };
       if (t.f[d.f]) return { err: '이미 있는 분야예요' };
+      if (coGrpFirst(t)) { const g = String(v.gname || '').trim(); if (!g) return { err: '그룹 이름을 적어 주세요' }; t.gname = g; }
       coAddSub(s, t, d.f, name);
       fireEvent(s, 'co_new_staff', { f: d.f });
       return { log: `${coGrpName(t)}에 자회사 ${josa(`「${name}」`, '을를')} 세웠다. (${CO_FIELDS[d.f].n} · 설립 비용 ${fmtWon(CO_ADD_COST)})` };
     }
     const jb = jobBlock(s, 'agency');
     if (jb) return { err: jb };
-    if (!(cap >= CO_SEED)) return { err: '자본금은 1억 원부터예요' };
+    const loc = CO_LOC[v.loc] ? v.loc : coLocDef(s);
+    if (!(cap >= CO_LOC[loc].cap)) return { err: `${REGION_BY[loc].n}에 차리려면 자본금이 ${fmtWon(CO_LOC[loc].cap)}부터예요` };
     if (cap > s.money) return { err: `내 돈이 모자라요 (지금 ${fmtWon(s.money)})` };
     const old = s.tracks.agency || {};
-    const t = s.tracks.agency = { st: 'active', name, main: d.f, founded: calY(s), months: 0, money: 0, inv: 0, out: 0, f: { [d.f]: { rep: 10, tier: 1, money: 0, since: s.t, cap: 0, re: 0, L: {}, Y: {} } }, tr: [], groups: [], staff: [], crs: [], vw: [], vdone: [], aw: [], adone: [], past: [], eq: 0, audCd: {}, gen: {}, L: {}, lastL: {}, Y: {}, lastY: {}, peakF: 0, rankMax: 0, awN: 0, hist: (old.hist || []).concat(old.name ? [coHistLine(old)] : []) };
+    const t = s.tracks.agency = { st: 'active', name, main: d.f, loc, founded: calY(s), months: 0, money: 0, inv: 0, out: 0, f: { [d.f]: { rep: 10, tier: 1, money: 0, since: s.t, cap: 0, re: 0, L: {}, Y: {} } }, tr: [], groups: [], staff: [], crs: [], vw: [], vdone: [], aw: [], adone: [], past: [], eq: 0, audCd: {}, gen: {}, L: {}, lastL: {}, Y: {}, lastY: {}, peakF: 0, rankMax: 0, awN: 0, hist: (old.hist || []).concat(old.name ? [coHistLine(old)] : []) };
     coDeposit(s, t, cap); t.f[d.f].cap = cap;
     // 설립 등기 등록면허세 (v169): 자본금의 0.48%, 서울 · 경기 · 인천이면 3배
     const regTax = coOut(t, Math.round(cap * coRegRate(s, t, d.f) / 1e4) * 1e4, '등록면허세', d.f);
@@ -295,7 +321,7 @@ E({
     milestone(s, `${age(s)}세에 ${josa(`「${name}」`, '을를')} 차리고 대표가 되었다.`);
     const hadBiz = has(me(s), 'biz'), lm = learnMe(s, 'biz', null, true);
     fireEvent(s, 'co_new_staff', { f: d.f });
-    return { log: `${CO_FIELDS[d.f].n} ${josa(`「${name}」`, '을를')} 차렸다! 자본금 ${fmtWon(cap)}${regTax ? ` (설립 등기 등록면허세 ${fmtWon(regTax)})` : ''}. 메인 화면의 회사 박스에서 회사를 관리한다.` + (!hadBiz && has(me(s), 'biz') ? `\n\n회사를 차리면서 '사업' 특기를 새로 얻었다. 회사를 운영할수록 늘고, 영업과 회사 일에 쓰인다.` : '') + lm };
+    return { log: `${REGION_BY[loc].n}에 ${CO_FIELDS[d.f].n} ${josa(`「${name}」`, '을를')} 차렸다! 자본금 ${fmtWon(cap)}${regTax ? ` (설립 등기 등록면허세 ${fmtWon(regTax)})` : ''}. 메인 화면의 회사 박스에서 회사를 관리한다.` + (!hadBiz && has(me(s), 'biz') ? `\n\n회사를 차리면서 '사업' 특기를 새로 얻었다. 회사를 운영할수록 늘고, 영업과 회사 일에 쓰인다.` : '') + lm };
   },
 });
 // 회사 정리: 소속된 사람은 모두 떠난다. 남은 자본금은 내 돈, 모자란 돈은 내 빚
@@ -1791,7 +1817,7 @@ E({
 // v174 (사용자): 7단계는 '그룹 등급'이라 부른다. 자회사가 없으면 그 회사 이름, 있으면 '○○ 그룹'으로 쓴다
 // 등급이 바뀌면 토스트로 알린다: 결과 창(co_res)은 그 창의 토스트에 넣고, 나머지는 s.rtq에 넣어 두면 화면이 꺼내 띄운다 (ui.js rtDrain)
 const CO_KIND_W = ['엔터테인먼트', '엔터', '뮤직', '레이블', '컴퍼니', '버츄얼', 'MCN', '픽처스', '애니메이션', '스튜디오', '미디어', '프로덕션', '네트워크', '크리에이티브', 'ENT'];
-function coGrpName(t) { const w = String(t.name || '').trim().split(/\s+/); if (w.length > 1 && CO_KIND_W.includes(w[w.length - 1])) w.pop(); return w.join(' ') + ' 그룹'; }
+function coGrpName(t) { if (t.gname) return t.gname; const w = String(t.name || '').trim().split(/\s+/); if (w.length > 1 && CO_KIND_W.includes(w[w.length - 1])) w.pop(); return w.join(' ') + ' 그룹'; }
 function coRankWho(t) { return coFields(t).length > 1 ? coGrpName(t) : `「${t.name}」`; }
 function rtPush(s, x) { s.rtq = (s.rtq || []).concat([x]).slice(-24); }
 // 토스트 한 줄: [아이콘, 글, 'g'|'b']
@@ -1848,13 +1874,14 @@ function coFix(s, t) {
 // CEO가 맡은 회사(v169)는 내 실력 대신 그 CEO의 실력으로 센다 (CO_BIZ_OV: 그 회사 일을 처리하는 동안만)
 let CO_BIZ_OV = null;
 function coBizF(s) { if (CO_BIZ_OV != null) return CO_BIZ_OV; const p = me(s); return U.clamp(0.8 + jobMix([[lv(p, 'biz'), JS_], [lv(p, 'study'), JS_]]) / 100, 0.8, 1.8); }
-function coSalesM(s, base) { return 1 + (base - 1) * coBizF(s) * coLocM(s); }
+function coSalesM(s, base) { return 1 + (base - 1) * coBizF(s) * coLocM(s, CO_BIZ_OV == null); }
 // 그 회사에 영업이 붙는가: CEO가 있으면 늘 (힘은 경영 방향에 따라 ceoW), 없으면 내가 회사 경영 칸에서 영업을 할 때
 function coSalesOn(s, t, f) { const C = coCeo(t, f); return C ? true : !s.army && slotsOn(s, 'c_agency') > 0 && (jobTask(s, 'agency') || {}).id === 'sales'; }
 function coWithCeo(s, t, f, fn) { const C = coCeo(t, f), o = CO_BIZ_OV; CO_BIZ_OV = C ? ceoBizF(s, C) * ceoW(s, C, 'profit') : null; try { return fn(); } finally { CO_BIZ_OV = o; } }
 // 도심지 효과 (v166): 일감이 잘 들어오는 곳(서울 강남권 · 서울 · 경기·인천)에 살면 대표의 회사 일(회사 경영 칸)도 잘 풀린다
 // 강남권 +32% · 서울 +20% · 경기·인천 +10% (광역시 이하는 그대로). 회사 운영(평판) · 연습생 직접 가르치기 · 영업에 붙는다
-function coLocM(s) { const R = REGION_BY[s.region]; return 1 + U.clamp(((R && R.access) || 0.65) - 0.8, 0, 0.32); }
+// v187: 내가 사는 곳 대신 회사 입지로 치고, 내가 직접 하는 일(mine, 기본)은 집과 회사 사이 거리만큼 떨어진다
+function coLocM(s, mine) { const t = coT(s); return coLocB(s, t) * (mine === false ? 1 : CO_DIST_M[coDist(s, t)]); }
 function coMonth(s, t) {
   if (t.st !== 'active') return;
   coFix(s, t);
@@ -1878,7 +1905,7 @@ function coMonth(s, t) {
   for (const f of coFields(t)) {
     const F = t.f[f], C = coCeo(t, f);
     if (F.rep > 20) F.rep -= 0.12;
-    if (C || task === 'run') F.rep = Math.min(100, F.rep + 0.25 * (C ? ceoBizF(s, C) * ceoW(s, C, 'grow') : coBizF(s)) * coLocM(s) / (C ? 1 : Math.sqrt(nf)));
+    if (C || task === 'run') F.rep = Math.min(100, F.rep + 0.25 * (C ? ceoBizF(s, C) * ceoW(s, C, 'grow') : coBizF(s)) * coLocM(s, !C) / (C ? 1 : Math.sqrt(nf)));
   }
   if (task === 'teach') { if (!has(p, 'edu')) addLog(s, '연습생들을 직접 가르치다 보니 가르치는 요령이 생겼다.' + learnMe(s, 'edu', null, false, true), 'career'); teach(s, p, 1.2); }
   // 매달 꼭 나가는 돈은 회사마다 (v169): 운영비 · 연습생 비용 · 직원 월급은 그 회사, 연습실 유지비는 건물을 가진 모회사
@@ -1998,7 +2025,7 @@ function panel_company() {
   const CO_TABS = coTabs(t, f), tab = CO_TABS.some(x => x[0] === UI.coTab) ? UI.coTab : 'home';
   const GS = t.groups.filter(g => coFOfKind(g.kind) === f);
   const cnt = { tr: coTrainees(s, null, f).length, grp: GS.length, cr: f === 'mcn' ? t.crs.length : 0, vw: f === 'video' ? t.vw.length : 0, aw: f === 'anime' ? t.aw.length : 0, staff: coStaffOfF(s, f).length, auto: coAutoNF(t, f) };
-  let h = `<h2>${CO_FIELDS[f].ic} ${U.esc(coFName(t, f))} <span class="muted" style="font-size:var(--fs-3)">${TIER_N[t.f[f].tier]} ${CO_TYPE_N[f]}${main ? '' : ` · 모회사 「${U.esc(t.name)}」`}</span></h2><div class="ap-row pf-tabs">${CO_TABS.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-cotab="${k}">${n}${cnt[k] ? ` <span class="ap-n">${cnt[k]}</span>` : ''}</button>`).join('')}</div>`;
+  let h = `${coIsGrp(t) ? `<button class="btn sm ghost back-btn" data-panel="group">← ${U.esc(coGrpName(t))}</button>` : ''}<h2>${CO_FIELDS[f].ic} ${U.esc(coFName(t, f))} <span class="muted" style="font-size:var(--fs-3)">${TIER_N[t.f[f].tier]} ${CO_TYPE_N[f]}${main ? '' : ` · 모회사 「${U.esc(t.name)}」`}</span></h2><div class="ap-row pf-tabs">${CO_TABS.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-cotab="${k}">${n}${cnt[k] ? ` <span class="ap-n">${cnt[k]}</span>` : ''}</button>`).join('')}</div>`;
   const body = () => {
     if (tab === 'tr') return coTabTr(s, t, f);
     if (tab === 'grp') return coTabGrp(s, t, f);
@@ -2020,6 +2047,27 @@ function panel_company() {
   try { return h + `<p class="hint">이 회사 일은 CEO ${josa(nm, '이가')} 맡고 있다. 경영 방향은 👔 CEO 탭에서 정한다.</p>` + body(); } finally { actRow = a0; }
 }
 function coCoRO(t, f, tab) { return ['home', 'fin', 'ceo'].includes(tab) ? null : coCeo(t, f); }
+// ───── 그룹 창 (v187) ─────
+// 자회사가 생기면 메인 화면 박스가 '그룹'이 되고, 누르면 이 창: 그룹 이름 · 등급 · 소속 회사 · 그룹 전체 자본금 · 출자 · 배당 · 자회사 세우기
+// 회사 창에서는 이것들을 뺐다 (겹치지 않게). 회사 배너를 누르면 그 회사 창, 회사 창 위 '← 그룹'으로 돌아온다
+function coIsGrp(t) { return !!t && !t.hire && coFields(t).length > 1; }
+function panel_group() {
+  const s = S;
+  if (!coOn(s)) return '<div class="empty">운영 중인 회사가 없다.</div>';
+  const t = coT(s); coFix(s, t);
+  if (!coIsGrp(t)) { UI.overlay = 'company'; return panel_company(); }
+  const m = coMainF(t), fs = [m].concat(coFields(t).filter(f => f !== m)), subs = fs.slice(1), rk = Math.max(coRank(t), t.rankMax || 0);
+  const net = Object.values(t.lastL || {}).reduce((a, v) => a + v, 0), lb = coLocB(s, t);
+  let h = `<h2>🏛️ ${U.esc(coGrpName(t))} <span class="muted" style="font-size:var(--fs-3)">${coRankName(t, rk)} · 회사 ${fs.length}곳</span></h2>`;
+  h += infoTable([['그룹 등급', coRankName(t, rk)], ['그룹 전체 자본금', `${fmtWon(t.money)} (${fs.map(f => `${coFName(t, f)} ${fmtWon(t.f[f].money || 0)}`).join(' · ')})`], ['지난달 그룹 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`], ['모회사', `「${t.name}」`], ['입지', `${REGION_BY[coLocR(s, t)].n}${lb > 1 ? ` · 회사 일 +${Math.round((lb - 1) * 100)}%` : ''} · 집에서 ${coDistTxt(coDist(s, t))}`]]);
+  h += `<div class="sec-h">소속 회사 <span class="n">${fs.length}곳 · 누르면 그 회사 창</span></div><div class="grp-cos">${fs.map(f => coBannerHTML(s, t, f, false, true)).join('')}</div>`;
+  h += `<div class="sec-h">출자 · 배당</div><p class="hint">출자: 모회사 자본금을 자회사로 보낸다 (등록면허세 ${coPctT(CO_REG_TAX)}~). 배당: 자회사의 쌓인 이익(지난 결산까지) 안에서 모회사로 올린다.</p>`;
+  h += subs.map(x => actRow({ emo: CO_FIELDS[x].ic, t: `「${coFName(t, x)}」`, h: `자본금 ${fmtWon(coM(t, x))} · 배당할 수 있는 돈 ${fmtWon(coDivMax(t, x))} · 모회사 자본금 ${fmtWon(coM(t, m))}`, opts: [
+    { btn: '출자', on: true, ok: coM(t, m) > 0, run: s => { fireEvent(s, 'co_xfer', { dir: 'inv', f: x }); return ''; } },
+    { btn: '배당', on: true, ok: coDivMax(t, x) > 0, run: s => { fireEvent(s, 'co_xfer', { dir: 'div', f: x }); return ''; } }] })).join('');
+  if (coSubLeft(t).length) h += `<div class="sec-h">자회사 세우기</div>` + coNewBannerHTML(true, coSubWhy(s, t));
+  return h;
+}
 // 그 회사에 맞는 직원 자리 (CO_NEW_JOBS) 에 있는 사람
 function coStaffOfF(s, f) { return coStaff(s, null, f); }
 function coLedItems(L) { return Object.entries(L || {}).filter(([k, v]) => v && !CO_IO.includes(k)).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ${v > 0 ? '+' : '-'}${fmtWon(Math.abs(v))}`); }
@@ -2029,8 +2077,9 @@ function coTabHome(s, t, f) {
   const rk = Math.max(coRank(t), t.rankMax || 0), main = f === coMainF(t), subs = coFields(t).filter(x => x !== f);
   // 내 회사 소속으로 하는 내 활동 (v105): 비용 · 수익이 자본금으로 오간다 (모회사 창에만)
   const ownIds = main ? Object.keys(OWN_CO_N).filter(j => ownCo(s, j)) : [], own = ownIds.map(j => CAREERS[j].n);
-  const lm = coLocM(s);
-  let h = infoTable([[`${CO_FIELDS[f].ic} ${CO_TYPE_N[f]}`, `평판 ${Math.round(t.f[f].rep)} · ${TIER_N[t.f[f].tier]}`], lm > 1 ? ['사는 곳 효과', `${REGION_BY[s.region].n} · 회사 일(회사 운영 · 직접 가르치기 · 영업) 효율 +${Math.round((lm - 1) * 100)}%`] : null, main ? (subs.length ? ['자회사', subs.map(x => `「${coFName(t, x)}」`).join(' · ')] : null) : ['모회사', `「${t.name}」`], own.length ? ['내 회사 소속 내 활동', `${own.join(' · ')} (비용 · 수익은 자본금)`] : null, ['그룹 등급', coRankName(t, rk)], t.f.music ? ['받은 상', `${t.awN}개`] : null]);
+  // v187: 입지 · 집에서의 거리. 그룹이면 등급 · 자회사 · 모회사는 그룹 창에 (겹치지 않게)
+  const lb = coLocB(s, t), grp = subs.length > 0 || !main;
+  let h = infoTable([[`${CO_FIELDS[f].ic} ${CO_TYPE_N[f]}`, `평판 ${Math.round(t.f[f].rep)} · ${TIER_N[t.f[f].tier]}`], ['입지', `${REGION_BY[coLocR(s, t)].n} · 사무실 월 ${fmtWon(coOfficeF(t, f))}${lb > 1 ? ` · 회사 일(회사 운영 · 직접 가르치기 · 영업) +${Math.round((lb - 1) * 100)}%` : ''}`], ['집에서', `${REGION_BY[s.region].n}에서 다닌다 · ${coDistTxt(coDist(s, t))}`], own.length ? ['내 회사 소속 내 활동', `${own.join(' · ')} (비용 · 수익은 자본금)`] : null, grp ? null : ['등급', coRankName(t, rk)], t.f.music ? ['받은 상', `${t.awN}개`] : null]);
   // 내 회사 소속 내 활동은 눌러서 그 직업 창으로 간다 (v116 버그 11)
   if (ownIds.length) h += `<div class="ap-row">${ownIds.map(j => `<button class="btn sm" data-job="${j}" data-from="company">${jobIc(j)} ${U.esc(jobName(j))} 창 열기</button>`).join('')}</div>`;
   // v169: 내 돈은 모회사에만 넣고 꺼낸다. 자회사 창에는 모회사로 배당 · 이 자회사 정리
@@ -2038,9 +2087,10 @@ function coTabHome(s, t, f) {
     { t: '돈 넣기', h: `내 돈 ${fmtWon(s.money)}`, ok: s.money > 0, btn: '넣기', run: s => { fireEvent(s, 'co_money', { dir: 'in' }); return ''; } },
     { t: '돈 꺼내기', h: `자본금 ${fmtWon(coM(t))}`, ok: coM(t) > 0, btn: '꺼내기', run: s => { fireEvent(s, 'co_money', { dir: 'out' }); return ''; } },
   ] : [
-    { t: `모회사 「${t.name}」로 배당`, h: `자본금 ${fmtWon(coM(t, f))} · 쌓인 이익 안에서 ${fmtWon(coDivMax(t, f))}까지`, ok: coDivMax(t, f) > 0, why: '배당할 이익이 없다', btn: '배당하기', run: s => { fireEvent(s, 'co_xfer', { dir: 'div', f }); return ''; } },
     { t: '이 자회사 정리', h: '이 회사 사람은 모두 떠나고, 남은 자본금은 모회사로 간다 (모자란 돈은 모회사가 갚는다)', ok: true, danger: true, btn: '정리하기', confirm: `정말 「${coFName(t, f)}」을 정리할까요?\n이 회사 사람이 모두 떠나요.`, run: s => coCloseSub(s, f) },
   ];
+  // 자회사 세우기 (v187: 메인 화면 회사 박스에서 옮겨 옴). 그룹이 되면 그룹 창에서
+  if (main && !subs.length && coSubLeft(t).length) { const w = coSubWhy(s, t); A.push({ emo: '＋', t: '자회사 세우기', h: `설립 비용 ${fmtWon(CO_ADD_COST)} (자본금) · 세우면 그룹이 되고 그룹 이름을 정한다`, ok: !w, why: w, btn: '세우기', run: s => { fireEvent(s, 'co_new', { sub: true }); return ''; } }); }
   if (main) A.push({ t: '회사 정리', h: subs.length ? '자회사까지 모두 정리한다 · 소속된 사람은 모두 떠나고, 남은 자본금은 내 돈이 된다' : '소속된 사람은 모두 떠나고, 남은 자본금은 내 돈이 된다', ok: true, danger: true, btn: '정리하기', confirm: `정말 「${t.name}」을 정리할까요?${subs.length ? '\n자회사도 모두 정리돼요.' : ''}\n소속된 사람이 모두 떠나요.`, run: s => coClose(s, '정리') });
   return h + `<div class="sec-h">할 수 있는 일</div>` + A.map(actRow).join('') + (main && t.hist && t.hist.length ? `<div class="sec-h">예전에 운영한 회사</div>${t.hist.map(x => `<div class="ms">· ${U.esc(x)}</div>`).join('')}` : '');
 }
@@ -2065,13 +2115,11 @@ function coTaxLine(t, f) {
 function coTabFin(s, t, f) {
   const subs = coFields(t).length > 1, F = t.f[f], m = coMainF(t), main = f === m;
   const Ly = F.lastY && Object.keys(F.lastY).length ? F.lastY : null;
-  const R = [['자본금', fmtWon(F.money || 0)], ['지난달', coSumText(F.lastL)], [Ly && t.lastYY ? `${t.lastYY}년` : '올해', coSumText(Ly || F.Y)], ['매달 꼭 나가는 돈', fmtWon(coFixed(s, t, f))], ['쌓인 이익', `${fmtWon(Math.max(0, F.re || 0))}${!main ? ` · 배당할 수 있는 돈 ${fmtWon(coDivMax(t, f))}` : ''}`], ['법인세', coTaxLine(t, f)]];
+  const R = [['자본금', fmtWon(F.money || 0)], ['지난달', coSumText(F.lastL)], [Ly && t.lastYY ? `${t.lastYY}년` : '올해', coSumText(Ly || F.Y)], ['매달 꼭 나가는 돈', fmtWon(coFixed(s, t, f))], ['쌓인 이익', fmtWon(Math.max(0, F.re || 0))], ['법인세', coTaxLine(t, f)]];
   if (main && !t.hire) R.push(['내가 넣은 돈 · 꺼낸 돈', `${fmtWon(t.inv)} · ${fmtWon(t.out)}`]);
-  if (subs) R.push(['그룹 전체 자본금', `${fmtWon(t.money)} (${coFields(t).map(x => `${coFName(t, x)} ${fmtWon(t.f[x].money || 0)}`).join(' · ')})`]);
   R.push({ h: '지난달 돈 흐름', items: coLedItems(F.lastL) });
-  const A = main ? coFields(t).filter(x => x !== m).map(x => ({ t: `「${coFName(t, x)}」에 출자`, h: `자회사 자본금 ${fmtWon(coM(t, x))} · 등록면허세 ${coPctT(coRegRate(s, t, x))}`, ok: coM(t) > 0, why: '모회사 자본금이 없다', btn: '출자하기', run: s => { fireEvent(s, 'co_xfer', { dir: 'inv', f: x }); return ''; } }))
-    : [{ t: `모회사 「${t.name}」로 배당`, h: `쌓인 이익 안에서 · 지금 ${fmtWon(coDivMax(t, f))}까지`, ok: coDivMax(t, f) > 0, why: '배당할 이익이 없다 (지난 결산까지 쌓인 이익 안에서만)', btn: '배당하기', run: s => { fireEvent(s, 'co_xfer', { dir: 'div', f }); return ''; } }];
-  return infoTable(R) + (A.length ? `<div class="sec-h">${main ? '자회사에 돈 보내기' : '모회사로 돈 올리기'}</div>` + A.map(actRow).join('') : '') +
+  // v187: 그룹 전체 자본금 · 출자 · 배당은 그룹 창으로 옮겼다
+  return infoTable(R) + (subs ? `<div class="ap-row"><button class="btn sm" data-panel="group">🏛️ 그룹 창에서 출자 · 배당</button></div>` : '') +
     `<p class="hint" style="margin-top:var(--sp-2)">${t.hire ? '자본금은 회장 돈이다. 내 돈을 넣거나 꺼낼 수 없다.' : '회사마다 자본금이 따로다. 내 돈은 모회사에만 넣고 꺼낸다.'} 법인세는 회사마다 한 해 순이익의 10~25% (8월에 작년 몫의 절반을 미리 내고, 3월에 나머지).</p>`;
 }
 function coTabTr(s, t, f0) {
