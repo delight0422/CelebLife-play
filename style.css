@@ -1596,3 +1596,16 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .co-mini .sb-n { color: var(--muted); }
 .co-wrap:hover { border-color: var(--violet); }
 .co-mini .cm-b > b { color: var(--ink); font-weight: 800; font-size: var(--fs-3); }
+/* v192: CEO 보고서 (기사 대신 결산서 모양) */
+.ceo-rep { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: var(--sp-3); font-size: var(--fs-3); }
+.ceo-rep .rep-doc-h { font-weight: 800; font-size: var(--fs-5); padding-bottom: var(--sp-2); margin-bottom: var(--sp-2); border-bottom: 2px solid var(--ink); display: flex; justify-content: space-between; align-items: baseline; }
+.ceo-rep .rep-doc-h span { font-size: var(--fs-2); font-weight: 600; color: var(--ink2); }
+.ceo-rep .rep-co + .rep-co { margin-top: var(--sp-3); padding-top: var(--sp-3); border-top: 1px dashed var(--line); }
+.ceo-rep .rep-coh { font-weight: 800; font-size: var(--fs-4); margin-bottom: var(--sp-1); }
+.ceo-rep .rep-coh span { font-weight: 600; font-size: var(--fs-2); color: var(--ink2); margin-left: 6px; }
+.ceo-rep .rep-it { margin-top: var(--sp-2); }
+.ceo-rep .rep-t { font-weight: 700; }
+.ceo-rep .rep-r { color: var(--ink2); font-size: var(--fs-2); margin: 2px 0 4px; }
+.ceo-rep .rep-bill { border: 0; padding: 0; background: none; box-shadow: none; }
+.ceo-rep .rep-bill .bill-h { display: none; }
+.ceo-rep .rep-sum { margin-top: var(--sp-2); padding: var(--sp-2) var(--sp-3); background: var(--card2); border-radius: 8px; font-size: var(--fs-2); }

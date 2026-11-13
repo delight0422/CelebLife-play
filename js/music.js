@@ -659,6 +659,8 @@ CAREERS.idol = {
       R.push(['그룹 팬', MK.map(m => `${MK_N[m]} ${fmtFans(g.f[m])}`).join(' · ')]);
       R.push(['팀워크', twWord(g)]);
       R.push(['팬덤 · 대표 컨셉', `${g.fandom} · ${g.sig}`]);
+      R.push(['낸 앨범', `${t.cbCount || 0}장`]);
+      R.push(['팬 충성도', loyTxt(g)]);
       // 이번 앨범 (v154): 어느 단계인지, 누가 맡았는지
       if (t.alb) R.push(['이번 앨범', `${albStageW(s, t.alb)} · ${t.alb.mk ? t.alb.mk.boss : ''}`]);
       { const pr = typeof projInfoRow === 'function' && projInfoRow(s, t); if (pr) R.push(pr); }
@@ -757,14 +759,22 @@ function idolActiveMonth(s, t) {
   else if (--t.nextCb <= 0 && !hasQ(s, 'idol_cbres') && !hasQ(s, 'idol_cb')) idolNextComeback(s, t);
   // 프로젝트 그룹 (v156): 회사가 여러 그룹 멤버를 모아 한 번 활동시킨다 (project.js)
   if (typeof projMonth === 'function') projMonth(s, 'idol', t);
-  MK.forEach(m => { g.f[m] = Math.round(g.f[m] * (t.promo > 0 ? 1 : t.months > 84 ? 0.993 : 0.996)); });
-  // 멤버 평균 나이가 28세를 넘으면 인기가 꾸준히 떨어진다 (한 살 많을수록 더)
+  MK.forEach(m => { g.f[m] = Math.round(g.f[m] * loyDecay(g, t.promo > 0 ? 1 : t.months > 84 ? 0.993 : 0.996)); });
+  // 멤버 평균 나이가 28세를 넘으면 인기가 꾸준히 떨어진다 (한 살 많을수록 더). v192: 30세가 넘으면 빠르게 (idolAgeFade)
   const ga = groupAges(s, g);
   if (ga.avg > 28) {
-    const f = 1 - Math.min(0.02, (ga.avg - 28) * 0.004);
+    const f = idolAgeFade(ga.avg, true);
     MK.forEach(m => { g.f[m] = Math.round(g.f[m] * f); });
-    jpopAdd(s, 'idol', -0.1);
+    jpopAdd(s, 'idol', ga.avg > 30 ? -0.25 : -0.1);
     if (!t.oldTold) { t.oldTold = true; addLog(s, `「${g.name}」 멤버 평균 나이가 28세를 넘었다. 요즘 반응이 예전 같지 않다.`, 'career'); }
+    if (ga.avg > 30 && !t.old30Told) { t.old30Told = true; addLog(s, `「${g.name}」 멤버 평균 나이가 30세를 넘었다. 팬들이 눈에 띄게 줄고 있다.`, 'career'); }
+  }
+  // v192: 가끔 다른 멤버 · 회사 논란 → 그룹 팬 충성도가 떨어진다 (내 논란은 scandal.js). 한 해에 7%쯤
+  if (U.chance(0.006) && typeof CO_GSC !== 'undefined') {
+    const mm = g.members.map(id => s.people[id]).filter(Boolean), co = !mm.length || U.chance(0.3), sev = U.int(1, 3), x = co ? null : U.pick(mm), what = U.pick(co ? CO_GSC.co : CO_GSC.mem);
+    const ly = loyAdd(g, -sev * (co ? 2 : 3)); MK.forEach(m => { g.f[m] = Math.round(g.f[m] * (1 - sev * 0.01)); });
+    addLog(s, co ? `${t.agN} ${what}이 퍼졌다. 「${g.name}」 팬 충성도 ${ly} → ${loyTxt(g)}.` : `「${g.name}」 멤버 ${x.name}의 ${what}이 퍼졌다. 팬 충성도 ${ly} → ${loyTxt(g)}.`, 'career');
+    if (typeof rtQueue === 'function') rtQueue(s, [['💔', `${co ? t.agN : x.name} ${what} · 팬 충성도 ${ly} → ${loyTxt(g)}`, 'b']]);
   }
   // 대표 컨셉이 나이와 안 맞으면 회사가 바꾼다 (v97: 큐티 · 하이틴은 평균 25세 이상이면 반토막. v98부터 레트로는 나이를 안 본다)
   if (!cAgeOK(s, idolPpl(s, g), g.sig, 1) && !hasQ(s, 'idol_sig')) queueEv(s, 'idol_sig', 0);
@@ -836,6 +846,31 @@ function songSubActs(s, t) {
 }
 // 그룹 나이: 나를 포함한 멤버 평균 나이와 막내 나이
 function groupAges(s, g) { const a = [age(s)].concat(g.members.map(id => s.people[id]).filter(Boolean).map(x => pAge(s, x))); return { avg: a.reduce((x, y) => x + y, 0) / a.length, min: Math.min(...a) }; }
+// v192: 아이돌 그룹 멤버 평균 나이가 30세를 넘으면 인기가 빠르게 떨어진다 (28~30세는 예전처럼 천천히, 밴드 · 버츄얼은 예전대로)
+function idolAgeFade(avg, idol) { if (avg <= 28) return 1; if (avg <= 30 || !idol) return 1 - Math.min(0.02, (avg - 28) * 0.004); return 1 - Math.min(0.06, 0.015 + (avg - 30) * 0.01); }
+// v192: 아이돌 멤버 하나가 재계약할 가능성. 30세가 넘으면 잘 안 남고, 그룹 안에서 실력이 낮을수록 남으려 한다 (혼자 설 자신이 적다). 그룹이 클수록 조금 더 남는다
+function idolMemPow(x) { return x.co && x.co.kind === 'band' ? lv(x, x.co.part) : (Math.max(lv(x, 'vocal'), lv(x, 'rap')) + lv(x, 'dance') + lv(x, 'variety') * 0.5) / 2.5; }
+function idolStayP(a, pw, avgPw, fans) {
+  const base = a <= 25 ? 0.85 : a < 30 ? 0.85 - (a - 25) * 0.05 : Math.max(0.05, 0.3 - (a - 30) * 0.05);
+  return U.clamp(base - U.clamp((pw - avgPw) / 15, -1, 1) * 0.2 + U.clamp((Math.log10(1 + fans) - 5.5) * 0.08, -0.1, 0.1), 0.03, 0.95);
+}
+// ───── 팬 충성도 (v192) ─────
+// 그룹마다 0~100 (처음 50). 성적은 안 보고 곡 완성도만 본다: 완성도가 좋으면 오르고(데뷔한 지 오래될수록 · 최근 세 장이 다 좋을수록 더), 낮으면 떨어진다
+// 논란(멤버 · 그룹 · 회사)이 나면 떨어진다. 높을수록 활동이 없는 달에 팬이 덜 빠지고 앨범이 조금 더 팔린다 (콘서트 열기에도 들어간다)
+function loyOf(g) { return g && typeof g.loy === 'number' && isFinite(g.loy) ? g.loy : 50; }
+function loyAdd(g, v) { if (!g || !isFinite(v)) return 0; const b = loyOf(g); g.loy = U.clamp(Math.round((b + v) * 10) / 10, 0, 100); return Math.round((g.loy - b) * 10) / 10; }
+function loyW(v) { return v >= 80 ? '매우 높음' : v >= 62 ? '높음' : v >= 40 ? '보통' : v >= 22 ? '낮음' : '매우 낮음'; }
+function loyTxt(g) { const v = Math.round(loyOf(g)); return `${loyW(v)} (${v})`; }
+function loyAlbum(g, q, yrs) {
+  const Q = g.loyQ = (g.loyQ || []).concat([Math.round(q)]).slice(-3);
+  const v = q >= 55 ? Math.min(5, (q - 55) / 6) * (1 + Math.min(1, Math.max(0, yrs || 0) / 6)) + (Q.length >= 3 && Q.every(x => x >= 60) ? 1.5 : 0) : q < 45 ? -Math.min(8, (45 - q) / 3) : 0;
+  return loyAdd(g, v);
+}
+// 활동이 없는 달에 팬이 빠지는 몫(1 - f)에 곱한다: 50이면 그대로, 100이면 0.6배, 0이면 1.4배
+function loyDecay(g, f) { return 1 - (1 - f) * (1.4 - loyOf(g) / 125); }
+// 앨범 판매: 50이면 그대로, 100이면 1.15배, 0이면 0.85배
+function loySaleM(g) { return 0.85 + loyOf(g) * 0.003; }
+function loyToast(d, g) { return d ? ['💗', `팬 충성도 ${d > 0 ? '+' : ''}${d} → ${loyTxt(g)}`, d > 0 ? 'g' : 'b'] : null; }
 E({
   id: 'idol_sig', cat: '그룹', title: '대표 컨셉 변경', tag: 'career',
   cond: s => s.tracks.idol.st === 'active' && !cAgeOK(s, idolPpl(s, s.tracks.idol.g), s.tracks.idol.g.sig, 1),
@@ -1105,7 +1140,9 @@ function idolRelease(s, t, c, debut, a) {
   cNote(s, cf, title);
   // 앨범 판매량: 앨범 간격이 길어서(6~9달) 한 번 낼 때 팬들이 여러 장씩 산다 (IDOL_ALBUM_MULT). v154: 수록곡이 좋으면 조금 더 팔린다 (평균이면 그대로)
   const sideM = a && a.side != null ? U.clamp(1 + (a.side + (ALB_NPC_ADJ[t.tier] || 0) - (16 + t.tier * 7)) / 250, 0.9, 1.15) : 1;
-  const albums = Math.round((g.f.kr * U.fl(0.25, 0.45) + g.f.jp * 0.25 + g.f.us * 0.1) * IDOL_ALBUM_MULT * sideM);
+  const albums = Math.round((g.f.kr * U.fl(0.25, 0.45) + g.f.jp * 0.25 + g.f.us * 0.1) * IDOL_ALBUM_MULT * sideM * loySaleM(g));
+  // v192: 팬 충성도는 곡 완성도(q)만 본다
+  const lyD = loyAlbum(g, q, t.months / 12);
   // 앨범 제작비: 아직 작은 그룹에는 회사도 돈을 덜 쓴다 (그룹 팬 30만 명이 되면 다 쓴다)
   t.debt += [0, 1.2e8, 2.5e8, 4e8][t.tier] * (0.45 + 0.55 * Math.min(1, gf / 3e5)) / (g.members.length + 1);
   const pay = memberIncome(s, t, albums * 14000 + (peak ? (101 - peak) * 400e4 : 0), '앨범·음원 정산');
@@ -1134,7 +1171,7 @@ function idolRelease(s, t, c, debut, a) {
   addWork(s, { type: debut ? '데뷔 앨범' : '앨범', title, by: g.name, sc, pay, note: chartText(peak) + (wins ? ` · 음악방송 1위 ${wins}회` : ''), card });
   if (peak === 1 && !s.flags.no1) { s.flags.no1 = true; milestone(s, `${age(s)}세에 ${g.name}의 ${josa(`「${title}」`, '으로')} 음원 차트 1위를 했다.`); }
   for (const id of g.members) { const m = s.people[id]; if (m) bond(s, m, sc >= 65 ? 3 : 1); }
-  return { sc, peak, wins, albums, gain, my, pay, title, cm: comments(sc, actNick(s, 'idol')), wrote, debt: t.debt, card };
+  return { sc, peak, wins, albums, gain, my, pay, title, cm: comments(sc, actNick(s, 'idol')), wrote, debt: t.debt, card, lyD };
 }
 E({
   id: 'idol_aud', cat: '오디션', title: (s, d) => d.kind === 'band' ? '밴드 연습생 오디션 결과' : '아이돌 오디션 결과', tag: 'career',
@@ -1283,6 +1320,7 @@ E({
     if (my) ts.push(['⭐', `내 팬 +${fmtFans(my)}`, 'g']);
     if (t.jpDebut && t.mkt !== 'jp') ts.push(['🇯🇵', `일본 그룹 팬 ${sgnFans(r.gain.jp)} · 내 일본어 ${has(p, 'jp') ? lvi(p, 'jp') + '레벨' : '못 함'}`, r.gain.jp >= 0 ? '' : 'b']);
     if (t.usDebut) ts.push(['🇺🇸', `미국 그룹 팬 ${sgnFans(r.gain.us)} · 내 영어 ${has(p, 'en') ? lvi(p, 'en') + '레벨' : '못 함'}`, r.gain.us >= 0 ? '' : 'b']);
+    if (r.lyD) ts.push(loyToast(r.lyD, g));
     if (r.wrote) ts.push(['✍️', r.wrote, 'g']);
     if (r.pay > 0) ts.push(['💰', `정산금 +${fmtWon(r.pay)}`, 'g']);
     if (r.debt > 0) ts.push(['💸', `${r.pay > 0 ? '' : '정산금 없음 · '}남은 연습생·제작 비용 ${fmtWon(r.debt)}`, 'b']);

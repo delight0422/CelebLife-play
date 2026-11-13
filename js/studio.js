@@ -561,6 +561,8 @@ E({
   // v174: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 들어온 돈 · 쓴 돈은 정산서로
   html: (s, d) => d.sc != null && d.L && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, coWorkNews(s, d, 'video')) : '',
   news: (s, d) => coWorkNews(s, d, 'video'),
+  // v192: CEO가 맡은 회사면 창 대신 CEO 보고서에 한 줄로 (company.js ceoRepAdd)
+  ceoRep: (s, d) => coWorkRep(s, d, 'video'),
   ch: (s, d) => [{ t: '확인', f: () => `「${d.pj.title}」 공개. ${d.res} · ${d.profit >= 0 ? `남은 돈 ${fmtWon(d.profit)}` : `손해 ${fmtWon(-d.profit)}`}.` }],
 });
 // 우리 회사 작품(드라마 · 영화 · 애니) 기사 (v174): f 'video' 또는 'anime'
@@ -906,6 +908,8 @@ E({
   // v174: 결과 창을 인터넷 기사로 (studio.js coWorkNews)
   html: (s, d) => d.sc != null && d.L && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, coWorkNews(s, d, 'anime')) : '',
   news: (s, d) => coWorkNews(s, d, 'anime'),
+  // v192: CEO가 맡은 회사면 창 대신 CEO 보고서에 한 줄로 (company.js ceoRepAdd)
+  ceoRep: (s, d) => coWorkRep(s, d, 'anime'),
   ch: (s, d) => [{ t: '확인', f: () => `「${d.pj.title}」 공개. ${d.res} · ${d.profit >= 0 ? `남은 돈 ${fmtWon(d.profit)}` : `손해 ${fmtWon(-d.profit)}`}.` }],
 });
 // 연말: 올해 공개한 애니(웹 애니 빼고) 중 가장 잘된 작품이 애니메이션 대상을 받으면 회사 평판이 오른다
@@ -930,4 +934,10 @@ function coTabAw(s, t) {
   const D = (t.adone || []).slice().reverse();
   if (D.length || t.aw.length) h += `<div class="sec-h">만든 애니 ${D.length}편${t.aw.length ? ` <span class="n">공개 예정 ${t.aw.length}편</span>` : ''}</div>` + coPjRelLines(s, t.aw, A_KIND, A_STAGE) + D.slice(0, 12).map(w => `<div class="ms">· ${w.y} 「${U.esc(w.title)}」 ${aKindN(w.kind)}${w.src ? ` · ${w.src.kind} 원작` : ''} · ${U.esc(w.res)} · ${w.profit >= 0 ? `남은 돈 ${fmtWon(w.profit)}` : `손해 ${fmtWon(-w.profit)}`}</div>`).join('');
   return h;
+}
+// CEO 보고서 줄 (v192): CEO가 맡은 영상 · 애니 회사의 작품 공개 결과 (들어온 돈 · 제작비 · 남은 돈)
+// 내가 연출하거나 쓴 작품은 내 일이라 따로 창으로 (CEO 보고서에 넣지 않는다)
+function coWorkRep(s, d, f) {
+  const t = coT(s), pj = d.pj; if (!coCeo(t, f) || d.sc == null || !pj || pj.dir === 'me' || pj.writer === 'me') return null; const K = f === 'anime' ? aKindN(pj.kind) : vKindN(pj.kind);
+  return { f, ic: f === 'anime' ? '🎨' : '🎬', t: `${K} 「${pj.title}」 공개`, res: d.res, rows: (d.L || []).map(([n, v]) => [n, Math.round(v)]).concat([['제작비', -Math.round(d.cost)], '-', [d.profit >= 0 ? '남은 돈' : '손해', Math.round(d.profit), 1]]), net: d.profit, rep: d.rd || 0, log: `「${pj.title}」 공개. ${d.res} · ${d.profit >= 0 ? `남은 돈 ${fmtWon(d.profit)}` : `손해 ${fmtWon(-d.profit)}`}.` };
 }

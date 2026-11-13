@@ -528,6 +528,8 @@ function fireEvent(s, id, d = {}) {
   for (let i = n0; i < s.log.length; i++) s.log[i].sp = tok;
   if (tap0) { pre.tap = {}; for (const k in MONEY_TAP) if (MONEY_TAP[k].v !== (tap0[k] || 0)) pre.tap[k] = 1; }
   EV_E0 = { id, dv: evalDiff(e0, evalSnap(s)) };
+  // v192: CEO가 맡은 회사의 결과 창(ev.ceoRep)은 띄우지 않고 CEO 보고서에 모은다 (company.js ceoRepAdd)
+  if (!d.skip && ev.ceoRep && typeof ceoRepAdd === 'function') { let it = null; try { it = ev.ceoRep(s, d); } catch (e) { console.error('CEO 보고', e); } if (it) { ceoRepAdd(s, it); d.skip = true; } }
   if (d.skip) return;
   // 창을 내려 둔 채 다른 창을 열면(자본금 꺼내기 등), 기다리던 선택을 버리지 않고 대기열 맨 앞에 돌려 둔다 (v116 버그 1: 밴드 '새 곡 준비'가 사라져 곡이 영영 안 나왔다)
   // re: 이미 한 번 뜬 창이라 다시 띄울 때 init을 또 돌리지 않는다 (fireQ · pullBack)

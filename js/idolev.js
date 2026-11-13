@@ -622,10 +622,19 @@ function idolRedebut(s, agId) {
 }
 // 재계약: 전원이 남거나, 몇 명만 남아 줄어든 채로 계속하거나, 해체된다
 // pc: 그룹이 이어질 가능성 (그룹 팬 40만 명쯤이면 반반) · pa: 그중 전원이 남을 가능성 (그룹이 클수록)
+// v192: 평균 30세가 넘으면 그룹이 이어질 가능성이 크게 준다 · 30세가 넘은 멤버가 있을수록 전원이 남기 어렵다
 function idolRenewP(s, t) {
-  const ga = groupAges(s, t.g), L = Math.log10(1 + groupFans(t.g)), rn = idolRnOf(t);
-  const pc = U.clamp(U.sig((L - 5.6) * 2) * (ga.avg > 28 ? Math.max(0.3, 1 - (ga.avg - 28) * 0.15) : 1) + rn.p, 0.05, 0.9);
-  return { pc, pa: pc * U.clamp(0.3 + 0.5 * U.sig((L - 6) * 2), 0.3, 0.8) };
+  const ga = groupAges(s, t.g), L = Math.log10(1 + groupFans(t.g)), rn = idolRnOf(t), n30 = idMem(s, t).filter(x => pAge(s, x) >= 30).length;
+  const am = ga.avg <= 28 ? 1 : ga.avg <= 30 ? 1 - (ga.avg - 28) * 0.15 : Math.max(0.08, 0.7 - (ga.avg - 30) * 0.2);
+  const pc = U.clamp(U.sig((L - 5.6) * 2) * am + rn.p, 0.05, 0.9);
+  return { pc, pa: pc * U.clamp(0.3 + 0.5 * U.sig((L - 6) * 2), 0.3, 0.8) * Math.pow(0.6, n30) };
+}
+// v192: 몇 명만 남을 때 누가 떠나는가: 나이가 많을수록 · 그룹 안에서 실력이 높을수록 떠나기 쉽다 (music.js idolStayP)
+function idolLeavers(s, t, M, k) {
+  const all = M.concat([me(s)]), avgPw = all.reduce((a, x) => a + idolMemPow(x), 0) / all.length, fans = groupFans(t.g);
+  const W = M.map(x => ({ x, w: 1.05 - idolStayP(pAge(s, x), idolMemPow(x), avgPw, fans) })), out = [];
+  while (out.length < k && W.length) { let r = Math.random() * W.reduce((a, o) => a + o.w, 0), i = 0; while (i < W.length - 1 && (r -= W[i].w) > 0) i++; out.push(W.splice(i, 1)[0].x); }
+  return out;
 }
 function idolRenew(s, t, pa, pc, cut1) {
   const g = t.g, r = Math.random(), M = idMem(s, t), c0 = t.cut;
@@ -637,7 +646,7 @@ function idolRenew(s, t, pa, pc, cut1) {
   }
   if (r < pc && M.length >= 2) {
     // 몇 명만 남는다: 떠난 멤버 몫만큼 팬이 떠나고, 파트를 다시 나누느라 팀워크가 흔들린다
-    const k = U.int(1, Math.max(1, Math.floor(M.length / 2))), out = U.shuffle(M).slice(0, k);
+    const k = U.int(1, Math.max(1, Math.floor(M.length / 2))), out = idolLeavers(s, t, M, k);
     for (const x of out) { x.rel = '전 멤버'; g.members = g.members.filter(id => id !== x.id); delete g.pos[x.id]; bond(s, x, 2); }
     const keep = 1 - 0.5 * k / (M.length + 1);
     MK.forEach(m => { g.f[m] = Math.round(g.f[m] * keep); });

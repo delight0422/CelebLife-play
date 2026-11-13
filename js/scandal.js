@@ -316,7 +316,11 @@ function scApply(s, sc, T, mult, kind) {
     const g = s.tracks.idol.g;
     for (const m of MK) g.f[m] = Math.round(g.f[m] * (1 - frac * 0.4));
     for (const id of g.members) { const n = s.people[id]; if (n) aff(n, -Math.round(dmg)); }
+    // v192: 멤버(나) 논란 → 그룹 팬 충성도가 떨어진다 (music.js loyAdd)
+    if (typeof loyAdd === 'function') loyAdd(g, -Math.min(20, dmg * 3));
   }
+  // v192: 내가 대표인 회사가 있으면 회사 논란이 된다 → 우리 회사 그룹들 팬 충성도도 조금 떨어진다
+  if (typeof coOn === 'function' && coOn(s) && typeof loyAdd === 'function') for (const g2 of coT(s).groups) if (g2.kind !== 'vt' && g2.debuted && !g2.proj) loyAdd(g2, -Math.min(10, dmg * 1.5));
   // 크게 무너지면: 광고가 끊기고, 고정 예능에서 내려오고, 들어와 있던 배역 제안이 사라진다
   if (dmg >= 5) {
     for (const b of (s.brands || [])) { const pen = Math.round(b.fee * 0.5 / 1e5) * 1e5; addMoney(s, -pen, '광고 위약금'); x += ` ${BRAND_BY[b.id].n} 광고가 끊겼다(위약금 ${fmtWon(pen)}).`; }

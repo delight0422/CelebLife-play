@@ -759,6 +759,8 @@ function showEventRaw() {
   $('#mcard').innerHTML = h;
   $('#modal').classList.remove('hidden');
   // 결과 기사: 처음 뜰 때 성과를 토스트 줄에 넣어 둔다. 창이 닫힌 뒤에 '「제목」 결과' 줄부터 차례로 뜬다 (v175). 기사 사진 속 캐릭터를 칠한다
+  // v192: 기사가 아닌 창도 ev.toasts가 있으면 처음 뜰 때 토스트 줄에 넣어 둔다 (CEO 보고서)
+  if (!nw && ev.toasts && !d.tsSeen) { d.tsSeen = 1; try { rtQueue(s, ev.toasts(s, d).filter(Boolean)); } catch (e) { console.error('토스트 오류', e); } }
   if (nw && !d.tsSeen) { d.tsSeen = 1; try { const N = ev.news(s, d); rtQueue(s, [['📰', N.t ? `「${N.t}」 결과` : '결과', 'h']].concat(newsToasts(N))); } catch (e) { console.error('성과 토스트 오류', e); } }
   if (typeof chLoad === 'function' && $('#mcard canvas.lv-chc')) { chLoad(); chPaintAll(); }
 
@@ -2652,6 +2654,10 @@ function pinfoHTML(s, x) {
   if (x.rel && x.rel !== '업계') R.push(['관계', x.rel]);
   R.push(['성격', TRAIT_BY[x.trait] ? TRAIT_BY[x.trait].n : '-'], ['인상', x.look || '-']);
   if (co) R.push([x.co.kind === 'vt' ? '목소리' : '외모', talentWord(x.co.kind === 'vt' ? x.tal.voice : x.tal.looks)], ['스타성', grade5(coViewer(s, 'cast', null), x.tal.star, 'pot')]);
+  // v192: 아이돌 · 밴드 멤버면 그룹이 낸 앨범 수 · 팬 충성도
+  { const cg = co && x.co.gid && typeof coGroup === 'function' ? coGroup(s, x.co.gid) : null, it = s.tracks.idol, mg = it && it.g && (it.g.members || []).includes(x.id) ? it.g : null;
+    if (cg && cg.kind !== 'vt' && cg.debuted) R.push(['그룹', `「${cg.name}」 · 낸 앨범 ${cg.cbCount || 0}장${cg.proj ? '' : ` · 팬 충성도 ${loyTxt(cg)}`}`]);
+    else if (mg) R.push(['그룹', `「${mg.name}」 · 낸 앨범 ${it.cbCount || 0}장 · 팬 충성도 ${loyTxt(mg)}`]); }
   if (x.yt) R.push(['채널', `「${x.yt.ch}」 · 구독자 ${fmtFans(x.yt.subs || 0)}`]);
   else if ((x.fame || 0) >= 100) R.push(['팬', fmtFans(x.fame)]);
   const ks = learnedSkills(x).map(k => [k, piSkView(s, x, k)]).sort((a, b) => (b[1].lo + b[1].hi) - (a[1].lo + a[1].hi));
