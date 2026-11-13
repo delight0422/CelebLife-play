@@ -256,9 +256,11 @@ E({
 });
 
 // ───── 회사 차리기 ─────
-function coName() { return freshName(() => U.pick(['별', '해', '달', '온', '한', '새', '빛', '봄', '윤', '아라', '다온', '라온']) + U.pick(['빛', '길', '결', '담', '나래', '소리', '바람', '꽃']) + ' ' + U.pick(['엔터테인먼트', '엔터', '뮤직', '레이블', '컴퍼니'])); }
+// v191: 처음 차리는 회사 이름도 분야에 맞게 (MCN '~ 네트워크' · 버츄얼 '~ 라이브' · 영상 '~ 픽처스' · 애니 '~ 애니메이션')
+const CO_NAME_SFX = { music: ['엔터테인먼트', '엔터', '뮤직', '레이블', '컴퍼니'], vidol: ['라이브'], mcn: ['네트워크'], video: ['픽처스', '스튜디오'], anime: ['애니메이션', '스튜디오'] };
+function coName(f) { return freshName(() => U.pick(['별', '해', '달', '온', '한', '새', '빛', '봄', '윤', '아라', '다온', '라온']) + U.pick(['빛', '길', '결', '담', '나래', '소리', '바람', '꽃']) + ' ' + U.pick(CO_NAME_SFX[f] || CO_NAME_SFX.music)); }
 // 자회사 추천 이름 (v166): 지금 회사 이름의 앞 단어를 그대로 쓰고 분야 이름을 붙인다 ('별빛 엔터' → '별빛 버츄얼')
-const CO_SUB_SFX = { music: '엔터테인먼트', vidol: '버츄얼', mcn: 'MCN', video: '픽처스', anime: '애니메이션' };
+const CO_SUB_SFX = { music: '엔터테인먼트', vidol: '라이브', mcn: '네트워크', video: '픽처스', anime: '애니메이션' };
 function coSubName(t, f) {
   const pre = String(t.name || '').trim().split(/\s+/)[0] || coName().split(' ')[0], used = new Set([t.name].concat(coFields(t).map(x => coFName(t, x))));
   let n = `${pre} ${CO_SUB_SFX[f] || CO_FIELDS[f].n}`;
@@ -315,7 +317,7 @@ E({
 });
 E({
   id: 'co_found', cat: '창업', title: (s, d) => d.sub ? `${coGrpFirst(coT(s)) ? '자회사 · 그룹' : '자회사'} 이름 짓기 · ${CO_FIELDS[d.f].n}` : `회사 이름 · 입지 · ${CO_FIELDS[d.f].n}`, tag: 'career',
-  init(s, d) { d.name = d.sub ? coSubName(coT(s), d.f) : coName(); },
+  init(s, d) { d.name = d.sub ? coSubName(coT(s), d.f) : coName(d.f); },
   text: (s, d) => d.sub ? `${coGrpFirst(coT(s)) ? `첫 자회사를 세우면 「${coT(s).name}」은 모회사가 되고, 회사들이 한 그룹으로 묶인다. 그룹 이름도 정한다.\n\n` : ''}${coGrpName(coT(s))}의 새 ${josa(CO_FIELDS[d.f].n, '을를')} 세운다. 모회사가 ${fmtWon(CO_ADD_COST)}을 출자한다 (등록면허세는 자회사가 낸다).\n\n모회사 자본금 ${fmtWon(coM(coT(s)))}`
     : `내 ${josa(CO_FIELDS[d.f].n, '을를')} 차린다. 어디에 차릴지 고르고 자본금을 정한다. 자본금은 내 돈에서 옮겨진다.\n\n입지가 좋을수록 일이 잘 풀리지만 자본금이 더 있어야 하고 사무실 임대료도 비싸다. 집에서 멀면 내가 직접 하는 회사 일이 덜 된다.\n\n내 돈 ${fmtWon(s.money)} · 지금 사는 곳 ${REGION_BY[s.region].n}`,
   form: (s, d) => d.sub ? [{ k: 'name', label: '자회사 이름', value: d.name, max: 20 }].concat(coGrpFirst(coT(s)) ? [{ k: 'gname', label: '그룹 이름', value: coGrpName(coT(s)), max: 20 }] : [])

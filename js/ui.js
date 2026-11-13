@@ -563,24 +563,41 @@ function renderCoCard() {
   el.removeAttribute('data-panel');
   if (!t) {
     // 회사가 없을 때: 현금이 1억 원 이상이면 '회사 설립 가능' 배너, 아니면 잠긴 박스
-    if (s.money < CO_SEED) { el.className = 'card co-card chainlk'; el.innerHTML = `<div class="card-h">🏢 회사</div><div class="st">아직 차린 회사가 없다</div>`; return; }
+    if (s.money < CO_SEED) { el.className = 'card co-card chainlk'; el.innerHTML = `<div class="card-h">🏢 회사/그룹</div><div class="st">아직 차린 회사가 없다</div>`; return; }
     const w = coFoundWhy(s);
-    el.className = 'card co-card'; el.innerHTML = `<div class="card-h">🏢 회사</div>` + coNewBannerHTML(false, w);
+    el.className = 'card co-card'; delete el.dataset.cofx; el.innerHTML = `<div class="card-h">🏢 회사/그룹</div>` + coNewBannerHTML(false, w);
     return;
   }
-  // v190: 박스 전체가 배너 하나 ('회사/그룹'). 누르면 회사가 하나면 그 회사 창, 둘 이상이면 그룹 창
-  //   안에는 회사마다 요약 (사옥이 둘 이상이면 사옥 이름 · 연습실 정원 아래에 그 사옥의 회사들). 자회사 세우기는 회사 창 · 그룹 창에서
-  const fs = coFields(t), main = coMainF(t), grp = typeof coIsGrp === 'function' && coIsGrp(t), inner = (f, m) => `<div class="job-bn co-bn">${coBnInner(s, t, f, m, !m)}</div>`;
-  el.className = 'card co-card bn-card'; el.dataset.panel = grp ? 'group' : 'company';
+  // v191: '회사/그룹' 칸 = 사옥 상자들. 사옥 상자: 사옥 이름 · 연습실 정원 · 사옥 전체 자본금 · 지난달 순수익, 안에 회사 배너(작게: 어떤 회사 · 직원 수 · 기획 중인지)
+  //   회사 배너를 누르면 그 회사 창, 배너 밖(사옥 상자 · 빈 곳)을 누르면 그룹 창 (회사가 하나면 그 회사 창). 사옥 상자는 따로 눌리지 않는다
+  const fs = coFields(t), main = coMainF(t), grp = typeof coIsGrp === 'function' && coIsGrp(t);
+  el.className = 'card co-card bn-card co-wrap'; el.dataset.panel = grp ? 'group' : 'company';
   if (grp) delete el.dataset.cofx; else el.dataset.cofx = main;
+  const B = typeof coBlds === 'function' ? coBlds(t) : [main];
   let h = `<div class="card-h">🏢 회사/그룹${grp ? `<span class="sub">${U.esc(coGrpName(t))} · 회사 ${fs.length}곳</span>` : ''}</div>`;
-  if (!grp) h += inner(main, true);
-  else {
-    const B = typeof coBlds === 'function' ? coBlds(t) : [main];
-    if (B.length > 1) h += B.map(b => { const rt = coRoomTxt(s, t, b); return `<div class="co-bld-h">🏢 ${coBldN(t, b)}${rt ? ` <span class="${/꽉/.test(rt) ? 'neg' : ''}">· ${U.esc(rt)}</span>` : ''}</div>` + coBldFs(t, b).map(f => inner(f, false)).join(''); }).join('');
-    else h += [main].concat(fs.filter(f => f !== main)).map(f => inner(f, false)).join('');
-  }
+  h += B.map(b => {
+    const bf = typeof coBldFs === 'function' ? coBldFs(t, b) : fs, money = bf.reduce((a, f) => a + (t.f[f].money || 0), 0);
+    const net = bf.reduce((a, f) => a + coNetRow(Object.fromEntries(Object.entries(t.f[f].lastL || {}).filter(([k]) => !CO_IO.includes(k))))[0], 0), rt = typeof coRoomTxt === 'function' ? coRoomTxt(s, t, b) : '';
+    return `<div class="co-bld"><div class="co-bld-h">🏢 ${U.esc(typeof coBldN === 'function' ? coBldN(t, b) : '본사 사옥')}${rt ? ` <span class="${/꽉/.test(rt) ? 'neg' : ''}">· ${U.esc(rt)}</span>` : ''}</div>`
+      + coBnFacts([['자본금', fmtWon(money), money < 0 ? 'neg' : ''], ['지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg']])
+      + bf.map(f => coMiniHTML(s, t, f)).join('') + `</div>`;
+  }).join('');
   el.innerHTML = h;
+}
+// 사옥 상자 안 회사 배너 (v191): 이름 · 어떤 회사 · 직원 수 · 기획 중이면 표시 (영상 · 애니는 만드는 작품 수도)
+function coMiniHTML(s, t, f) {
+  const n = coStaff(s, null, f).length, tags = coPlanTags(s, t, f).map(x => `<span class="cm-tag">${U.esc(x)}</span>`).join('');
+  return `<button type="button" class="co-mini" data-cof="${f}"><span class="cm-ic">${CO_FIELDS[f].ic}</span><span class="cm-b"><b>${U.esc(coFName(t, f))}</b>${tags}<span class="cm-s">${f === coMainF(t) && coIsGrp(t) ? '모회사 · ' : ''}${TIER_N[t.f[f].tier]} ${CO_TYPE_N[f] || CO_FIELDS[f].n} · 직원 ${n}명</span></span><span class="sb-n">›</span></button>`;
+}
+// 그 회사에서 지금 기획하는 것: 작품 기획 회의 · 컴백 회의가 열려 있으면 '기획 중', 영상 · 애니는 만드는 작품 수
+function coPlanTags(s, t, f) {
+  const Q = [s.pending].concat(s.queue || []).filter(Boolean), R = [];
+  const vf = q => q.d && q.d.P ? (q.d.P.f === 'anime' ? 'anime' : 'video') : /^co_a/.test(q.id) ? 'anime' : 'video';
+  const plan = Q.some(q => (typeof CO_V_CHAIN !== 'undefined' && CO_V_CHAIN.includes(q.id) && vf(q) === f) || ((q.id === 'co_plan' || q.id === 'co_pick') && q.d && t.groups.some(g => g.id === q.d.gid && coFOfKind(g.kind) === f)));
+  if (plan) R.push('기획 중');
+  const w = f === 'video' ? (t.vw || []).length : f === 'anime' ? (t.aw || []).length : 0;
+  if (w) R.push(`제작 중 ${w}편`);
+  return R;
 }
 // 상태: 군 복무·병은 맨 위에 눈에 띄게 (누르면 자세히)
 // 집에 따라 바뀌는 배경 (v151): img/bg/ 안에 그림이 있으면 게임 화면 뒤에 깐다. 없으면 지금 바탕 그대로. 원본은 img/home/ 에 두고 python dev/make_bg.py 로 가볍게 줄여 img/bg/ 에 만든다 (v152)
@@ -2524,14 +2541,16 @@ function escClose() {
   if (!$('#pop').classList.contains('hidden')) { popClose(); return true; }
   if (UI.turn) { if (UI.turn.why) turnClose(''); return true; }
   if (!$('#confirm').classList.contains('hidden')) { $('#confirm').classList.add('hidden'); UI.onConfirm = null; return true; }
-  if (!$('#panel').classList.contains('hidden')) { closePanel(); return true; }
+  // v191: 뒤로 가기 버튼이 있는 창은 ESC가 '뒤로'다 (창 밖을 누르면 예전처럼 닫힌다 · 내려간다)
+  if (!$('#panel').classList.contains('hidden')) { const bk = escBackBtn('#panel'); if (bk) bk.click(); else closePanel(); return true; }
   if (!$('#modal').classList.contains('hidden')) {
     if (UI.res) { resOk(); return true; }
     if (S && S.ended && !S.pending) { $('#modal').classList.add('hidden'); return true; }
-    if (S && S.pending) { UI.minimized = true; showEvent(); return true; }
+    if (S && S.pending) { const bk = escBackBtn('#mcard'); if (bk) { bk.click(); return true; } UI.minimized = true; showEvent(); return true; }
   }
   return false;
 }
+function escBackBtn(sel) { return [...document.querySelectorAll(`${sel} button`)].find(b => !b.disabled && b.offsetParent !== null && (b.classList.contains('back-btn') || /^\s*←\s*뒤로/.test(b.textContent))) || null; }
 // PC에서만: 떠 있는 창의 바깥(어두운 부분)을 누르면 ESC처럼 닫힌다 (휴대폰은 잘못 눌리기 쉬워서 빼 둔다)
 const FINE_POINTER = window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 let downOnOverlay = null;
@@ -2639,6 +2658,6 @@ function pinfoHTML(s, x) {
   const sk = ks.length ? ks.map(([k, v]) => `<div class="pi-sk"><span class="pi-n">${U.esc(SKILLS[k].n)}</span><span class="pi-bar"><i style="left:0;width:${v.lo}%"></i>${v.hi > v.lo ? `<i class="rg" style="left:${v.lo}%;width:${v.hi - v.lo}%"></i>` : ''}</span><span class="pi-lv">${v.t}</span>${v.pot ? potBars(v.pot) : ''}</div>`).join('') : '<div class="muted">특기 없음</div>';
   return `<div class="pinfo"><div class="pi-h">${pAvHTML(x, true)}<div><div class="pi-name">${U.esc(x.name)} <span class="gchip ${x.g === '여' ? 'f' : 'm'}">${x.g === '여' ? '여성' : '남성'}</span></div><div class="pi-sub">${U.esc(x.job || '')}${x.soul ? ' · <span class="soul-hint">어딘가 낯익은 얼굴</span>' : ''}</div></div></div>`
     + infoTable(R) + `<div class="sec-h">특기 <span class="n">${ks.length}개 · 레벨 높은 순</span></div><div class="pi-sks">${sk}</div>`
-    + (ks.length ? `<p class="hint">별 ${potBars('24')} 별 수는 포텐 (우리 회사 사람들과 견줘서), 색칠한 별은 지금까지 채운 만큼 · 흰 별은 아직 클 수 있는 만큼${ks.some(([, v]) => v.pot[0] === '?') ? ` · ${potBars('?')} 포텐을 모른다 (스카우트 특기와 그 분야 특기가 있어야 보인다)` : ''}</p>` : '') + `</div>`;
+    + (ks.length ? `<p class="hint">별 ${potBars('24')} 별의 수는 우리 회사 사람들과 비교한 성장성이다. 스카우트하는 사람에 따라 부정확할 가능성이 있다.${ks.some(([, v]) => v.pot[0] === '?') ? ` · ${potBars('?')} 포텐을 모른다 (스카우트 특기와 그 분야 특기가 있어야 보인다)` : ''}</p>` : '') + `</div>`;
 }
 function pinfoOpen(id) { const x = S && S.people[id]; if (!x) return; popOpen(pinfoHTML(S, x), 'pinfo-card'); }

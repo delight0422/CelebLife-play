@@ -288,11 +288,11 @@ function potGrade(viewer, target, k) { return has(target, k) ? grade5(viewer, ta
 // v181: 성장성은 글자 대신 막대 그림으로 보인다. 글 속에 표시(\u0005 … \u0006)를 넣으면 그리는 곳에서 막대로 바꾼다 (ui.js potH)
 // v190: 별 (FM처럼). 별 수 = 포텐: 우리 회사에서 그 특기를 가진 사람들(연습생 + 데뷔한 멤버)의 실제 포텐 평균과 견준다
 //   10 이상 높으면 ★5 · 5~10 높으면 ★4 · 비슷하면(5 안쪽) ★3 · 5~10 낮으면 ★2 · 10 이상 낮으면 ★1
-//   우리 회사에 그 특기를 가진 사람이 3명이 안 되면 업계 전체 평균과 견준다 (한 달에 한 번 센다)
-//   보는 사람이 짐작한 포텐: 보는 눈(스카우트 60% + 그 분야 특기 40%)이 나쁠수록 실제와 어긋난다 (±12 → ±2, 사람마다 정해짐)
+//   v191: 우리 회사에 그 특기를 가진 사람이 한 명이라도 있으면 그 사람들 평균, 없으면 업계 전체 평균과 견준다 (한 달에 한 번 센다)
+//   v191: 보는 사람이 짐작한 포텐: (스카우트 + 그 분야 특기) 평균으로 예측 범위가 정해지고 (0이면 ±20 · 20이면 ±15 · 40이면 ±10 · 60이면 ±5 · 그 위 ±2), 범위 안에서 무작위로 한 숫자를 찍는다 (사람마다 한 번 정해짐: 보는 눈이 늘면 범위만 좁아진다)
 //   색칠한 별 = 그 포텐을 지금 얼마나 채웠나 (지금 레벨 ÷ 짐작한 포텐), 흰 별 = 아직 남은 만큼. 색은 별 수마다 (ui.js)
 //   표시: 'cp' = 색칠한 별 c(0~5) · 별 수 p(1~5), '?' = 포텐을 모른다 (볼 눈이 없다)
-const POT_GAP = [10, 5], POT_REF_MIN = 3, POT_REF = new WeakMap();
+const POT_GAP = [10, 5], POT_REF_MIN = 1, POT_REF = new WeakMap();
 function lvBars(L) { return U.clamp(Math.ceil(L / 20), 1, 5); }
 function potRef(s, k) {
   const t = typeof coOn === 'function' && coOn(s) ? coT(s) : null, key = t || s;
@@ -303,7 +303,8 @@ function potRef(s, k) {
   if (v == null) v = avg(Object.values(s.people)) || 50;
   return C[k] = v;
 }
-function potEst(viewer, target, k) { const pot = target.sk[k].pot || 0; if (viewer === target) return pot; const w = Math.round(12 - 10 * U.clamp(scoutLv(viewer, k), 0, 100) / 100); return pot + (hashN(target.id + k + viewer.id + ':pe') % (2 * w + 1)) - w; }
+function potW(viewer, k) { return Math.max(2, Math.round(20 - (lv(viewer, 'scout') + lv(viewer, seeSk(viewer, k))) / 2 / 4)); }
+function potEst(viewer, target, k) { const pot = target.sk[k].pot || 0; if (viewer === target) return pot; const u = (hashN(target.id + k + viewer.id + ':pe') % 10001) / 5000 - 1; return Math.round(pot + u * potW(viewer, k)); }
 function potStars(d) { return d >= POT_GAP[0] ? 5 : d >= POT_GAP[1] ? 4 : d > -POT_GAP[1] ? 3 : d > -POT_GAP[0] ? 2 : 1; }
 function potSpec(viewer, target, k, exact, unk) {
   if (!has(target, k)) return '';
