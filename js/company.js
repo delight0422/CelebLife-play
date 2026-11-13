@@ -1239,6 +1239,7 @@ E({
   title: (s, d) => { const g = coGroup(s, d.gid); return `「${g ? g.name : ''}」 ${coAlbWord(g, d.debut)} 기획`; },
   cond: s => coOn(s),
   init(s, d) { if (!coGroup(s, d.gid)) d.skip = true; },
+  card: 'plan-card', // v208: 컨셉 8개를 4개씩 두 줄로 (창 가로를 줄인다)
   html: (s, d) => coMeetHTML(s, d, 'co_plan'),
   text: (s, d) => { const g = coGroup(s, d.gid), j = coAnrLead(s); return coMeetText(s, g, d.debut) + `\n\n컨셉과 곡을 모을 곳을 정하자. 여러 개를 같이 고를 수 있고, 고른 만큼 돈이 든다. 모인 곡은 ${j ? `A&R 팀장 ${josa(j.name, '이가')} 다섯 곡으로 추려 오고,` : '내가 전부 들어 보고,'} 한 달 뒤에 실을 곡을 정한다.`; },
   // v165: 그룹마다 지난번 기획 설정(컨셉 · 곡을 모을 곳)을 그대로 체크해 둔다 (g.lastPlan)
@@ -1676,7 +1677,7 @@ E({
     // v192: 아이돌 · 밴드는 멤버마다 따로 정한다 (30세가 넘으면 잘 안 남고, 그룹 안에서 실력이 낮을수록 남으려 한다. music.js idolStayP)
     if (g.kind !== 'vt') { const P = coP(s, g.members), avgPw = P.reduce((a, x) => a + idolMemPow(x), 0) / Math.max(1, P.length); d.P = Object.fromEntries(P.map(x => [x.id, Math.round(idolStayP(pAge(s, x), idolMemPow(x), avgPw, coGFans(g)) * 100) / 100])); }
   },
-  text: (s, d) => { const g = coGroup(s, d.gid); return `「${g.name}」 전속 계약이 끝났다. 멤버들이 재계약 조건을 내걸었다.\n\n회사 몫 ${pctN(g.cut)} → ${pctN(d.nc)} · 재계약금 ${fmtWon(d.bonus)} (멤버 ${g.members.length}명${d.P ? ', 남는 멤버 몫만' : ''}) · 5년\n${g.kind === 'vt' ? '기수 구독자' : '그룹 팬'} ${fmtFans(coGFans(g))} · 자본금 ${fmtWon(coM(coT(s), coFOfKind(g.kind)))}${d.P ? '\n\n' + coP(s, g.members).map(x => `· ${x.name} (${pAge(s, x)}세) — ${coStayW(d.P[x.id])}`).join('\n') : ''}`; },
+  text: (s, d) => { const g = coGroup(s, d.gid); return `「${g.name}」 전속 계약이 끝났다. 멤버들이 재계약 조건을 내걸었다.\n\n회사 몫 ${pctN(g.cut)} → ${pctN(d.nc)} · 재계약금 ${fmtWon(d.bonus)} (멤버 ${g.members.length}명${d.P ? ', 남는 멤버 몫만' : ''}) · 5년\n${g.kind === 'vt' ? '기수 구독자' : '그룹 팬'} ${fmtFans(coGFans(g))} · 자본금 ${fmtWon(coM(coT(s), coFOfKind(g.kind)))}${d.P ? '\n\n' + coP(s, g.members).map(x => `· ${x.name} (${pAge(s, x)}세) — ${coStayW(d.P[x.id])}`).join('\n') + (g.members.length > 1 ? '\n\n멤버가 절반 넘게 남아야 그룹을 이어 갈 수 있다. 아니면 해체된다.' : '') : ''}`; },
   ch: (s, d) => { const g = coGroup(s, d.gid); return [
     { t: '재계약한다', h: `재계약금 ${d.P ? '최대 ' : ''}${fmtWon(d.bonus)}`, ok: s => coM(coT(s), coFOfKind(g.kind)) >= d.bonus, f: s => { const t = coT(s); if (d.P) return coRenewEach(s, t, g, d); coOut(t, d.bonus, '재계약금', coFOfKind(g.kind)); g.cut = d.nc; g.cEnd = g.months + 60; g.renewQ = false; return `「${g.name}」${josa(g.name, '과와').slice(g.name.length)} 5년 재계약을 했다. 회사 몫 ${pctN(d.nc)}.`; } },
     { t: g.kind === 'vt' ? '졸업시킨다' : '해체한다', f: s => coDisband(s, coT(s), g, '계약 만료', true) },
@@ -1684,13 +1685,14 @@ E({
 });
 // v192: 재계약 마음 (숫자는 안 보이고 말로만)
 function coStayW(p) { return p >= 0.7 ? '남고 싶어 한다' : p >= 0.45 ? '고민 중이다' : p >= 0.2 ? '떠날 생각이 크다' : '떠나려고 마음먹었다'; }
+// v208: 남는 멤버가 절반 이하면 해체한다 (예전엔 둘만 남아도 이어 갔다)
 // 멤버마다 남을지 정한다: 둘 이상 남으면 줄어든 채로 이어 가고(떠난 멤버 몫만큼 팬도 조금 떠난다), 아니면 해체
 function coRenewEach(s, t, g, d) {
   const f = coFOfKind(g.kind), P = coP(s, g.members), stay = P.filter(x => U.chance(d.P[x.id] != null ? d.P[x.id] : 0.6)), out = P.filter(x => !stay.includes(x));
   // v199: 솔로(혼자 데뷔한 아이돌)는 남으면 그대로 이어 간다
-  if (stay.length < Math.min(2, P.length)) {
+  if (stay.length < Math.min(2, P.length) || (P.length > 1 && stay.length * 2 <= P.length)) {
     coDisband(s, t, g, '재계약 불발', true);
-    return stay.length ? `「${g.name}」 멤버 가운데 ${stay[0].name}만 남겠다고 했다. 혼자서는 그룹을 이어 갈 수 없어 해체했다.` : `「${g.name}」 멤버 모두 재계약하지 않았다. 그룹은 해체됐다.`;
+    return !stay.length ? `「${g.name}」 멤버 모두 재계약하지 않았다. 그룹은 해체됐다.` : stay.length === 1 ? `「${g.name}」 멤버 가운데 ${stay[0].name}만 남겠다고 했다. 혼자서는 그룹을 이어 갈 수 없어 해체했다.` : `「${g.name}」 멤버 ${P.length}명 가운데 ${stay.map(x => x.name).join(', ')}만 남겠다고 했다. 절반이 넘게 떠나서 그룹을 해체했다.`;
   }
   const cost = Math.round(d.bonus * stay.length / Math.max(1, P.length) / 1e6) * 1e6;
   coOut(t, cost, '재계약금', f); g.cut = d.nc; g.cEnd = g.months + 60; g.renewQ = false;
@@ -1809,8 +1811,8 @@ function coVActs(s, t, g) {
   A.push({ t: '굿즈 내기', h: `${fmtWon(coVGoodsCost(s, g))} · 구독자가 많을수록 많이 팔린다 · 6개월에 한 번${au.goods ? line(coVGoodsCost(s, g)) : ''}`, why: gw, opts: [
     { btn: '내기', on: true, ok: !gw, run: s => coVGoods(s, t, g) }, coVAutoBtn(g, 'goods')] });
   const lw = coVLiveWhy(s, t, g);
-  A.push({ t: '3D 라이브 콘서트', h: `${fmtWon(CO_VLIVE.cost)} · 멤버들의 노래·춤·예능 실력이 좋을수록 잘된다 · 1년에 한 번${au.live ? line(CO_VLIVE.cost) : ''}`, why: lw, opts: [
-    { btn: '열기', on: true, ok: !lw, run: s => coVLive(s, t, g) }, coVAutoBtn(g, 'live')] });
+  A.push({ t: '3D 라이브 콘서트', h: `${fmtWon(CO_VLIVE.cost)} · 멤버들의 노래·춤·예능 실력이 좋을수록 잘된다 · 무대 꾸밈 · 시청권을 정한다 · 1년에 한 번${au.live ? line(CO_VLIVE.cost) : ''}`, why: lw, opts: [
+    { btn: '기획하기', on: true, ok: !lw, run: s => { fireEvent(s, 'co_vl_plan', { gid: g.id }); return ''; } }, coVAutoBtn(g, 'live')] }); // v208: 기획 창 → 실시간 방송 창
   return A;
 }
 // 기수 굿즈 · 3D 라이브 (피드백 31: 자동으로도 연다. 자동일 때는 창 없이 기록만)
@@ -1830,23 +1832,84 @@ function coVLiveWhy(s, t, g) {
   return g.liveT > s.t ? `${g.liveT - s.t}개월 뒤에 다시 열 수 있다` : !all3d ? '멤버 모두 3D 모델이 있어야 한다' : sub < CO_VLIVE.min ? `기수 구독자가 ${fmtFans(CO_VLIVE.min)}을 넘어야 한다` : !coMk(s, 'vidol') ? CO_MK_NO : coM(t, 'vidol') < CO_VLIVE.cost ? '자본금이 모자라다' : '';
 }
 function coVLive(s, t, g, quiet) { return ledWrap(s, ledGT(g), '3D 라이브 콘서트', () => coVLive0(s, t, g, quiet)); }
-function coVLive0(s, t, g, quiet) {
-  const P = coP(s, g.members), sub = coVSubs(s, g);
-  {
-    g.liveT = s.t + 12; coOut(t, CO_VLIVE.cost, '3D 라이브 제작비', 'vidol');
-    const avg = P.reduce((a, x) => a + lv(x, 'vocal') * 0.4 + lv(x, 'dance') * 0.2 + lv(x, 'variety') * 0.4, 0) / P.length;
-    const sc = U.clamp(avg + Math.log10(1 + sub) * 4 + U.normal(0, 7) - 5, 0, 100);
-    const inc = sub * U.fl(1000, 1600) * (0.6 + sc / 100);
-    coIn(t, inc, '3D 라이브', 'vidol'); coSettle(s, t, g, inc);
-    for (const x of P) x.co.subs = Math.round(x.co.subs * (sc >= 60 ? U.fl(1.04, 1.1) : U.fl(1, 1.03)));
-    coVRep(s, t, sc >= 70 ? 2 : 0.5);
-    g.lives = (g.lives || 0) + 1; g.best = Math.max(g.best, sc);
-    if (!t.vlive) { t.vlive = true; milestone(s, `${age(s)}세에 우리 회사 「${g.name}」 첫 3D 라이브 콘서트를 열었다.`); }
-    const how = sc >= 70 ? '무대가 끝나자 채팅창이 박수로 가득 찼다.' : sc >= 50 ? '무난하게 공연을 마쳤다.' : '멤버들이 긴장해서 실수가 잦았다.';
-    if (quiet) return `「${g.name}」 3D 라이브 콘서트를 열었다. ${how} 매출 ${fmtWon(inc)} (제작비 ${fmtWon(CO_VLIVE.cost)}).`;
-    return showResult(s, `「${g.name}」 3D 라이브 콘서트`, `${how}\n\n매출 ${fmtWon(inc)} (제작비 ${fmtWon(CO_VLIVE.cost)})`, `「${g.name}」 3D 라이브 콘서트. 매출 ${fmtWon(inc)}.`);
-  }
+// v208: 3D 라이브 콘서트도 직접 기획한다 (무대 꾸밈 · 시청권) → 실시간 방송 창 → 결산. 자동을 켜 두면 열 수 있게 될 때 이 기획 창을 띄운다
+//   첫 창에서 전담 프로듀서에게 맡기면 결과 기사로. CEO가 맡은 회사는 예전처럼 창 없이 (CEO가 멤버들에게 맞는 꾸밈을 고른다)
+//   열기(sc) = 꾸밈에 따라 노래 · 춤 · 예능 레벨을 섞은 값 + 구독자 규모. 멤버들이 잘하는 쪽으로 꾸미면 잘된다. 시청권: 무료면 수입이 적고 구독자가 많이 는다
+const CO_VL_MIX = { even: { n: '고르게', h: '노래 · 춤 · 토크를 고루 넣는다', w: [0.4, 0.2, 0.4] }, song: { n: '노래 중심', h: '라이브 노래를 길게 한다', w: [0.6, 0.15, 0.25] }, dance: { n: '춤 · 퍼포먼스 중심', h: '3D 안무와 무대 연출을 크게 한다', w: [0.25, 0.55, 0.2] }, talk: { n: '토크 · 게임 중심', h: '시청자와 이야기하고 게임을 한다', w: [0.2, 0.1, 0.7] } };
+const CO_VL_PRICE = [{ n: '무료 공개', h: '누구나 볼 수 있다 · 수입은 후원 · 굿즈뿐 · 구독자가 많이 는다', inc: 0.45, gain: 1.7 }, { n: '유료 (보통)', h: '보통 값의 시청권', inc: 1, gain: 1 }, { n: '프리미엄', h: '비싼 시청권 · 수입이 크지만 보는 사람이 줄어 구독자는 덜 는다 · 무대가 아쉬우면 원성이 크다', inc: 1.35, gain: 0.55 }];
+function coVlSc(s, g, mix) { const P = coP(s, g.members), w = (CO_VL_MIX[mix] || CO_VL_MIX.even).w; return P.reduce((a, x) => a + lv(x, 'vocal') * w[0] + lv(x, 'dance') * w[1] + lv(x, 'variety') * w[2], 0) / Math.max(1, P.length); }
+function coVlBest(s, g) { return Object.keys(CO_VL_MIX).sort((a, b) => coVlSc(s, g, b) - coVlSc(s, g, a))[0]; }
+function coVlHow(sc) { return sc >= 70 ? '무대가 끝나자 채팅창이 박수로 가득 찼다.' : sc >= 50 ? '무난하게 공연을 마쳤다.' : '멤버들이 긴장해서 실수가 잦았다.'; }
+function coVlRun(s, t, g, pl) {
+  const P = coP(s, g.members), sub = coVSubs(s, g), pr = CO_VL_PRICE[pl.p] || CO_VL_PRICE[1], mix = CO_VL_MIX[pl.mix] ? pl.mix : 'even';
+  g.liveT = s.t + 12; coOut(t, CO_VLIVE.cost, '3D 라이브 제작비', 'vidol');
+  const sc = Math.round(U.clamp(coVlSc(s, g, mix) + Math.log10(1 + sub) * 4 + U.normal(0, 7) - 5, 0, 100));
+  const flop = pl.p === 2 && sc < 55; // 프리미엄인데 무대가 아쉬우면 환불 요구 · 원성 (수입이 줄고 평판이 떨어진다)
+  const inc = Math.round(sub * U.fl(1000, 1600) * (0.6 + sc / 100) * pr.inc * (flop ? 0.8 : 1));
+  coIn(t, inc, '3D 라이브', 'vidol'); const pay = coSettle(s, t, g, inc) || 0;
+  for (const x of P) x.co.subs = Math.round(x.co.subs * (1 + (sc >= 60 ? U.fl(0.04, 0.1) : U.fl(0, 0.03)) * pr.gain));
+  coVRep(s, t, flop ? -1 : sc >= 70 ? 2 : 0.5);
+  g.lives = (g.lives || 0) + 1; g.best = Math.max(g.best || 0, sc);
+  if (!t.vlive) { t.vlive = true; milestone(s, `${age(s)}세에 우리 회사 「${g.name}」 첫 3D 라이브 콘서트를 열었다.`); }
+  return { sc, sub, inc, pay, cost: CO_VLIVE.cost, net: inc - pay - CO_VLIVE.cost, gain: coVSubs(s, g) - sub, mix, p: CO_VL_PRICE[pl.p] ? pl.p : 1 };
 }
+function coVlRows(r) { return [[`${CO_VL_PRICE[r.p].n} · 시청권 · 후원 · 굿즈`, r.inc], ['3D 라이브 제작비', -r.cost], ['멤버 몫', -r.pay], '-', [r.net >= 0 ? '회사에 남는 돈' : '손해', r.net, 1]]; }
+// 실시간 방송 창 (live.js liveStream, 3D LIVE). 손님으로는 같은 회사의 다른 기수가 들어온다
+function coVlSpec(s, t, g, r) {
+  if (typeof liveStage !== 'function') return null;
+  const mates = t.groups.filter(x => x.kind === 'vt' && x.debuted && x.id !== g.id).map(x => x.name).slice(0, 3);
+  return liveStage({ k: 'stream', place: PF.live.n, t: `【3D LIVE】 ${g.name} 콘서트`, g: g.name, cn: g.name, mem: [[g.name, '']], mi: 0, key: true, sc: r.sc, z: { sk: (r.sc - 55) / 12 },
+    x: { sub: 'concert', subs: r.sub, nick: g.name, co: '', mgr: true, mates, d3: true } });
+}
+function coVlCm(sc) { return sc >= 70 ? ['\u00053D 무대 미쳤음 진짜', '\u0005다음 라이브도 무조건 봄', '\u0005멤버들 합 너무 좋았음', '\u0006중간에 렉 걸려서 아쉬웠음'] : sc >= 50 ? ['무난하게 재밌었음', '\u0005토크 파트 좋았음', '\u0006좀 짧았던 듯', '\u0005다음엔 더 잘할 듯'] : ['\u0006실수가 너무 잦았음', '\u0006기대보다 별로였음', '\u0006준비가 덜 된 느낌', '\u0005그래도 멤버들 고생했음']; }
+function coGQ(s, id, gid) { return s.queue.some(q => q.id === id && q.d && q.d.gid === gid) || !!(s.pending && s.pending.id === id && s.pending.d && s.pending.d.gid === gid); }
+// CEO가 맡은 회사: 창 없이 연다 (멤버들에게 가장 맞는 꾸밈 · 보통 시청권)
+function coVLive0(s, t, g, quiet) {
+  const r = coVlRun(s, t, g, { mix: coVlBest(s, g), p: 1 }), how = coVlHow(r.sc);
+  if (quiet) return `「${g.name}」 3D 라이브 콘서트를 열었다. ${how} 매출 ${fmtWon(r.inc)} (제작비 ${fmtWon(CO_VLIVE.cost)}).`;
+  return showResult(s, `「${g.name}」 3D 라이브 콘서트`, `${how}\n\n매출 ${fmtWon(r.inc)} (제작비 ${fmtWon(CO_VLIVE.cost)})`, `「${g.name}」 3D 라이브 콘서트. 매출 ${fmtWon(r.inc)}.`);
+}
+E({
+  id: 'co_vl_plan', cat: '3D 라이브 콘서트', tag: 'career',
+  title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 3D 라이브 콘서트 기획`,
+  cond: s => coOn(s),
+  init(s, d) { const g = coGroup(s, d.gid), t = coT(s); if (!g || coVLiveWhy(s, t, g) || (d.gau && (!(g.auto || {}).live || coCeo(t, 'vidol')))) d.skip = true; },
+  text: (s, d) => { const g = coGroup(s, d.gid), t = coT(s); return `${d.gau ? '3D 라이브 콘서트를 열 수 있게 됐다. ' : ''}어떤 무대로 꾸밀지, 시청권을 얼마에 팔지 정한다. 멤버들이 잘하는 쪽으로 꾸밀수록 반응이 좋다.\n\n기수 구독자 ${fmtFans(coVSubs(s, g))} · 제작비 ${fmtWon(CO_VLIVE.cost)} · 자본금 ${fmtWon(coM(t, 'vidol'))}\n` + coP(s, g.members).map(x => `· ${coVName(x)} — 노래 ${lvi(x, 'vocal')} · 춤 ${lvi(x, 'dance')} · 예능 ${lvi(x, 'variety')}`).join('\n'); },
+  form: (s, d) => [{ type: 'head', label: '무대 꾸밈' }].concat(Object.entries(CO_VL_MIX).map(([k, M]) => ({ k: 'mix', type: 'radio', v: k, on: k === 'even', label: M.n, sub: M.h })),
+    [{ type: 'head', label: '시청권' }], CO_VL_PRICE.map((P, i) => ({ k: 'p', type: 'radio', v: String(i), on: i === 1, label: P.n, sub: P.h }))),
+  submitT: () => '공연 시작',
+  fbtn: (s, d) => { const g = coGroup(s, d.gid), GP = g && coGProd(s, g); return GP ? [{ t: `전담 프로듀서 ${GP.name}에게 맡기기`, h: '꾸밈 · 시청권을 알아서 정한다 · 결과는 기사로 본다', f: s => { fireEvent(s, 'co_vl_res', { gid: g.id, pl: { mix: coVlBest(s, g), p: 1 }, mode: 'prod' }); return ''; } }] : []; },
+  cancel: (s, d) => { const g = coGroup(s, d.gid); if (g && d.gau) g.vlAsk = s.t + 6; return ''; }, cancelT: () => '그만두기',
+  submit(s, d, v) {
+    const g = coGroup(s, d.gid), t = coT(s); if (!g) return {};
+    const w = coVLiveWhy(s, t, g); if (w) return { err: w };
+    fireEvent(s, 'co_vl_res', { gid: g.id, pl: { mix: CO_VL_MIX[v.mix] ? v.mix : 'even', p: U.clamp(parseInt(v.p, 10) || 0, 0, CO_VL_PRICE.length - 1) }, mode: 'me' }); return {};
+  },
+});
+E({
+  id: 'co_vl_res', cat: '3D 라이브 콘서트', tag: 'career', keepPop: true, wide: true, ledA: () => '3D 라이브 콘서트',
+  title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || d.gn || ''}」 3D 라이브 콘서트 결산`,
+  cond: s => coOn(s),
+  live: (s, d) => d.mode === 'me' ? d.sp : null,
+  init(s, d) {
+    const t = coT(s), g = coGroup(s, d.gid);
+    if (!g || coVLiveWhy(s, t, g)) { d.skip = true; return; }
+    d.gn = g.name; d.r = coVlRun(s, t, g, d.pl || {}); d.sp = coVlSpec(s, t, g, d.r);
+    if (d.mode !== 'me') d.card = { lines: coVlCm(d.r.sc) };
+  },
+  text: (s, d) => `${CO_VL_MIX[d.r.mix].n} · ${CO_VL_PRICE[d.r.p].n}. ${coVlHow(d.r.sc)}`,
+  news(s, d) {
+    const r = d.r, A = `「${d.gn}」`, g = coGroup(s, d.gid), GP = d.mode === 'prod' ? coGProd(s, g) : null;
+    const heads = r.sc >= 70 ? [`${A} 3D 라이브 콘서트, 채팅창이 박수로 가득`, `${A}, 3D 라이브로 동시 접속 몰려`] : r.sc >= 50 ? [`${A}, 3D 라이브 콘서트 무난하게 마쳐`, `${A} 3D 라이브 콘서트 열어`] : [`${A} 3D 라이브 콘서트, 실수 잇따라`, `${A} 3D 라이브…아쉬움 남겨`];
+    const body = [`버츄얼 아이돌 ${josa(A, '이가')} 3D 라이브 콘서트를 열었다. ${CO_VL_MIX[r.mix].n}으로 꾸민 무대였고, ${CO_VL_PRICE[r.p].n}로 공개했다.`, `${GP ? `기획은 전담 프로듀서 ${josa(GP.name, '이가')} 맡았다. ` : ''}${coVlHow(r.sc)}`];
+    const ts = [['🎙️', `3D 라이브 · ${CO_VL_MIX[r.mix].n}`, ''], ['🔥', `반응 ${r.sc}`, r.sc >= 70 ? 'g' : r.sc < 50 ? 'b' : ''], ['💰', r.net >= 0 ? `수익 +${fmtWon(r.net)}` : `손해 ${fmtWon(-r.net)}`, r.net >= 0 ? 'g' : 'b'], ['📈', `기수 구독자 ${sgnFans(r.gain)}`, r.gain > 0 ? 'g' : '']];
+    return { who: A, heads, body, sec: '방송', t: d.gn, sc: r.sc, wins: r.sc >= 65 ? 1 : 0, live: d.sp, bill: { t: '3D 라이브 정산', rows: coVlRows(r) }, ts };
+  },
+  html: (s, d) => d.mode !== 'me' && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.co_vl_res.news(s, d))
+    : `<div class="m-text">${rich(EVENTS.co_vl_res.text(s, d))}</div>` + (typeof stResHTML === 'function' ? stResHTML(streamBoxes(d.sp, { don: d.r.inc, donK: '공연 수입', gain: d.r.gain })) : '') + billHTML({ t: '3D 라이브 정산', rows: coVlRows(d.r) }) + (d.sp && typeof liveBtnHTML === 'function' ? liveBtnHTML(d.sp, '콘서트 다시 보기') : ''),
+  toasts: (s, d) => { const r = d.r; return [['🎙️', `「${d.gn}」 3D 라이브 콘서트 결산`, 'h'], ['🔥', `반응 ${r.sc} · ${coVlHow(r.sc)}`, r.sc >= 70 ? 'g' : r.sc < 50 ? 'b' : ''], ['💰', r.net >= 0 ? `수익 +${fmtWon(r.net)}` : `손해 ${fmtWon(-r.net)}`, r.net >= 0 ? 'g' : 'b'], ['📈', `기수 구독자 ${sgnFans(r.gain)}`, r.gain > 0 ? 'g' : '']]; },
+  ch: (s, d) => [{ t: '확인', f: () => `「${d.gn}」 3D 라이브 콘서트 (${CO_VL_MIX[d.r.mix].n} · ${CO_VL_PRICE[d.r.p].n}). 반응 ${d.r.sc} · ${d.r.net >= 0 ? `남은 돈 ${fmtWon(d.r.net)}` : `손해 ${fmtWon(-d.r.net)}`}.` }],
+});
 // ───── 기획사 그룹 굿즈 · 단독 콘서트 (v179, 버츄얼 기수의 굿즈 · 3D 라이브와 같은 틀) ─────
 // 굿즈: 6개월에 한 번, 멤버 한 명당 제작비, 팬이 많을수록 많이 팔린다
 // 콘서트: 1년에 한 번, 그룹 팬 20만 명부터. 멤버들의 노래 · 춤(밴드는 파트 연주) · 예능 실력이 좋을수록 잘된다
@@ -2707,7 +2770,7 @@ function coTabStaff(s, t, f) {
     h += `<div class="sec-h">트레이너 <span class="n">${trs.length}명</span></div>`;
     for (const k of CO_TR_FIELDS.concat([...new Set(trs.map(x => x.co.k))].filter(k => !CO_TR_FIELDS.includes(k)))) {
       const L = trs.filter(x => x.co.k === k).sort((a, b) => teachLv(b, k) - teachLv(a, k)); if (!L.length) continue;
-      const gk = `trf:${f}:${k}`, op = UI.openGroups[gk] !== false;
+      const gk = `trf-${f}-${k}`, op = !!UI.openGroups[gk]; // v208: 처음엔 접혀 있다
       h += `<div class="sec-h tog dict-sub" data-grp="${gk}">${op ? '▾' : '▸'} ${trFieldN(k)} (${L.length}명)</div>`;
       if (op) h += `<div class="dict-subb">` + L.map(x => actRow({ who: x.id, t: `${x.name} (${gNn(x)} · ${pAge(s, x)}세)`, h: coStaffLine(x), ok: true, danger: true, btn: '내보내기', confirm: `${x.name}을 내보낼까요?`, run: s => coFire(s, x) })).join('') + `</div>`;
     }
@@ -2799,13 +2862,15 @@ function coAutoMonth(s, t) {
   for (const g of coCeo(t, 'vidol') ? [] : coVAutoGens(t)) {
     const au = g.auto || {}, res = coFixed(s, t, 'vidol') * CO_AUTO_RES;
     if (au.goods && !coVGoodsWhy(s, t, g) && coM(t, 'vidol') >= coVGoodsCost(s, g) + res) addRes(s, coVGoods(s, t, g));
-    if (au.live && !coVLiveWhy(s, t, g) && coM(t, 'vidol') >= CO_VLIVE.cost + res) addRes(s, coVLive(s, t, g, true));
+    // v208: 3D 라이브는 창 없이 열지 않고 기획 창을 띄운다 (고르는 건 대표가 직접). 그만두면 6개월 동안 다시 띄우지 않는다
+    if (au.live && !coVLiveWhy(s, t, g) && coM(t, 'vidol') >= CO_VLIVE.cost + res && !(g.vlAsk > s.t) && !coGQ(s, 'co_vl_plan', g.id)) { g.vlAsk = s.t + 3; queueEv(s, 'co_vl_plan', 0, { gid: g.id, gau: 1 }, true); }
   }
   // 기획사 그룹 굿즈 · 단독 콘서트 (v179): 기수 굿즈 · 3D 라이브와 같다 (창 없이 기록만)
   for (const g of coCeo(t, 'music') ? [] : coGActGrps(t)) {
     const au = g.auto || {}, res = coFixed(s, t, 'music') * CO_AUTO_RES;
     if (au.goods && !coGGoodsWhy(s, t, g) && coM(t, 'music') >= coGGoodsCost(s, g) + res) addRes(s, coGGoods(s, t, g));
-    if (au.live && g.kind === 'idol' && typeof ccWhy === 'function') { if (!ccWhy(s, t, g) && coM(t, 'music') >= ccCost(0) + res) { const x = ccAutoRun(s, t, g, 'auto'); if (x) addRes(s, x); } }
+    // v208: 아이돌 단독 콘서트도 기획 창(공연장부터)을 띄운다 (고르는 건 대표가 직접)
+    if (au.live && g.kind === 'idol' && typeof ccWhy === 'function') { if (!ccWhy(s, t, g) && coM(t, 'music') >= ccCost(0) + res && !(g.ccAsk > s.t) && !coGQ(s, 'co_cc_venue', g.id)) { g.ccAsk = s.t + 3; queueEv(s, 'co_cc_venue', 0, { gid: g.id, gau: 1 }, true); } }
     else if (au.live && !coGLiveWhy(s, t, g) && coM(t, 'music') >= CO_GLIVE.cost + res) addRes(s, coGLive(s, t, g, true));
   }
 }
@@ -2833,7 +2898,7 @@ function coTabAuto(s, t, f) {
       { btn: '켜기', on: !!(g.auto || {})[k], ok: true, run: () => { (g.auto = g.auto || {})[k] = true; return ''; } },
       { btn: '끄기', on: !(g.auto || {})[k], ok: true, run: () => { (g.auto = g.auto || {})[k] = false; return ''; } }] });
     const res = coFixed(s, t) * CO_AUTO_RES;
-    h += `<div class="sec-h">기수 활동 자동</div>` + G.map(g => actRow(gsw(g, 'goods', `「${g.name}」 굿즈`, `6개월마다 · 자본금 ${fmtWon(coVGoodsCost(s, g) + res)} 이상일 때`)) + actRow(gsw(g, 'live', `「${g.name}」 3D 라이브 콘서트`, `1년마다 · 멤버 모두 3D · 기수 구독자 ${fmtFans(CO_VLIVE.min)} 이상 · 자본금 ${fmtWon(CO_VLIVE.cost + res)} 이상일 때`))).join('');
+    h += `<div class="sec-h">기수 활동 자동</div>` + G.map(g => actRow(gsw(g, 'goods', `「${g.name}」 굿즈`, `6개월마다 · 자본금 ${fmtWon(coVGoodsCost(s, g) + res)} 이상일 때`)) + actRow(gsw(g, 'live', `「${g.name}」 3D 라이브 콘서트`, `1년마다 기획 창을 띄운다 · 멤버 모두 3D · 기수 구독자 ${fmtFans(CO_VLIVE.min)} 이상 · 자본금 ${fmtWon(CO_VLIVE.cost + res)} 이상일 때`))).join('');
   }
   // 그룹마다 굿즈 · 단독 콘서트 (v179, 데뷔한 그룹 · 밴드만)
   const GG = has('music') ? coGActGrps(t) : [];
@@ -2842,7 +2907,7 @@ function coTabAuto(s, t, f) {
       { btn: '켜기', on: !!(g.auto || {})[k], ok: true, run: () => { (g.auto = g.auto || {})[k] = true; return ''; } },
       { btn: '끄기', on: !(g.auto || {})[k], ok: true, run: () => { (g.auto = g.auto || {})[k] = false; return ''; } }] });
     const res = coFixed(s, t, 'music') * CO_AUTO_RES;
-    h += `<div class="sec-h">그룹 활동 자동</div>` + GG.map(g => actRow(gsw2(g, 'goods', `「${g.name}」 굿즈`, `6개월마다 · 자본금 ${fmtWon(coGGoodsCost(s, g) + res)} 이상일 때`)) + actRow(gsw2(g, 'live', `「${g.name}」 단독 콘서트`, `1년마다 · 그룹 팬 ${fmtFans(CO_GLIVE.min)} 이상 · 자본금 ${fmtWon(CO_GLIVE.cost + res)} 이상일 때`))).join('');
+    h += `<div class="sec-h">그룹 활동 자동</div>` + GG.map(g => actRow(gsw2(g, 'goods', `「${g.name}」 굿즈`, `6개월마다 · 자본금 ${fmtWon(coGGoodsCost(s, g) + res)} 이상일 때`)) + actRow(gsw2(g, 'live', `「${g.name}」 단독 콘서트`, g.kind === 'idol' && typeof ccWhy === 'function' ? `1년마다 기획 창을 띄운다 · 앨범 ${CC_MIN.alb}장 · 그룹 팬 ${fmtFans(CC_MIN.fans)} 이상 · 자본금 ${fmtWon(ccCost(0) + res)} 이상일 때` : `1년마다 · 그룹 팬 ${fmtFans(CO_GLIVE.min)} 이상 · 자본금 ${fmtWon(CO_GLIVE.cost + res)} 이상일 때`))).join('');
   }
   return h;
 }
@@ -3068,7 +3133,7 @@ function coEvF(s, id, d) {
   return null;
 }
 // 주인(나)이 정할 일: 돈 · 회사 설립 · CEO 일
-const CEO_KEEP = new Set(['co_short', 'co_xfer', 'co_money', 'co_new', 'co_found', 'co_new_staff', 'co_ceo_pick', 'co_ceo_deal', 'co_ceo_eval', 'co_ceo_dir', 'co_ceo_end', 'co_ceo_ask']);
+const CEO_KEEP = new Set(['co_vl_plan', 'co_short', 'co_xfer', 'co_money', 'co_new', 'co_found', 'co_new_staff', 'co_ceo_pick', 'co_ceo_deal', 'co_ceo_eval', 'co_ceo_dir', 'co_ceo_end', 'co_ceo_ask']);
 let CEO_N = 0;
 // 지금 떠 있는 창이 CEO가 맡은 회사 일이면 CEO가 고른다 (game.js autoEvs). 처리했으면 true
 function ceoTake(s) {

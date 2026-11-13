@@ -2758,6 +2758,7 @@ for (const k of ['solo', 'band']) {
     cond: live,
     init(s, d) { if (!live(s)) d.skip = true; },
     text: (s, d) => { const j = myAlbJudge(s, k); return myAlbHead(s, k) + `\n\n컨셉과 곡을 모을 곳을 정하자. 여러 개를 같이 고를 수 있고, 고른 만큼 돈이 든다. ${j ? `모인 곡은 A&R 팀장 ${josa(j.name, '이가')} 다섯 곡으로 추려 오고,` : '회사가 없어 A&R 팀도 없다. 모인 곡은 내가 전부 들어 보고,'} 한 달 뒤에 실을 곡을 정한다.`; },
+    card: 'plan-card', // v208
     form: (s, d) => { const x = myAlbX(s, k); x.last = s.tracks[k].lastPlan; return albPlanForm(s, x, c => myAlbFit(s, k, c)); },
     sum: (s, d, v) => { const x = myAlbX(s, k), r = albPlanRead(s, x, v), n = ALB_SRC.filter(z => r.src.includes(z.k)).reduce((a, z) => a + albSrcCnt(x, z, r.cs.length), 0); return `컨셉 ${r.cs.length}개 · 데모곡 ${n}곡쯤 · 드는 돈 ${fmtWon(albPlanCost(x, r.cs, r.src))} · ${myMoneyN(s, k)} ${fmtWon(jobMoney(s, k))}`; },
     cancel: (s, d) => { s.tracks[k].nextRel = 3; return `${nm}은 석 달 뒤로 미뤘다.`; },

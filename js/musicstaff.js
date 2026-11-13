@@ -361,6 +361,7 @@ E({
   id: 'prod_plan', cat: '프로듀싱', title: '앨범 기획 · 데모곡 확보', tag: 'career',
   init(s, d) { const w = prodW(s, d); if (!w || (w.alb && w.alb.five)) d.skip = true; },
   text: (s, d) => { const w = prodW(s, d), j = prodAnr(s, w); return `${w.inh ? '회사에서 맡긴 ' : ''}${w.a.name}의 새 앨범 「${w.title}」 기획 회의다. 컨셉과 곡을 모을 곳을 정하자. 여러 개를 같이 고를 수 있고, 돈은 앨범 예산에서 나간다.\n\n요즘 유행 '${s.trend}' · ${w.a.name}의 대표 컨셉 '${w.a.sig}'\n앨범 예산 ${fmtWon(prodBud(w))} (곡을 모으는 데 · 타이틀곡 값 · 편곡 · 작사 맡기기)\n\n모인 곡은 A&R 팀장 ${josa(j.name, '이가')} 다섯 곡으로 추리고, 다음 달에 실을 곡을 정한다.`; },
+  card: 'plan-card', // v208
   form: (s, d) => { const w = prodW(s, d), x = prodX(s, w); x.def = w.a.sig; return albPlanForm(s, x, c => [prodFit(s, w, c), `내 숙련도 ${Math.floor(cmGet(s, c))}`].filter(Boolean).join(' · ')); },
   sum: (s, d, v) => { const w = prodW(s, d), x = prodX(s, w), r = albPlanRead(s, x, v), n = ALB_SRC.filter(z => r.src.includes(z.k)).reduce((a, z) => a + albSrcCnt(x, z, r.cs.length), 0); return `컨셉 ${r.cs.length}개 · 데모곡 ${n}곡쯤 · 드는 돈 ${fmtWon(albPlanCost(x, r.cs, r.src))} · 앨범 예산 ${fmtWon(prodBud(w))}`; },
   // 자동 플레이: 대표 컨셉에 외부 공모, 예산이 넉넉하면 지명 의뢰, 작곡을 잘하면 내 곡도

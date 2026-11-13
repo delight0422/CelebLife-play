@@ -840,7 +840,7 @@ function cancelForm(s) {
   s.pending = null;
   let r; ledPush(s, p.id, p.d); try { r = EVENTS[p.id].cancel(s, p.d); } finally { ledPop(s, p.tok || p.d._lt || U.uid(), r); }
   if (r) addLog(s, r, 'ev');
-  pullBack(s);
+  autoEvs(s); pullNow(s); pullBack(s); autoEvs(s); // v208: 그만둬도 이번 달 차례가 된 다음 창이 이어서 뜬다
   save(s);
 }
 // 적는 창 아래 다른 버튼 (v180, ev.fbtn): 확인 · 그만두기 말고 따로 할 일 (배우 섭외 창의 '섭외를 마친다' 등). b.ok === false면 못 누른다
@@ -891,10 +891,15 @@ const LOG_HTML = new WeakMap();
 const NOW_EVS = new Set(['co_aud_pick', 'co_aud', 'co_trn_out', 'co_tr_out', 'co_hire_tf', 'co_renew', 'co_auto_full', 'co_sq_ready', 'dorm_out', 'sk_swap', 'sk_drop', 'slot_up', 'school_start', 'title_pick', 'stage_name', 'song_concept', 'idol_cb', 'idol_cbres', 'co_cb', 'co_song', 'co_res', 'band_fest_play', 'band_arr']);
 // 숙소를 나오게 되면 바로 '숙소를 나와야 한다' 창을 띄운다 (v130: 예전엔 다음 달로 넘어가야 떴다). 한 달 진행과 선택 · 행동 뒤에 본다
 function dormCheck(s) { const dorm = isDorm(s); if (s.dormWas && !dorm && age(s) >= 19 && !s.army && s.home.mode !== 'alone' && !hasQ(s, 'dorm_out') && !(s.pending && s.pending.id === 'dorm_out')) queueEv(s, 'dorm_out', 0); s.dormWas = dorm; }
+// v208: NOW_EVS가 아니어도 이번 달 차례가 된 창(자동으로 연 기획 · 오디션 · 결과 등)은 모두 앞 창에 답하자마자 이어서 띄운다
+//   예전엔 진행할 때 한 달에 하나씩만 떠서, 후반에 회사 일이 많아지면 몇 달씩 밀렸다. NOW_EVS를 먼저, 그다음 가장 오래 기다린 것부터
+let PULL_MID = false; // 한 달 처리 중 (tick 시작 ~ pickEvent 앞)
+function pullDue(s) { let bi = -1; for (let i = 0; i < s.queue.length; i++) { const q = s.queue[i]; if (q.at <= s.t && !q.re && (bi < 0 || q.at < s.queue[bi].at)) bi = i; } return bi; }
 function pullNow(s) {
   if (s.dormWas != null) dormCheck(s);
-  for (let n = 0; n < 8 && !s.pending && !s.ended; n++) {
-    const i = s.queue.findIndex(q => NOW_EVS.has(q.id) && q.at <= s.t);
+  for (let n = 0; n < 40 && !s.pending && !s.ended; n++) {
+    let i = s.queue.findIndex(q => NOW_EVS.has(q.id) && q.at <= s.t);
+    if (i < 0 && !PULL_MID) i = pullDue(s);
     if (i < 0) return;
     const q = s.queue.splice(i, 1)[0], ev = EVENTS[q.id];
     if (typeof coAutoStale === 'function' && coAutoStale(s, q)) continue;
@@ -1166,7 +1171,9 @@ function doActivity(s, sl, i) {
 // ───── 한 달 진행 ─────
 function tick(s) {
   NAME_S = s;
+  PULL_MID = false;
   if (s.pending || s.ended) return;
+  PULL_MID = true;
   s.t++;
   s.mon = { inc: 0, exp: 0, ent: 0, items: {}, familyPaid: 0 };
   if (s.t % 12 === 0) onBirthday(s);
@@ -1200,6 +1207,7 @@ function tick(s) {
   dormCheck(s);
   parEquipMonth(s);
   if (!s.army) { actAutoMonth(s); lifeAutoMonth(s); coMeetMonth(s); if (typeof ceoOfferMonth === 'function') ceoOfferMonth(s); if (typeof pfInvMaybe === 'function') pfInvMaybe(s); }
+  PULL_MID = false;
   pickEvent(s);
   autoEvs(s); pullNow(s);
   s.lastMon = s.mon;

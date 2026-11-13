@@ -596,13 +596,17 @@ function liveChat(x, k, who) {
 // ───── 단독 콘서트 (v193, concert.js) ─────
 // 셋리스트 순서대로: 곡마다 한 장면(반응 세기 b.h, 지쳤으면 숨찬 소리), 토크 · VCR도 한 장면씩. 열기(sc)가 높으면 앙코르
 function liveConcert(sp, R, pk, z, lvl, who) {
-  const C = sp.cc, B = [], f = C.fill || 0, lv3 = h => h >= 0.45 ? 2 : h >= -0.2 ? 1 : 0;
-  B.push({ cap: `${C.venue} · ${f >= 0.995 ? '매진' : `객석 ${Math.round(f * 100)}%`}`, glow: 0.3 + f * 0.3,
+  const C = sp.cc, B = [], f = C.fill || 0, lv3 = h => h >= 0.45 ? 2 : h >= -0.2 ? 1 : 0, sc = sp.sc != null ? sp.sc : 60;
+  // v208: 위쪽 열기 — 객석이 찬 만큼에서 시작해 곡 · 토크 반응을 따라 오르내리고, 끝인사에서 최종 열기(결산의 열기)가 된다
+  //   곡마다 반응(h)은 공연 평균과 비교한 만큼만 오르내린다 (평균보다 좋으면 오르고, 나쁘면 내린다). 그래야 끝에서 갑자기 꺾이지 않는다
+  const hm = (C.B || []).reduce((a, b) => a + (b.h || 0), 0) / Math.max(1, (C.B || []).length);
+  let cur = 35 + f * 20; const ht = h => { cur += (U.clamp(sc + (h - hm) * 25, 0, 100) - cur) * 0.35; return Math.round(cur); };
+  B.push({ cap: `${C.venue} · ${f >= 0.995 ? '매진' : `객석 ${Math.round(f * 100)}%`}`, glow: 0.3 + f * 0.3, heat: Math.round(cur),
     L: f >= 0.95 ? [[`${who}!! ${who}!!`, 'call'], [pk(LV_BIG), 'big'], [pk(LV_BIG), 'big']] : f >= 0.6 ? [[`${who}!`, 'call'], ['와아!', 'big']] : [['군데군데 빈자리가 보인다', 'soft'], [`${who}…!`, 'soft']] });
   for (const b of C.B || []) {
-    const l = lv3(b.h);
-    if (b.k === 't') B.push({ cap: `💬 토크 · ${b.who}`, glow: 0.45, L: l === 2 ? [['하하하하!!', 'big'], [`${b.who} 귀여워!!`, 'call']] : l === 1 ? [['하하하', 'soft'], [`${b.who}!`, 'call']] : [['하… 하하…', 'soft'], ['(정적)', 'bad']] });
-    else if (b.k === 'v') B.push({ cap: '🎬 VCR · 숨 고르기', glow: 0.25, L: l >= 1 ? [['꺄아아!!', 'big'], ['화면 속 멤버들 귀여워!!', 'call']] : [['웅성웅성…', 'soft']] });
+    const l = lv3(b.h), heat = ht(b.h);
+    if (b.k === 't') B.push({ cap: `💬 토크 · ${b.who}`, glow: 0.45, heat, L: l === 2 ? [['하하하하!!', 'big'], [`${b.who} 귀여워!!`, 'call']] : l === 1 ? [['하하하', 'soft'], [`${b.who}!`, 'call']] : [['하… 하하…', 'soft'], ['(정적)', 'bad']] });
+    else if (b.k === 'v') B.push({ cap: '🎬 VCR · 숨 고르기', glow: 0.25, heat, L: l >= 1 ? [['꺄아아!!', 'big'], ['화면 속 멤버들 귀여워!!', 'call']] : [['웅성웅성…', 'soft']] });
     else {
       const L = l === 2 ? [['♪ 떼창 ♪', 'sing'], [pk(LV_BIG), 'big']] : l === 1 ? [['♪ ♪', 'sing'], [pk(['좋다!', '짝짝짝']), 'soft']] : [[pk(['……', '웅성웅성…']), 'soft']];
       if (b.first && l >= 1) L.push(['오프닝 미쳤다!!', 'big']);
@@ -610,12 +614,11 @@ function liveConcert(sp, R, pk, z, lvl, who) {
       if (b.tired) L.push([pk(['숨이 차 보인다…', '목소리가 흔들린다…']), 'bad']);
       // v197: 하이라이트 곡 (2 = 그 자리에 어울리는 컨셉)
       if (b.hl === 2) L.push([pk(['이 순간 미쳤다!!', '소름 돋아!!', '여기서 이 곡이라니!!']), 'big']);
-      B.push({ cap: `${b.hl ? '★ 하이라이트 · ' : ''}${b.no}. 「${b.t}」${b.tt ? '' : ' · 수록곡'}`, glow: Math.min(1, 0.5 + l * 0.17 + (b.hl === 2 ? 0.15 : 0)), L });
+      B.push({ cap: `${b.hl ? '★ 하이라이트 · ' : ''}${b.no}. 「${b.t}」${b.tt ? '' : ' · 수록곡'}`, glow: Math.min(1, 0.5 + l * 0.17 + (b.hl === 2 ? 0.15 : 0)), heat, L });
     }
   }
-  const sc = sp.sc;
-  if (sc >= 60) B.push({ cap: '앙코르', glow: 0.9, L: [['앙코르!! 앙코르!!', 'call'], [pk(LV_BIG), 'big']] });
-  B.push({ cap: '끝인사', glow: sc >= 75 ? 1 : sc >= 50 ? 0.75 : 0.5, L: sc >= 75 ? [['사랑해!!', 'big'], ['또 와!!', 'big'], [`${who}!! ${who}!!`, 'call']] : sc >= 50 ? [['수고했어!', 'big'], ['짝짝짝', 'soft']] : [['짝… 짝…', 'soft']] });
+  if (sc >= 60) { cur += (sc - cur) * 0.6; B.push({ cap: '앙코르', glow: 0.9, heat: Math.round(cur), L: [['앙코르!! 앙코르!!', 'call'], [pk(LV_BIG), 'big']] }); }
+  B.push({ cap: '끝인사', glow: sc >= 75 ? 1 : sc >= 50 ? 0.75 : 0.5, heat: Math.round(sc), L: sc >= 75 ? [['사랑해!!', 'big'], ['또 와!!', 'big'], [`${who}!! ${who}!!`, 'call']] : sc >= 50 ? [['수고했어!', 'big'], ['짝짝짝', 'soft']] : [['짝… 짝…', 'soft']] });
   return B;
 }
 function liveMeet(sp, R, pk, z, lvl, who, mine) {
@@ -750,7 +753,7 @@ function liveOpen(sp, end) {
   $('#live-card').innerHTML = liveHTML(sp);
   $('#live').classList.remove('hidden');
   // 아래 막대는 처음부터 끝까지 같은 속도로 찬다 (v130)
-  const bar = $('#lv-bar'), tot = LIVE.B.reduce((a, b) => a + liveBeatMs(b), 0);
+  const bar = $('#lv-bar'), tot = LIVE.B.reduce((a, b) => a + liveBeatMs(b, sp), 0);
   if (bar) { bar.style.transition = `width ${tot}ms linear`; void bar.offsetWidth; bar.style.width = '100%'; }
   chLoad(); chPaintAll();
   liveNext();
@@ -764,7 +767,7 @@ function liveHTML(sp) {
   const oth = k => [0, 1, 2].map(i => `<span class="lm" style="--i:${i + k}">${liveChar('rival' + sp.seed + (i + k), (sp.hue + 90 + (k ? 110 : 0)) % 360, 'rival' + sp.seed + k)}</span>`).join('');
   // 사진 무대 (v154 보탬): 음악방송 · 콘서트 무대는 사용자가 만든 무대 그림을 깔고, 객석 막대는 응원봉 그림으로 (그림이 없으면 예전 그대로)
   const pop = !sp.vn && (sp.k === 'idol' || sp.k === 'solo' || sp.k === 'meet'), ph = pop ? (/콘서트|팬미팅|투어/.test(sp.place) ? 'concert' : 'musicshow') : '';
-  return `<div class="lv-top"><span class="lv-place">${U.esc(sp.place)}</span>${sp.cc ? `<span class="lv-t" id="lv-t"></span>` : sp.t ? `<span class="lv-t">「${U.esc(sp.t)}」</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
+  return `<div class="lv-top"><span class="lv-place">${U.esc(sp.place)}</span>${sp.cc ? `<span class="lv-t" id="lv-t"></span><span class="lv-heat" id="lv-heat">🔥 열기 <span class="lv-hb"><i></i></span><b>-</b></span>` : sp.t ? `<span class="lv-t">「${U.esc(sp.t)}」</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
     + `<div class="lv-stage${sp.vn ? ' vn-' + sp.vn : ''}${ph ? ' ph' : ''}${sp.k === 'set' || sp.k === 'show' || sp.k === 'runway' || sp.k === 'booth' || sp.k === 'eval' || (sp.k === 'class' && (sp.x || {}).room === 'ol') ? ' mcon' : ''}${sp.k === 'class' ? ' rm-' + ((sp.x || {}).room || 'uni') : ''}" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"${pop ? ` data-stick="${1 + hashN('stk' + sp.g) % 3}" data-hue="${sp.hue}"` : ''}>${ph ? `<div class="lv-ph" style="background-image:url('img/st/${ph}.webp')"></div>` : ''}<div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
     + `<div class="lv-floor"></div><div class="lv-oth l">${oth(0)}</div><div class="lv-oth r">${oth(3)}</div>`
     + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? (sp.hue + i * 67) % 360 : sp.hue, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? sp.g + i : sp.g, { sx: liveMemSx(sp, i), cos: sp.cos, mic: sp.mic })}${m[0] || ((sp.k === 'band' || sp.k === 'player') && m[1]) ? `<em>${sp.k === 'band' || sp.k === 'player' ? livePartIc(m[1]) + ' ' : ''}${U.esc(m[0])}</em>` : ''}</span>`).join('')}</div>`
@@ -774,7 +777,8 @@ function liveHTML(sp) {
     + `<div class="lv-bar"><i id="lv-bar"></i></div>`
     + `<div class="lv-btns"><button class="btn primary" data-liveskip>결과 바로 보기</button></div>`;
 }
-function liveBeatMs(b) { return Math.max(1050, 300 + b.L.length * 260 + 350); }
+// v208: 단독 콘서트(sp.cc)는 장면이 많아서 한 장면을 절반 넘게 짧게 (예전 30초 남짓 → 15초 안팎)
+function liveBeatMs(b, sp) { return sp && sp.cc ? Math.max(450, 150 + b.L.length * 130 + 120) : Math.max(1050, 300 + b.L.length * 260 + 350); }
 function liveNext() {
   const L = LIVE;
   if (!L) return;
@@ -785,15 +789,17 @@ function liveNext() {
   if (st) { st.style.setProperty('--glow', b.glow); st.classList.remove('fx-drum', 'fx-win'); if (b.fx) st.classList.add('fx-' + b.fx); st.classList.toggle('gather', !!b.gather); st.classList.toggle('lose', !!b.lose); if (b.clap) { st.classList.remove('clap'); void st.offsetWidth; st.classList.add('clap'); } if (b.walk != null) st.style.setProperty('--walk', b.walk); st.classList.toggle('fl1', b.flash === 1); st.classList.toggle('fl2', b.flash === 2); st.classList.toggle('rec', !!b.rec); st.classList.toggle('play', !!b.play); st.classList.toggle('wr', !!b.write); ['zz1', 'zz2', 'zz3'].forEach((c, i) => st.classList.toggle(c, b.zz === i + 1)); }
   if (b.view != null) { const v = $('#st-view'); if (v) v.textContent = b.view.toLocaleString(); }
   if (L.sp.cc) { const e = $('#lv-t'); if (e) e.textContent = b.cap; } // v193: 콘서트는 지금 무엇을 하는지 (곡 · 토크 · VCR)
-  b.L.forEach((e, j) => L.tm.push(setTimeout(() => (L.sp.k === 'stream' ? liveChat(e[0], e[1], e[2]) : liveBubble(e[0], e[1])), 120 + j * 260)));
-  L.tm.push(setTimeout(liveNext, liveBeatMs(b)));
+  if (L.sp.cc && b.heat != null) { const e = $('#lv-heat'); if (e) { e.querySelector('i').style.width = b.heat + '%'; e.querySelector('b').textContent = b.heat; e.classList.toggle('hot', b.heat >= 70); } } // v208: 위쪽 열기
+  const cc = !!L.sp.cc;
+  b.L.forEach((e, j) => L.tm.push(setTimeout(() => (L.sp.k === 'stream' ? liveChat(e[0], e[1], e[2]) : liveBubble(e[0], e[1])), cc ? 80 + j * 130 : 120 + j * 260)));
+  L.tm.push(setTimeout(liveNext, liveBeatMs(b, L.sp)));
 }
 function liveBubble(x, k) {
   const box = $('#lv-bub');
   if (!box) return;
   if (k === 'mc') { const m = $('#lv-mc'); if (m) { m.textContent = x; m.classList.remove('in'); void m.offsetWidth; m.classList.add('in'); } return; }
   const el = document.createElement('div');
-  el.className = 'lb ' + k;
+  el.className = 'lb ' + k + (LIVE && LIVE.sp.cc ? ' fast' : ''); // v208: 콘서트는 말풍선도 빨리
   el.textContent = x;
   // 겹치지 않게 자리 8칸(4줄 × 왼쪽 · 오른쪽)을 돌려 쓴다. 한 바퀴(약 2.9초)가 말이 떠 있는 시간(2.6초)보다 길다
   const SL = [[0, 0], [2, 1], [1, 0], [3, 1], [0, 1], [2, 0], [1, 1], [3, 0]];
@@ -805,7 +811,7 @@ function liveBubble(x, k) {
   const x0 = w > W * 0.48 ? (W - w) / 2 : side ? W / 2 + r * Math.max(0, W / 2 - w - W * 0.03) : W * 0.03 + r * Math.max(0, W / 2 - w - W * 0.03);
   el.style.left = Math.max(0, x0) + 'px';
   el.style.visibility = '';
-  setTimeout(() => el.remove(), 2600);
+  setTimeout(() => el.remove(), LIVE && LIVE.sp.cc ? 1000 : 2600); // v208: 콘서트는 말풍선 사이가 130ms라 한 바퀴(약 1초) 안에 사라진다
 }
 function liveDone() {
   // 무대가 끝나고 1초 뒤에는 조명 · 캐릭터 · 응원봉이 멈춘다 (v128)

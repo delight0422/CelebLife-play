@@ -1752,3 +1752,52 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 /* 요약 창 본문은 큰 창을 채우고, 넘치면 그 안에서 스크롤 (위 제목 · 아래 확인 버튼은 그대로) */
 #tcard > .ts-body { flex: 1 1 auto; min-height: 0; max-height: none; }
 #pcard.wide, #mcard.wide, #mcard.nw-wide { max-width: min(1120px, 100%); }
+
+/* v208: 컴백 회의(앨범 기획) 창은 가로를 줄이고 컨셉 8개를 4개씩 두 줄로 (휴대폰은 2개씩) */
+#mcard.plan-card { max-width: min(820px, 100%); }
+.plan-card .ck-grp.grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 640px) { .plan-card .ck-grp.grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* v208: 결산표 — 표마다(그룹 · 회사 일마다) 상자로 나눈다. 맨 아래는 그룹 총수입 */
+.led-box { border: 1px solid var(--line); border-radius: 12px; padding: var(--sp-2) var(--sp-3); background: var(--card); box-shadow: 0 1px 3px rgba(30, 10, 80, .06); margin-bottom: var(--sp-3); overflow-x: auto; }
+.led-box .led-t { margin-bottom: 0; }
+.led-box .led-t th { background: none; }
+.led-box.led-g { border-left: 4px solid var(--violet); }
+.led-box.led-sum { background: var(--card2); }
+.led-box.led-sum .led-t th.led-who { width: auto; }
+/* v208: 단독 콘서트 실시간 창 위쪽의 열기 · 빨리 사라지는 말풍선 */
+.lv-heat { display: inline-flex; align-items: center; gap: 8px; font-weight: 800; font-size: var(--fs-3); color: #ffd9b8; background: rgba(255, 120, 60, .18); padding: var(--sp-1) var(--sp-3); border-radius: 999px; }
+.lv-heat .lv-hb { width: 96px; height: 8px; border-radius: 99px; background: rgba(255, 255, 255, .14); overflow: hidden; }
+.lv-heat .lv-hb i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #ffb347, #ff5c5c); }
+.lv-heat b { min-width: 2ch; text-align: right; font-size: var(--fs-4); }
+.lv-heat.hot { color: #fff; background: rgba(255, 90, 60, .32); }
+.lb.fast { animation-duration: 1s; }
+/* v208: 메시지함 — 요약 칩 · 곧 마감부터 묶음 · 카드(왼쪽 색 띠 · 아이콘 · 기한 칩 · 본문 상자) · 넓으면 두 줄 */
+.ibx-sum { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin: var(--sp-2) 0 var(--sp-2); }
+.ibx-chip { font-size: var(--fs-2); font-weight: 700; color: var(--ink2); background: var(--card2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 14px; }
+.ibx-chip b { font-size: var(--fs-4); color: var(--ink); margin-right: 3px; }
+.ibx-chip.new { background: #fff0f6; border-color: #ffc6dc; }
+.ibx-chip.new b { color: var(--pink); }
+.ibx-chip.soon { background: #fff1f3; border-color: #ffc7cf; }
+.ibx-chip.soon b { color: var(--red); }
+.ibx-sec { font-weight: 800; font-size: var(--fs-3); margin: var(--sp-4) 0 var(--sp-2); color: var(--ink); }
+.ibx-sec.soon { color: var(--red); }
+.ibx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: var(--sp-3); align-items: start; }
+.ibx-grid .msg { margin-bottom: 0; }
+.ibx-grid .msg, .ibx-grid .msg.new { background: var(--card); border: 1px solid var(--line); border-left: 5px solid #cfc6e6; box-shadow: var(--shadow); padding: var(--sp-3); }
+.ibx-grid .msg.new { border-left-color: var(--violet); }
+.ibx-grid .msg.soon, .ibx-grid .msg.now { border-left-color: var(--red); }
+.ibx-grid .msg-h { align-items: flex-start; flex-wrap: nowrap; justify-content: flex-start; gap: var(--sp-3); }
+.msg-ic { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 12px; background: var(--violet-soft); display: grid; place-items: center; font-size: 22px; }
+.msg-tt { flex: 1 1 auto; min-width: 0; }
+.msg-tt > b { font-size: var(--fs-4); line-height: 1.35; }
+.msg-tt .msg-from { margin-top: 2px; }
+.msg-tt .msg-from b { font-size: inherit; }
+.ibx-grid .msg-h .due { flex: 0 0 auto; font-size: var(--fs-1); font-weight: 800; color: var(--ink2); background: var(--card2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
+.ibx-grid .msg-h .due.soon, .ibx-grid .msg-h .due.now { color: #fff; background: var(--red); border-color: var(--red); }
+.ibx-grid .msg-d { background: var(--card2); border-radius: 10px; padding: var(--sp-2) var(--sp-3); color: var(--ink); margin-top: var(--sp-3); }
+.ibx-grid .msg-btns { margin-top: var(--sp-3); }
+.ibx-grid .msg-btns .btn { min-width: 112px; }
+.ibx-past { margin-top: var(--sp-1); }
+.ibx-past .ibx-old { display: grid; grid-template-columns: 62px 26px minmax(0, 1fr); column-gap: var(--sp-2); align-items: baseline; }
+.ibx-past .ibx-old .f { color: var(--muted); }
+@media (max-width: 520px) { .ibx-grid .msg-h { flex-wrap: wrap; } .msg-ic { width: 34px; height: 34px; font-size: 18px; } }

@@ -5,6 +5,8 @@
 //   하이라이트마다 그 자리에 어울리는 컨셉이 같이 정해진다 (공연의 어디쯤인지에 따라). 하이라이트에 든 곡의 완성도 · 컨셉은 열기에 더 크게 들어간다
 //   VCR · 쉬는 시간은 없앴다 (예전 세이브의 기획은 그대로 읽는다)
 // 다음 달에 공연. 내가 기획했으면 음악방송처럼 공연을 본다 (live.js liveConcert). 전담 프로듀서 · 자동 · CEO가 맡으면 안 보여 준다
+// v208: 자동을 켜 두면 열 수 있게 될 때 기획 창(공연장)을 띄운다 — 고르는 건 대표가 직접. 첫 창에서 전담 프로듀서에게 맡기면 결과 기사로 본다
+//   그만두면 6개월 동안 다시 띄우지 않는다 (g.ccAsk). CEO가 맡은 회사는 예전처럼 창 없이 CEO 보고서로
 // 관객 수 = 그룹 팬 · 팬 충성도 · 입장료. 열기 = 무대 실력 · 곡 완성도 · 토크 멤버 예능 (v194)
 // 끝나면 결산: 열기(분위기) · 수익 · 열기가 높으면 팬 충성도 ↑ / 낮으면 그룹 팬 ↓ (토스트). CEO가 맡은 회사면 CEO 보고서에 들어간다
 const CC_VENUE = [
@@ -192,23 +194,28 @@ function ccRun(s, t, g, pl) {
   });
   return { heat: h, sold, cap, fill, price, perf, songQ, talkQ, nS, nT, nV, hlN: (pl.hl || []).length, hlGood: hlGood.length, notes: N, blocks: B };
 }
+// v208: 결과 기사 댓글 (\u0005 좋은 말 · \u0006 쓴소리)
+function ccCmLines(h) { return h >= 70 ? ['\u0005떼창 듣는데 소름 돋았음', '\u0005다음 콘서트도 무조건 감', '\u0005토크 시간에 배꼽 빠지는 줄', '\u0006좌석이 좀 멀어서 아쉬웠음'] : h >= 50 ? ['무난하게 재밌었음', '\u0005셋리스트는 좋았음', '\u0006중간에 살짝 늘어졌음', '\u0005멤버들 라이브 늘었네'] : ['\u0006표값이 아까움', '\u0006중간에 분위기 너무 처졌음', '\u0006셋리스트가 아쉬웠음', '\u0005그래도 멤버들 고생했음']; }
 function ccHeatW(h) { return h >= 85 ? '공연장이 터질 듯했다' : h >= 70 ? '분위기가 뜨거웠다' : h >= 55 ? '무난하게 즐겼다' : h >= 40 ? '분위기가 조금 가라앉았다' : '객석이 식어 버렸다'; }
 
 // ───── 창: 1. 공연장 ─────
+// v208: 기획을 그만두면 6개월 동안 자동으로 다시 띄우지 않는다
+//   자동으로 뜬 창(gau)만. 대표가 버튼으로 직접 연 기획을 그만둔 것은 자동 대기에 넣지 않는다
+function ccCancel(s, d) { const g = coGroup(s, d.gid); if (g && (d.gau || (d.pl && d.pl.gau))) g.ccAsk = s.t + 6; return ''; }
 function ccPlanD(s, d) { const g = coGroup(s, d.gid); return { g, t: coT(s), pl: d.pl || (d.pl = {}) }; }
 function ccBack(id) { return (s, d) => [{ t: '← 뒤로', back: true, f: s => { fireEvent(s, id, { gid: d.gid, pl: d.pl }); return ''; } }]; }
 E({
   id: 'co_cc_venue', cat: '단독 콘서트', tag: 'career',
   title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 단독 콘서트 · 공연장`,
   cond: s => coOn(s),
-  init(s, d) { const g = coGroup(s, d.gid); if (!g) { d.skip = true; return; } d.pl = d.pl || {}; },
-  text: (s, d) => { const { g, t } = ccPlanD(s, d); return `어디를 빌릴까. 공연은 이틀 동안 두 번 한다.\n\n그룹 팬 ${fmtFans(coGFans(g))} · 팬 충성도 ${loyTxt(g)} · 낸 앨범 ${g.cbCount || 0}장\n자본금 ${fmtWon(coM(t, 'music'))}`; },
+  init(s, d) { const g = coGroup(s, d.gid); if (!g) { d.skip = true; return; } if (d.gau && (!(g.auto || {}).live || coCeo(coT(s), 'music') || ccWhy(s, coT(s), g))) { d.skip = true; return; } d.pl = d.pl || {}; if (d.gau) d.pl.gau = 1; },
+  text: (s, d) => { const { g, t } = ccPlanD(s, d); return `${d.gau ? '단독 콘서트를 열 수 있게 됐다. ' : ''}어디를 빌릴까. 공연은 이틀 동안 두 번 한다.\n\n그룹 팬 ${fmtFans(coGFans(g))} · 팬 충성도 ${loyTxt(g)} · 낸 앨범 ${g.cbCount || 0}장\n자본금 ${fmtWon(coM(t, 'music'))}`; },
   form: (s, d) => { const { t, pl } = ccPlanD(s, d), on = pl.v != null ? pl.v : 1; return [{ type: 'head', label: '공연장 (대관료 + 무대 · 연출비는 기획을 마칠 때 낸다)' }].concat(CC_VENUE.map((V, i) => ({ k: 'v', type: 'radio', v: String(i), on: i === on, label: `${V.n} · ${V.seat.toLocaleString()}석 × ${CC_SHOWS}회`, sub: `대관 ${fmtWon(V.rent)} · 무대 · 연출 ${fmtWon(V.stage)}${coM(t, 'music') < ccCost(i) ? ' · 자본금이 모자라다' : ''}` }))); },
   // v203: 아래에 마케터가 내다본 전체 수요 (보통 입장료 기준)
   sum: (s, d, v) => { const { g, pl } = ccPlanD(s, d), V = CC_VENUE[U.clamp(parseInt(v.v, 10) || 0, 0, CC_VENUE.length - 1)], cap = V.seat * CC_SHOWS, R = ccMkRange(s, g, pl, CC_PRICE[2]); return R ? `📈 마케터 ${R.x.name}의 예상 수요: 보통 입장료(${fmtWon(CC_PRICE[2])})면 이틀 동안 ${ccRangeTx(R)} · ${V.n} ${cap.toLocaleString()}석이면 ${ccFillTx(R, cap)}` : '📈 마케터가 없어 수요를 내다볼 수 없다'; },
   submitT: () => '다음 · 부를 곡',
   fbtn: (s, d) => { const g = coGroup(s, d.gid), GP = g && coGProd(s, g); return GP ? [{ t: `전담 프로듀서 ${GP.name}에게 맡기기`, h: '공연장부터 입장료까지 알아서 정한다 · 공연 장면은 안 본다', f: s => { const t = coT(s), pl = ccAutoPlan(s, t, g, 'prod'); if (coM(t, 'music') < ccCost(pl.v)) return '자본금이 모자라 맡기지 못했다.'; return ccConfirm(s, t, g, pl) + ` 전담 프로듀서 ${josa(GP.name, '이가')} 셋리스트를 짰다.`; } }] : []; },
-  cancel: () => '', cancelT: () => '그만두기',
+  cancel: ccCancel, cancelT: () => '그만두기',
   submit(s, d, v) {
     const { g, t, pl } = ccPlanD(s, d), i = U.clamp(parseInt(v.v, 10) || 0, 0, CC_VENUE.length - 1);
     if (coM(t, 'music') < ccCost(i)) return { err: '자본금이 모자라다' };
@@ -230,7 +237,7 @@ E({
   sum: (s, d, v) => { const nS = Object.keys(v).filter(k => /^c\d+$/.test(k) && v[k]).length; return ccCntTx(nS) + (nS < CC_SONG_N[0] ? ` · ${CC_SONG_N[0] - nS}곡 더 골라야 한다` : nS > CC_SONG_N[1] ? ` · ${nS - CC_SONG_N[1]}곡 빼야 한다` : ''); },
   submitT: () => '다음 · 순서',
   fbtn: (s, d) => ccBack('co_cc_venue')(s, d).concat([{ t: '자동으로 고르기', h: '타이틀곡 모두 + 완성도 높은 수록곡', f: s => { d.pl.songs = ccAutoPick(s, coGroup(s, d.gid)); fireEvent(s, 'co_cc_songs', { gid: d.gid, pl: d.pl }); return ''; } }]),
-  cancel: () => '', cancelT: () => '그만두기',
+  cancel: ccCancel, cancelT: () => '그만두기',
   submit(s, d, v) {
     const { g, pl } = ccPlanD(s, d), L = ccSongs(s, g), keys = L.filter((x, i) => v['c' + i]).map(x => x.key);
     if (keys.length < CC_SONG_N[0] || keys.length > CC_SONG_N[1]) return { err: `곡은 ${CC_SONG_N[0]}~${CC_SONG_N[1]}곡 골라야 한다 (지금 ${keys.length}곡)` };
@@ -334,7 +341,7 @@ E({
   },
   submitT: () => '다음 · 토크',
   fbtn: ccBack('co_cc_songs'),
-  cancel: () => '', cancelT: () => '그만두기',
+  cancel: ccCancel, cancelT: () => '그만두기',
   submit(s, d, v) {
     const { g, pl } = ccPlanD(s, d), SB = ccSongBy(s, g);
     let set = pl.set; try { const x = JSON.parse(v.set || 'null'); if (Array.isArray(x)) set = x; } catch (e) { }
@@ -368,7 +375,7 @@ E({
   },
   submitT: () => '다음 · 입장료',
   fbtn: ccBack('co_cc_set'),
-  cancel: () => '', cancelT: () => '그만두기',
+  cancel: ccCancel, cancelT: () => '그만두기',
   submit(s, d, v) { const { g, pl } = ccPlanD(s, d); pl.set.forEach((c, i) => { if (c === 't' && v['t' + i]) pl.talk[i] = v['t' + i] === 'all' || g.members.includes(v['t' + i]) ? v['t' + i] : pl.talk[i]; }); fireEvent(s, 'co_cc_price', { gid: d.gid, pl }); return {}; },
 });
 // ───── 4. 입장료 ─────
@@ -383,7 +390,7 @@ E({
   sum: (s, d, v) => { const { g, pl } = ccPlanD(s, d), V = CC_VENUE[pl.v], cap = V.seat * CC_SHOWS, p = CC_PRICE[parseInt(v.p, 10)] || CC_PRICE[2], R = ccMkRange(s, g, pl, p), tk = n => fmtWon(Math.round(Math.min(cap, n) * p * (1 - CC_FEE))); return `만석이면 티켓 매출 ${fmtWon(Math.round(cap * p * (1 - CC_FEE)))}` + (R ? ` · 📈 마케터 ${R.x.name}의 예상: 관객 ${ccRangeTx(R)} · 티켓 매출 ${R.lo >= cap ? `${tk(cap)} (매진)` : `${tk(R.lo)}~${tk(R.hi)}`}` : ' · 📈 마케터가 없어 수요를 내다볼 수 없다'); },
   submitT: () => '공연 확정',
   fbtn: (s, d) => ccBack(d.pl && d.pl.set && d.pl.set.includes('t') ? 'co_cc_talk' : 'co_cc_set')(s, d),
-  cancel: () => '', cancelT: () => '그만두기',
+  cancel: ccCancel, cancelT: () => '그만두기',
   submit(s, d, v) {
     const { g, t, pl } = ccPlanD(s, d); pl.p = U.clamp(parseInt(v.p, 10) || 0, 0, CC_PRICE.length - 1); pl.mode = 'me';
     if (coM(t, 'music') < ccCost(pl.v)) return { err: '자본금이 모자라다' };
@@ -411,15 +418,35 @@ E({
     else R.repD = 0.3;
     coVRepF(t, 'music', R.repD); R.fd = coGFans(g) - R.f0;
     if (!t.gcon) { t.gcon = true; milestone(s, `${age(s)}세에 우리 회사 「${g.name}」 첫 단독 콘서트를 ${V.n}에서 열었다.`); }
-    if (d.mode === 'me' && typeof liveStage === 'function') {
+    // v208: 장면은 늘 만든다 (내가 기획했으면 실시간 창, 프로듀서가 맡았으면 기사의 '다시 보기')
+    if (d.mode !== 'me') d.card = { lines: ccCmLines(h) };
+    if (typeof liveStage === 'function') {
       const P = coP(s, g.members);
       d.sp = liveStage({ k: 'idol', place: `단독 콘서트 · ${V.n}`, t: '', g: g.name, fd: g.fandom, c: g.sig || ((g.disc || []).slice(-1)[0] || {}).c, sx: liveSx(P), mem: P.map(x => [coSN(x), (g.pos[x.id] || '').split(' · ')[0]]), mi: -1,
         z: { fans: (Math.log10(1 + coGFans(g)) - 4) / 1.2, perf: (R.perf - 45) / 18 }, sc: h, key: true });
       d.sp.cc = { venue: V.n, fill: Math.round(R.fill * 100) / 100, B: R.blocks };
     }
   },
+  // v208: 전담 프로듀서 · 자동이 맡은 공연은 결과 기사로 (사진 대신 '공연 다시 보기' · 정산서 버튼)
+  news(s, d) {
+    const r = d.r, V = CC_VENUE[d.pl.v], A = `「${d.gn}」`, h = r.heat, full = r.fill >= 0.995, g = coGroup(s, d.gid), GP = d.mode === 'prod' ? coGProd(s, g) : null;
+    const heads = h >= 85 ? [`${A}, ${V.n} 단독 콘서트 열광 속 마무리`, `${A} 단독 콘서트, 공연장이 들썩였다`]
+      : h >= 70 ? [`${A}, ${V.n} 단독 콘서트 성황리에 마쳐`, `${A} 단독 콘서트${full ? ' 전석 매진' : ''}…뜨거웠던 이틀`]
+      : h >= 55 ? [`${A}, ${V.n}에서 단독 콘서트 열어`, `${A} 단독 콘서트 무난하게 마무리`]
+      : h >= 40 ? [`${A} 단독 콘서트, 아쉬움 남겨`, `${A} ${V.n} 공연…분위기 가라앉아`]
+      : [`${A} 단독 콘서트, 객석 싸늘`, `${A} 단독 콘서트…식어 버린 객석`];
+    const body = [`${josa(A, '이가')} ${V.n}에서 이틀 동안 단독 콘서트를 열었다. 관객 ${r.sold.toLocaleString()}명이 찾았다${full ? '. 표는 모두 팔렸다' : ''}.`,
+      `${r.nS}곡을 불렀고 토크 시간이 ${r.nT}번 있었다.${GP ? ` 셋리스트는 전담 프로듀서 ${josa(GP.name, '이가')} 짰다.` : ''}`,
+      r.notes.filter(x => !/표가 다 팔렸다/.test(x)).join(' ')];
+    const ts = [['🎤', `${V.n} · 관객 ${r.sold.toLocaleString()}명${full ? ' (매진)' : ''}`, full ? 'g' : ''], ['🔥', `열기 ${h} · ${ccHeatW(h)}`, h >= 70 ? 'g' : h < 45 ? 'b' : ''], ['💰', r.net >= 0 ? `수익 +${fmtWon(r.net)}` : `손해 ${fmtWon(-r.net)}`, r.net >= 0 ? 'g' : 'b']];
+    if (r.ly && g) ts.push(loyToast(r.ly, g));
+    if (g && r.fd) ts.push([r.fd > 0 ? '💜' : '💔', `그룹 팬 ${sgnFans(r.fd)} → ${fmtFans(coGFans(g))}`, r.fd > 0 ? 'g' : 'b']);
+    // wins: 댓글 분위기(좋았나)를 맞추는 값 (기사에 1위로 나오지는 않는다)
+    return { who: A, heads, body, sec: '가요', t: d.gn, sc: h, wins: h >= 65 ? 1 : 0, live: d.sp, bill: { t: '콘서트 정산', rows: ccRows(r) }, ts };
+  },
   text: (s, d) => { const r = d.r; return `${CC_VENUE[d.pl.v].n} · ${r.sold.toLocaleString()}석 (${Math.round(r.fill * 100)}%)\n열기 ${r.heat} · ${ccHeatW(r.heat)}\n\n${r.notes.join(' ')}`; },
   html: (s, d) => {
+    if (d.mode !== 'me' && typeof newsEvHTML === 'function') return newsEvHTML(s, d, EVENTS.co_cc_res.news(s, d));
     const r = d.r, V = CC_VENUE[d.pl.v], g = coGroup(s, d.gid), ic = { s: '🎵', t: '💬', v: '🎬' };
     const lv3 = b => b.k === 'v' ? '' : b.h >= 0.45 ? ' hot' : b.h < -0.2 ? ' cold' : '';
     return `<div class="cc-res"><div class="cc-heat"><span class="cc-hl">🔥 열기</span><span class="cc-hbar"><i style="width:${r.heat}%"></i></span><b>${r.heat}</b></div><div class="cc-hw">${U.esc(ccHeatW(r.heat))}</div>`
