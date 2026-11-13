@@ -67,7 +67,8 @@ function turnStep() {
   try { tick(s); } catch (e) { console.error('한 달 진행 오류', e); toast('이번 달 계산에 문제가 있어 일부를 건너뛰었어요'); }
   T.n++;
   save(s); render();
-  T.why = s.ended ? 'end' : s.pending ? 'ev' : s.inbox.some(m => !T.inbox.has(m.id)) ? 'msg' : T.n >= T.max ? 'max' : T.kid && (slotCount(s) || turnKidSpecial(s, T)) ? 'sp' : '';
+  // v196: 경고(s.warnT, 그만둘까 고민하는 연습생)가 생긴 달에도 멈춘다
+  T.why = s.ended ? 'end' : s.pending ? 'ev' : s.inbox.some(m => !T.inbox.has(m.id)) ? 'msg' : s.warnT === s.t ? 'warn' : T.n >= T.max ? 'max' : T.kid && (slotCount(s) || turnKidSpecial(s, T)) ? 'sp' : '';
   $('#tcard').innerHTML = T.why ? turnSumHTML(s, T) : turnRunHTML(s);
   if (!T.why) UI.timer = setTimeout(turnStep, TURN_MS);
 }
@@ -83,12 +84,14 @@ function turnRunHTML(s) {
 }
 // 요약 창: '✨ 특별한 일'은 칸마다 상자에 나눠 담고(맨 아래는 성장), '☕ 일상'은 펼쳐 둔 트리 뷰
 // 칸: 직업 · 성과 · 제안 · 사람 · 학교 · 돈 · 소식 · 기타 · 성장. 기록 종류(k), 사건 분류(c) · 사건(e), 결과 표시(r), 글로 정한다
-const TS_CATS = [['job', '💼', '직업'], ['win', '🏆', '성과'], ['offer', '📨', '제안'], ['ppl', '👪', '사람'], ['school', '🏫', '학교'], ['money', '💰', '돈'], ['news', '📰', '소식'], ['etc', '🗂️', '기타'], ['grow', '📈', '성장']];
+const TS_CATS = [['warn', '⚠️', '경고'], ['job', '💼', '직업'], ['win', '🏆', '성과'], ['offer', '📨', '제안'], ['ppl', '👪', '사람'], ['school', '🏫', '학교'], ['money', '💰', '돈'], ['news', '📰', '소식'], ['etc', '🗂️', '기타'], ['grow', '📈', '성장']];
 const TS_BY_C = { 배움: 'grow', 재능: 'grow', 특기: 'grow', '연말 시상식': 'win', '작품 성적': 'win', '음원 성적': 'win', '앨범 성적': 'win', '애니 성적': 'win', 가족: 'ppl', 친구: 'ppl', 연애: 'ppl', 결혼: 'ppl', '첫 돌': 'ppl', 초등학교: 'school', 중학교: 'school', 학교: 'school', '학창 시절': 'school', 진학: 'school', 돈: 'money', 독립: 'money', 알림: 'news', '📝 지원': 'job', 병역: 'news', 캐스팅: 'job', 방송: 'job' };
 // 직업 활동의 결과로 뜨는 창 (고를 게 없어 창 없이 처리되면 '성과' 칸)
 const TS_RES_EV = new Set(['actor_res', 'work_res', 'dir_res', 'script_res', 'band_relres', 'solo_relres', 'player_relres', 'w_res', 'co_res', 'co_vres', 'co_ares', 'idol_cbres', 'idol_survres', 'tv_audres', 'mask_res', 'mk_cb_res', 'mk_launch_res', 'mk_ad_res', 'anr_out', 'tr_eval', 'atr_eval', 'tu_res', 'tu_ol_res']);
 function tsCat(x) {
   const t = x.x, c = x.c || '';
+  // v196: 경고 (그만둘까 고민하는 연습생 등) — 맨 위 칸
+  if (x.k === 'warn') return 'warn';
   // 다른 사람 소식 (친구 취업 · 청첩장 · 아이 입학)
   if (x.k === 'news') return 'news';
   // 입학식 · 영어 시간처럼 학교에서 생긴 일은 새 특기를 배웠어도 학교 칸에
@@ -162,7 +165,7 @@ function turnSumHTML(s, T) {
   if (dlg.length) h += `<details class="ts-more ts-dl"><summary>🤝 맡긴 일 ${dlg.length}건</summary>${dlg.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   if (flav.length) h += `<details class="ts-more" open><summary>☕ 일상 ${flav.length}건</summary>${flav.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   h += `</div>`;
-  const why = T.why === 'ev' ? '📌 결정할 일이 생겼다' : T.why === 'msg' ? '📨 새 메시지가 왔다' : '';
+  const why = T.why === 'ev' ? '📌 결정할 일이 생겼다' : T.why === 'msg' ? '📨 새 메시지가 왔다' : T.why === 'warn' ? '⚠️ 살펴볼 일이 생겼다' : '';
   if (why) h += `<div class="ts-why">${why}</div>`;
   h += `<div class="choices ts-btns">${T.why === 'msg' ? `<button class="btn" data-turnok="inbox">📨 메시지함 열기</button>` : ''}<button class="btn primary" data-turnok="">확인 <kbd>Space</kbd></button></div>`;
   return h;
@@ -1464,7 +1467,11 @@ function dictCareerHTML(s) {
     if (!open) continue;
     for (const [sub, sn] of g.subs) {
       const list = CAREER_PLAN.filter(c => c.g === g.id && c.sub === sub);
-      if (sn) h += `<div class="hint" style="margin:var(--sp-2) 0 2px;font-weight:700">${sn}</div>`;
+      // v196: 하위 분류(음악 · 방송·영상 · 사무직)도 트리처럼 접고 펼친다 (처음엔 펼침)
+      const sk = `${g.id}:${sub}`, so = UI.openGroups[sk] !== false;
+      if (sn) h += `<div class="sec-h tog dict-sub" data-grp="${sk}">${so ? '▾' : '▸'} ${sn} <span class="n">${list.length}</span></div>`;
+      if (sn && !so) continue;
+      if (sn) h += `<div class="dict-subb">`;
       for (const c of list) {
         const C = CAREERS[c.id];
         if (!C) { h += `<div class="act"><div><div class="a-t">${U.esc(c.n)}<span class="tag soon">준비 중</span></div><div class="a-h">다음 업데이트에서 열려요${c.soon ? ' · ' + U.esc(c.soon) : ''}</div></div></div>`; continue; }
@@ -1477,6 +1484,7 @@ function dictCareerHTML(s) {
         for (const a of (C.actions ? C.actions(s, t) : []).filter(a => !a.danger)) h += actRow(a);
         if (trackOn(s, c.id) && C.actions && C.actions(s, t).some(a => a.danger)) h += `<div class="hint" style="margin:0 0 var(--sp-2)">그만두기·탈퇴는 직업 활동 박스의 그 직업 창 '정보' 탭 맨 아래에서 할 수 있어요</div>`;
       }
+      if (sn) h += `</div>`;
     }
   }
   return h;
@@ -2507,7 +2515,8 @@ document.addEventListener('click', e => {
   if (t.dataset.les != null) { const sl = S.slots[+t.dataset.les]; sl.lesson = t.checked; delete sl.dflt; if (sl.lesson) sl.payer = !graduated(S) && familyCanPay(S, +t.dataset.les) ? 'family' : 'me'; save(S); renderSchedule(); return; }
   if (t.dataset.payer != null) { const sl = S.slots[+t.dataset.payer]; sl.payer = t.dataset.v; save(S); renderSchedule(); return; }
   if (t.dataset.leslv != null) { const i = +t.dataset.leslv, sl = S.slots[i]; sl.lesLv = +t.dataset.v; if (sl.payer === 'family' && !familyCanPay(S, i)) sl.payer = 'me'; save(S); renderSchedule(); return; }
-  if (t.dataset.grp) { UI.openGroups[t.dataset.grp] = !UI.openGroups[t.dataset.grp]; renderPanel(); return; }
+  // 백과사전 트리: 큰 분류(artist)는 처음 펼침 값이 UI.openGroups에, 하위 분류(artist:music)는 값이 없으면 펼침 (v196)
+  if (t.dataset.grp) { const k = t.dataset.grp, cur = k.includes(':') ? UI.openGroups[k] !== false : !!UI.openGroups[k]; UI.openGroups[k] = !cur; renderPanel(); return; }
   if (t.dataset.rectab) { UI.recTab = t.dataset.rectab; renderPanel(); return; }
   if (t.dataset.gojob) { goApplyJob(t.dataset.gojob); return; }
   if (t.dataset.dictback != null) { dictBack(); return; }

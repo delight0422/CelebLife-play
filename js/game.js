@@ -12,7 +12,8 @@ function E(def) { EVENTS[def.id] = def; }
 const CAREERS = {};
 const CAREER_GROUPS = [
   { id: 'artist', n: '🌟 아티스트', subs: [['music', '음악'], ['video', '방송·영상']] },
-  { id: 'staff', n: '🛠 스태프', subs: [['music', '음악'], ['video', '방송·영상']] },
+  // v196: 스태프에 사무직 (A&R 담당자 · 마케터). 백과사전에서 하위 분류도 접고 펼친다
+  { id: 'staff', n: '🛠 스태프', subs: [['music', '음악'], ['video', '방송·영상'], ['office', '사무직']] },
   { id: 'biz', n: '🏢 회사 경영', subs: [['biz', '']] },
 ];
 const CAREER_PLAN = [
@@ -33,10 +34,10 @@ const CAREER_PLAN = [
   { id: 'composer', n: '작곡가', g: 'staff', sub: 'music' },
   { id: 'lyricist', n: '작사가', g: 'staff', sub: 'music' },
   { id: 'producer', n: '프로듀서', g: 'staff', sub: 'music' },
-  { id: 'anr', n: 'A&R 담당자', g: 'staff', sub: 'music' },
+  { id: 'anr', n: 'A&R 담당자', g: 'staff', sub: 'office' },
   { id: 'trainer', n: '트레이너 (보컬·악기·댄스)', g: 'staff', sub: 'music' },
   // 7-4단계 (js/marketer.js): 기획사 마케팅팀
-  { id: 'marketer', n: '마케터', g: 'staff', sub: 'music' },
+  { id: 'marketer', n: '마케터', g: 'staff', sub: 'office' },
   { id: 'director', n: '연출감독', g: 'staff', sub: 'video' },
   { id: 'writer', n: '시나리오 작가', g: 'staff', sub: 'video' },
   // 7-2단계 (js/webnovel.js): 웹툰 작가 · 웹소설 작가

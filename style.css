@@ -227,6 +227,9 @@ h2 .sk-cnt { vertical-align: middle; margin-left: var(--sp-1); }
 .p-intro { color: var(--ink2); font-size: var(--fs-3); margin: 0 0 var(--sp-3); }
 .sec-h { font-weight: 800; margin: var(--sp-4) 0 var(--sp-2); font-size: var(--fs-3); display: flex; align-items: center; gap: var(--sp-2); cursor: default; }
 .sec-h.tog { cursor: pointer; }
+/* v196 백과사전 하위 분류 (트리 둘째 단) */
+.sec-h.dict-sub { margin: var(--sp-2) 0 var(--sp-1) 14px; font-size: var(--fs-2); }
+.dict-subb { margin-left: 14px; padding-left: 10px; border-left: 2px solid var(--line, rgba(127,127,127,.25)); }
 .sec-h .n { color: var(--muted); font-weight: 600; font-size: var(--fs-2); }
 .act { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); padding: var(--sp-2) 0; border-bottom: 1px solid #f2eff7; }
 .a-t { font-weight: 700; }
@@ -621,7 +624,7 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 /* 특별한 일: 칸마다 상자 하나 (왼쪽 띠 색으로 칸을 구분) */
 .ts-box { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--violet); border-radius: 10px; padding: var(--sp-2) var(--sp-3) var(--sp-1); margin-bottom: var(--sp-2); }
 .ts-bh { font-size: var(--fs-2); font-weight: 800; color: var(--ink2); margin-bottom: 2px; }
-.ts-box.job { border-left-color: #7b61ff; } .ts-box.win { border-left-color: #e0a400; } .ts-box.offer { border-left-color: #1f9bb5; }
+.ts-box.warn { border-left-color: var(--red, #e5484d); background: color-mix(in srgb, var(--red, #e5484d) 7%, var(--card)); } .ts-box.job { border-left-color: #7b61ff; } .ts-box.win { border-left-color: #e0a400; } .ts-box.offer { border-left-color: #1f9bb5; }
 .ts-box.ppl { border-left-color: #e2668f; } .ts-box.school { border-left-color: #3fa66b; }
 .ts-box.money { border-left-color: #c98a1b; } .ts-box.news { border-left-color: #8a8fa3; } .ts-box.etc { border-left-color: #b3a9c9; } .ts-box.grow { border-left-color: #2f86c9; }
 /* 성과에 붙는 평가 변화: 평판 +2 · 배우 인기 +5 */
