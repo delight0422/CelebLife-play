@@ -52,7 +52,10 @@ function lv(p, k) { return has(p, k) ? p.sk[k].lv : 0; }
 function lvi(p, k) { return Math.floor(lv(p, k)); }
 function eduLv(p) { return lv(p, 'edu'); }
 // 실제로 가르칠 때의 실력 (v94): 교육과 가르치는 그 특기 반반 (교육을 배우는 속도는 skills.js 재능 표대로)
-function teachLv(p, k) { return eduLv(p) * 0.5 + lv(p, k) * 0.5; }
+// v186: 연기는 연출로 가르친다 (연기 트레이너 · 회사 연기 트레이너: 교육 + 연출)
+const TEACH_SK = { acting: 'direct' };
+function teachSk(k) { return TEACH_SK[k] || k; }
+function teachLv(p, k) { return eduLv(p) * 0.5 + lv(p, teachSk(k)) * 0.5; }
 // 직업 기본 활동 점수 (v94, 8단계 직업 표): 특기 · 재능을 [값, 무게]로 받아 강함 1 · 보통 0.5로 가중평균한다 (0~100 크기 그대로)
 const JS_ = 1, JM_ = 0.5;
 function jobMix(L) { let a = 0, w = 0; for (const [v, k] of L) { a += v * k; w += k; } return w ? a / w : 0; }

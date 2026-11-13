@@ -642,6 +642,11 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .ll-line { font-size: var(--fs-2); color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .log-pop { max-height: 68vh; overflow-y: auto; padding-right: var(--sp-1); }
 @media (max-width: 760px) { .turn-go { padding: var(--sp-2) var(--sp-3); font-size: var(--fs-3); } .turn-go kbd { display: none; } .turn-btns { margin-left: auto; } }
+/* v186: 백과사전 · 메뉴 (좁은 화면은 생활도) 버튼 세로폭을 진행 버튼과 똑같이 */
+:root { --top-h: 43px; }
+.turn-go, .turn-jump .btn, .top-btns .btn { height: var(--top-h); }
+.top-btns .btn { display: inline-flex; align-items: center; justify-content: center; }
+@media (max-width: 760px) { :root { --top-h: 39px; } }
 
 /* v88: 팝업에서 고른 결과 (그 팝업 안에서) */
 .res-pick { display: inline-block; font-size: var(--fs-2); font-weight: 800; color: var(--violet); background: var(--violet-soft); border-radius: 999px; padding: var(--sp-1) var(--sp-3); margin-bottom: var(--sp-3); }
@@ -1553,14 +1558,13 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 
 /* ───── v181: 성장성 막대 (글자 없이 다섯 칸, 채운 칸 = 등급) ───── */
 .potv { display: inline-flex; align-items: flex-end; gap: 2px; height: 12px; margin-left: 6px; vertical-align: -1px; flex: 0 0 auto; }
-.potv i { display: block; width: 4px; border-radius: 1px; background: #e4dff0; }
+.potv i { display: block; width: 5px; border-radius: 1px; background: #e4dff0; }
 .potv i:nth-child(1) { height: 4px; } .potv i:nth-child(2) { height: 6px; } .potv i:nth-child(3) { height: 8px; } .potv i:nth-child(4) { height: 10px; } .potv i:nth-child(5) { height: 12px; }
-.potv.p0 i.on { background: #d9534f; }
-.potv.p1 i.on { background: #ee9a3a; }
-.potv.p2 i.on { background: #9b8fd0; }
-.potv.p3 i.on { background: #2fa463; }
-.potv.p4 i.on { background: #0b7a4f; }
-.potv.pq i { background: transparent; box-shadow: inset 0 0 0 1px #c9c2da; }
+/* v186: 칸 수 = 어디까지 클지, 칠한 칸 = 지금 레벨 */
+.potv i.on { background: #7558e8; }
+.potv i.cap { background: #d6cbfa; }
+.potv i.may { background: transparent; box-shadow: inset 0 0 0 1px #a993f0; }
+.potv i.unk { background: transparent; box-shadow: inset 0 0 0 1px #cfc9dc; }
 .pi-sk .potv { margin-left: 8px; }
 /* 만든 작품 칸의 공개 예정 줄 (v181) */
 .ms.rel { color: var(--ink); }

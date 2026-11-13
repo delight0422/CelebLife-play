@@ -399,9 +399,9 @@ function coStaffCand(s, t, job, k, boost, f) {
   else if (job === 'edit') learnSkill(s, x, 'edit', Math.min(95, L + U.int(10, 25)));
   // 사내 프로듀서 (v155): 작곡 · 곡을 고르는 귀(스카우트) · 작사, 잘하는 컨셉 한두 개
   else if (job === 'prod') { learnSkill(s, x, 'compose', Math.min(92, L + U.int(0, 10))); learnSkill(s, x, 'scout', Math.max(1, Math.round(L * U.fl(0.6, 1)))); if (U.chance(0.6)) learnSkill(s, x, 'lyric', Math.max(1, Math.round(L * U.fl(0.5, 0.9)))); coCm(x); }
-  // 기획 PD: 각본·감독·배우를 보는 눈 (스카우트와 작문·연출·연기)
-  else if (job === 'pd') { learnSkill(s, x, 'scout', L); learnSkill(s, x, 'script', Math.max(1, Math.round(L * U.fl(0.6, 1.05)))); learnSkill(s, x, 'direct', Math.max(1, Math.round(L * U.fl(0.5, 0.95)))); learnSkill(s, x, 'acting', Math.max(1, Math.round(L * U.fl(0.4, 0.9)))); if (t.f.anime) learnSkill(s, x, 'art', Math.max(1, Math.round(L * U.fl(0.4, 0.9)))); }
-  else { learnSkill(s, x, k, Math.min(92, L + U.int(0, 10))); learnSkill(s, x, 'edu', Math.max(1, L - U.int(0, 8))); }
+  // 기획 PD: 각본·감독·배우를 보는 눈 (스카우트와 작문·연출. v186: 배우도 연출 실력으로 본다, 연기는 뺐다)
+  else if (job === 'pd') { learnSkill(s, x, 'scout', L); learnSkill(s, x, 'script', Math.max(1, Math.round(L * U.fl(0.6, 1.05)))); learnSkill(s, x, 'direct', Math.max(1, Math.round(L * U.fl(0.5, 0.95)))); if (t.f.anime) learnSkill(s, x, 'art', Math.max(1, Math.round(L * U.fl(0.4, 0.9)))); }
+  else { learnSkill(s, x, teachSk(k), Math.min(92, L + U.int(0, 10))); learnSkill(s, x, 'edu', Math.max(1, L - U.int(0, 8))); }
   for (const kk of learnedSkills(x)) { const sk = x.sk[kk]; sk.lv = Math.min(sk.lv, 100); sk.best = sk.lv; sk.pot = Math.max(sk.pot, sk.lv); }
   const lvl = job === 'trainer' ? teachLv(x, k) : job === 'anr' ? scoutLv(x, 'compose') : job === 'edit' ? lv(x, 'edit') : job === 'prod' ? lv(x, 'compose') : lv(x, 'scout');
   x.co = { f: job === 'edit' ? 'mcn' : job === 'pd' ? (t.f.video ? 'video' : 'anime') : 'music', role: 'cand', job, k: k || null, sal: Math.round((job === 'edit' ? 100 + lvl * 2.5 : job === 'pd' ? 150 + lvl * 4 : (job === 'prod' ? 180 + lvl * 5 : 150 + lvl * 4) * CO_SAL_M) / 10) * 10 * 1e4 };
@@ -409,7 +409,7 @@ function coStaffCand(s, t, job, k, boost, f) {
 }
 function coStaffLine(x) {
   const j = x.co.job;
-  return (j === 'trainer' ? `${SKILLS[x.co.k].n} ${lvi(x, x.co.k)} · 교육 ${lvi(x, 'edu')}` : j === 'edit' ? `편집 ${lvi(x, 'edit')}` : j === 'pd' ? `스카우트 ${lvi(x, 'scout')} · 작문 ${lvi(x, 'script')} · 연출 ${lvi(x, 'direct')} · 연기 ${lvi(x, 'acting')}${has(x, 'art') ? ` · 그림 ${lvi(x, 'art')}` : ''}` : j === 'anr' ? `스카우트 ${lvi(x, 'scout')} · 작곡 ${lvi(x, 'compose')}` : j === 'prod' ? `작곡 ${lvi(x, 'compose')} · 스카우트 ${lvi(x, 'scout')}${has(x, 'lyric') ? ` · 작사 ${lvi(x, 'lyric')}` : ''} · 잘하는 컨셉 ${coTopCm(x)}` : `스카우트 ${lvi(x, 'scout')}`) + ` · 월급 ${fmtWon(x.co.sal)}`;
+  return (j === 'trainer' ? `${SKILLS[teachSk(x.co.k)].n} ${lvi(x, teachSk(x.co.k))} · 교육 ${lvi(x, 'edu')}` : j === 'edit' ? `편집 ${lvi(x, 'edit')}` : j === 'pd' ? `스카우트 ${lvi(x, 'scout')} · 작문 ${lvi(x, 'script')} · 연출 ${lvi(x, 'direct')}${has(x, 'art') ? ` · 그림 ${lvi(x, 'art')}` : ''}` : j === 'anr' ? `스카우트 ${lvi(x, 'scout')} · 작곡 ${lvi(x, 'compose')}` : j === 'prod' ? `작곡 ${lvi(x, 'compose')} · 스카우트 ${lvi(x, 'scout')}${has(x, 'lyric') ? ` · 작사 ${lvi(x, 'lyric')}` : ''} · 잘하는 컨셉 ${coTopCm(x)}` : `스카우트 ${lvi(x, 'scout')}`) + ` · 월급 ${fmtWon(x.co.sal)}`;
 }
 // 그 사람이 잘하는 컨셉 (숙련도 45 이상, 없으면 가장 높은 하나)
 function coTopCm(x) { const cm = coCm(x), L = TRENDS.slice().sort((a, b) => cm[b] - cm[a]); return L.filter(c => cm[c] >= 45).concat(L.slice(0, 1)).filter((c, i, A) => A.indexOf(c) === i).slice(0, 2).map(c => `'${c}'`).join(' · '); }
@@ -462,7 +462,7 @@ E({
   init(s, d) { d.f = d.f || coMainF(coT(s)); if (coStaff(s, 'trainer', d.f).length <= coStaffCap(coT(s), 'trainer', d.f)) d.skip = true; },
   text: (s, d) => `「${coFName(coT(s), d.f)}」 트레이너 자리가 ${coStaffCap(coT(s), 'trainer', d.f)}명인데 지금 ${coStaff(s, 'trainer', d.f).length}명이다. 한 명을 내보내야 한다.`,
   tbl(s, d) { return chPplTbl(s, this.ch(s, d), [['n', '이름'], ['fd', '분야'], ['g', '성별'], ['a', '나이'], ['lv', '실력'], ['edu', '교육'], ['need', '배우는 사람'], ['sal', '월급'], ['nt', '비고']], '이 사람을 내보낸다'); },
-  ch: (s, d) => coStaff(s, 'trainer', d.f).map(x => ({ pid: x.id, row: Object.assign(pplCells(s, x, null, ['edu'], true), { fd: [x.co.k, trFieldN(x.co.k)], lv: [lvi(x, x.co.k), String(lvi(x, x.co.k))], need: [coTrNeedN(s, x.co.k, d.f), `${coTrNeedN(s, x.co.k, d.f)}명`], sal: [x.co.sal, fmtWon(x.co.sal)], nt: [x.id === d.new ? 1 : 0, x.id === d.new ? '방금 뽑은 사람' : ''] }), t: `${trFieldN(x.co.k)} ${x.name}${x.id === d.new ? ' (방금 뽑은 사람)' : ''}`, h: `${coStaffLine(x)} · 배우는 사람 ${coTrNeedN(s, x.co.k, d.f)}명`, f: s => { const r = coFire(s, x); if (coStaff(s, 'trainer', d.f).length > coStaffCap(coT(s), 'trainer', d.f)) fireEvent(s, 'co_tr_out', { new: d.new , f: d.f}); return r; } })),
+  ch: (s, d) => coStaff(s, 'trainer', d.f).map(x => ({ pid: x.id, row: Object.assign(pplCells(s, x, null, ['edu'], true), { fd: [x.co.k, trFieldN(x.co.k)], lv: [lvi(x, teachSk(x.co.k)), String(lvi(x, teachSk(x.co.k)))], need: [coTrNeedN(s, x.co.k, d.f), `${coTrNeedN(s, x.co.k, d.f)}명`], sal: [x.co.sal, fmtWon(x.co.sal)], nt: [x.id === d.new ? 1 : 0, x.id === d.new ? '방금 뽑은 사람' : ''] }), t: `${trFieldN(x.co.k)} ${x.name}${x.id === d.new ? ' (방금 뽑은 사람)' : ''}`, h: `${coStaffLine(x)} · 배우는 사람 ${coTrNeedN(s, x.co.k, d.f)}명`, f: s => { const r = coFire(s, x); if (coStaff(s, 'trainer', d.f).length > coStaffCap(coT(s), 'trainer', d.f)) fireEvent(s, 'co_tr_out', { new: d.new , f: d.f}); return r; } })),
 });
 // 자동으로 뽑는데 자리가 꽉 찼다: 자동을 끌지 묻는다 (v131)
 E({
@@ -563,11 +563,11 @@ function coCand(s, t, kind, g) {
 function coCandLabel(s, x) { return `${x.name} (${gNn(x)} · ${pAge(s, x)}세 · ${x.look}${soulTag(x)}${x.co.part ? ` · ${partN(x.co.part)}` : ''})`; }
 // 지원자: 특기 레벨은 범위, 성장성은 5단계. 외모는 보이는 대로, 스타성은 5단계 (내 스타성은 숨기지만 지원자 것은 보인다, 피드백 31)
 function coCandSub(s, x) {
-  const sk = coSkillsOf(x).map(k => { const v = coViewer(s, 'cast', k, x.co.f || coFOfKind(x.co.kind)); return `${SKILLS[k].n} ${coLvSee(v, x, k)}${potTok(v, x, k)}`; }).join(' · ');
+  const sk = coSkillsOf(x).map(k => { const v = coViewer(s, 'cast', k, x.co.f || coFOfKind(x.co.kind)); return `${SKILLS[k].n} ${coLvSee(v, x, k)}${potTok(v, x, k, false)}`; }).join(' · ');
   return `${sk} · ${x.co.kind === 'vt' ? `목소리 ${talentWord(x.tal.voice)}` : `외모 ${talentWord(x.tal.looks)}`} · 스타성 ${grade5(coViewer(s, 'cast', null), x.tal.star, 'pot')}`;
 }
 // 소속 연습생·아티스트: 특기 레벨은 정확히(매달 평가한다), 성장성은 계속 5단계
-function coMemberSub(s, x) { return coSkillsOf(x).map(k => `${SKILLS[k].n} ${lvi(x, k)}${potTok(coViewer(s, 'cast', k, x.co.f || coFOfKind(x.co.kind)), x, k)}`).join(' · '); }
+function coMemberSub(s, x) { return coSkillsOf(x).map(k => `${SKILLS[k].n} ${lvi(x, k)}${potTok(coViewer(s, 'cast', k, x.co.f || coFOfKind(x.co.kind)), x, k, true)}`).join(' · '); }
 // ───── 표로 고르는 창 (v131, FM식) ─────
 // 칸 = [정렬에 쓰는 값, 보이는 글]. 정렬 값은 화면에 보이는 것(범위의 가운데 · 5단계 순서)만 쓴다 (숨은 값이 순서로 새지 않게)
 function coCellLv(v, x, k, exact) { if (!has(x, k)) return [-1, '-']; if (exact) return [lvi(x, k), String(lvi(x, k))]; const r = lvRange(v, x, k); return [(r[0] + r[1]) / 2, r[0] === r[1] ? String(r[0]) : `${r[0]}~${r[1]}`]; }
@@ -585,7 +585,7 @@ function coPplTbl(s, P, kind, exact, on) {
     const c = { n: [x.name, x.name + soulTag(x)], g: [gNn(x), gNn(x)], a: [pAge(s, x), `${pAge(s, x)}세`], lk: coCellTal(vt ? x.tal.voice : x.tal.looks), st: coCellG(grade5(coViewer(s, 'cast', null), x.tal.star, 'pot')) };
     if (mix) c.kd = [coKindN(x.co.kind), coKindN(x.co.kind)];
     c.part = x.co.part ? [partN(x.co.part), partN(x.co.part)] : ['', '-'];
-    for (const k of ks) { const v = coViewer(s, 'cast', k, x.co.f || coFOfKind(x.co.kind)), l = coCellLv(v, x, k, exact); c[k] = has(x, k) ? [l[0], `${l[1]}${potTok(v, x, k)}`] : [-1, '-']; }
+    for (const k of ks) { const v = coViewer(s, 'cast', k, x.co.f || coFOfKind(x.co.kind)), l = coCellLv(v, x, k, exact); c[k] = has(x, k) ? [l[0], `${l[1]}${potTok(v, x, k, exact)}`] : [-1, '-']; }
     if (exact) c.mo = [s.t - x.co.since, `${s.t - x.co.since}개월`];
     return { k: x.id, on: (on || []).includes(x.id), cells: c };
   });
@@ -614,7 +614,7 @@ function pplCells(s, x, v, ks, exact) {
   return c;
 }
 // 직원 지원자 표에서 직업마다 보는 특기 (직원 지원자의 특기는 정확히 보인다)
-function coJobKs(job, k) { return job === 'trainer' ? [k, 'edu'] : job === 'cast' ? ['scout'] : job === 'anr' ? ['scout', 'compose', 'lyric'] : job === 'pd' ? ['scout', 'script', 'direct', 'acting', 'art'] : job === 'prod' ? ['compose', 'scout', 'lyric'] : job === 'edit' ? ['edit'] : job === 'ceo' ? ['biz'] : []; }
+function coJobKs(job, k) { return job === 'trainer' ? [teachSk(k), 'edu'] : job === 'cast' ? ['scout'] : job === 'anr' ? ['scout', 'compose', 'lyric'] : job === 'pd' ? ['scout', 'script', 'direct', 'art'] : job === 'prod' ? ['compose', 'scout', 'lyric'] : job === 'edit' ? ['edit'] : job === 'ceo' ? ['biz'] : []; }
 function coJobCols(job, k) { return PPL_COLS.concat(coJobKs(job, k).map(kk => [kk, SKILLS[kk].n]), job === 'prod' ? [['cm', '잘하는 컨셉']] : []); }
 function coJobRow(s, x, job, k) { const c = pplCells(s, x, null, coJobKs(job, k), true); if (job === 'prod') c.cm = [0, coTopCm(x)]; return c; }
 // 트레이너가 권하는 데뷔 멤버 (v133): 트레이너마다 딱 한 명. 표에서 그 줄에 초록 테두리와 '○○ 트레이너 추천'이 붙는다

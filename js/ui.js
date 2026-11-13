@@ -14,9 +14,15 @@ function nl(t) { return U.esc(t).replace(/\n/g, '<br>'); }
 function evCol(html) { return html.replace(/\u0005([^\u0007]*)\u0007/g, '<span class="ev-g">$1</span>').replace(/\u0006([^\u0007]*)\u0007/g, '<span class="ev-b">$1</span>'); }
 function rich(t) { return potH(evCol(nl(t).replace(/\u0001([^\u0002]*)\u0002/g, '<s class="was">$1</s>').replace(/\u0003([^\u0004]*)\u0004/g, '<b class="now">$1</b>'))); }
 // 성장성 막대 (v181): 글자 없이 다섯 칸 막대. 채운 칸 수 = 등급 (매우 낮음 1칸 ~ 매우 높음 5칸), 색도 등급마다. '?' = 볼 눈이 없어 점선만
-function potBars(g) { const n = g === '?' ? -1 : +g; return `<span class="potv ${n < 0 ? 'pq' : 'p' + n}" role="img" aria-label="${n < 0 ? '알 수 없음' : GRADE_W.pot[n]}">${[0, 1, 2, 3, 4].map(i => `<i${i <= n ? ' class="on"' : ''}></i>`).join('')}</span>`; }
+// v186: 막대 (work.js potSpec 'fab' · '?f'): 칸 수 = 어디까지 클지, 칠한 칸(on) = 지금 레벨, 연한 칸(cap) = 확실히 클 수 있는 데까지, 테두리 칸(may) = 거기까지 클 수도 있다, 회색 테두리(unk) = 모른다
+function potBars(g) {
+  g = String(g || ''); if (!/^(\?[1-5]|[1-5]{3})$/.test(g)) return '';
+  const unk = g[0] === '?', f = +(unk ? g[1] : g[0]), a = unk ? f : +g[1], b = unk ? 5 : +g[2];
+  const lab = `지금 ${f}칸 · ${unk ? '어디까지 클지 모른다' : a === b ? `${b}칸까지 클 수 있다` : `${a}~${b}칸까지 클 수 있다`}`;
+  return `<span class="potv" role="img" aria-label="${lab}" title="${lab}">${Array.from({ length: b }, (_, i) => `<i class="${i < f ? 'on' : i < a ? 'cap' : unk ? 'unk' : 'may'}"></i>`).join('')}</span>`;
+}
 // 이미 HTML로 바꾼 글 속의 성장성 표시(work.js potTok)를 막대로
-function potH(h) { return String(h).replace(/\u0005([0-4?])\u0006/g, (m, g) => potBars(g)); }
+function potH(h) { return String(h).replace(/\u0005(\?[1-5]|[1-5]{3})\u0006/g, (m, g) => potBars(g)); }
 let toastTimer = null;
 // cls 'pt' (v180): 작품 기획처럼 창이 이어질 때 위쪽에 띄우는 여러 줄 토스트
 function toast(msg, cls) { const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (cls ? ' ' + cls : ''); void t.offsetWidth; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), cls ? 3600 : 2600); }
@@ -682,7 +688,7 @@ function showEventRaw() {
   if (liveOn()) return;
   const hx = ev.html ? ev.html(s, d) : '';
   UI.res = null;
-  let h = `${scBandHTML(s.pending.id, ev, s, d)}<button class="m-min" data-min>창 내리기</button><div class="m-cat">${U.esc(ev.cat || '')}</div><div class="m-title">${U.esc(typeof ev.title === 'function' ? ev.title(s, d) : ev.title)}</div>${hx ? `<div class="m-html">${hx}</div>` : `<div class="m-text">${rich(ev.text(s, d))}</div>`}`;
+  let h = `${scBandHTML(s.pending.id, ev, s, d)}<button class="m-min" data-min>창 내리기</button><div class="m-cat">${U.esc(evCat(ev, s, d))}</div><div class="m-title">${U.esc(typeof ev.title === 'function' ? ev.title(s, d) : ev.title)}</div>${hx ? `<div class="m-html">${hx}</div>` : `<div class="m-text">${rich(ev.text(s, d))}</div>`}`;
   // 공개 뒤 반응: 결과 글 아래에 라이브온 배너 (12-3)
   if (ev.plio) { let pl = null; try { pl = ev.plio(s, d); } catch (e) { } const bn = pl ? plioBtnHTML(pl) : ''; if (bn) h += `<div class="pf-row">${bn}</div>`; }
   let T = null; if (ev.tbl) { try { T = ev.tbl(s, d); } catch (e) { console.error('표 오류', s.pending.id, e); T = null; } }
@@ -828,7 +834,7 @@ function resPre(s) {
   if (!ev) return null;
   let title = '';
   try { title = typeof ev.title === 'function' ? ev.title(s, p.d) : ev.title; } catch (e) { }
-  return { L0: s.log[s.log.length - 1], cat: ev.cat || '', title, form: !!ev.form, noRes: ev.noRes || false, C: ev.form ? [] : evChoices(s) };
+  return { L0: s.log[s.log.length - 1], cat: evCat(ev, s, p.d), title, form: !!ev.form, noRes: ev.noRes || false, C: ev.form ? [] : evChoices(s) };
 }
 function resAfter(pre, i) {
   // v180: noRes 'toast' (작품 기획 중 고르는 창) — 결과 창 없이 다음 창으로 넘어가고, 생긴 기록은 위쪽 토스트로 (제작 시작 창처럼 따로 그리는 창이 뜨면 생략)
@@ -1652,7 +1658,7 @@ function scoutLine(s, n) {
   const ks = learnedSkills(n).sort((a, b) => lv(n, b) - lv(n, a)).slice(0, 4);
   if (!ks.length) return '특기 없음';
   const v = me(s);
-  return ks.map(k => `${SKILLS[k].n} ${lvSee(s, n, k)}${canScout(v, k) ? potBars(GRADE_W.pot.indexOf(potGrade(v, n, k))) : ''}`).join(' · ');
+  return ks.map(k => `${SKILLS[k].n} ${lvSee(s, n, k)}${potBars(potSpec(v, n, k, seeExact(s, n), !canScout(v, k)))}`).join(' · ');
 }
 function npcOp(id, op) {
   const s = S, n = s.people[id];
@@ -2599,7 +2605,7 @@ function piSkView(s, x, k) {
   const co = !!(x.co && piCo(s)), f = co ? x.co.f || (x.co.kind ? coFOfKind(x.co.kind) : undefined) : undefined;
   const v = co ? coViewer(s, 'cast', k, f) : me(s), exact = x.id === s.me || seeExact(s, x) || (co && (x.co.role !== 'cand' || !!x.co.job));
   const L = lvi(x, k), r = exact ? [L, L] : lvRange(v, x, k);
-  return { t: r[0] === r[1] ? String(r[0]) : `${r[0]}~${r[1]}`, lo: r[0], hi: r[1], pot: x.id === s.me ? '' : co || canScout(v, k) ? potGrade(v, x, k) : '?' };
+  return { t: r[0] === r[1] ? String(r[0]) : `${r[0]}~${r[1]}`, lo: r[0], hi: r[1], pot: potSpec(v, x, k, exact, x.id === s.me || !(co || canScout(v, k))) };
 }
 function pinfoHTML(s, x) {
   const t = piCo(s), co = !!(x.co && t && x.co.kind), org = piOrg(s, x);
@@ -2610,9 +2616,9 @@ function pinfoHTML(s, x) {
   if (x.yt) R.push(['채널', `「${x.yt.ch}」 · 구독자 ${fmtFans(x.yt.subs || 0)}`]);
   else if ((x.fame || 0) >= 100) R.push(['팬', fmtFans(x.fame)]);
   const ks = learnedSkills(x).map(k => [k, piSkView(s, x, k)]).sort((a, b) => (b[1].lo + b[1].hi) - (a[1].lo + a[1].hi));
-  const sk = ks.length ? ks.map(([k, v]) => `<div class="pi-sk"><span class="pi-n">${U.esc(SKILLS[k].n)}</span><span class="pi-bar"><i style="left:0;width:${v.lo}%"></i>${v.hi > v.lo ? `<i class="rg" style="left:${v.lo}%;width:${v.hi - v.lo}%"></i>` : ''}</span><span class="pi-lv">${v.t}</span>${v.pot ? potBars(v.pot === '?' ? '?' : GRADE_W.pot.indexOf(v.pot)) : ''}</div>`).join('') : '<div class="muted">특기 없음</div>';
+  const sk = ks.length ? ks.map(([k, v]) => `<div class="pi-sk"><span class="pi-n">${U.esc(SKILLS[k].n)}</span><span class="pi-bar"><i style="left:0;width:${v.lo}%"></i>${v.hi > v.lo ? `<i class="rg" style="left:${v.lo}%;width:${v.hi - v.lo}%"></i>` : ''}</span><span class="pi-lv">${v.t}</span>${v.pot ? potBars(v.pot) : ''}</div>`).join('') : '<div class="muted">특기 없음</div>';
   return `<div class="pinfo"><div class="pi-h">${pAvHTML(x, true)}<div><div class="pi-name">${U.esc(x.name)} <span class="gchip ${x.g === '여' ? 'f' : 'm'}">${x.g === '여' ? '여성' : '남성'}</span></div><div class="pi-sub">${U.esc(x.job || '')}${x.soul ? ' · <span class="soul-hint">어딘가 낯익은 얼굴</span>' : ''}</div></div></div>`
     + infoTable(R) + `<div class="sec-h">특기 <span class="n">${ks.length}개 · 레벨 높은 순</span></div><div class="pi-sks">${sk}</div>`
-    + (ks.some(([, v]) => v.pot === '?') ? `<p class="hint">${potBars('?')} 점선 막대: 스카우트 특기와 그 분야 특기가 있어야 채워진다</p>` : '') + `</div>`;
+    + (ks.length ? `<p class="hint">막대 ${potBars('234')} 칠한 칸은 지금 레벨, 칸 수는 어디까지 클 수 있는지 (테두리만 있는 칸은 거기까지 클 수도 있다)${ks.some(([, v]) => v.pot[0] === '?') ? ` · ${potBars('?2')} 회색 테두리: 어디까지 클지 모른다 (스카우트 특기와 그 분야 특기가 있어야 보인다)` : ''}</p>` : '') + `</div>`;
 }
 function pinfoOpen(id) { const x = S && S.people[id]; if (!x) return; popOpen(pinfoHTML(S, x), 'pinfo-card'); }

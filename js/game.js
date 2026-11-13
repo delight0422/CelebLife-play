@@ -458,6 +458,8 @@ function queueEv(s, id, delay = 0, d = {}, dup) {
   s.queue.push({ id, at: s.t + delay, d });
   return true;
 }
+// 창 왼쪽 위 분류 글자 (v186: 함수도 된다, 예: '작품 기획 - 드라마')
+function evCat(ev, s, d) { try { return (typeof ev.cat === 'function' ? ev.cat(s, d || {}) : ev.cat) || ''; } catch (e) { return ''; } }
 function hasQ(s, id) { return s.queue.some(q => q.id === id) || (s.pending && s.pending.id === id); }
 function evAvail(s, ev) {
   // 길거리 캐스팅(ev.cast)은 광역시 이상에서만
@@ -701,7 +703,7 @@ function autoEvs(s) {
     if (k === 'flavor') { addLog(s, x, 'flavor'); continue; }
     addLog(s, x, ev.tag || 'ev');
     const L = s.log[s.log.length - 1];
-    L.sp = ti || ev.cat || '알림'; L.c = ev.cat || ''; L.e = ev.id;
+    const cat = evCat(ev, s, d); L.sp = ti || cat || '알림'; L.c = cat; L.e = ev.id;
     // 창 없이 처리된 결과도 요약 창에서 장면(▶ 무대 보기)과 라이브온 반응을 볼 수 있게 남긴다 (12-3)
     if (ev.live) { try { const sp = ev.live(s, d); if (sp) L.lv = sp; } catch (e) { } }
     if (ev.plio) { try { const pl = ev.plio(s, d); if (pl) L.pl = pl; } catch (e) { } }

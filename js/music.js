@@ -1733,7 +1733,7 @@ E({
     d.c = [];
     for (let i = 0; i < n; i++) d.c.push(bandMate(s, d.k, base + U.normal(0, 6), { rel: '업계', job: '밴드 지망생', met: '밴드 구인 글' }).id);
   },
-  text: (s, d) => `${partN(d.k)} 구인 글을 보고 ${d.c.length}명이 연락해 왔다. 누구와 같이 할까?\n\n` + d.c.map(id => { const m = s.people[id]; return `· ${m.name} (${pAge(s, m)}세 · ${TRAIT_BY[m.trait].n}) — ${partN(d.k)} ${lvSee(s, m, d.k)}레벨${canScout(me(s), d.k) ? potTok(me(s), m, d.k) : ''}${has(m, 'compose') ? ` · 작곡 ${lvSee(s, m, 'compose')}레벨` : ''}`; }).join('\n'),
+  text: (s, d) => `${partN(d.k)} 구인 글을 보고 ${d.c.length}명이 연락해 왔다. 누구와 같이 할까?\n\n` + d.c.map(id => { const m = s.people[id]; return `· ${m.name} (${pAge(s, m)}세 · ${TRAIT_BY[m.trait].n}) — ${partN(d.k)} ${lvSee(s, m, d.k)}레벨${potTok(me(s), m, d.k, seeExact(s, m), !canScout(me(s), d.k))}${has(m, 'compose') ? ` · 작곡 ${lvSee(s, m, 'compose')}레벨` : ''}`; }).join('\n'),
   ch: (s, d) => d.c.map(id => { const m = s.people[id]; return { t: `${josa(m.name, '과와')} 같이 한다`, ok: s => trackOn(s, 'band') && (bandMissing(s.tracks.band).includes(d.k) || (d.k === 'keyboard' && !bandHasKeys(s.tracks.band))), f: s => addBandMember(s, m, d.k, '구인 글') }; }).concat([{ t: '마음에 드는 사람이 없다', f: () => '이번 지원자들과는 함께하지 않기로 했다.' }]),
 });
 // 기획사가 꾸린 밴드 데뷔조 (이때만 회사가 멤버를 채운다)

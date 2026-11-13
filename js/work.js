@@ -262,7 +262,9 @@ E({
 // 성장성(숨은 한계)과 곡 완성도는 5단계로 보인다. 보는 눈이 좋을수록 '보통'의 폭이 좁아진다 (0이면 20~80, 100이면 45~55)
 // 보는 눈: 스카우트를 배우는 속도는 재능 표대로 보지만, 실제로 볼 때는 그 분야 내 특기도 함께 본다 (스카우트 60% + 그 특기 40%, 피드백 21)
 const SCOUT_W = 0.6;
-function scoutLv(viewer, k) { return k ? lv(viewer, 'scout') * SCOUT_W + lv(viewer, k) * (1 - SCOUT_W) : lv(viewer, 'scout'); }
+// v186: 연기는 연출로도 본다 (감독 · 기획 PD는 연출 실력으로 배우를 본다): 둘 중 높은 쪽
+function seeSk(viewer, k) { return k === 'acting' && lv(viewer, 'direct') > lv(viewer, 'acting') ? 'direct' : k; }
+function scoutLv(viewer, k) { return k ? lv(viewer, 'scout') * SCOUT_W + lv(viewer, seeSk(viewer, k)) * (1 - SCOUT_W) : lv(viewer, 'scout'); }
 const SEE_CLOSE = ['자녀', '엄마', '아빠', '배우자', '형제자매', '멤버', '제자'];
 function seeExact(s, n) { return !n || n.id === s.me || SEE_CLOSE.includes(n.rel); }
 function seeW(viewer, k) { return Math.max(1, Math.round(40 - 39 * scoutLv(viewer, k) / 100)); }
@@ -275,7 +277,7 @@ function lvRange(viewer, target, k) {
 // 다른 사람의 특기 레벨 글자: 가까운 사람이면 '31', 아니면 '23~49'
 function lvSee(s, n, k) { if (seeExact(s, n)) return String(lvi(n, k)); const r = lvRange(me(s), n, k); return r[0] === r[1] ? String(r[0]) : `${r[0]}~${r[1]}`; }
 // 성장성은 내가 스카우트 특기와 그 분야 특기를 가졌을 때만 보인다
-function canScout(viewer, k) { return has(viewer, 'scout') && has(viewer, k); }
+function canScout(viewer, k) { return has(viewer, 'scout') && (has(viewer, k) || (k === 'acting' && has(viewer, 'direct'))); }
 function gradeHW(viewer, k) { return 30 - 25 * U.clamp(scoutLv(viewer, k), 0, 100) / 100; }
 const GRADE_W = { pot: ['매우 낮음', '낮음', '보통', '높음', '매우 높음'], q: ['매우 나쁨', '나쁨', '보통', '좋음', '매우 좋음'] };
 function grade5(viewer, v, kind = 'pot', k) {
@@ -283,6 +285,22 @@ function grade5(viewer, v, kind = 'pot', k) {
   return GRADE_W[kind][v < lo / 2 ? 0 : v < lo ? 1 : v <= hi ? 2 : v <= hi + (100 - hi) / 2 ? 3 : 4];
 }
 function potGrade(viewer, target, k) { return has(target, k) ? grade5(viewer, target.sk[k].pot, 'pot', k) : ''; }
-// v181: 성장성은 글자 대신 다섯 칸 막대 그림으로 보인다. 글 속에 표시(\u0005 등급 \u0006, '?' = 볼 눈이 없다)를 넣으면 그리는 곳에서 막대로 바꾼다 (ui.js potH)
-function potTok(viewer, target, k) { const g = potGrade(viewer, target, k); return g ? '\u0005' + GRADE_W.pot.indexOf(g) + '\u0006' : ''; }
-const POT_UNK = '\u0005?\u0006';
+// v181: 성장성은 글자 대신 막대 그림으로 보인다. 글 속에 표시(\u0005 … \u0006)를 넣으면 그리는 곳에서 막대로 바꾼다 (ui.js potH)
+// v186: 막대 개수 = 어디까지 클지(성장성), 칠한 칸 = 지금 레벨. 둘 다 20레벨마다 한 칸 (1~20 한 칸 … 81~100 다섯 칸)
+//   성장성은 범위로 본다: 보는 눈(스카우트 60% + 그 분야 특기 40%)이 좋을수록 범위가 좁다 (폭 50 → 5). 범위 아래쪽까지는 확실한 칸, 위쪽까지는 될 수도 있는 칸
+//   표시: 'fab' = 칠한 칸 f · 확실한 칸까지 a · 될 수도 있는 칸까지 b, '?f' = 어디까지 클지 모른다 (볼 눈이 없다)
+function potW(viewer, k) { return Math.max(5, Math.round(50 - 45 * U.clamp(scoutLv(viewer, k), 0, 100) / 100)); }
+function lvBars(L) { return U.clamp(Math.ceil(L / 20), 1, 5); }
+function potSpec(viewer, target, k, exact, unk) {
+  if (!has(target, k)) return '';
+  const L = lvi(target, k), r = exact ? [L, L] : lvRange(viewer, target, k), f = lvBars((r[0] + r[1]) / 2);
+  if (unk) return '?' + f;
+  const w = potW(viewer, k), pot = Math.max(target.sk[k].pot || 0, L);
+  let lo = pot - hashN(target.id + k + viewer.id + ':pot') % (w + 1), hi = lo + w;
+  if (hi > 100) { lo -= hi - 100; hi = 100; }
+  lo = Math.max(lo, r[0]); hi = Math.max(hi, lo);
+  const a = Math.max(f, lvBars(lo)), b = Math.max(a, lvBars(hi));
+  return `${f}${a}${b}`;
+}
+// exact: 레벨을 정확히 보는 사이 · unk: 어디까지 클지 모른다 (보통 !canScout)
+function potTok(viewer, target, k, exact, unk) { const g = potSpec(viewer, target, k, exact, unk); return g ? '\u0005' + g + '\u0006' : ''; }
