@@ -1586,6 +1586,9 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 /* v189: 회사 박스 · 사옥이 둘 이상이면 사옥마다 이름 줄 */
 .co-bld-h { font-size: var(--fs-2, 12px); font-weight: 700; color: var(--ink2); margin: var(--sp-2) 2px 4px; }
 .co-bld-h span { font-weight: 500; }
+.bld-ren { background: none; border: 0; padding: 0 3px; margin: 0 1px; cursor: pointer; font-size: 0.95em; line-height: 1; opacity: 0.75; border-radius: 4px; }
+.bld-ren:hover { opacity: 1; background: var(--chip, rgba(127,127,127,.15)); }
+.ren-btn { vertical-align: middle; margin-left: 4px; }
 /* v191: 회사/그룹 칸 = 사옥 상자들 (사옥 상자는 따로 안 눌린다: 빈 곳을 누르면 그룹 창), 안에 작은 회사 배너 (누르면 그 회사 창) */
 .co-bld { border: 1px solid var(--line); border-radius: 12px; padding: var(--sp-2) var(--sp-3); margin-top: var(--sp-2); background: var(--card2); }
 .co-bld .co-bld-h { margin: 0 0 2px; }
@@ -1626,6 +1629,11 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .cc-tx small { display: block; font-weight: 500; font-size: var(--fs-1); color: var(--muted); }
 .cc-bt { display: flex; gap: 2px; flex: none; }
 .cc-bt .btn { padding: 2px 7px; min-width: 0; }
+.cc-drag { flex: none; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; color: var(--muted); padding: 2px 3px; font-size: 1.15em; line-height: 1; border-radius: 4px; }
+.cc-drag:hover { color: var(--ink); background: var(--card2); }
+.cc-list.dragging, .cc-list.dragging * { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+.cc-it.drag { box-shadow: inset 0 0 0 2px var(--violet); background: color-mix(in srgb, var(--violet) 12%, var(--card)); }
+.cc-it.bad { box-shadow: inset 0 0 0 2px var(--red); }
 .cc-empty { padding: var(--sp-3); color: var(--muted); font-size: var(--fs-2); }
 .cc-sum { margin-top: var(--sp-2); font-size: var(--fs-2); color: var(--ink2); }
 .cc-pool { display: flex; flex-wrap: wrap; gap: 6px; max-height: 46vh; overflow: auto; }

@@ -234,24 +234,73 @@ function ccSum(SB, set, hl) {
   const ok = (hl || []).filter(o => { const c = set[o.i], x = c && c.startsWith('s:') && SB[c.slice(2)]; return x && x.c === H[o.i]; }).length;
   return `곡 ${nS} · 토크 ${nT} · 약 ${nS * 4 + nT * 6 + 10}분 · 하이라이트에 어울리는 곡 ${ok}/${(hl || []).length}${mx >= 6 ? ` · 쉬지 않고 ${mx}곡이 이어진다` : ''}`;
 }
-function ccListHTML(s, SB, set, hl) {
+// v198: 토크는 ★ 하이라이트 자리에 둘 수 없다. ↑ ↓는 바로 옆과 바꾸고, 그러면 토크가 하이라이트 자리에 가게 되는 버튼은 막는다
+function ccSwapOK(set, H, i, j) { return j >= 0 && j < set.length && !(set[i] === 't' && H[j] != null) && !(set[j] === 't' && H[i] != null); }
+function ccTalkOnHl(set, hl) { const H = ccHLm(hl); return set.some((c, i) => c === 't' && H[i] != null); }
+// 끌어서 옮기기 (v198): 곡을 끌면 곡끼리 순서만 바뀌고 토크 자리는 그대로, 토크를 끌면 그 자리로 가고 곡들이 순서대로 빈자리를 채운다
+//   토크를 하이라이트 자리에 놓으면 null (안 된다)
+function ccMove(set, hl, a, b) {
+  const H = ccHLm(hl), c = set[a], n = set.length;
+  if (a === b || b < 0 || b >= n) return set.slice();
+  if (c === 't') {
+    if (H[b] != null) return null;
+    if (set[b] === 't') return set.slice();
+    const T = new Set(set.map((x, i) => x === 't' ? i : -1).filter(i => i >= 0)), songs = set.filter(x => x !== 't'), out = [];
+    T.delete(a); T.add(b);
+    let k = 0; for (let i = 0; i < n; i++) out.push(T.has(i) ? 't' : songs[k++]);
+    return out;
+  }
+  const P = set.map((x, i) => x !== 't' ? i : -1).filter(i => i >= 0), songs = P.map(i => set[i]).filter(x => x !== c);
+  songs.splice(P.filter(i => i !== a && (a < b ? i <= b : i < b)).length, 0, c);
+  const out = set.slice(); P.forEach((i, j) => { out[i] = songs[j]; });
+  return out;
+}
+function ccListHTML(s, SB, set, hl, dragI) {
   const H = ccHLm(hl);
   return set.map((c, i) => {
     const [ic, tx, sub] = ccItemTx(s, SB, c), x = c.startsWith('s:') && SB[c.slice(2)], hc = H[i], fit = hc != null && x && x.c === hc;
-    const hb = hc != null ? `<span class="cc-hlb${fit ? ' ok' : c === 't' ? ' no' : ''}">★ 하이라이트 · 어울리는 컨셉 '${U.esc(hc)}'${fit ? ' ✓' : c === 't' ? ' · 토크가 들어가 있다' : ''}</span>` : '';
-    return `<li class="cc-it k-${c[0]}${hc != null ? ' hl' : ''}"><span class="cc-ix">${i + 1}</span><span class="cc-tx">${hb}${ic} ${U.esc(tx)}${sub ? `<small>${U.esc(sub)}</small>` : ''}</span><span class="cc-bt"><button class="btn sm" data-ccmv="${i}:-1" ${i ? '' : 'disabled'} aria-label="위로">↑</button><button class="btn sm" data-ccmv="${i}:1" ${i < set.length - 1 ? '' : 'disabled'} aria-label="아래로">↓</button></span></li>`;
+    const hb = hc != null ? `<span class="cc-hlb${fit ? ' ok' : c === 't' ? ' no' : ''}">★ 하이라이트 · 어울리는 컨셉 '${U.esc(hc)}'${fit ? ' ✓' : c === 't' ? ' · 토크는 둘 수 없다' : ''}</span>` : '';
+    return `<li class="cc-it k-${c[0]}${hc != null ? ' hl' : ''}${dragI === i ? ' drag' : ''}" data-i="${i}"><span class="cc-drag" title="끌어서 옮기기" aria-label="끌어서 옮기기">⠿</span><span class="cc-ix">${i + 1}</span><span class="cc-tx">${hb}${ic} ${U.esc(tx)}${sub ? `<small>${U.esc(sub)}</small>` : ''}</span><span class="cc-bt"><button class="btn sm" data-ccmv="${i}:-1" ${ccSwapOK(set, H, i, i - 1) ? '' : 'disabled'} aria-label="위로">↑</button><button class="btn sm" data-ccmv="${i}:1" ${ccSwapOK(set, H, i, i + 1) ? '' : 'disabled'} aria-label="아래로">↓</button></span></li>`;
   }).join('');
 }
 function ccHlInfoHTML(SB, set, hl) {
   const H = ccHLm(hl);
   return (hl || []).length ? (hl || []).map(o => { const c = set[o.i], x = c && c.startsWith('s:') && SB[c.slice(2)], fit = x && x.c === H[o.i]; return `<div class="cc-hli${fit ? ' ok' : ''}"><b>★ ${o.i + 1}번째</b> · 어울리는 컨셉 '${U.esc(o.c)}'<small>지금: ${x ? `「${U.esc(x.t)}」 ('${U.esc(x.c)}')${fit ? ' ✓' : ''}` : c === 't' ? '토크' : '-'}</small></div>`; }).join('') : '<div class="cc-hli">이번 공연에는 하이라이트가 없다.</div>';
 }
+// 끌어서 옮기기 (v198): ⠿를 누른 채 위아래로 움직이면 놓을 자리를 미리 보여 주고, 놓으면 그 순서가 된다 (마우스 · 손가락 둘 다)
+//   놓을 자리는 처음 줄 위치로 센다 (미리 보기로 줄 높이가 바뀌어도 흔들리지 않게). 목록 끝 가까이 가면 저절로 스크롤
+function ccDragInit(list, pl, preview, done) {
+  if (!list) return;
+  let D = null;
+  const scrollBox = () => { let el = list; while (el && el !== document.body) { const o = getComputedStyle(el).overflowY; if (/auto|scroll/.test(o) && el.scrollHeight > el.clientHeight + 1) return el; el = el.parentElement; } return null; };
+  const at = y => { const yy = y - list.getBoundingClientRect().top + list.scrollTop; for (let i = 0; i < D.R.length; i++) { const [t0, h] = D.R[i]; if (yy < t0 + h) return i; } return D.R.length - 1; };
+  const show = () => { const b = at(D.y); if (b === D.b) return; D.b = b; D.res = ccMove(D.set0, pl.hl, D.a, b); const set = D.res || D.set0, di = D.res ? set.findIndex((c, i) => c === D.set0[D.a] && (D.set0[D.a] !== 't' || i === b)) : D.a; preview(set, di); list.querySelectorAll('.cc-it').forEach(li => li.classList.toggle('bad', !D.res && +li.dataset.i === b)); };
+  const tick = () => { if (!D) return; const sc = D.sc; if (sc) { const r = sc.getBoundingClientRect(), top = Math.max(r.top, 0), bot = Math.min(r.bottom, window.innerHeight); let v = 0; if (D.y < top + 44) v = -Math.ceil((top + 44 - D.y) / 4); else if (D.y > bot - 44) v = Math.ceil((D.y - (bot - 44)) / 4); if (v) { sc.scrollTop += v; show(); } } D.raf = requestAnimationFrame(tick); };
+  const move = e => { if (!D || e.pointerId !== D.id) return; e.preventDefault(); D.y = e.clientY; show(); };
+  const end = e => {
+    if (!D || e.pointerId !== D.id) return;
+    cancelAnimationFrame(D.raf); document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', end); document.removeEventListener('pointercancel', end);
+    const R = e.type === 'pointerup' ? D.res : null, bad = e.type === 'pointerup' && !D.res && D.b !== D.a; D = null; list.classList.remove('dragging');
+    if (R) pl.set = R;
+    done();
+    if (bad && typeof toast === 'function') toast('토크는 ★ 하이라이트 자리에 둘 수 없어요');
+  };
+  list.addEventListener('pointerdown', e => {
+    const hd = e.target.closest('.cc-drag'), li = hd && hd.closest('.cc-it'); if (!li || D || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    e.preventDefault();
+    const lt = list.getBoundingClientRect().top, a = +li.dataset.i;
+    D = { id: e.pointerId, a, b: a, y: e.clientY, set0: pl.set.slice(), res: pl.set.slice(), sc: scrollBox(), R: [...list.querySelectorAll('.cc-it')].map(x => { const r = x.getBoundingClientRect(); return [r.top - lt + list.scrollTop, r.height]; }) };
+    list.classList.add('dragging'); preview(D.set0, a);
+    document.addEventListener('pointermove', move, { passive: false }); document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+    D.raf = requestAnimationFrame(tick);
+  });
+}
 E({
   id: 'co_cc_set', cat: '단독 콘서트', tag: 'career', wide: true,
   title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 단독 콘서트 · 셋리스트 순서`,
   cond: s => coOn(s),
-  init(s, d) { const g = coGroup(s, d.gid); if (!g || !d.pl) { d.skip = true; return; } const pl = d.pl; if (!pl.songs) pl.songs = ccAutoPick(s, g); const n = ccTurns(pl.songs.length); ccHlFor(pl, n); if (!pl.set || pl.set.length !== n || pl.set.includes('v')) pl.set = ccArrange(s, g, pl.songs, pl.hl, n); },
-  text: (s, d) => `${CC_VENUE[d.pl.v].n} · ${ccCntTx(d.pl.songs.length)}.\n\n↑ ↓로 곡과 토크의 순서를 바꾼다. ★ 하이라이트 자리는 움직이지 않는다. 그 자리에 어울리는 컨셉의 곡, 완성도 높은 곡을 넣으면 열기가 크게 오른다. 토크를 넣으면 흐름이 끊긴다. 쉬지 않고 6곡 넘게 이어지면 멤버들이 지친다.`,
+  init(s, d) { const g = coGroup(s, d.gid); if (!g || !d.pl) { d.skip = true; return; } const pl = d.pl; if (!pl.songs) pl.songs = ccAutoPick(s, g); const n = ccTurns(pl.songs.length); ccHlFor(pl, n); if (!pl.set || pl.set.length !== n || pl.set.includes('v') || ccTalkOnHl(pl.set, pl.hl)) pl.set = ccArrange(s, g, pl.songs, pl.hl, n); },
+  text: (s, d) => `${CC_VENUE[d.pl.v].n} · ${ccCntTx(d.pl.songs.length)}.\n\n⠿를 끌어서 놓거나 ↑ ↓로 곡과 토크의 순서를 바꾼다. 곡을 끌면 곡끼리 순서만 바뀌고, 토크를 끌면 그 자리로 간다. ★ 하이라이트 자리는 움직이지 않고, 토크는 그 자리에 둘 수 없다. 하이라이트에 어울리는 컨셉의 곡, 완성도 높은 곡을 넣으면 열기가 크게 오른다. 쉬지 않고 6곡 넘게 이어지면 멤버들이 지친다.`,
   html: (s, d) => { const { pl } = ccPlanD(s, d), SB = ccSongBy(s, coGroup(s, d.gid)); return `<div class="cc-ed"><div class="cc-col"><div class="ck-head">셋리스트 <span class="cc-tools"><button class="btn sm" data-ccauto>자동으로 짜기</button></span></div><ol class="cc-list" id="cc-list">${ccListHTML(s, SB, pl.set, pl.hl)}</ol><div class="cc-sum" id="cc-sum">${U.esc(ccSum(SB, pl.set, pl.hl))}</div></div><div class="cc-col"><div class="ck-head">하이라이트 ${(pl.hl || []).length}번</div><div class="cc-hls" id="cc-hls">${ccHlInfoHTML(SB, pl.set, pl.hl)}</div></div><input type="hidden" data-k="set" id="cc-set" value="${U.esc(JSON.stringify(pl.set))}"></div>`; },
   form: () => [],
   onShow(s, d, card) {
@@ -261,11 +310,12 @@ E({
     ed.addEventListener('click', e => {
       const b = e.target.closest('button'); if (!b || !ed.contains(b) || b.disabled) return;
       e.preventDefault(); e.stopPropagation();
-      if (b.dataset.ccmv != null) { const [i, dv] = b.dataset.ccmv.split(':').map(Number), j = i + dv; if (j >= 0 && j < pl.set.length) [pl.set[i], pl.set[j]] = [pl.set[j], pl.set[i]]; }
+      if (b.dataset.ccmv != null) { const [i, dv] = b.dataset.ccmv.split(':').map(Number), j = i + dv; if (ccSwapOK(pl.set, ccHLm(pl.hl), i, j)) [pl.set[i], pl.set[j]] = [pl.set[j], pl.set[i]]; }
       else if (b.dataset.ccauto != null) pl.set = ccArrange(s, g, pl.songs, pl.hl, pl.set.length);
       else return;
       draw();
     });
+    ccDragInit(ed.querySelector('#cc-list'), pl, (set, di) => { ed.querySelector('#cc-list').innerHTML = ccListHTML(s, SB, set, pl.hl, di); }, draw);
   },
   submitT: () => '다음 · 토크',
   fbtn: ccBack('co_cc_songs'),
@@ -273,6 +323,7 @@ E({
   submit(s, d, v) {
     const { g, pl } = ccPlanD(s, d), SB = ccSongBy(s, g);
     let set = pl.set; try { const x = JSON.parse(v.set || 'null'); if (Array.isArray(x)) set = x; } catch (e) { }
+    if (ccTalkOnHl(set, pl.hl)) return { err: '토크는 ★ 하이라이트 자리에 둘 수 없어요' };
     // 고른 곡과 토크가 그대로 다 있어야 한다 (순서만 바뀐다)
     const want = pl.songs.map(k => 's:' + k).concat(Array(ccTalkN(pl.songs.length)).fill('t')).sort(), got = set.filter(c => typeof c === 'string').slice().sort();
     if (want.join('\n') !== got.join('\n')) set = ccArrange(s, g, pl.songs, pl.hl, ccTurns(pl.songs.length));

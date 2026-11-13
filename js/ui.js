@@ -581,7 +581,7 @@ function renderCoCard() {
   h += B.map(b => {
     const bf = typeof coBldFs === 'function' ? coBldFs(t, b) : fs, money = bf.reduce((a, f) => a + (t.f[f].money || 0), 0);
     const net = bf.reduce((a, f) => a + coNetRow(Object.fromEntries(Object.entries(t.f[f].lastL || {}).filter(([k]) => !CO_IO.includes(k))))[0], 0), rt = typeof coRoomTxt === 'function' ? coRoomTxt(s, t, b) : '';
-    return `<div class="co-bld"><div class="co-bld-h">🏢 ${U.esc(typeof coBldN === 'function' ? coBldN(t, b) : '본사 사옥')}${rt ? ` <span class="${/꽉/.test(rt) ? 'neg' : ''}">· ${U.esc(rt)}</span>` : ''}</div>`
+    return `<div class="co-bld"><div class="co-bld-h">🏢 ${U.esc(typeof coBldN === 'function' ? coBldN(t, b) : '본사 사옥')}${t.hire ? '' : ` <button type="button" class="bld-ren" data-bldren="${b}" title="사옥 이름 짓기">✏️</button>`}${rt ? ` <span class="${/꽉/.test(rt) ? 'neg' : ''}">· ${U.esc(rt)}</span>` : ''}</div>`
       + coBnFacts([['자본금', fmtWon(money), money < 0 ? 'neg' : ''], ['지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg']])
       + `<div class="co-minis">${bf.map(f => coMiniHTML(s, t, f)).join('')}</div></div>`;
   }).join('');
@@ -2530,6 +2530,8 @@ document.addEventListener('click', e => {
   if (t.dataset.job) { UI.jobId = t.dataset.job; UI.jobFrom = t.dataset.from || ''; UI.jobTab = 'info'; openPanel('job'); return; }
   if (t.dataset.jobtab) { UI.jobTab = t.dataset.jobtab; renderPanel(); return; }
   if (t.dataset.cof) { UI.coF = t.dataset.cof; UI.coTab = 'home'; UI.coGrp = null; if (UI.overlay) { UI.overlay = 'company'; renderPanel(); } else openPanel('company'); return; }
+  // v198: 회사 이름 바꾸기 (회사 창 제목 옆 ✏️) · 사옥 이름 짓기 (메인 화면 사옥 상자 옆 ✏️). 사옥 상자 · 회사 창을 누른 것으로 치지 않는다
+  if (t.dataset.coren != null || t.dataset.bldren != null) { if (!S || !coOn(S)) return; const L0 = S.log[S.log.length - 1]; if (t.dataset.coren != null) fireEvent(S, 'co_rename', { f: t.dataset.coren }); else fireEvent(S, 'co_bld_name', { b: t.dataset.bldren }); UI.minimized = false; save(S); actDone(L0, '이름', () => { if (UI.overlay === 'company' || UI.overlay === 'group') S.uiOpen = UI.overlay; }); return; }
   if (t.dataset.cofound) { if (S.pending) { UI.minimized = false; showEvent(); return; } fireEvent(S, 'co_new', { sub: t.dataset.cofound === 'sub' }); UI.minimized = false; save(S); showEvent(); return; }
   if (t.dataset.soon != null) { openPanel('soon'); return; }
   if (t.dataset.apjcat) { UI.apjOpen = UI.apjOpen || {}; UI.apjOpen[t.dataset.apjcat] = t.dataset.open !== '1'; renderPanel(); return; }

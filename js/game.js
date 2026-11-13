@@ -46,9 +46,9 @@ const CAREER_PLAN = [
   // 7-3단계 (js/illust.js): 일러스트레이터
   { id: 'illust', n: '일러스트레이터', g: 'staff', sub: 'video' },
   // 7-3단계 (js/prof.js): 교수 (현장 경력 길 · 대학원 길)
-  { id: 'prof', n: '교수', g: 'staff', sub: 'video' },
+  { id: 'prof', n: '교수', g: 'staff', sub: 'office' },
   // 7-4단계 (js/tutor.js): 학원 강사 → 인강 강사 → 1타 강사
-  { id: 'tutor', n: '강사 (1타 강사)', g: 'staff', sub: 'video' },
+  { id: 'tutor', n: '강사 (1타 강사)', g: 'staff', sub: 'office' },
   { id: 'editor', n: '편집자', g: 'staff', sub: 'video' },
   { id: 'acttrainer', n: '연기 트레이너', g: 'staff', sub: 'video' },
   { id: 'animator', n: '애니메이터', g: 'staff', sub: 'video' },
