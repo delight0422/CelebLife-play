@@ -580,7 +580,7 @@ function renderCoCard() {
     const net = bf.reduce((a, f) => a + coNetRow(Object.fromEntries(Object.entries(t.f[f].lastL || {}).filter(([k]) => !CO_IO.includes(k))))[0], 0), rt = typeof coRoomTxt === 'function' ? coRoomTxt(s, t, b) : '';
     return `<div class="co-bld"><div class="co-bld-h">🏢 ${U.esc(typeof coBldN === 'function' ? coBldN(t, b) : '본사 사옥')}${rt ? ` <span class="${/꽉/.test(rt) ? 'neg' : ''}">· ${U.esc(rt)}</span>` : ''}</div>`
       + coBnFacts([['자본금', fmtWon(money), money < 0 ? 'neg' : ''], ['지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg']])
-      + bf.map(f => coMiniHTML(s, t, f)).join('') + `</div>`;
+      + `<div class="co-minis">${bf.map(f => coMiniHTML(s, t, f)).join('')}</div></div>`;
   }).join('');
   el.innerHTML = h;
 }
@@ -1016,7 +1016,8 @@ function showEnding(preview) {
 }
 
 // ───── 패널 ─────
-function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people' && $('#panel').classList.contains('hidden')) UI.pplOpen = {}; if (kind === 'people' && S.pplSeenT !== S.t) { S.pplSeenT = S.t; renderPeopleCard(); } UI.overlay = kind; UI.pRes = null; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
+// v194: 인간관계 창은 다시 열어도 저번에 펼치고 접은 그대로 (UI.pplOpen을 지우지 않는다). 스크롤만 맨 위로 (top0)
+function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people' && S.pplSeenT !== S.t) { S.pplSeenT = S.t; renderPeopleCard(); } UI.overlay = kind; UI.pRes = null; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
 function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.apjFrom = null; UI.skDrop = false; UI.pRes = null; UI.pickSlot = null; if (S) render(); }
 // 행동 버튼 한 줄. 버튼이 누를 일은 UI.acts(창) 또는 UI.lacts(오른쪽 생활 카드)에 모아 둔다
 function actRow(a) {
@@ -2664,6 +2665,6 @@ function pinfoHTML(s, x) {
   const sk = ks.length ? ks.map(([k, v]) => `<div class="pi-sk"><span class="pi-n">${U.esc(SKILLS[k].n)}</span><span class="pi-bar"><i style="left:0;width:${v.lo}%"></i>${v.hi > v.lo ? `<i class="rg" style="left:${v.lo}%;width:${v.hi - v.lo}%"></i>` : ''}</span><span class="pi-lv">${v.t}</span>${v.pot ? potBars(v.pot) : ''}</div>`).join('') : '<div class="muted">특기 없음</div>';
   return `<div class="pinfo"><div class="pi-h">${pAvHTML(x, true)}<div><div class="pi-name">${U.esc(x.name)} <span class="gchip ${x.g === '여' ? 'f' : 'm'}">${x.g === '여' ? '여성' : '남성'}</span></div><div class="pi-sub">${U.esc(x.job || '')}${x.soul ? ' · <span class="soul-hint">어딘가 낯익은 얼굴</span>' : ''}</div></div></div>`
     + infoTable(R) + `<div class="sec-h">특기 <span class="n">${ks.length}개 · 레벨 높은 순</span></div><div class="pi-sks">${sk}</div>`
-    + (ks.length ? `<p class="hint">별 ${potBars('24')} 별의 수는 우리 회사 사람들과 비교한 성장성이다. 스카우트하는 사람에 따라 부정확할 가능성이 있다.${ks.some(([, v]) => v.pot[0] === '?') ? ` · ${potBars('?')} 포텐을 모른다 (스카우트 특기와 그 분야 특기가 있어야 보인다)` : ''}</p>` : '') + `</div>`;
+    + (ks.length ? `<p class="hint">별 ${potBars('24')} 별의 수는 우리 회사 사람들과 비교한 성장 가능성이다. 스카우트하는 사람에 따라 부정확할 가능성이 있다.${ks.some(([, v]) => v.pot[0] === '?') ? ` · ${potBars('?')} 포텐을 모른다 (스카우트 특기와 그 분야 특기가 있어야 보인다)` : ''}</p>` : '') + `</div>`;
 }
 function pinfoOpen(id) { const x = S && S.people[id]; if (!x) return; popOpen(pinfoHTML(S, x), 'pinfo-card'); }

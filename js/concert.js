@@ -2,6 +2,7 @@
 // 앨범 5장 이상 · 그룹 팬 30만 명 이상 · 연습생 · 제작 비용을 다 회수한 우리 회사 아이돌 그룹만 연다 (1년에 한 번)
 // 대표가 정하는 순서: 공연장(대관) → 셋리스트(곡 순서 + 중간 토크 · VCR 쉬는 시간) → 토크마다 누가 말할지 → 입장료
 // 다음 달에 공연. 내가 기획했으면 음악방송처럼 공연을 본다 (live.js liveConcert). 전담 프로듀서 · 자동 · CEO가 맡으면 안 보여 준다
+// 관객 수 = 그룹 팬 · 팬 충성도 · 입장료. 열기 = 무대 실력 · 곡 완성도 · 토크 멤버 예능 (v194)
 // 끝나면 결산: 열기(분위기) · 수익 · 열기가 높으면 팬 충성도 ↑ / 낮으면 그룹 팬 ↓ (토스트). CEO가 맡은 회사면 CEO 보고서에 들어간다
 const CC_VENUE = [
   { n: '소극장 홀', seat: 1500, rent: 2000e4, stage: 8000e4 },
@@ -38,11 +39,11 @@ function ccSongs(s, g) {
   return L;
 }
 function ccSongBy(s, g) { const M = {}; for (const x of ccSongs(s, g)) M[x.key] = x; return M; }
-function ccTalkP(x) { return lv(x, 'variety') * 0.7 + x.tal.star * 0.3; }
-// 자동으로 짜기: 가장 큰 곡으로 끝내고, 두 번째로 큰 곡으로 시작하고, 사이는 앨범 순서대로. 3곡 뒤 첫 토크, 그 뒤로 4곡마다 VCR · 토크를 번갈아
+function ccTalkP(x) { return lv(x, 'variety'); }
+// 자동으로 짜기: 완성도가 가장 높은 곡으로 끝내고, 두 번째 곡으로 시작하고, 사이는 앨범 순서대로. 3곡 뒤 첫 토크, 그 뒤로 4곡마다 VCR · 토크를 번갈아
 function ccAutoSet(s, g) {
-  const L = ccSongs(s, g), pick = L.filter(x => x.tt).concat(L.filter(x => !x.tt).sort((a, b) => b.sc - a.sc)).slice(0, 16);
-  const hit = pick.slice().sort((a, b) => b.sc - a.sc), last = hit[0], first = hit[1] || hit[0];
+  const L = ccSongs(s, g), pick = L.filter(x => x.tt).concat(L.filter(x => !x.tt).sort((a, b) => b.q - a.q)).slice(0, 16);
+  const hit = pick.slice().sort((a, b) => b.q - a.q), last = hit[0], first = hit[1] || hit[0];
   const mid = L.filter(x => pick.includes(x) && x !== last && x !== first);
   const seq = (first !== last ? [first] : []).concat(mid, [last]), out = [];
   let brk = 0;
@@ -55,8 +56,8 @@ function ccAutoTalk(s, g, set) {
   set.forEach((c, i) => { if (c === 't') { T[i] = k === 0 || !P.length ? 'all' : P[(k - 1) % P.length].id; k++; } });
   return T;
 }
-// 기대 관객 수 (두 번 공연을 합친 것): 그룹 팬 · 팬 충성도 · 입장료
-function ccDemand(s, g, price, r) { return coGFans(g) * 0.05 * (0.55 + loyOf(g) / 100 * 0.9) * Math.pow(121000 / price, 1.3) * (r == null ? 1 : r); }
+// 기대 관객 수 (두 번 공연을 합친 것): 그룹 팬 수 × 팬 충성도(0이면 0.4배 · 50이면 1배 · 100이면 1.6배) × 입장료(쌀수록 많이)
+function ccDemand(s, g, price, r) { return coGFans(g) * 0.05 * (0.4 + loyOf(g) / 100 * 1.2) * Math.pow(121000 / price, 1.3) * (r == null ? 1 : r); }
 function ccAutoPlan(s, t, g, mode) {
   const d0 = ccDemand(s, g, 121000), res = coFixed(s, t, 'music') * CO_AUTO_RES;
   let v = 0; CC_VENUE.forEach((V, i) => { if (V.seat * CC_SHOWS <= d0 * 1.05 && coM(t, 'music') >= ccCost(i) + res) v = i; });
@@ -72,52 +73,59 @@ function ccConfirm(s, t, g, pl) {
 // 자동 · CEO: 창 없이 기획까지 마친다
 function ccAutoRun(s, t, g, mode) { const pl = ccAutoPlan(s, t, g, mode); if (coM(t, 'music') < ccCost(pl.v)) return ''; return ccConfirm(s, t, g, pl); }
 
-// ───── 열기 계산 ─────
-// 멤버 실력 · 객석이 얼마나 찼나 · 팬 충성도 · 셋리스트(첫 곡 · 마지막 곡 · 곡 수 · 쉬지 않고 이어 부른 곡 · 쉬는 시간 · 같은 곡) · 토크
+// ───── 열기 계산 (v194) ─────
+// 열기 = 멤버들의 무대 실력(노래 · 랩 · 춤 레벨) 40% + 셋리스트 곡 완성도 35% + 토크 멤버의 예능 레벨 25%
+// 셋리스트 짜임(곡 수 · 쉬지 않고 이어 부른 곡 · 쉬는 시간 · 같은 곡 · 첫 곡 · 마지막 곡)은 조금 더하고 빼는 정도. 관객 수 · 팬 충성도는 열기가 아니라 관객 수에 들어간다
+function ccStage(x) { return Math.max(lv(x, 'vocal'), lv(x, 'rap')) * 0.5 + lv(x, 'dance') * 0.5; }
 function ccRun(s, t, g, pl) {
   const P = coP(s, g.members), SB = ccSongBy(s, g), V = CC_VENUE[pl.v] || CC_VENUE[0], price = CC_PRICE[pl.p] || 121000;
-  const perf = P.reduce((a, x) => a + Math.max(lv(x, 'vocal'), lv(x, 'rap')) * 0.45 + lv(x, 'dance') * 0.45 + lv(x, 'variety') * 0.1, 0) / Math.max(1, P.length);
+  const perf = P.reduce((a, x) => a + ccStage(x), 0) / Math.max(1, P.length);
   const cap = V.seat * CC_SHOWS, sold = Math.round(Math.min(cap, ccDemand(s, g, price, U.fl(0.85, 1.15)))), fill = sold / cap;
   const set = (pl.set || []).filter(c => c === 't' || c === 'v' || (c.startsWith('s:') && SB[c.slice(2)]));
   const songs = set.filter(c => c.startsWith('s:')).map(c => SB[c.slice(2)]), nS = songs.length, nT = set.filter(c => c === 't').length, nV = set.filter(c => c === 'v').length, nB = nT + nV;
   const N = [], B = [];
-  let h = 30 + perf * 0.35 + (loyOf(g) - 50) / 5;
-  if (fill >= 0.95) { h += 8; N.push('표가 다 팔렸다.'); } else if (fill >= 0.8) h += 4; else if (fill < 0.6) { h -= Math.min(12, (0.6 - fill) * 30); N.push('빈자리가 많았다.'); }
-  if (nS < 8) { h -= (8 - nS) * 2.5; N.push('곡이 적어 금방 끝난 느낌이었다.'); } else if (nS > 20) { h -= (nS - 20) * 1.5; N.push('공연이 너무 길었다.'); }
-  const pop = x => U.clamp((x.sc - 50) / 30, -1, 1), rank = songs.slice().sort((a, b) => b.sc - a.sc);
-  h += nS ? songs.reduce((a, x) => a + pop(x), 0) / nS * 6 : -10;
-  const seen = {}; let dup = 0; for (const x of songs) { if (seen[x.key]) dup++; seen[x.key] = 1; }
-  if (dup) { h -= dup * 6; N.push('같은 곡을 두 번 불렀다.'); }
-  if (set[0] && !set[0].startsWith('s:')) { h -= 3; N.push('시작부터 쉬어 가서 분위기가 늦게 올라왔다.'); } else if (songs[0] && pop(songs[0]) >= 0.4) { h += 4; N.push('첫 곡부터 객석이 뜨거웠다.'); }
-  const lastS = songs[nS - 1]; if (lastS && rank.indexOf(lastS) <= 1 && nS >= 3) { h += 5; N.push('마지막 곡에서 떼창이 터졌다.'); }
-  if (!nB && nS) { h -= 8; N.push('쉬는 시간이 없어 뒤로 갈수록 힘이 빠졌다.'); } else if (nB > nS / 2) { h -= (nB - nS / 2) * 2; N.push('토크와 VCR이 너무 잦아 흐름이 자주 끊겼다.'); }
-  // 쉬지 않고 이어 부른 곡: 다섯 곡이 넘으면 지친다
-  let run = 0, maxRun = 0, tired = 0; const tiredAt = {};
-  set.forEach((c, i) => { if (c.startsWith('s:')) { run++; if (run > 5) { tired++; tiredAt[i] = 1; } maxRun = Math.max(maxRun, run); } else run = 0; });
-  if (tired) { h -= tired * 2; N.push(`쉬지 않고 ${maxRun}곡을 이어 불러 멤버들이 지쳤다.`); }
-  // 토크: 예능 실력 · 스타성. 모두 함께면 평균에 조금 더. 같은 사람이 여러 번 하면 덜 새롭다
-  const used = {}, TK = {};
+  if (fill >= 0.995) N.push('표가 다 팔렸다.'); else if (fill < 0.6) N.push('빈자리가 많았다.');
+  // 1. 무대 실력
+  if (perf >= 72) N.push('라이브와 춤이 압도적이었다.'); else if (perf < 40) N.push('라이브가 자주 흔들렸다.');
+  // 2. 곡 완성도
+  const songQ = nS ? songs.reduce((a, x) => a + x.q, 0) / nS : 30;
+  if (songQ >= 75) N.push('완성도 높은 곡들로 꽉 채웠다.'); else if (songQ < 50) N.push('완성도가 아쉬운 곡이 많았다.');
+  // 3. 토크: 말하는 멤버의 예능 레벨. 모두 함께면 멤버 평균에 조금 더. 같은 사람이 여러 번 하면 덜 새롭다. 토크가 없으면 낮게 본다
+  const used = {}, TK = {}, avgV = P.reduce((a, y) => a + lv(y, 'variety'), 0) / Math.max(1, P.length);
+  let talkSum = 0;
   set.forEach((c, i) => {
     if (c !== 't') return;
-    const w = (pl.talk || {})[i], x = w && w !== 'all' ? s.people[w] : null;
-    const tq = x && P.includes(x) ? ccTalkP(x) : P.reduce((a, y) => a + ccTalkP(y), 0) / Math.max(1, P.length) + 6;
-    let v = U.clamp((tq - 45) / 20, -1, 1); const k = x && P.includes(x) ? x.id : 'all';
-    if (used[k]) v -= 0.4 * used[k]; used[k] = (used[k] || 0) + 1;
-    h += v * 2.5; TK[i] = { who: x && P.includes(x) ? coSN(x) : '멤버 모두', v, n: x && P.includes(x) ? x.name : '' };
+    const w = (pl.talk || {})[i], x = w && w !== 'all' ? s.people[w] : null, mine = x && P.includes(x);
+    const k = mine ? x.id : 'all'; let tq = mine ? lv(x, 'variety') : avgV + 5;
+    if (used[k]) tq -= 8 * used[k]; used[k] = (used[k] || 0) + 1;
+    tq = U.clamp(tq, 0, 100); talkSum += tq;
+    TK[i] = { who: mine ? coSN(x) : '멤버 모두', v: U.clamp((tq - 45) / 25, -1, 1), n: mine ? x.name : '', tq };
   });
-  const tb = Object.values(TK).filter(o => o.n).sort((a, b) => b.v - a.v);
-  if (tb.length && tb[0].v >= 0.6) N.push(`${tb[0].n}의 토크가 큰 웃음을 줬다.`);
-  if (tb.length && tb[tb.length - 1].v <= -0.5) N.push(`${tb[tb.length - 1].n}의 토크는 조금 어색했다.`);
-  if (loyOf(g) >= 70) N.push('오래된 팬들이 끝까지 함께 불렀다.');
-  h = Math.round(U.clamp(h + U.normal(0, 4), 0, 100));
-  // 무대 장면 (live.js liveConcert): 곡 · 토크 · VCR마다 반응 세기 (-1~1)
+  const talkQ = nT ? talkSum / nT : 30;
+  const tb = Object.values(TK).filter(o => o.n).sort((a, b) => b.tq - a.tq);
+  if (tb.length && tb[0].tq >= 65) N.push(`${tb[0].n}의 토크가 큰 웃음을 줬다.`);
+  if (tb.length && tb[tb.length - 1].tq < 35) N.push(`${tb[tb.length - 1].n}의 토크는 조금 어색했다.`);
+  let h = perf * 0.4 + songQ * 0.35 + talkQ * 0.25;
+  // 셋리스트 짜임 (조금만)
+  if (nS < 8) { h -= (8 - nS) * 2; N.push('곡이 적어 금방 끝난 느낌이었다.'); } else if (nS > 20) { h -= (nS - 20) * 1.2; N.push('공연이 너무 길었다.'); }
+  const seen = {}; let dup = 0; for (const x of songs) { if (seen[x.key]) dup++; seen[x.key] = 1; }
+  if (dup) { h -= dup * 4; N.push('같은 곡을 두 번 불렀다.'); }
+  const rank = songs.slice().sort((a, b) => b.q - a.q), lastS = songs[nS - 1];
+  if (set[0] && !set[0].startsWith('s:')) { h -= 2; N.push('시작부터 쉬어 가서 분위기가 늦게 올라왔다.'); } else if (songs[0] && rank.indexOf(songs[0]) <= 2) { h += 2; N.push('첫 곡부터 객석이 뜨거웠다.'); }
+  if (lastS && nS >= 3 && rank.indexOf(lastS) <= 1) { h += 3; N.push('마지막 곡에서 떼창이 터졌다.'); }
+  if (!nB && nS) { h -= 6; N.push('쉬는 시간이 없어 뒤로 갈수록 힘이 빠졌다.'); } else if (nB > nS / 2) { h -= (nB - nS / 2) * 1.5; N.push('토크와 VCR이 너무 잦아 흐름이 자주 끊겼다.'); }
+  let run = 0, maxRun = 0, tired = 0; const tiredAt = {};
+  set.forEach((c, i) => { if (c.startsWith('s:')) { run++; if (run > 5) { tired++; tiredAt[i] = 1; } maxRun = Math.max(maxRun, run); } else run = 0; });
+  if (tired) { h -= tired * 1.5; N.push(`쉬지 않고 ${maxRun}곡을 이어 불러 멤버들이 지쳤다.`); }
+  h = Math.round(U.clamp(h + U.normal(0, 3), 0, 100));
+  // 무대 장면 (live.js liveConcert): 곡 · 토크 · VCR마다 반응 세기 (-1~1). 곡은 그 곡의 완성도와 무대 실력으로
   let no = 0;
   set.forEach((c, i) => {
     if (c === 't') B.push({ k: 't', who: TK[i].who, h: Math.round(TK[i].v * 100) / 100 });
     else if (c === 'v') B.push({ k: 'v', h: Math.round(((h - 60) / 30) * 100) / 100 });
-    else { const x = SB[c.slice(2)]; no++; B.push({ k: 's', no, t: x.t, tt: x.tt, h: Math.round(U.clamp((h - 60) / 30 + pop(x) * 0.5 - (tiredAt[i] ? 0.6 : 0), -1, 1) * 100) / 100, tired: tiredAt[i] ? 1 : 0, first: no === 1 ? 1 : 0, last: x === lastS && no === nS ? 1 : 0 }); }
+    else { const x = SB[c.slice(2)]; no++; B.push({ k: 's', no, t: x.t, tt: x.tt, h: Math.round(U.clamp((x.q * 0.5 + perf * 0.5 - 58) / 18 - (tiredAt[i] ? 0.6 : 0), -1, 1) * 100) / 100, tired: tiredAt[i] ? 1 : 0, first: no === 1 ? 1 : 0, last: x === lastS && no === nS ? 1 : 0 }); }
   });
-  return { heat: h, sold, cap, fill, price, perf, nS, nT, nV, notes: N, blocks: B };
+  return { heat: h, sold, cap, fill, price, perf, songQ, talkQ, nS, nT, nV, notes: N, blocks: B };
 }
 function ccHeatW(h) { return h >= 85 ? '공연장이 터질 듯했다' : h >= 70 ? '분위기가 뜨거웠다' : h >= 55 ? '무난하게 즐겼다' : h >= 40 ? '분위기가 조금 가라앉았다' : '객석이 식어 버렸다'; }
 
@@ -198,7 +206,7 @@ E({
   title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 단독 콘서트 · 토크`,
   cond: s => coOn(s),
   init(s, d) { if (!coGroup(s, d.gid) || !d.pl) d.skip = true; },
-  text: () => '토크 시간마다 누가 이야기를 이끌지 정한다. 말솜씨(예능)와 스타성이 좋을수록 객석이 즐거워한다.',
+  text: () => '토크 시간마다 누가 이야기를 이끌지 정한다. 예능 레벨이 높을수록 객석이 즐거워한다. 모두 함께면 멤버들 평균보다 조금 낫다.',
   form: (s, d) => {
     const { g, pl } = ccPlanD(s, d), SB = ccSongBy(s, g), P = coP(s, g.members), F = [];
     let k = 0;
@@ -207,7 +215,7 @@ E({
       const prev = pl.set.slice(0, i).reverse().find(x => x.startsWith('s:')), pv = prev && SB[prev.slice(2)];
       F.push({ type: 'head', label: `💬 토크 ${k}${pv ? ` (「${pv.t}」 다음)` : ' (맨 처음)'}` });
       F.push({ k: 't' + i, type: 'radio', v: 'all', on: pl.talk[i] === 'all', label: '멤버 모두 함께' });
-      for (const x of P) F.push({ k: 't' + i, type: 'radio', v: x.id, on: pl.talk[i] === x.id, label: coSNLabel(x), sub: `예능 ${lvi(x, 'variety')} · 스타성 ${grade5(coViewer(s, 'cast', null), x.tal.star, 'pot')}` });
+      for (const x of P) F.push({ k: 't' + i, type: 'radio', v: x.id, on: pl.talk[i] === x.id, label: coSNLabel(x), sub: `예능 ${lvi(x, 'variety')}` });
     });
     return F;
   },
@@ -222,7 +230,7 @@ E({
   title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 단독 콘서트 · 입장료`,
   cond: s => coOn(s),
   init(s, d) { if (!coGroup(s, d.gid) || !d.pl) d.skip = true; },
-  text: (s, d) => { const { g, t, pl } = ccPlanD(s, d), V = CC_VENUE[pl.v]; return `${V.n} · ${(V.seat * CC_SHOWS).toLocaleString()}석 (${V.seat.toLocaleString()}석 × ${CC_SHOWS}회)\n그룹 팬 ${fmtFans(coGFans(g))} · 팬 충성도 ${loyTxt(g)}\n\n싸면 표가 잘 팔리고, 비싸면 덜 팔릴 수 있다. 예매 수수료 ${Math.round(CC_FEE * 100)}%는 뗀다.\n대관 · 무대 ${fmtWon(ccCost(pl.v))} · 자본금 ${fmtWon(coM(t, 'music'))}`; },
+  text: (s, d) => { const { g, t, pl } = ccPlanD(s, d), V = CC_VENUE[pl.v]; return `${V.n} · ${(V.seat * CC_SHOWS).toLocaleString()}석 (${V.seat.toLocaleString()}석 × ${CC_SHOWS}회)\n그룹 팬 ${fmtFans(coGFans(g))} · 팬 충성도 ${loyTxt(g)}\n\n그룹 팬이 많고 팬 충성도가 높을수록, 입장료가 쌀수록 표가 잘 팔린다. 예매 수수료 ${Math.round(CC_FEE * 100)}%는 뗀다.\n대관 · 무대 ${fmtWon(ccCost(pl.v))} · 자본금 ${fmtWon(coM(t, 'music'))}`; },
   form: (s, d) => { const pl = d.pl, on = pl.p != null ? pl.p : 2; return [{ type: 'head', label: '입장료' }].concat(CC_PRICE.map((p, i) => ({ k: 'p', type: 'radio', v: String(i), on: i === on, label: fmtWon(p) }))); },
   sum: (s, d, v) => { const V = CC_VENUE[d.pl.v], p = CC_PRICE[parseInt(v.p, 10)] || CC_PRICE[2]; return `만석이면 티켓 매출 ${fmtWon(Math.round(V.seat * CC_SHOWS * p * (1 - CC_FEE)))}`; },
   submitT: () => '공연 확정',

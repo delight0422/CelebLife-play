@@ -463,8 +463,8 @@ function startActTrainer(s, d) {
 NEGO.acttrainer = empNego('acttrainer', startActTrainer);
 CAREERS.acttrainer = {
   n: '연기 트레이너', ic: '🎭',
-  desc: '배우 소속사에서 신인 배우에게 연기를 가르친다. 가르치는 힘은 교육과 연출에서 나온다.',
-  act: { n: '연기 레슨 (신인 가르치기)', ic: '🎭', g: '직업 활동', eff: [['교육', '↑↑', 1], ['연출', '↑', 1], ['스트레스', '↑', 0]] },
+  desc: '배우 소속사에서 신인 배우에게 연기를 가르친다. 가르치는 힘은 교육과 연기에서 나온다.',
+  act: { n: '연기 레슨 (신인 가르치기)', ic: '🎭', g: '직업 활동', eff: [['교육', '↑↑', 1], ['연기', '↑', 1], ['스트레스', '↑', 0]] },
   status(s, t) { return t.st !== 'active' ? (t.endNote || '') : `${t.agN} 연기 트레이너${t.lead ? ' 팀장' : ''} · 길러 낸 배우 ${t.debuts}명 · 업무 평가 ${Math.round(t.rep)} · 월급 ${fmtWon(t.sal)}`; },
   short() { return '연기 트레이너'; },
   seg(s, t) { return `${t.agN} 연기 트레이너`; },
@@ -475,7 +475,7 @@ CAREERS.acttrainer = {
   mainSk() { return 'edu'; },
   info(s, t) {
     const p = me(s), sts = t.students.map(id => s.people[id]).filter(Boolean);
-    return [['회사', `${t.agN} (${TIER_N[t.tier]} 배우 소속사) · 연기 트레이너${t.lead ? ' 팀장' : ''}`], ['월급', fmtWon(t.sal)], ['내 실력', `연출 ${lvi(p, 'direct')} · 교육 ${lvi(p, 'edu')}`], ['업무 평가', `${Math.round(t.rep)}`], ['길러 낸 배우', `${t.debuts}명${t.cuts ? ` · 내보낸 신인 ${t.cuts}명` : ''}`],
+    return [['회사', `${t.agN} (${TIER_N[t.tier]} 배우 소속사) · 연기 트레이너${t.lead ? ' 팀장' : ''}`], ['월급', fmtWon(t.sal)], ['내 실력', `연기 ${lvi(p, 'acting')} · 교육 ${lvi(p, 'edu')}`], ['업무 평가', `${Math.round(t.rep)}`], ['길러 낸 배우', `${t.debuts}명${t.cuts ? ` · 내보낸 신인 ${t.cuts}명` : ''}`],
       { h: `맡은 신인 (${sts.length}명)`, items: sts.map(x => ({ who: x.id, t: x.name, sub: `${gN(x)} · ${pAge(s, x)}세 · 연기 ${lvi(x, 'acting')}레벨${potTok(p, x, 'acting', true, !canScout(p, 'acting'))} · ${relWord(x)}` })) }];
   },
   actions(s, t) { return t.st === 'active' ? [{ t: '회사 그만두기', h: '직원 계약이라 위약금은 없다', ok: true, danger: true, confirm: '정말 회사를 그만둘까요?', run: s => { const n = t.agN; leaveEmp(s, 'acttrainer', '퇴사'); return `${josa(n, '을를')} 그만뒀다.`; } }] : []; },
@@ -485,7 +485,7 @@ CAREERS.acttrainer = {
     empMonth(s, 'acttrainer', t);
     earn(s, t.sal, '월급', 'acttrainer');
     const n = slotsOn(s, 'c_acttrainer'), p = me(s), sts = t.students.map(id => s.people[id]).filter(Boolean);
-    if (n) { teach(s, p, 1.3 * n); useSkill(s, p, 'direct', 0.6 * n); addStress(s, 1.5); }
+    if (n) { teach(s, p, 1.3 * n); useSkill(s, p, 'acting', 0.6 * n); addStress(s, 1.5); }
     for (const x of sts) {
       practice(s, x, 'acting', n ? (1 + teachLv(p, 'acting') / 50) * Math.min(2, n) : 0.3, n ? 1.4 : 1);
       if (n) { bond(s, x, 1); x.contactT = s.t; }
