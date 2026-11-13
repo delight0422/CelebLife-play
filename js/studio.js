@@ -389,9 +389,12 @@ E({
 // 받아 줄 가능성: 각본·감독·주연을 정확히 보고 작품이 얼마나 될지 가늠한다. 큰 곳일수록 까다롭다
 // v182: 받아 줄지는 곳 · 작품마다 그해 정해져 있다 (coRoll). 거절한 곳은 흐리게 남는다 (P.dno). 다 거절하면 뒤로 가서 제작비를 늘리거나 그만둔다
 function coVEst(s, P) { const dir = P.dir === 'me' ? me(s) : s.people[P.dir], lead = s.people[P.lead]; return P.q * 0.28 + (dir ? lv(dir, 'direct') : 40) * 0.32 + (lead ? lv(lead, 'acting') : 35) * 0.1 + (lead ? Math.log10(1 + (lead.fame || 0)) : 1) + coASrcHype(P) + V_BUD_SC[P.lvl] + 9; }
+// v209: 거는 곳을 찾아갈 때마다 접대비가 나간다 (받아 주든 거절하든). 큰 곳일수록 · 큰 작품(제작비)일수록 많이
+const DIST_ENT = [null, [300e4, 0.004], [1000e4, 0.008], [3000e4, 0.015]];
+function coVDistCost(P, D) { const [b, r] = DIST_ENT[D.tier] || DIST_ENT[1]; return Math.round(Math.max(b, (P.bud || 0) * r) / 1e5) * 1e5; }
 function coVDistP(s, t, P, D) { return U.clamp(U.sig(((P.f === 'anime' ? coAEst(s, P) : coVEst(s, P)) - 55 + P.lvl * 4 + (coTier(t, coPF(P)) - 1) * 4 - (D.tier - 1) * 8 + 6 + 8 * coMkc(s, coPF(P))) / 6), 0.05, 0.97); }
 E({
-  id: 'co_vdist', cat: (s, d) => coCat(d), title: (s, d) => `${V_CH_S[coPK(d.P).ch]} 정하기`, tag: 'career', ledA: (s, d) => `「${d.P.title}」 제작 시작 (각본 · 연출 · 출연료)`, noRes: 'toast',
+  id: 'co_vdist', cat: (s, d) => coCat(d), title: (s, d) => `${V_CH_S[coPK(d.P).ch]} 정하기`, tag: 'career', ledA: (s, d) => d.rej ? `「${d.P.title}」 거는 곳 찾기 (접대비)` : `「${d.P.title}」 제작 시작 (각본 · 연출 · 출연료 · 접대비)`, noRes: 'toast',
   cond: s => coOn(s),
   init(s, d) { coSnapIn(d); if (!d.ids) d.ids = DISTRIBUTORS.filter(D => D.ch === coPK(d.P).ch).map(D => D.id); },
   text: (s, d) => { const P = d.P, all = d.ids.every(id => (P.dno || []).includes(id)); return `${josa(`「${P.title}」`, "을를")} 어디에 걸까? ${V_CH_N[coPK(P).ch]}마다 수수료와 힘이 다르다. 큰 곳일수록 많이 보여 주고 홍보도 세게 하지만, 수수료가 높고 작은 작품은 거절하기도 한다.${d.no ? `\n\n${d.no}` : ''}${all ? `\n\n받아 줄 곳이 없다. 뒤로 가서 제작비를 늘리거나 기획을 접는다.` : ''}`; },
@@ -399,12 +402,13 @@ E({
     const t = coT(s), P = d.P;
     return d.ids.map(id => DIST[id]).map(D => {
       // v203: 큰 곳(★★★)은 마케터가 있어야 걸 수 있다
-      const T = DIST_T[D.tier], p = coVDistP(s, t, P, D), ott = D.ch === 'ott', no = (P.dno || []).includes(D.id), nmk = D.tier >= 3 && !coMk(s, coPF(P));
-      return { t: `${D.n} (${vChLabel(D)})`, ok: () => !no && !nmk, h: no ? '거절했다' : nmk ? `큰 곳은 ${CO_MK_NO}` : `${ott ? `제작비에 이윤 ${Math.round((T.margin - 1) * 100)}%를 얹어 산다` : `수수료 ${Math.round(T.fee * 100)}% · ${D.ch === 'film' ? '상영관' : D.ch === 'tv' ? '편성' : '노출'} ${'★'.repeat(D.tier)}`} · 홍보 ${'★'.repeat(D.tier)} · 받아 줄 가능성 ${fmtPct(p)}`, f: s => {
+      const T = DIST_T[D.tier], p = coVDistP(s, t, P, D), ott = D.ch === 'ott', no = (P.dno || []).includes(D.id), nmk = D.tier >= 3 && !coMk(s, coPF(P)), ent = coVDistCost(P, D), need = ent + coVUpfront(P), poor = coM(t, coPF(P)) < need;
+      return { t: `${D.n} (${vChLabel(D)})`, ok: () => !no && !nmk && coM(coT(s), coPF(P)) >= need, h: no ? '거절했다' : nmk ? `큰 곳은 ${CO_MK_NO}` : `접대비 ${fmtWon(ent)}${poor ? ` · 자본금이 모자라다 (받아 주면 바로 낼 돈까지 ${fmtWon(need)})` : ''} · ${ott ? `제작비에 이윤 ${Math.round((T.margin - 1) * 100)}%를 얹어 산다` : `수수료 ${Math.round(T.fee * 100)}% · ${D.ch === 'film' ? '상영관' : D.ch === 'tv' ? '편성' : '노출'} ${'★'.repeat(D.tier)}`} · 홍보 ${'★'.repeat(D.tier)} · 받아 줄 가능성 ${fmtPct(p)}`, f: s => {
+        coOut(t, ent, '접대비', coPF(P)); P.ent = (P.ent || 0) + ent;
         if (coRoll(s, `${D.id}:${P.mkId || P.title}`, 'dist') < p) { coMktUse(t, P); for (const k of ['bk', 'no', 'dno', 'mk', 'mkId']) delete P[k]; const msg = (P.f === 'anime' ? coAStart : coVStart)(s, t, Object.assign(P, { dist: D.id })), L = (P.f === 'anime' ? t.aw : t.vw) || []; fireEvent(s, 'co_vgo', { f: coPF(P), id: (L[L.length - 1] || {}).id, msg }); return ''; }
-        (P.dno = P.dno || []).push(D.id);
-        fireEvent(s, 'co_vdist', { P, ids: d.ids, P0: d.P0, no: `${josa(D.n, '이가')} 거절했다.` });
-        return `${josa(D.n, '이가')} ${josa(`「${P.title}」`, "을를")} 거절했다.`;
+        (P.dno = P.dno || []).push(D.id); d.rej = 1;
+        fireEvent(s, 'co_vdist', { P, ids: d.ids, P0: d.P0, no: `${josa(D.n, '이가')} 거절했다. 접대비 ${fmtWon(ent)}만 나갔다.` });
+        return `${josa(D.n, '이가')} ${josa(`「${P.title}」`, "을를")} 거절했다. (접대비 ${fmtWon(ent)})`;
       } };
     }).concat(coBackCh(d), [{ t: '그만둔다', f: () => '작품 기획을 접었다.' }]);
   },
@@ -444,7 +448,7 @@ function coGoHTML(s, d) {
     + `<div class="go-title">「${U.esc(pj.title)}」</div>`
     + `<div class="go-tags">${[K.n, pj.genre, ipN, `${(ani ? A_BUD_N : V_BUD_N)[pj.lvl]} 제작비`].filter(Boolean).map(x => `<span>${U.esc(x)}</span>`).join('')}</div>`
     + `<div class="go-grid">${cell(ani ? '감독' : '감독', pj.dir === 'me' ? `<span class="pchip me">${U.esc(me(s).name)} (나)</span>` : chip(pj.dir, nm(pj.dir)))}${cell(pj.lic ? '원작' : ani ? '기획안' : '각본', writer)}${ani ? cell('작화감독', chip(pj.key, nm(pj.key))) + cell('원화', `${(pj.team || []).length}명`) : ''}${cell(ani ? '주연 성우' : '주연', cast('lead'))}${cell(ani ? '조연 성우' : '조연', cast('sup'))}</div>`
-    + `<div class="go-money"><div><b>${U.esc(V_CH_S[D.ch])}</b>${U.esc(D.n)}</div><div><b>제작비</b>${fmtWon(pj.bud)}</div><div><b>먼저 낸 돈</b>${fmtWon(pj.up)}</div><div><b>자본금</b>${fmtWon(coM(t, d.f))}</div></div>`
+    + `<div class="go-money"><div><b>${U.esc(V_CH_S[D.ch])}</b>${U.esc(D.n)}</div><div><b>제작비</b>${fmtWon(pj.bud)}</div><div><b>먼저 낸 돈</b>${fmtWon(pj.up + (pj.ent || 0))}</div><div><b>자본금</b>${fmtWon(coM(t, d.f))}</div></div>`
     + `<div class="go-tl">${st.map((n, i) => `<div class="go-seg s${i}" style="flex:${mo[i]}"><span>${U.esc(n)}</span><em>${mo[i]}개월</em></div>`).join('')}<div class="go-end">🎉 공개<br><b>${ym.y}년 ${ym.m}월</b></div></div>`
     + `</div>`;
 }
@@ -542,7 +546,7 @@ E({
   init(s, d) {
     const t = coT(s), pj = d.pj, V = V_KIND[pj.kind], p = me(s);
     const sc = d.sc = coVScore(s, t, pj), R = coVRev(s, t, pj, sc);
-    d.res = R.res; d.L = R.L; d.rev = R.total; d.cost = pj.bud + pj.up; d.profit = d.rev - d.cost;
+    d.res = R.res; d.L = R.L; d.rev = R.total; d.cost = pj.bud + pj.up + (pj.ent || 0); d.profit = d.rev - d.cost;
     for (const [n, v] of R.L) coIn(t, v, n, 'video');
     if (pj.dir === 'me') d.review = dirReview(dirPerf(p, V.demand));
     // 평판: 점수가 52보다 높으면 오르고 낮으면 떨어진다 (작품이 클수록 크게)
@@ -583,7 +587,7 @@ function coWorkNews(s, d, f) {
   ts.push(['💰', d.profit >= 0 ? `회사에 남은 돈 +${fmtWon(d.profit)}` : `손해 −${fmtWon(-d.profit)}`, d.profit >= 0 ? 'g' : 'b']);
   if (d.rd != null) ts.push(['🏢', `회사 평판 ${d.rd >= 0 ? '+' : ''}${Math.round(d.rd * 10) / 10} → ${Math.round(t.f[f].rep)}`, d.rd >= 0 ? 'g' : 'b']);
   if (d.wup && s.tracks.writer) ts.push(newsUp('작가', WRITER_TIERS[s.tracks.writer.tier]));
-  const bill = { t: `${pj.title} 정산`, rows: d.L.map(([n, v]) => [n, v]).concat(['-', ['제작비', -pj.bud], [an ? '원작·연출·작화팀·성우' : '각본·연출·출연료', -pj.up], '-', [d.profit >= 0 ? '남은 돈' : '손해', d.profit, true]]) };
+  const bill = { t: `${pj.title} 정산`, rows: d.L.map(([n, v]) => [n, v]).concat(['-', ['제작비', -pj.bud], [an ? '원작·연출·작화팀·성우' : '각본·연출·출연료', -pj.up], ...(pj.ent ? [['배급사 접대비', -pj.ent]] : []), '-', [d.profit >= 0 ? '남은 돈' : '손해', d.profit, true]]) };
   return { who: co, heads, body, sec: an ? '애니' : film ? '영화' : '방송', t: pj.title, sc: d.sc, pl: EVENTS[an ? 'co_ares' : 'co_vres'].plio(s, d), cap: `${Q}의 한 장면`, bill, ts };
 }
 // 연말: 올해 공개한 작품 중 가장 잘된 작품이 시상식 작품상을 받으면 회사 평판이 오른다
@@ -890,7 +894,7 @@ E({
   init(s, d) {
     const t = coT(s), pj = d.pj, A = A_KIND[pj.kind], p = me(s);
     const sc = d.sc = coAScore(s, t, pj), R = coARev(s, t, pj, sc);
-    d.res = R.res; d.L = R.L; d.rev = R.total; d.cost = pj.bud + pj.up; d.profit = d.rev - d.cost;
+    d.res = R.res; d.L = R.L; d.rev = R.total; d.cost = pj.bud + pj.up + (pj.ent || 0); d.profit = d.rev - d.cost;
     for (const [n, v] of R.L) coIn(t, v, n, 'anime');
     if (pj.dir === 'me') d.review = dirReview(dirPerf(p, A.demand));
     // 평판: 점수가 52보다 높으면 오르고 낮으면 떨어진다 (작품이 클수록 크게)

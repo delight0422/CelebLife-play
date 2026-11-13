@@ -169,7 +169,7 @@ function viLive(s, t, sub, o) {
   const ap = viAppeal(s, t), nick = (t.sn && t.sn.nick) || t.ch;
   const T = { debut: `【데뷔】 처음 뵙겠습니다, ${t.ch}입니다!`, d3: `【3D 공개】 ${t.ch}, 움직입니다`, anniv: `【${o.y || 1}주년】 기념 방송`, concert: `【3D LIVE】 ${t.ch} 콘서트`, endure: '【내구】 24시간 방송', grad: `【졸업】 ${t.ch}의 마지막 방송`, collab: `【합방】 ${t.ch} × ${o.co || ''}` };
   return liveStage({ k: 'stream', place: PF.live.n, t: T[sub], g: t.ch, cn: nick, mem: [[t.ch, '']], mi: 0, key: o.key !== false, sc: o.sc != null ? o.sc : U.clamp(50 + (ap - 55) * 1.5, 0, 100), z: { sk: (ap - 55) / 12 },
-    x: { sub, subs: t.subs, nick, co: o.co || '', mgr: true, mates: viMates(s, t).concat(viSeniors(s, t)).slice(0, 4).map(viName), d3: sub === 'd3' || sub === 'concert' || !!t.d3 } });
+    x: { sx: liveSx([me(s)]), sub, subs: t.subs, nick, co: o.co || '', cosx: o.coSx || '', mgr: true, mates: viMates(s, t).concat(viSeniors(s, t)).slice(0, 4).map(viName), d3: sub === 'd3' || sub === 'concert' || !!t.d3 } });
 }
 function viDebut(s, given, nick) {
   const t = viT(s), ag = viAgOf(t);
@@ -205,7 +205,7 @@ function viCollab(s, t, n) {
   const gain = Math.round(x.vi.subs * U.fl(0.002, 0.006) * n * Math.min(1.5, Math.max(0.3, viAppeal(s, t) / 60)));
   t.subs += gain; x.vi.subs += Math.round(t.subs * U.fl(0.001, 0.003) * n);
   // 처음 하는 상대와의 합방은 '중요할 때만'에서도 실시간 창으로 본다 (매달 하는 합방은 창 없이)
-  if (first) streamShow(s, 'vidol', t.cut, '합방', `${x.vi.gen < t.gen ? '선배' : '동기'} ${viName(x)}${josa(viName(x), '과와').slice(viName(x).length)} 처음으로 합방을 했다.`, viLive(s, t, 'collab', { co: viName(x) }), { noDon: true, gain, queue: true });
+  if (first) streamShow(s, 'vidol', t.cut, '합방', `${x.vi.gen < t.gen ? '선배' : '동기'} ${viName(x)}${josa(viName(x), '과와').slice(viName(x).length)} 처음으로 합방을 했다.`, viLive(s, t, 'collab', { co: viName(x), coSx: x.g === '남' ? 'm' : 'f' }), { noDon: true, gain, queue: true });
 }
 
 // ───── 회사가 정하는 일 (알림) ─────

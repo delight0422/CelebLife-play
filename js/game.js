@@ -721,7 +721,7 @@ function evalDiff(a, b, noJob) { const out = []; for (const k in b) { if (noJob 
 let EV_E0 = null;
 function dvAdd(A, B) { const m = new Map(A); for (const [k, d] of B) m.set(k, (m.get(k) || 0) + d); return [...m].filter(([, d]) => d); }
 // 결과 기록: 직업 활동으로 나온 결과(작화 반응 · 편집 결과 · 연구 실적 등)는 요약에서 '성과' 칸에 들어간다
-function addRes(s, x, k) { addLog(s, x, k || 'career'); s.log[s.log.length - 1].r = 1; }
+function addRes(s, x, k) { if (!x) return; addLog(s, x, k || 'career'); s.log[s.log.length - 1].r = 1; } // v209: 빈 글(굿즈 등)은 남기지 않는다
 // 직업 한 달 처리 앞뒤로 잰 평가 변화를, 그동안 나온 마지막 결과 기록에 붙인다 (글에 이미 '→'로 적힌 직업 평가는 빼고)
 function resDv(s, L0, e0) {
   const i0 = L0 ? s.log.lastIndexOf(L0) + 1 : 0;

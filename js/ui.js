@@ -173,22 +173,21 @@ function tsLed(s, T, P, W, inc, mo, range) {
     }
   }
   const ord = k => k === 'me' ? 0 : /^g:/.test(k) ? 1 : 3, TB = [...tabs.values()].filter(B => B.rows.length).sort((a, b) => ord(a.k) - ord(b.k));
-  const cell = (v, cls, f) => v && Math.abs(v) >= 1 ? `<td class="${cls}">${f(v)}</td>` : '<td class="led-0">-</td>';
-  // v205: 작고 흐린 설명(결과 글 · '그 밖에'가 무엇인지 · 대상 종류)은 뺐다. 평가 칸은 그 표에 바뀐 평가가 하나라도 있을 때만
-  const row = (x, ev) => `<tr class="${x.other ? 'led-o' : ''}"><td class="led-a">${mo && x.t != null ? `<span class="led-mo">${ymOfT(s, x.t).m}월</span>` : ''}${U.esc(x.a)}</td>`
-    + cell(x.inc, 'pos', v => '+' + ledWon(v)) + cell(x.exp, 'neg', v => '−' + ledWon(v)) + cell(x.fans, x.fans > 0 ? 'pos' : 'neg', ledFans) + (ev ? `<td class="led-ev">${U.esc(x.ev || '') || '<span class="led-0">-</span>'}</td>` : '') + `</tr>`;
-  let h = '', n = 0;
-  // v208: 표마다(그룹 · 회사 일마다) 상자 하나에 담아 나눈다
-  for (const B of TB) {
-    const si = sum(B.rows, x => x.inc), se = sum(B.rows, x => x.exp), net = si - se, ev = B.rows.some(x => x.ev);
-    // 맨 아래는 순이익 한 줄만 (수입 · 지출 합계는 따로 쓰지 않는다)
-    h += `<div class="led-box${/^g:/.test(B.k) ? ' led-g' : ''}"><table class="led-t"><thead><tr><th class="led-who">${B.ic || ''} ${U.esc(B.k === 'me' ? B.n : `「${B.n}」`)}</th><th>수입</th><th>지출</th><th>팬</th>${ev ? '<th>평가</th>' : ''}</tr></thead><tbody>${B.rows.map(x => row(x, ev)).join('')}</tbody>`
-      + (si >= 1 || se >= 1 ? `<tfoot><tr><td class="led-a">순이익</td><td colspan="2" class="led-net ${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : '−'}${ledWon(net)}</td><td></td>${ev ? '<td></td>' : ''}</tr></tfoot>` : '') + `</table></div>`;
-    n += B.rows.filter(x => !x.other).length || 1;
-  }
-  // v208: 맨 아래 '🏆 성과'는 지웠다. 대신 그룹마다 번 돈과 그 합 (그룹 총수입)
-  const GI = TB.filter(B => /^g:/.test(B.k)).map(B => ({ B, v: sum(B.rows, x => x.inc) })).filter(o => o.v >= 1), gt = sum(GI, o => o.v);
-  if (GI.length) h += `<div class="led-box led-sum"><table class="led-t"><thead><tr><th class="led-who">💰 그룹 총수입</th><th>수입</th></tr></thead><tbody>${GI.map(o => `<tr><td class="led-a">${o.B.ic || ''} 「${U.esc(o.B.n)}」</td><td class="pos">+${ledWon(o.v)}</td></tr>`).join('')}</tbody><tfoot><tr><td class="led-a">합계${GI.length > 1 ? ` (${GI.length}팀)` : ''}</td><td class="led-net pos">+${ledWon(gt)}</td></tr></tfoot></table></div>`;
+  // v209: 결산표는 표 하나 (사용자 양식). 칸: 수입 · 지출 · 순수익 · 팬수
+  //   그룹 줄: 그 그룹의 총수입 · 총지출 · 순수익 · 이번에 바뀐 팬 / 그 아래 활동 줄: 활동마다 수입 · 지출 · 순수익 · 팬 변화
+  //   두 줄 선 아래 '그룹 총수입': 그룹들의 순수익을 더한 값. 회사 운영(월급 · 운영비 등 그룹에 들지 않은 돈)은 그 아래 따로
+  const won = (v, sg) => Math.abs(v) >= 1 ? `<td class="${sg > 0 ? 'pos' : 'neg'}">${sg > 0 ? '+' : '−'}${ledWon(v)}</td>` : '<td class="led-0">-</td>';
+  const net = v => Math.abs(v) >= 1 ? `<td class="led-n ${v >= 0 ? 'pos' : 'neg'}">${v >= 0 ? '+' : '−'}${ledWon(v)}</td>` : '<td class="led-0">-</td>';
+  const fan = v => v && Math.abs(v) >= 1 ? `<td class="${v > 0 ? 'pos' : 'neg'}">${ledFans(v)}</td>` : '<td class="led-0">-</td>';
+  const row = x => `<tr class="led-r${x.other ? ' led-o' : ''}"><td class="led-a">${mo && x.t != null ? `<span class="led-mo">${ymOfT(s, x.t).m}월</span>` : ''}${U.esc(x.a)}</td>${won(x.inc, 1)}${won(x.exp, -1)}${net((x.inc || 0) - (x.exp || 0))}${fan(x.fans)}</tr>`;
+  const blk = B => { const si = sum(B.rows, x => x.inc), se = sum(B.rows, x => x.exp), sf = sum(B.rows, x => x.fans);
+    return `<tbody class="led-blk${/^g:/.test(B.k) ? ' g' : ''}"><tr class="led-gh"><th class="led-gn">${B.ic || ''} ${U.esc(B.k === 'me' ? B.n : `「${B.n}」`)}</th>${won(si, 1)}${won(se, -1)}${net(si - se)}${fan(sf)}</tr>${B.rows.length === 1 && B.rows[0].other ? '' : B.rows.map(row).join('')}</tbody>`; }; // '그 밖에' 한 줄뿐이면 위 줄과 같으니 뺀다
+  const GB = TB.filter(B => /^g:/.test(B.k)), OB = TB.filter(B => !/^g:/.test(B.k)), gNet = sum(GB, B => sum(B.rows, x => (x.inc || 0) - (x.exp || 0)));
+  let h = '';
+  if (TB.length) h = `<table class="led-one"><thead><tr><th></th><th>수입</th><th>지출</th><th>순수익</th><th>팬수</th></tr></thead>${GB.map(blk).join('')}`
+    + (GB.length ? `<tbody class="led-tot"><tr><td class="led-a">그룹 총수입${GB.length > 1 ? ` (${GB.length}팀)` : ''}</td><td></td><td></td>${net(gNet)}<td></td></tr></tbody>` : '')
+    + (OB.length ? (GB.length ? `<tbody class="led-sp"><tr><td colspan="5">회사 운영</td></tr></tbody>` : '') + OB.map(blk).join('') : '') + `</table>`;
+  const n = TB.reduce((a, B) => a + (B.rows.filter(x => !x.other).length || 1), 0);
   // 여기까지 보여 줬다 (다음 결산표는 여기서부터)
   s.ledMk = { a: E, gf: GF, fans: FE }; for (const r of R) r.sh = 1;
   if (!h) return { n: 0, html: `<div class="empty">이번에는 결산할 일이 없다.</div>` };
@@ -237,10 +236,11 @@ function turnSumHTML(s, T) {
   //   (실시간 창 · 결과 기사로 뜨는 것은 그대로 따로 뜬다). 마지막에 본 장을 기억하고, 그 장이 비었으면 다른 장을 먼저 연다
   const W = box.win || []; // v208: 결산표의 '성과' 칸을 지워서, 성과 기록은 예전처럼 '특별한 일' 장의 🏆 성과 상자에
   const inc = Object.entries(T.inc || {}).filter(([k, o]) => o.v > 0 && !(pre && pre.tap && pre.tap[k])).sort((a, b) => b[1].v - a[1].v);
-  const mo = T.n > 1, nEv = Object.values(box).reduce((a, B) => a + B.length, 0), LG = tsLed(s, T, P, W, inc, mo, range), nRes = LG.n;
-  let tab = UI.tsTab === 'res' ? 'res' : 'ev';
+  // v209: 회사를 안 차렸으면 결산표 장이 없다 (성과는 특별한 일 장의 🏆 성과 상자). 장부 표시(ledMk)는 그대로 넘긴다
+  const coL = ledCoOn(s), mo = T.n > 1, nEv = Object.values(box).reduce((a, B) => a + B.length, 0), LG = tsLed(s, T, P, W, inc, mo, range), nRes = coL ? LG.n : 0;
+  let tab = coL && UI.tsTab === 'res' ? 'res' : 'ev';
   if (tab === 'ev' && !nEv && nRes) tab = 'res'; else if (tab === 'res' && !nRes && nEv) tab = 'ev';
-  h += `<div class="ap-row pf-tabs ts-tabs"><button class="ap-tab${tab === 'ev' ? ' on' : ''}" data-tstab="ev">✨ 특별한 일${nEv ? ` <span class="ap-n">${nEv}</span>` : ''}</button><button class="ap-tab${tab === 'res' ? ' on' : ''}" data-tstab="res">🧾 결산표${nRes ? ` <span class="ap-n">${nRes}</span>` : ''}</button></div>`;
+  if (coL) h += `<div class="ap-row pf-tabs ts-tabs"><button class="ap-tab${tab === 'ev' ? ' on' : ''}" data-tstab="ev">✨ 특별한 일${nEv ? ` <span class="ap-n">${nEv}</span>` : ''}</button><button class="ap-tab${tab === 'res' ? ' on' : ''}" data-tstab="res">🧾 결산표${nRes ? ` <span class="ap-n">${nRes}</span>` : ''}</button></div>`;
   h += `<div class="ts-body${tab === 'ev' ? '' : ' hidden'}" data-tsp="ev">`;
   if (!nEv) h += `<div class="empty">특별한 일 없이 지나갔다.${nRes ? ' 돈 · 팬 흐름은 결산표에 있다.' : ''}</div>`;
   for (const [id, ic, n] of TS_CATS) {
@@ -251,7 +251,7 @@ function turnSumHTML(s, T) {
   if (dlg.length) h += `<details class="ts-more ts-dl"><summary>🤝 맡긴 일 ${dlg.length}건</summary>${dlg.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   if (flav.length) h += `<details class="ts-more" open><summary>☕ 일상 ${flav.length}건</summary>${flav.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   h += `</div>`;
-  h += `<div class="ts-body${tab === 'res' ? '' : ' hidden'}" data-tsp="res">${LG.html}</div>`;
+  if (coL) h += `<div class="ts-body${tab === 'res' ? '' : ' hidden'}" data-tsp="res">${LG.html}</div>`;
   const why = T.why === 'ev' ? '📌 결정할 일이 생겼다' : T.why === 'msg' ? '📨 새 메시지가 왔다' : T.why === 'warn' ? '⚠️ 살펴볼 일이 생겼다' : '';
   // v205: 큰 창 맨 아래에 (ts-end)
   h += `<div class="ts-end">${why ? `<div class="ts-why">${why}</div>` : ''}<div class="choices ts-btns">${T.why === 'msg' ? `<button class="btn" data-turnok="inbox">📨 메시지함 열기</button>` : ''}<button class="btn primary" data-turnok="">확인 <kbd>Space</kbd></button></div></div>`;
@@ -899,7 +899,7 @@ function evTblHTML(T, form) {
   const tr = ord.map(i => [T.rows[i], i]).map(([r, i]) => `<tr data-ti="${i}" class="${r.ok === false ? 'off' : ''}${form && r.on ? ' sel' : ''}${r.rec ? ' rec' : ''}"${form ? '' : ` data-trow="${r.ci}"`}><td class="tc">${form ? `<input type="checkbox" data-k="${r.k}" ${r.on ? 'checked' : ''}${r.ok === false ? ' disabled' : ''}>` : '<span class="tdot"></span>'}</td>${form && T.radio ? `<td class="tc"><input type="radio" name="tbl-r" data-k="${T.radio.k}" value="${r.k}"></td>` : ''}` + T.cols.map(([k], j) => { const c = r.cells[k] || ['', '']; return `<td${typeof c[0] === 'number' ? ' class="num"' : ''}>${potH(U.esc(String(c[1])))}${j === 0 && r.tr ? TR_BADGE : ''}${j === 0 && r.sig ? SIG_BADGE : ''}${j === 0 && r.rec && !r.cells.rec ? `<span class="trb rec">${U.esc(r.rec)}</span>` : ''}${j === 0 && S && S.people[r.pid || r.k] ? `<button type="button" class="pi-btn" data-pinfo="${r.pid || r.k}">정보</button>` : ''}</td>`; }).join('') + `</tr>`).join('');
   // 추천 묶음 (v132): 버튼을 누르면 그 줄들만 체크된다 (트레이너가 권하는 데뷔 멤버 등)
   const pre = form && T.presets && T.presets.length ? `<div class="tbl-pre">${T.presets.map((p, i) => `<button type="button" class="btn sm rec" data-tpre="${i}">${U.esc(p.n)}</button>`).join('')}</div>` : '';
-  return pre + `<div class="tbl-tools">${form && T.cnt ? `<span class="tbl-cnt" id="tbl-cnt"></span>` : ''}<input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc">${form ? T.ckN || (T.radio ? '실을 곡' : '') : ''}</th>${form && T.radio ? `<th class="tc">${U.esc(T.radio.n)}</th>` : ''}${th}</tr></thead><tbody>${tr}</tbody></table></div>` + (form && T.clear ? `<div class="tbl-foot"><button type="button" class="btn sm" data-tclear>전체 해제</button></div>` : '');
+  return pre + `<div class="tbl-tools">${form && T.cnt ? `<span class="tbl-cnt" id="tbl-cnt"></span>` : ''}<input class="search" id="tbl-q" placeholder="찾기"><span class="hint">칸 이름을 누르면 그 순서로 줄을 세워요</span></div><div class="tbl-wrap"><table class="ev-tbl" id="ev-tbl"><thead><tr><th class="tc">${form ? T.ckN || (T.radio ? '실을 곡' : '') : ''}</th>${form && T.radio ? `<th class="tc">${U.esc(T.radio.n)}</th>` : ''}${th}</tr></thead><tbody>${tr}</tbody></table></div>` + (form && T.clear ? `<div class="tbl-foot"><button type="button" class="btn sm" data-tall>전체 선택</button><button type="button" class="btn sm" data-tclear>전체 해제</button></div>` : '');
 }
 function evTblSort(k) {
   const T = UI.tblT, tb = $('#ev-tbl tbody');
@@ -992,13 +992,31 @@ function resAfter(pre, i) {
 // ───── 고른 결과 토스트 (v202) ─────
 // 화면 아래쪽 가운데에 크게. 한동안(글이 길수록 오래, 6~16초) 남고, 마우스를 올리면 멈춘다. ✕로 닫는다
 // 떠 있는 동안 창(사건 · 결과 · 요약)은 토스트 위쪽으로 비켜 선다 (body.ct-on, --ct-h). 한꺼번에 3개까지, 넘치면 오래된 것부터
+// v209: 결과 한 줄이 잘된 일(1)인지 · 안된 일(-1)인지 · 둘 다 아닌지(0). 0인 줄은 토스트로 띄우지 않는다 (멤버를 정했다 · 출자했다 같은 것)
+const TONE_B = /떨어졌|불합격|탈락|거절|실패|혹평|손해|망했|해체|떠났|그만뒀|그만두었|잃었|식었|아쉬|실수(?! 없)|지쳐|논란|모자라|못 했|못했|빚을 내|빚 \d|폐업|문을 닫|쫓겨|불발|무산|하락|지쳤|다쳤|줄었|낮아졌|내려갔|싸늘|외면|비판|악플|헤어졌|이혼|💔|⚠️/;
+const TONE_BS = /떨어졌|불합격|탈락|거절|실패|혹평|손해|망했|해체|폐업|문을 닫|무산|불발|하지 못|못했|못 했|지쳐/;
+const TONE_G = /합격|뽑혔|발탁|성공|(?:^|[^0-9])1위|🏆|상을 받|돌파|매진|호평|대박|흥행|올랐|늘었|데뷔했|데뷔한다|데뷔하게 됐|데뷔가 확정|데뷔를 확정|데뷔 무대|화제가 됐|화제가 되|화제를 모|화제였|캐스팅됐|캐스팅되었|캐스팅이 확정|계약했|재계약을 하고|선정|칭찬|반응이 좋|터졌|인기를|이겼|우승|입상|승진|벌었|받아 줬|손잡았|제작을 시작했|\[새 특기|높아졌|좋아했|뜨거웠|박수|환호|등급 ↑/;
+// 내가 고른 거절 · 그만둠(주어가 없는 문장: '입사 제안을 거절했다', '고백을 정중히 거절했다', '애니메이터 일을 그만뒀다')은 빼고 본다
+//   남이 거절한 것('김도윤은 주연 제안을 거절했다')은 주어가 있어 그대로 실패
+const TONE_N = /(?:제안|고백|부탁|요청|초대|섭외|의뢰|권유)[을를]\s*(?:정중히\s*|결국\s*)?거절했다|(?:일|활동|연재|방송|수업|아르바이트|알바)[을를]\s*그만(?:뒀|두었)다/;
+function toneStrip(t) { return (t.match(/[^.!?]+[.!?]*/g) || [t]).filter(sn => { const m = sn.match(TONE_N); return !(m && !/[가-힣](?:은|는|이|가)\s/.test(sn.slice(0, m.index))); }).join(' '); }
+function logTone(x) {
+  if (!x || x.k === 'flavor') return 0;
+  if (x.k === 'good') return 1; // v209: 결과 기록(x.r)이라도 글로 성공 · 실패를 가린다
+  if (x.k === 'bad' || x.k === 'warn') return -1;
+  const t = toneStrip(String(x.x || '').replace(/<[^>]+>/g, '')), g = TONE_G.test(t), b = TONE_B.test(t);
+  return g && b ? (TONE_BS.test(t) ? -1 : 1) : g ? 1 : b ? -1 : 0;
+}
 function ctoastShow(o) {
+  const L = (o.L || []).map(x => [x, logTone(x)]).filter(([, tn]) => tn);
+  if (!L.length) return; // v209: 잘됐다 · 안됐다가 없는 결과는 토스트를 띄우지 않는다
+  const nG = L.filter(([, tn]) => tn > 0).length, nB = L.length - nG, tone = nB && !nG ? 'b' : nG && !nB ? 'g' : 'm';
   let box = $('#ctoast');
   if (!box) { box = document.createElement('div'); box.id = 'ctoast'; box.className = 'ctoast'; document.body.appendChild(box); }
   const e = document.createElement('div'), hd = [o.cat, o.title].filter(Boolean).filter((x, i, A) => A.indexOf(x) === i).join(' · ');
-  e.className = 'ct-i';
-  e.innerHTML = `<button type="button" class="ct-x" aria-label="닫기">✕</button><div class="ct-h">${U.esc(hd || '방금 한 일')}</div>${o.pick ? `<div class="ct-pick">✔ ${U.esc(o.pick)}</div>` : ''}<div class="ct-b">${o.L.map(x => `<div class="ct-l${x.k === 'flavor' ? ' flavor' : ''}">${resLine(x.x)}${x.sub ? `<span class="res-sub">${nl(x.sub)}</span>` : ''}</div>`).join('')}</div>`;
-  const len = o.L.reduce((a, x) => a + String(x.x || '').replace(/<[^>]+>/g, '').length, 0), ms = Math.min(16000, 6000 + len * 45);
+  e.className = 'ct-i ' + tone;
+  e.innerHTML = `<button type="button" class="ct-x" aria-label="닫기">✕</button><div class="ct-h">${tone === 'g' ? '✅ ' : tone === 'b' ? '❌ ' : ''}${U.esc(hd || '방금 한 일')}</div>${o.pick ? `<div class="ct-pick">✔ ${U.esc(o.pick)}</div>` : ''}<div class="ct-b">${L.map(([x, tn]) => `<div class="ct-l ${tn > 0 ? 'g' : 'b'}">${resLine(x.x)}${x.sub ? `<span class="res-sub">${nl(x.sub)}</span>` : ''}</div>`).join('')}</div>`;
+  const len = L.map(([x]) => x).reduce((a, x) => a + String(x.x || '').replace(/<[^>]+>/g, '').length, 0), ms = Math.min(16000, 6000 + len * 45);
   let tm = null; const go = () => { clearTimeout(tm); tm = setTimeout(() => ctOut(e), ms); };
   e.addEventListener('mouseenter', () => clearTimeout(tm)); e.addEventListener('mouseleave', go);
   e.querySelector('.ct-x').addEventListener('click', ev => { ev.stopPropagation(); clearTimeout(tm); ctOut(e); });
@@ -1218,7 +1236,7 @@ function panelPick() {
 function msgHTML(s, m, nw) {
   const K = INBOX[m.kind] || {}, left = Math.max(0, m.due - s.t), ago = s.t - m.at, to = K.to ? K.to(s, m) : '나', urg = left <= 0 ? 'now' : left <= 1 ? 'soon' : '';
   let h = `<div class="msg${nw ? ' new' : ''}${urg ? ' ' + urg : ''}"><div class="msg-h"><span class="msg-ic">${K.ic || '📨'}</span><div class="msg-tt"><b>${U.esc(m.title)}</b>${K.tag ? `<span class="fix-tag sm">${K.tag}</span>` : ''}${nw ? '<span class="new-tag">새 제안</span>' : ''}`
-    + `<div class="msg-from">${U.esc(m.from)} → <b>${U.esc(to)}</b> · ${ago ? `${ago}개월 전` : '이번 달'}에 받음</div></div><span class="due ${urg}">${left ? (left === 1 ? '⏰ 다음 달까지' : `⏳ ${left}개월 남음`) : '⏰ 이번 달까지'}</span></div>`;
+    + `<div class="msg-from">${U.esc(m.from)} → <b>${U.esc(to)}</b>${ago ? ` · ${ago}개월 전에 받음` : ''}</div></div><span class="due ${urg}">${left ? (left === 1 ? '⏰ 다음 달까지' : `⏳ ${left}개월 남음`) : '⏰ 이번 달까지'}</span></div>`;
   h += `<div class="msg-d">${nl(K.text(s, m))}</div><div class="msg-btns">`;
   msgChoices(s, m).forEach((c, i) => { const ok = !c.ok || c.ok(s); h += `<div class="opt"><button class="btn sm ${i === 0 ? 'primary' : ''}" data-msg="${m.id}" data-mi="${i}" ${ok ? '' : 'disabled'}>${U.esc(c.t)}</button>${c.tr ? TR_BADGE : ''}${c.h ? `<span class="h">${U.esc(c.h)}</span>` : ''}</div>`; });
   return h + `</div></div>`;
@@ -2333,7 +2351,11 @@ function rtKey(L) { UI.rtMap = UI.rtMap || {}; const k = UI.rtN = (UI.rtN || 0) 
 function rtOut(e) { if (e.classList.contains('out')) return; e.classList.add('out'); UI.rtT.push(setTimeout(() => e.remove(), 400)); }
 function rtOn() { const o = $('#rtov'); return !!o && !o.classList.contains('hidden'); }
 // add: 이미 떠 있는 토스트를 지우지 않고 뒤에 이어 붙인다 (모아 둔 토스트 줄). 없으면 지우고 새로 (성과 다시 보기). done: 다 끝나면 할 일
-function resToast(L, add, done) {
+// v209: 가운데 큰 토스트도 잘된 일(g) · 안된 일(b)만. 둘 다 아닌 줄은 띄우지 않고, 머리 줄(h)은 그 아래 띄울 줄이 있을 때만
+function rtKeep(L) { const out = []; let h = null; for (const x of L || []) { if (!x) continue; if (x[2] === 'h') { h = x; continue; } if (x[2] !== 'g' && x[2] !== 'b') continue; if (h) { out.push(h); h = null; } out.push(x); } return out; }
+function resToast(L, add, done, all) {
+  if (!all) L = rtKeep(L);
+  if (!L.length) { if (done) { if (rtOn()) (UI.rtDone = UI.rtDone || []).push(done); else { try { done(); } catch (e) { console.error('토스트 다음 일 오류', e); } } } return; }
   let ov = $('#rtov');
   if (!ov) {
     ov = document.createElement('div'); ov.id = 'rtov'; ov.className = 'overlay rt-ov hidden'; ov.innerHTML = '<div id="rtoast" class="rtoast"></div>';
@@ -2637,6 +2659,8 @@ document.addEventListener('click', e => {
   const tp0 = e.target.closest('[data-tpre]');
   if (tp0 && UI.tblT && UI.tblT.presets) { const ids = UI.tblT.presets[+tp0.dataset.tpre].ids; document.querySelectorAll('#ev-tbl tbody tr').forEach(tr => { const cb = tr.querySelector('input[type=checkbox]'); if (!cb) return; cb.checked = ids.includes(cb.dataset.k); tr.classList.toggle('sel', cb.checked); }); formSum(); return; }
   // v203: 표 아래 '전체 해제' — 체크를 모두 푼다
+  // v209: 전체 선택 (찾기로 가린 줄은 빼고)
+  if (e.target.closest('[data-tall]')) { document.querySelectorAll('#ev-tbl tbody tr').forEach(tr => { if (tr.style.display === 'none' || tr.hidden) return; const cb = tr.querySelector('input[type=checkbox]'); if (cb && !cb.disabled) { cb.checked = true; tr.classList.add('sel'); } }); formSum(); return; }
   if (e.target.closest('[data-tclear]')) { document.querySelectorAll('#ev-tbl tbody tr').forEach(tr => { const cb = tr.querySelector('input[type=checkbox]'); if (cb && !cb.disabled) { cb.checked = false; tr.classList.remove('sel'); } const rd = tr.querySelector('input[type=radio]'); if (rd) rd.checked = false; }); formSum(); return; }
   const th0 = e.target.closest('#ev-tbl th[data-tsort]');
   if (th0) { evTblSort(th0.dataset.tsort); return; }
@@ -2659,7 +2683,7 @@ document.addEventListener('click', e => {
   if (t && t.dataset.popclose != null) { popClose(); return; }
   if (t && t.dataset.plio) { plioToggle(+t.dataset.plio); return; }
   if (t && t.dataset.commnow != null) { const sp = commNow(S); if (!UI.cmNow.key || !(UI.plioMap || {})[UI.cmNow.key]) UI.cmNow.key = plioKey(sp); plioToggle(UI.cmNow.key); return; }
-  if (t && t.dataset.rtoast) { const L = (UI.rtMap || {})[t.dataset.rtoast]; if (L) resToast(L); return; }
+  if (t && t.dataset.rtoast) { const L = (UI.rtMap || {})[t.dataset.rtoast]; if (L) resToast(L, false, null, true); return; }
   if (t && t.dataset.bill) { const b = (UI.billMap || {})[t.dataset.bill]; if (b) popOpen(billHTML(b)); return; }
   if (t && t.dataset.song != null && S) { const c = songCardAt(S, t.dataset.song); if (c) popOpen(songCardHTML(c) + (c.mk && typeof albStepsHTML === 'function' ? albStepsHTML(c.mk) : '')); return; }
   if (!t) return;

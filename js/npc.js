@@ -166,9 +166,9 @@ INBOX.npc_collab = {
 };
 // 버튜버 인물과의 합동 방송(합방)은 라이브온 창으로 본다 (v139: '중요할 때만'에서도). 내가 버츄얼 아이돌이거나 개인 버튜버일 때만
 function npcCoLive(s, n) {
-  if (typeof viLive === 'function' && trackOn(s, 'vidol') && s.tracks.vidol.st === 'active') { const sp = viLive(s, s.tracks.vidol, 'collab', { co: n.n }); return sp ? { job: 'vidol', sp } : null; }
+  if (typeof viLive === 'function' && trackOn(s, 'vidol') && s.tracks.vidol.st === 'active') { const sp = viLive(s, s.tracks.vidol, 'collab', { co: n.n, coSx: n.g === '남' ? 'm' : n.g === '여' ? 'f' : '' }); return sp ? { job: 'vidol', sp } : null; }
   const t = s.tracks.youtube;
-  if (typeof ytLive === 'function' && trackOn(s, 'youtube') && t.st === 'active' && t.mode === 'vt') { const sp = ytLive(s, t, 'collab', { co: n.n }); return sp ? { job: 'youtube', sp } : null; }
+  if (typeof ytLive === 'function' && trackOn(s, 'youtube') && t.st === 'active' && t.mode === 'vt') { const sp = ytLive(s, t, 'collab', { co: n.n, coSx: n.g === '남' ? 'm' : n.g === '여' ? 'f' : '' }); return sp ? { job: 'youtube', sp } : null; }
   return null;
 }
 // 응원: 고를 것 없이 요약의 특별한 일에 남는다

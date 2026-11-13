@@ -1801,3 +1801,41 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .ibx-past .ibx-old { display: grid; grid-template-columns: 62px 26px minmax(0, 1fr); column-gap: var(--sp-2); align-items: baseline; }
 .ibx-past .ibx-old .f { color: var(--muted); }
 @media (max-width: 520px) { .ibx-grid .msg-h { flex-wrap: wrap; } .msg-ic { width: 34px; height: 34px; font-size: 18px; } }
+/* v209: 결산표 — 표 하나 (그룹 줄 아래 활동 줄 · 두 줄 선 아래 그룹 총수입 · 그 아래 회사 운영) */
+.led-one { width: 100%; border-collapse: collapse; font-size: var(--fs-2); }
+.led-one th, .led-one td { padding: 7px 12px; border: 1px solid var(--line); text-align: right; white-space: nowrap; font-weight: 700; }
+.led-one thead th { background: var(--card2); color: var(--ink2); text-align: center; font-weight: 800; border-bottom: 2px solid var(--ink); }
+.led-one .led-gh th, .led-one .led-gh td { background: #f4f0ff; font-weight: 800; }
+.led-one .led-gh th.led-gn { text-align: left; color: var(--ink); font-size: var(--fs-3); width: 40%; }
+.led-one td.led-a { text-align: left; padding-left: 34px; font-weight: 600; color: var(--ink); white-space: normal; }
+.led-one tr.led-o td.led-a { color: var(--ink2); }
+.led-one .led-mo { display: inline-block; min-width: 32px; font-size: var(--fs-1); color: var(--muted); }
+.led-one .led-0 { color: var(--muted); font-weight: 500; }
+.led-one td.led-n { font-weight: 800; }
+.led-one .led-tot td { border-top: 4px double var(--ink); background: var(--card2); font-weight: 800; font-size: var(--fs-3); }
+.led-one .led-tot td.led-a { padding-left: 12px; }
+.led-one .led-sp td { border: 0; padding: var(--sp-3) 2px var(--sp-1); text-align: left; font-size: var(--fs-2); color: var(--muted); font-weight: 700; background: none; }
+/* v209: 창은 화면 위쪽에 붙여서 뜬다 (가운데 큰 토스트만 한가운데) */
+.overlay:not(.rt-ov):not(.live-ov) { align-items: flex-start; padding-top: max(var(--sp-3), 3vh); }
+#turn:has(> #tcard.run) { align-items: center; padding-top: 0; }
+.overlay:not(.rt-ov):not(.live-ov) > .mcard { max-height: calc(100vh - max(var(--sp-3), 3vh) - var(--sp-4)); }
+/* v209: 토스트 — 잘된 일은 초록, 안된 일은 빨강 (글을 안 읽어도 알게) */
+.rt-i.g { background: rgba(12, 122, 82, .97); border-left-color: #8ff0c4; }
+.rt-i.b { background: rgba(178, 32, 56, .97); border-left-color: #ffb3c0; }
+.ct-i.g { background: #e9f9f1; border-color: var(--mint); }
+.ct-i.b { background: #fff0f2; border-color: var(--red); }
+.ct-i.g .ct-h { color: #0c7a52; }
+.ct-i.b .ct-h { color: #b2203a; }
+.ct-i.m .ct-l.g { color: #0c7a52; }
+.ct-i.m .ct-l.b { color: #b2203a; }
+/* v209: 회사 기수 3D 라이브 — 멤버가 다 나온다 */
+.st-av.grp { display: flex; flex-direction: row; align-items: flex-end; justify-content: center; gap: var(--sp-2); }
+.st-av.grp .lv-ch .lv-chc { height: min(300px, 44vh, calc(min(760px, 100vw - 480px) / var(--n, 4) * 1.85)); }
+.tbl-foot { display: flex; gap: var(--sp-2); }
+@media (max-width: 760px) { .st-av.grp .lv-ch .lv-chc { height: min(150px, calc((100vw - 56px) / var(--n, 4) * 1.85)); } }
+@media (max-width: 640px) {
+  .led-one th, .led-one td { padding: 6px 7px; font-size: var(--fs-1); }
+  .led-one .led-gh th.led-gn { width: auto; font-size: var(--fs-2); }
+  .led-one td.led-a { padding-left: 16px; }
+  .led-one .led-tot td { font-size: var(--fs-2); }
+}

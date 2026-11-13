@@ -341,11 +341,16 @@ function liveStream(sp, R, pk, z, lvl) {
   B.push({ cap: '방송 끝', glow: sc >= 70 ? 1 : 0.6, view: Math.round(base * (sc >= 70 ? 1.5 : sc >= 50 ? 1 : 0.45)), L: (sub === 'grad' ? [don(pk([10, 30, 50])), ['그동안 고마웠어ㅠㅠ', 'chat', nk()], ['잘 가…', 'chat', nk()], [`${nick} 사랑해!!`, 'chat', nk()]] : sc >= 70 ? [don(pk([10, 30, 50])), ['오늘 레전드였다', 'chat', nk()], ['내일도 와!!', 'chat', nk()], [X.co ? '둘 다 수고했어!!' : `${nick} 수고했어!!`, 'chat', nk()]] : sc >= 50 ? [['수고했어~', 'chat', nk()], ['잘 봤어!', 'chat', nk()], ['ㅂㅂ', 'chat', nk()]] : [['ㅂㅂ', 'chat', nk()], ['다음엔 더 재밌게 해 줘', 'chat', nk()]]) });
   return B;
 }
+// v209: 방송 화면의 캐릭터. X.sx: 방송하는 사람의 성별(m · f, 예전엔 채널 이름으로 정해서 여자 버튜버가 남자로 나오기도 했다) · X.grp: 기수 멤버 [[키, 성별]] (회사 기수 3D 라이브)
+function liveStAv(sp, X) {
+  if (X.grp && X.grp.length > 1) return `<div class="st-av lm grp" style="--n:${Math.min(6, X.grp.length)}">${X.grp.slice(0, 6).map(([k, sx], i) => liveChar('vt/' + k, (sp.hue + i * 47) % 360, 'vt/' + k, { sx })).join('')}</div>`;
+  return `<div class="st-av lm${X.co ? ' duo' : ''}">${liveChar('vt/' + sp.g, sp.hue, 'vt/' + sp.g, { sx: X.sx })}${X.co ? liveChar('vt/' + X.co, hashN('hue' + X.co) % 360, 'vt/' + X.co, X.cosx ? { sx: X.cosx } : undefined) : ''}</div>`;
+}
 function liveStreamHTML(sp) {
   const X = sp.x || {};
   return `<div class="lv-top"><span class="lv-place st-logo">${PF.live.n}</span>${sp.t ? `<span class="lv-t">${U.esc(sp.t)}</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
     + `<div class="st-wrap"><div class="st-video" id="lv-stage" style="--hue:${sp.hue};--glow:0.4"><span class="st-live">LIVE</span><span class="st-view">👁 <b id="st-view">0</b></span>${X.d3 ? '<span class="st-3d">3D</span>' : ''}`
-    + `<div class="st-av lm${X.co ? ' duo' : ''}">${liveChar('vt/' + sp.g, sp.hue, 'vt/' + sp.g)}${X.co ? liveChar('vt/' + X.co, hashN('hue' + X.co) % 360, 'vt/' + X.co) : ''}</div><div class="st-don" id="st-don"></div></div>`
+    + `${liveStAv(sp, X)}<div class="st-don" id="st-don"></div></div>`
     + `<div class="st-chat"><div class="st-chat-h">채팅</div><div class="st-chat-b" id="st-chat"></div></div></div>`
     + `<div class="lv-bar"><i id="lv-bar"></i></div>`
     + `<div class="lv-btns"><button class="btn primary" data-liveskip>결과 바로 보기</button></div>`;

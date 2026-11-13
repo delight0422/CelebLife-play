@@ -812,7 +812,7 @@ function ytLive(s, t, sub, o) {
   let mates = all.filter(n => n.kn || n.fol).map(n => n.n);
   if (!mates.length && sub !== 'debut' && all.length && U.chance(0.4)) mates = [U.pick(all).n];
   return liveStage({ k: 'stream', place: PF.live.n, t: T[sub], g: t.ch, cn: nick, mem: [[t.ch, '']], mi: 0, key: o.key !== false, sc: o.sc != null ? o.sc : U.clamp(50 + (ap - 45) * 1.5, 0, 100), z: { sk: (ap - 45) / 12 },
-    x: { sub, subs: Math.max(300, t.subs || 0), nick, co: o.co || '', mgr: !!t.corp, mates: mates.slice(0, 4), d3: avQ(t) >= 4 } });
+    x: { sx: liveSx([me(s)]), sub, subs: Math.max(300, t.subs || 0), nick, co: o.co || '', cosx: o.coSx || '', mgr: !!t.corp, mates: mates.slice(0, 4), d3: avQ(t) >= 4 } });
 }
 CAREERS.youtube = {
   n: '스트리머', ic: '▶️',
