@@ -421,6 +421,6 @@ E({
     return T.filter(Boolean);
   },
   // CEO가 맡은 회사면 CEO 보고서에 한 줄로 (company.js ceoRepAdd)
-  ceoRep: (s, d) => { const t = coT(s); if (!d.r || !coCeo(t, 'music')) return null; const r = d.r; return { f: 'music', ic: '🎤', t: `「${d.gn}」 단독 콘서트 · ${CC_VENUE[d.pl.v].n}`, res: `열기 ${r.heat} · 관객 ${r.sold.toLocaleString()}명 (${Math.round(r.fill * 100)}%)`, rows: ccRows(r), net: r.net, rep: r.repD, log: `「${d.gn}」 단독 콘서트 (${CC_VENUE[d.pl.v].n}). 열기 ${r.heat} · ${r.net >= 0 ? `남은 돈 ${fmtWon(r.net)}` : `손해 ${fmtWon(-r.net)}`}.` }; },
+  ceoRep: (s, d) => { const t = coT(s); if (!d.r || !coCeo(t, 'music')) return null; const r = d.r; return { f: 'music', ic: '🎤', gn: d.gn, sh: `단독 콘서트 · ${CC_VENUE[d.pl.v].n}`, t: `「${d.gn}」 단독 콘서트 · ${CC_VENUE[d.pl.v].n}`, res: `열기 ${r.heat} · 관객 ${r.sold.toLocaleString()}명 (${Math.round(r.fill * 100)}%)`, rows: ccRows(r), net: r.net, rep: r.repD, log: `「${d.gn}」 단독 콘서트 (${CC_VENUE[d.pl.v].n}). 열기 ${r.heat} · ${r.net >= 0 ? `남은 돈 ${fmtWon(r.net)}` : `손해 ${fmtWon(-r.net)}`}.` }; },
   ch: (s, d) => [{ t: '확인', f: () => `「${d.gn}」 단독 콘서트 (${CC_VENUE[d.pl.v].n}). 열기 ${d.r.heat} · ${d.r.net >= 0 ? `남은 돈 ${fmtWon(d.r.net)}` : `손해 ${fmtWon(-d.r.net)}`}.` }],
 });

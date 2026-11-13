@@ -129,10 +129,32 @@ function growLines(a, b) {
   for (const k of ['평판', '인지도']) if (b[k] > a[k]) L.push(`${k} ${a[k]}→${b[k]}`);
   return L;
 }
+// 요약 창 '특별한 일' 한 줄
+function tsItemHTML(s, x, mo) {
+  const hh = LOG_HTML.get(x), si = x.e ? songIdx(s, x) : -1;
+  return `<div class="ts-i${si !== -1 ? ' ts-song' : ''}"${si !== -1 ? ` data-song="${si}"` : ''}>${mo ? `<span class="ts-mo">${x.up ? '' : ymOfT(s, x.t).m + '월'}</span>` : ''}<span class="ts-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${x.lv ? liveBtnHTML(x.lv, '무대 보기') : ''}${x.pl ? plioBtnHTML(x.pl) : ''}</span></div>`;
+}
+// 기록의 제목 (창 없이 처리된 사건의 제목). 예전 세이브의 창 준비 표시(알 수 없는 글자)는 빼고
+function logSp(x) { return x && x.sp && !(x.tk == null && /^[a-z0-9]{5,9}$/.test(x.sp)) ? x.sp : ''; }
+// v202: 결산표 — 🏆 성과 (무엇 · 결과 · 바뀐 평가) 표, 💰 들어온 돈 표
+function tsResHTML(s, W, inc, dm, mo) {
+  let h = `<div class="ts-sec">🏆 성과</div>`;
+  if (!W.length) h += `<div class="empty">이번에는 성과가 없다.</div>`;
+  else h += `<div class="tsr${mo ? ' mo' : ''}">` + W.map(x => {
+    const hh = LOG_HTML.get(x), si = x.e ? songIdx(s, x) : -1, k = logSp(x) || x.c || '성과';
+    return `<div class="tsr-r${si !== -1 ? ' ts-song' : ''}"${si !== -1 ? ` data-song="${si}"` : ''}>${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<div class="tsr-k">${U.esc(k)}</div><div class="tsr-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}${x.lv ? liveBtnHTML(x.lv, '무대 보기') : ''}${x.pl ? plioBtnHTML(x.pl) : ''}</div></div>`;
+  }).join('') + `</div>`;
+  if (inc.length) {
+    const tot = inc.reduce((a, [, o]) => a + o.v, 0);
+    h += `<div class="ts-sec">💰 들어온 돈</div><table class="tsr-m">${inc.map(([k, o]) => `<tr><td>${U.esc(k)}${o.reg ? ' <span class="tsr-reg">매달</span>' : ''}</td><td class="pos">+${fmtWon(o.v)}</td></tr>`).join('')}`
+      + `<tr class="tot"><td>들어온 돈 합계</td><td class="pos">+${fmtWon(tot)}</td></tr><tr class="tot"><td>돈 변화 (나간 돈까지)</td><td class="${dm >= 0 ? 'pos' : 'neg'}">${dm >= 0 ? '+' : '−'}${fmtWon(Math.abs(dm))}</td></tr></table>`;
+  }
+  return h;
+}
 function turnSumHTML(s, T) {
   // 아직 안 본 창(사건)이 준비하며 남긴 기록 · 돈 · 팬 · 성장은 그 창을 보기 전에 새어 나가지 않게 한다 (v129, game.js fireEvent의 pre)
   const P = s.pending && s.pending.pre ? s.pending : null, pre = P ? P.pre : null;
-  const i = T.last ? s.log.lastIndexOf(T.last) + 1 : 0, L = s.log.slice(i).filter(x => x.t > T.t0 && !(P && x.sp === P.tok)), p = me(s);
+  const i = T.last ? s.log.lastIndexOf(T.last) + 1 : 0, L = s.log.slice(i).filter(x => x.t > T.t0 && !(P && (x.tk === P.tok || x.sp === P.tok))), p = me(s);
   const a = ymOfT(s, T.t0 + 1), b = ymOfT(s, s.t);
   const range = T.n === 1 ? `${b.y}년 ${b.m}월` : `${a.y}년 ${a.m}월 ~ ${a.y === b.y ? '' : b.y + '년 '}${b.m}월`;
   let h = `<div class="ts-h"><div class="ts-t">${T.n === 1 ? '지난달' : T.n === 12 ? '지난 1년' : `지난 ${T.n}개월`}</div><div class="ts-r">${range}</div></div>`;
@@ -151,20 +173,25 @@ function turnSumHTML(s, T) {
   // 성장 칸 맨 아래: 이번에 오른 특기 · 재능 · 숙련도 · 평판 · 인지도 (이번에 처음 배운 특기는 위에 따로 있다)
   const ups = growLines(T.g0, pre && pre.grow ? pre.grow : growSnap(s)).map(x => ({ x, up: true }));
   if (ups.length) (box.grow = box.grow || []).push(...ups);
-  // 큰 정산이 들어왔으면 돈 칸에 한 줄 (v118 UI A4): 한 번에 1,000만 원 넘게 들어왔고 매달 들어오는 돈이 아닌 것
-  const bigs = Object.entries(T.inc || {}).filter(([k, o]) => !o.reg && o.big >= 1000e4 && !(pre && pre.tap && pre.tap[k])).sort((a, b) => b[1].v - a[1].v).slice(0, 3).map(([k, o]) => ({ x: `💰 ${k} +${fmtWon(o.v)}`, up: true }));
-  if (bigs.length) (box.money = box.money || []).unshift(...bigs);
-  const mo = T.n > 1;
-  h += `<div class="ts-body"><div class="ts-sec">✨ 특별한 일</div>`;
-  if (!main.length && !ups.length && !bigs.length) h += `<div class="empty">특별한 일 없이 지나갔다.</div>`;
+  // v202: 요약 창은 두 장 — ✨ 특별한 일 / 🧾 결산표. 성과 칸에 들던 것(작품 · 음원 · 앨범 성적, 상, 1위 등)과 들어온 돈은 결산표에 표로
+  //   (실시간 창 · 결과 기사로 뜨는 것은 그대로 따로 뜬다). 마지막에 본 장을 기억하고, 그 장이 비었으면 다른 장을 먼저 연다
+  const W = box.win || []; delete box.win;
+  const inc = Object.entries(T.inc || {}).filter(([k, o]) => o.v > 0 && !(pre && pre.tap && pre.tap[k])).sort((a, b) => b[1].v - a[1].v);
+  const mo = T.n > 1, nEv = Object.values(box).reduce((a, B) => a + B.length, 0), nRes = W.length;
+  let tab = UI.tsTab === 'res' ? 'res' : 'ev';
+  if (tab === 'ev' && !nEv && (nRes || inc.length)) tab = 'res'; else if (tab === 'res' && !nRes && !inc.length && nEv) tab = 'ev';
+  h += `<div class="ap-row pf-tabs ts-tabs"><button class="ap-tab${tab === 'ev' ? ' on' : ''}" data-tstab="ev">✨ 특별한 일${nEv ? ` <span class="ap-n">${nEv}</span>` : ''}</button><button class="ap-tab${tab === 'res' ? ' on' : ''}" data-tstab="res">🧾 결산표${nRes ? ` <span class="ap-n">${nRes}</span>` : ''}</button></div>`;
+  h += `<div class="ts-body${tab === 'ev' ? '' : ' hidden'}" data-tsp="ev">`;
+  if (!nEv) h += `<div class="empty">특별한 일 없이 지나갔다.${nRes ? ' 성과는 결산표에 있다.' : ''}</div>`;
   for (const [id, ic, n] of TS_CATS) {
     const B = box[id];
     if (!B) continue;
-    h += `<div class="ts-box ${id}"><div class="ts-bh">${ic} ${n}</div>` + B.map(x => { const hh = LOG_HTML.get(x), si = x.e ? songIdx(s, x) : -1; return `<div class="ts-i${si !== -1 ? ' ts-song' : ''}"${si !== -1 ? ` data-song="${si}"` : ''}>${mo ? `<span class="ts-mo">${x.up ? '' : ymOfT(s, x.t).m + '월'}</span>` : ''}<span class="ts-x">${hh ? `<div class="ts-html">${hh}</div>` : nl(x.x)}${x.sub ? `<span class="ts-sub">${nl(x.sub)}</span>` : ''}${id === 'win' && x.dv ? `<span class="ts-dv">${x.dv.map(([k, d]) => `<span class="${d > 0 ? 'pos' : 'neg'}">${U.esc(k)} ${d > 0 ? '+' : ''}${d}</span>`).join('')}</span>` : ''}${x.lv ? liveBtnHTML(x.lv, '무대 보기') : ''}${x.pl ? plioBtnHTML(x.pl) : ''}</span></div>`; }).join('') + `</div>`;
+    h += `<div class="ts-box ${id}"><div class="ts-bh">${ic} ${n}</div>` + B.map(x => tsItemHTML(s, x, mo)).join('') + `</div>`;
   }
   if (dlg.length) h += `<details class="ts-more ts-dl"><summary>🤝 맡긴 일 ${dlg.length}건</summary>${dlg.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   if (flav.length) h += `<details class="ts-more" open><summary>☕ 일상 ${flav.length}건</summary>${flav.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   h += `</div>`;
+  h += `<div class="ts-body${tab === 'res' ? '' : ' hidden'}" data-tsp="res">${tsResHTML(s, W, inc, dm, mo)}</div>`;
   const why = T.why === 'ev' ? '📌 결정할 일이 생겼다' : T.why === 'msg' ? '📨 새 메시지가 왔다' : T.why === 'warn' ? '⚠️ 살펴볼 일이 생겼다' : '';
   if (why) h += `<div class="ts-why">${why}</div>`;
   h += `<div class="choices ts-btns">${T.why === 'msg' ? `<button class="btn" data-turnok="inbox">📨 메시지함 열기</button>` : ''}<button class="btn primary" data-turnok="">확인 <kbd>Space</kbd></button></div>`;
@@ -176,7 +203,7 @@ function dreamNow(s) {
   fireEvent(s, 'dream', {});
 }
 // 버튼으로 한 일 다음에 생긴 사건: 고를 게 없으면 창 없이 처리하고 알림으로 보여 준다
-function actAuto(s) { const n0 = s.log.length; autoEvs(s); pullNow(s); if (s.log.length > n0) toast(s.log[s.log.length - 1].x); }
+function actAuto(s) { const n0 = s.log.length; autoEvs(s); chMark(s); pullNow(s); if (s.log.length > n0) toast(s.log[s.log.length - 1].x); }
 // 요약 창을 닫는다: 사건이 있으면 사건 창, 인생이 끝났으면 결산, 메시지를 보러 가면 메시지함
 function turnClose(next) {
   if (!UI.turn || !UI.turn.why) return;
@@ -872,25 +899,57 @@ function afterChoiceGo() {
 // 고를 게 둘 이상인 창과 글자를 적는 창만 (확인 하나뿐인 창은 그 창이 곧 결과다)
 function logsAfter(s, L0) { const i = L0 ? s.log.lastIndexOf(L0) : -1; return s.log.slice(i + 1); }
 function resPre(s) {
+  CH_END = undefined;
   const p = s.pending, ev = p && EVENTS[p.id];
   if (!ev) return null;
   let title = '';
   try { title = typeof ev.title === 'function' ? ev.title(s, p.d) : ev.title; } catch (e) { }
   return { L0: s.log[s.log.length - 1], cat: evCat(ev, s, p.d), title, form: !!ev.form, noRes: ev.noRes || false, C: ev.form ? [] : evChoices(s) };
 }
+// v202: 고른 결과와 그사이 생긴 일을 나눈다. M: 고른 결과의 끝 기록 (game.js CH_END). 모르면 모두 고른 결과
+//   다음에 뜰 창이 준비하며 남긴 기록(tk)은 그 창에서 보여 주니 빼고, 그사이 생긴 일에서는 일상 · 맡긴 일도 뺀다
+function resSplit(s, L0, M) {
+  const P = s.pending, tk = P && P.tok, i0 = L0 ? s.log.lastIndexOf(L0) + 1 : 0, im = M ? s.log.lastIndexOf(M) : -1;
+  const ie = M === undefined || (M && im < i0 - 1) ? s.log.length : Math.max(i0, im + 1);
+  const ok = x => !(tk && x.tk === tk);
+  return { mine: s.log.slice(i0, ie).filter(ok), other: s.log.slice(ie).filter(x => ok(x) && x.k !== 'flavor' && !x.dl) };
+}
+// v202: 창에서 고른 결과는 결과 창 대신 화면 아래쪽 큰 토스트로 (다음 창이 바로 떠도 한동안 남는다).
+//   그사이 따로 생긴 일(다른 그룹 성적 등)이 있으면 다음 창 '그사이 생긴 일'로 따로 보여 준다
+//   확인 하나뿐인 창은 그 창이 곧 결과라 토스트는 없고, 그사이 생긴 일만. noRes 창은 예전처럼 아무것도 띄우지 않는다
 function resAfter(pre, i) {
-  // v180: noRes 'toast' (작품 기획 중 고르는 창) — 결과 창 없이 다음 창으로 넘어가고, 생긴 기록은 위쪽 토스트로 (제작 시작 창처럼 따로 그리는 창이 뜨면 생략)
-  if (pre && pre.noRes === 'toast' && S && !S.ended) { const L = logsAfter(S, pre.L0), nx = S.pending && EVENTS[S.pending.id]; if (L.length && !(nx && nx.card)) UI.ptoast = L.map(x => String(x.x || '').replace(/<[^>]+>/g, '')).join('\n'); return false; }
-  if (!pre || pre.noRes || !S || S.ended || (!pre.form && pre.C.length < 2)) return false;
-  const L = logsAfter(S, pre.L0);
-  if (!L.length) return false;
-  const c = pre.C[i];
-  resShow({ cat: pre.cat, title: pre.title, pick: c ? c.t : '', L, next: afterChoice });
+  const M = CH_END; CH_END = undefined;
+  if (!pre || !S || S.ended || pre.noRes === true) return false;
+  const { mine, other } = resSplit(S, pre.L0, M), one = !pre.form && pre.C.length < 2 && pre.noRes !== 'toast';
+  // noRes 'toast' (작품 기획 중 고르는 창): 제작 시작 창처럼 따로 그리는 창이 바로 뜨면 그 창이 결과를 보여 주니 생략
+  const nx = S.pending && EVENTS[S.pending.id], c = pre.C[i];
+  if (mine.length && !one && !(pre.noRes === 'toast' && nx && nx.card)) ctoastShow({ cat: pre.cat, title: pre.title, pick: c ? c.t : '', L: mine });
+  if (!other.length) return false;
+  resShow({ cat: '방금 고른 것과 따로', title: '그사이 생긴 일', L: other, next: afterChoice });
   return true;
 }
+// ───── 고른 결과 토스트 (v202) ─────
+// 화면 아래쪽 가운데에 크게. 한동안(글이 길수록 오래, 6~16초) 남고, 마우스를 올리면 멈춘다. ✕로 닫는다
+// 떠 있는 동안 창(사건 · 결과 · 요약)은 토스트 위쪽으로 비켜 선다 (body.ct-on, --ct-h). 한꺼번에 3개까지, 넘치면 오래된 것부터
+function ctoastShow(o) {
+  let box = $('#ctoast');
+  if (!box) { box = document.createElement('div'); box.id = 'ctoast'; box.className = 'ctoast'; document.body.appendChild(box); }
+  const e = document.createElement('div'), hd = [o.cat, o.title].filter(Boolean).filter((x, i, A) => A.indexOf(x) === i).join(' · ');
+  e.className = 'ct-i';
+  e.innerHTML = `<button type="button" class="ct-x" aria-label="닫기">✕</button><div class="ct-h">${U.esc(hd || '방금 한 일')}</div>${o.pick ? `<div class="ct-pick">✔ ${U.esc(o.pick)}</div>` : ''}<div class="ct-b">${o.L.map(x => `<div class="ct-l${x.k === 'flavor' ? ' flavor' : ''}">${resLine(x.x)}${x.sub ? `<span class="res-sub">${nl(x.sub)}</span>` : ''}</div>`).join('')}</div>`;
+  const len = o.L.reduce((a, x) => a + String(x.x || '').replace(/<[^>]+>/g, '').length, 0), ms = Math.min(16000, 6000 + len * 45);
+  let tm = null; const go = () => { clearTimeout(tm); tm = setTimeout(() => ctOut(e), ms); };
+  e.addEventListener('mouseenter', () => clearTimeout(tm)); e.addEventListener('mouseleave', go);
+  e.querySelector('.ct-x').addEventListener('click', ev => { ev.stopPropagation(); clearTimeout(tm); ctOut(e); });
+  box.appendChild(e);
+  [...box.children].filter(c => !c.classList.contains('out')).slice(0, -3).forEach(ctOut);
+  go(); ctFit();
+}
+function ctOut(e) { if (e.classList.contains('out')) return; e.classList.add('out'); setTimeout(() => { e.remove(); ctFit(); }, 360); }
+function ctFit() { const b = $('#ctoast'), h = b ? [...b.children].filter(c => !c.classList.contains('out')).reduce((a, c) => a + c.offsetHeight + 8, 0) : 0; document.body.classList.toggle('ct-on', h > 0); document.documentElement.style.setProperty('--ct-h', h + 'px'); }
 // 결과 한 줄: 새로 배운 특기는 눈에 띄게, [ ] 안의 바뀐 수치는 꼬리표로
 function resLine(x) { return rich(x || '').replace(/\[새 특기: ([^\]<]+)\]/g, '<span class="res-new">🌱 새 특기 · $1</span>').replace(/\[([^\]<]+)\]/g, '<span class="res-chip">$1</span>'); }
-function resItems(L) { return L.map(x => `<div class="res-i${x.k === 'flavor' ? ' flavor' : ''}">${x.sp ? `<div class="res-sp">${U.esc(x.sp)}</div>` : ''}<div class="res-x">${resLine(x.x)}</div>${x.sub ? `<div class="res-sub">${nl(x.sub)}</div>` : ''}</div>`).join(''); }
+function resItems(L) { return L.map(x => `<div class="res-i${x.k === 'flavor' ? ' flavor' : ''}">${logSp(x) ? `<div class="res-sp">${U.esc(logSp(x))}</div>` : ''}<div class="res-x">${resLine(x.x)}</div>${x.sub ? `<div class="res-sub">${nl(x.sub)}</div>` : ''}</div>`).join(''); }
 function resShow(o) {
   const s = S;
   UI.res = o;
@@ -913,13 +972,17 @@ function pResHTML() { return UI.pRes && UI.pRes.length ? `<div class="p-res"><bu
 // 창 안에서 누른 일 다음: 고를 일이 생겼으면 결과를 사건 창에서 먼저 보여 주고(다음 ▶) 그 사건으로, 아니면 창 아래 띠에
 function actDone(L0, title, onPend) {
   // 누른 일로 생긴 사건 중 고를 게 없는 것(방송 결과 등)은 창 없이 처리해서 결과에 같이 보여 준다
+  const M = CH_END; CH_END = undefined;
   autoEvs(S); pullNow(S); save(S);
   const L = logsAfter(S, L0);
   if (S.ended) { closePanel(); stopLoop(); showEnding(); return; }
   if (S.pending) {
     if (onPend) onPend();
     closePanel(); stopLoop();
-    if (L.length) resShow({ cat: '', title: title || '결과', L, next: showEvent }); else showEvent();
+    // v202: 누른 일의 결과는 아래쪽 토스트로, 그사이 생긴 일은 다음 창 '그사이 생긴 일'로 (resAfter와 같다)
+    const { mine, other } = resSplit(S, L0, M);
+    if (mine.length) ctoastShow({ title: title || '방금 한 일', L: mine });
+    if (other.length) resShow({ cat: '방금 한 것과 따로', title: '그사이 생긴 일', L: other, next: showEvent }); else showEvent();
     return;
   }
   if (UI.overlay) { UI.pRes = L.length ? L : null; renderPanel(); }
@@ -2482,6 +2545,8 @@ document.addEventListener('click', e => {
   if (t.id === 'btn-go') { turnGo(turnMax(S)); return; }
   if (t.id === 'btn-month') { turnGo(1); return; }
   if (t.dataset.turnok != null) { turnClose(t.dataset.turnok); return; }
+  // v202: 요약 창 두 장 (특별한 일 · 결산표)
+  if (t.dataset.tstab) { UI.tsTab = t.dataset.tstab; document.querySelectorAll('#tcard [data-tsp]').forEach(e => e.classList.toggle('hidden', e.dataset.tsp !== UI.tsTab)); document.querySelectorAll('#tcard [data-tstab]').forEach(b => b.classList.toggle('on', b.dataset.tstab === UI.tsTab)); return; }
   if (t.dataset.panel) { UI.apjFrom = null; if (t.dataset.panel === 'group' && !UI.overlay) UI.grpTab = 'home'; if (t.dataset.cofx) { UI.coF = t.dataset.cofx; UI.coTab = 'home'; UI.coGrp = null; } if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
   if (t.dataset.close != null) return closePanel();
   if (t.dataset.logsize) { setLogSize(+t.dataset.logsize); if (UI.overlay === 'menu') renderPanel(); return; }

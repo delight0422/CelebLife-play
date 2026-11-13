@@ -526,7 +526,8 @@ function fireEvent(s, id, d = {}) {
   const pre = { money: s.money, fans: totalFans(s), stress: s.stress, co: ag && typeof ag.money === 'number' ? ag.money : null, grow: typeof growSnap === 'function' ? growSnap(s) : null };
   const tap0 = MONEY_TAP ? Object.fromEntries(Object.entries(MONEY_TAP).map(([k, o]) => [k, o.v])) : null;
   if (ev.init) { ev.init(s, d); jfAdd(s, evJobOf(s, id, d), totalFans(s) - pre.fans); }
-  for (let i = n0; i < s.log.length; i++) s.log[i].sp = tok;
+  // v202: 표시는 tk에 (예전엔 sp에 넣어 결과 창 제목 자리에 알 수 없는 글자가 뜰 수 있었다)
+  for (let i = n0; i < s.log.length; i++) s.log[i].tk = tok;
   if (tap0) { pre.tap = {}; for (const k in MONEY_TAP) if (MONEY_TAP[k].v !== (tap0[k] || 0)) pre.tap[k] = 1; }
   EV_E0 = { id, dv: evalDiff(e0, evalSnap(s)) };
   // v192: CEO가 맡은 회사의 결과 창(ev.ceoRep)은 띄우지 않고 CEO 보고서에 모은다 (company.js ceoRepAdd)
@@ -576,6 +577,10 @@ function pickEvent(s) {
   return false;
 }
 function evChoices(s) { const p = s.pending; if (!p) return []; const ev = EVENTS[p.id]; return ev.ch ? njGate(s, ev.ch(s, p.d) || []) : []; }
+// v202: 고른 결과의 끝 (ui.js resAfter · actDone). 고른 일 · 그 일로 바로 이어진 사건(창 없이 처리)까지가 '고른 결과'이고,
+// 그 뒤 줄 서 있다 끼어든 사건(pullNow · pullBack)의 기록은 '그사이 생긴 일'로 따로 보여 준다
+let CH_END;
+function chMark(s) { CH_END = s.log[s.log.length - 1] || null; }
 function submitForm(s, vals) {
   const p = s.pending;
   if (!p) return '';
@@ -587,7 +592,7 @@ function submitForm(s, vals) {
   applyLocks(s);
   if (r.err) { if (!s.pending) s.pending = p; return r.err; }
   if (r.log) addLog(s, r.log, ev.tag || 'ev');
-  autoEvs(s); pullNow(s); pullBack(s); autoEvs(s);
+  autoEvs(s); chMark(s); pullNow(s); pullBack(s); autoEvs(s);
   save(s);
   return '';
 }
@@ -610,7 +615,7 @@ function fbtnRun(s, i) {
   const r = b.f ? b.f(s, p.d) : '';
   applyLocks(s);
   if (r) addLog(s, r, ev.tag || 'ev');
-  autoEvs(s); pullNow(s); pullBack(s); autoEvs(s);
+  autoEvs(s); chMark(s); pullNow(s); pullBack(s); autoEvs(s);
   save(s);
 }
 function choose(s, i) {
@@ -632,7 +637,7 @@ function choose(s, i) {
     if (ev.plio) { try { const pl = ev.plio(s, p.d); if (pl) s.log[s.log.length - 1].pl = pl; } catch (e) { } }
   }
   // 고른 뒤 이어서 생긴 사건도 고를 게 없으면 창 없이 처리한다
-  autoEvs(s); pullNow(s); pullBack(s); autoEvs(s);
+  autoEvs(s); chMark(s); pullNow(s); pullBack(s); autoEvs(s);
   save(s);
 }
 // 턴제 (turn-test): 창을 띄우지 않고 바로 처리하는 사건

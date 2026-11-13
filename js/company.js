@@ -1519,7 +1519,7 @@ E({
   },
   // v192: CEO가 맡은 회사면 창 대신 CEO 보고서에 한 줄로 (game.js fireEvent). 내가 쓴 타이틀곡이면 따로 창
   ceoRep: (s, d) => { const t = coT(s), g = coGroup(s, d.gid); if (!g || !d.r || d.mine) return null; const f = coFOfKind(g.kind); if (!coCeo(t, f)) return null; const r = d.r;
-    return { f, ic: g.kind === 'band' ? '🎸' : '🎤', t: `「${g.name}」 ${g.proj ? '프로젝트' : r.debut ? '데뷔' : '컴백'} 앨범 「${d.title}」`, res: `${chartText(r.peak)}${g.kind === 'band' ? '' : r.wins ? ` · 음악방송 1위 ${r.wins}회` : ''} · 앨범 ${r.albums.toLocaleString()}장`, rows: d.card && d.card.bill ? d.card.bill.rows : [['매출', Math.round(r.rev)], '-', ['회사에 남는 돈', Math.round(r.rev - r.pay), 1]], net: r.rev - r.pay, rep: r.repD, up: d.up, rank: d.rank, log: `「${g.name}」 「${d.title}」 ${chartText(r.peak)}.` }; },
+    return { f, ic: g.kind === 'band' ? '🎸' : '🎤', gn: g.name, sh: `${g.proj ? '프로젝트' : r.debut ? '데뷔' : '컴백'} 앨범 「${d.title}」`, t: `「${g.name}」 ${g.proj ? '프로젝트' : r.debut ? '데뷔' : '컴백'} 앨범 「${d.title}」`, res: `${chartText(r.peak)}${g.kind === 'band' ? '' : r.wins ? ` · 음악방송 1위 ${r.wins}회` : ''} · 앨범 ${r.albums.toLocaleString()}장`, rows: d.card && d.card.bill ? d.card.bill.rows : [['매출', Math.round(r.rev)], '-', ['회사에 남는 돈', Math.round(r.rev - r.pay), 1]], net: r.rev - r.pay, rep: r.repD, up: d.up, rank: d.rank, log: `「${g.name}」 「${d.title}」 ${chartText(r.peak)}.` }; },
   ch: (s, d) => [{ t: '확인', f: () => `「${(coGroup(s, d.gid) || {}).name || ''}」 「${d.title}」 ${chartText(d.r.peak)}.` }],
 });
 // ───── 회사 이름 바꾸기 (v194) ─────
@@ -1548,13 +1548,22 @@ E({
 // 사건에 ceoRep(s, d)가 있으면 init으로 결과를 다 낸 뒤 CEO 회사면 보고서 줄을 돌려준다 → 그 창은 건너뛰고 여기에 모은다 (game.js fireEvent)
 // 창을 닫으면 회사에 바로 닿는 것만 토스트로: 회사에 남은 돈 · 회사 평판 · 회사 크기 · 대표 등급 (그룹 팬 같은 건 빼고)
 function ceoRepAdd(s, it) { const q = s.queue.find(q => q.id === 'co_ceo_rep'); if (q) q.d.L.push(it); else queueEv(s, 'co_ceo_rep', 0, { L: [it] }, true); if (it.log) addLog(s, it.log, 'career'); }
+// v202: 보고서 줄의 그룹 이름 (앨범 · 콘서트). 예전 줄은 제목 앞 「그룹」에서 읽는다. 작품(영상 · 애니)은 묶지 않는다
+function ceoRepG(x) { return x.gn || (x.ic === '🎤' || x.ic === '🎸' ? (String(x.t).match(/^「([^」]+)」/) || [])[1] : '') || ''; }
+function ceoRepSh(x) { return x.sh || String(x.t).replace(/^「[^」]+」\s*/, ''); }
 function ceoRepHTML(s, d) {
   const t = coT(s), by = {};
   for (const it of d.L) (by[it.f] = by[it.f] || []).push(it);
   const sec = Object.entries(by).map(([f, L]) => {
     const C = t.f[f] ? coCeo(t, f) : null, cn = C ? ceoName(s, t, f) : '', net = L.reduce((a, x) => a + (x.net || 0), 0), rep = L.reduce((a, x) => a + (x.rep || 0), 0);
+    // v202: 한 그룹의 것(컴백 두 번 · 콘서트 등)은 한 덩어리로 묶는다: 그룹 이름 아래 한 줄씩, 정산은 건마다 한 줄 + 합계
+    const G = [], gi = {};
+    for (const x of L) { const k = ceoRepG(x); if (k && gi[k] != null) G[gi[k]].push(x); else { if (k) gi[k] = G.length; G.push([x]); } }
+    const rk = x => x.rank ? ` · ${U.esc(String(x.rank).replace(/\.$/, ''))}` : '';
+    const one = x => `<div class="rep-it"><div class="rep-t">${x.ic || '•'} ${U.esc(x.t)}</div><div class="rep-r">${U.esc(x.res)}${rk(x)}</div>${billHTML({ t: '정산', rows: x.rows || [] }).replace('<div class="bill">', '<div class="bill rep-bill">')}</div>`;
+    const grp = A => { const nt = A.reduce((a, x) => a + (x.net || 0), 0); return `<div class="rep-it rep-grp"><div class="rep-t">${A[0].ic || '•'} 「${U.esc(ceoRepG(A[0]))}」 <span class="rep-n">${A.length}건</span></div>${A.map(x => `<div class="rep-r"><b>${U.esc(ceoRepSh(x))}</b> — ${U.esc(x.res)}${rk(x)}</div>`).join('')}${billHTML({ t: '정산', rows: A.map(x => [ceoRepSh(x), Math.round(x.net || 0)]).concat(['-', [nt >= 0 ? '회사에 남는 돈' : '손해', Math.round(nt), 1]]) }).replace('<div class="bill">', '<div class="bill rep-bill">')}</div>`; };
     return `<div class="rep-co"><div class="rep-coh">${CO_FIELDS[f] ? CO_FIELDS[f].ic : '🏢'} ${U.esc(t.f[f] ? coFName(t, f) : f)}${cn ? ` <span>CEO ${U.esc(cn)}</span>` : ''}</div>`
-      + L.map(x => `<div class="rep-it"><div class="rep-t">${x.ic || '•'} ${U.esc(x.t)}</div><div class="rep-r">${U.esc(x.res)}${x.rank ? ` · ${U.esc(String(x.rank).replace(/\.$/, ''))}` : ''}</div>${billHTML({ t: '정산', rows: x.rows || [] }).replace('<div class="bill">', '<div class="bill rep-bill">')}</div>`).join('')
+      + G.map(A => A.length > 1 ? grp(A) : one(A[0])).join('')
       + `<div class="rep-sum">${L.length > 1 ? `이번 보고 합계 · ${net >= 0 ? '회사에 남는 돈' : '손해'} <b class="${net >= 0 ? 'pos' : 'neg'}">${net >= 0 ? '+' : '−'}${fmtWon(Math.abs(net))}</b> · ` : ''}회사 평판 <b class="${rep >= 0 ? 'pos' : 'neg'}">${rep >= 0 ? '+' : ''}${Math.round(rep * 10) / 10}</b> → ${Math.round(t.f[f] ? t.f[f].rep : 0)}</div></div>`;
   }).join('');
   return `<div class="ceo-rep"><div class="rep-doc-h">📋 경영 보고서 <span>${calY(s)}년 ${calM(s) + 1}월</span></div>${sec}</div>`;
