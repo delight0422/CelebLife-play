@@ -111,7 +111,9 @@ E({
 const NEGO = {};
 function pctN(x) { return Math.round(x * 100) + '%'; }
 function yrs(m) { return m % 12 ? `${m}개월` : `${m / 12}년`; }
-function negoP(d) { return U.clamp(0.12 + d.lev * 0.6 - d.tried.length * 0.08, 0.05, 0.85); }
+// v201: 내 전달력(재능)도 직접 들어간다 — 곡선 0.18 × ((전달력/100)² − 0.25): 20이면 −4%p · 50이면 0 · 70이면 +4%p · 90이면 +10%p
+function negoVb(d) { return d.vb == null ? 0 : 0.18 * (Math.pow(U.clamp(d.vb, 0, 100) / 100, 2) - 0.25); }
+function negoP(d) { return U.clamp(0.12 + d.lev * 0.6 + negoVb(d) - d.tried.length * 0.08, 0.05, 0.85); }
 function negoRisk(d) { return U.clamp(0.3 - d.lev * 0.25 + d.tried.length * 0.08, 0.04, 0.45); }
 // 사건 창 글자 꾸미기: 바뀌기 전 조건은 취소선, 바뀐 조건은 초록색
 function WAS(x) { return '\u0001' + x + '\u0002'; }
@@ -145,7 +147,7 @@ function negoAsks(d) {
 // 계약서로 시작하는 직업 (v104 겸직): 재계약이 아니면 그 직업 · 자리로 겸직 규칙을 본다
 const NEGO_JOB = { idol: ['idol', 'trainee'], band: ['band', 'artist'], solo: ['solo', 'artist'], actor: ['actor', 'artist'], model: ['model', 'artist'], vidol: ['vidol'], dancer: ['dancer'], director: ['director'], mcn: ['youtube'], marketer: ['marketer', 'emp'], anr: ['anr', 'emp'], trainer: ['trainer', 'emp'], acttrainer: ['acttrainer', 'emp'], producer: ['producer', 'emp'], editor: ['editor', 'emp'], animator: ['animator', 'emp'] };
 function negoJobWhy(s, d) { if (d.renew) return ''; const x = d.kind === 'wbcp' ? [d.id] : NEGO_JOB[d.kind]; return x && x[0] ? jobBlock(s, x[0], x.slice(1)) : ''; }
-function startNego(s, d) { const x = Object.assign({ tried: [], lev: 0.3 }, d); x.orig = x.orig || { sal: x.sal, months: x.months, cut: x.cut, bonus: x.bonus }; fireEvent(s, 'contract_nego', x); return ''; }
+function startNego(s, d) { const x = Object.assign({ tried: [], lev: 0.3, vb: me(s).tal.verbal }, d); x.orig = x.orig || { sal: x.sal, months: x.months, cut: x.cut, bonus: x.bonus }; fireEvent(s, 'contract_nego', x); return ''; }
 E({
   id: 'contract_nego', cat: '계약', title: (s, d) => d.renew ? '재계약 조건' : '계약 조건', tag: 'career',
   text: (s, d) => { const N = NEGO[d.kind]; return (d.note ? d.note + '\n\n' : '') + (d.tried.length ? `${d.agN}의 ${d.renew ? '재계약' : '계약'} 조건이 이렇게 됐다.` : `${d.agN}에서 ${d.renew ? '재계약 조건을' : '계약서를'} 내밀었다. ${typeof N.what === 'function' ? N.what(d) : N.what}`) + `\n\n${negoTerms(d)}` + (d.oneAsk && d.tried.length ? '' : `\n\n${d.oneAsk ? '조건 중 한 가지만 원하는 쪽으로 바꿔 달라고 할 수 있다' : '마음에 들지 않는 조건은 한 가지씩 바꿔 달라고 할 수 있다'}. 요구가 받아들여지지 않으면 원래 조건으로 돌아오지만, 회사가 제안을 거둬들일 수도 있다.`); },

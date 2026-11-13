@@ -18,9 +18,9 @@ function rich(t) { return potH(evCol(nl(t).replace(/\u0001([^\u0002]*)\u0002/g, 
 //   예전 표시 'fp'(v188) · 'fab'(v186) · '?f'도 읽는다 (c는 p를 넘지 않게)
 function potBars(g) {
   g = String(g || ''); if (!/^(\?[1-5]?|[0-5][1-5]|[1-5]{3})$/.test(g)) return '';
-  if (g[0] === '?') return `<span class="potv unk" role="img" aria-label="포텐은 모른다" title="포텐은 모른다"><i class="on">★</i><b>?</b></span>`;
+  if (g[0] === '?') return `<span class="potv unk" role="img" aria-label="포텐은 모른다"><i class="on">★</i><b>?</b></span>`;
   const p = +g[g.length - 1], c = Math.min(+g[0], p), lab = `포텐 별 ${p}개 · 지금 ${c}개만큼 찼다`;
-  return `<span class="potv p${p}" role="img" aria-label="${lab}" title="${lab}">${Array.from({ length: p }, (_, i) => `<i${i < c ? ' class="on"' : ''}>★</i>`).join('')}</span>`;
+  return `<span class="potv p${p}" role="img" aria-label="${lab}">${Array.from({ length: p }, (_, i) => `<i${i < c ? ' class="on"' : ''}>★</i>`).join('')}</span>`;
 }
 // 이미 HTML로 바꾼 글 속의 성장성 표시(work.js potTok)를 별로
 function potH(h) { return String(h).replace(/\u0005(\?[1-5]?|[0-5][1-5]|[1-5]{3})\u0006/g, (m, g) => potBars(g)); }

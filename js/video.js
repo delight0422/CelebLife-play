@@ -859,6 +859,7 @@ CAREERS.youtube = {
     const before = t.subs;
     if (t.subs < target) t.subs += Math.round((target - t.subs) * U.fl(0.02, 0.06) * Math.min(2, n) + U.int(3, 20));
     else t.subs = Math.round(t.subs * U.fl(0.99, 1.0));
+    if (t.mode === 'vt' && age(s) > 36) t.subs = Math.round(t.subs * vtAgeFade(age(s)));
     // 이번 달에 올린 영상 (v144): 반응은 라이브온에서 본다. 직업 창에 가장 최근 영상의 배너가 있고, 크게 터지거나 차갑게 식은 달에는 기록에도 남는다
     if (t.mode !== 'vt' && typeof plioSpec === 'function') {
       const dev = U.normal(0, 10), vs = U.clamp(ytAppeal(s, t) + 8 + dev, 0, 100);

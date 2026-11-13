@@ -430,6 +430,7 @@ CAREERS.vidol = {
     const tg = viTarget(viAppeal(s, t), t.jp);
     if (t.subs < tg) t.subs += Math.round((tg - t.subs) * U.fl(0.02, 0.06) * Math.min(2, n) * rate + U.int(3, 20));
     else t.subs = Math.round(t.subs * U.fl(0.99, 1.0));
+    if (age(s) > 36) t.subs = Math.round(t.subs * vtAgeFade(age(s)));
     t.peak = Math.max(t.peak || 0, t.subs);
     s.fans[mk] += Math.round(Math.max(0, t.subs - before) * 0.5 * myRoom(s, mk));
     // 수입: 방송 후원과 멤버십 (회사 몫을 뗀다)

@@ -314,6 +314,9 @@ function coHHKs(f) { return f === 'mcn' ? ['scout', 'edit'] : f === 'video' ? ['
 function coHHc(sc) { return Math.pow(U.clamp(sc || 0, 0, 100) / 100, 2); }
 function coHH(s, f) { return coOn(s) ? coStaff(s, 'cast', f).sort((a, b) => lv(b, 'scout') - lv(a, 'scout'))[0] || null : null; }
 function coHHSc(s, f) { const x = coHH(s, f); return x ? lv(x, 'scout') : 0; }
+// v201: 설득 · 협상(영입 · 재계약 · 섭외)은 전달력도 직접 본다: 스카우트 곡선 × (0.75 + (전달력/100)²) — 전달력 20이면 0.79배 · 50이면 1배 · 70이면 1.24배 · 90이면 1.56배
+function coHHVb(x) { return x ? 0.75 + coHHc(x.tal.verbal) : 0; }
+function coHHPers(s, f) { const x = coHH(s, f); return x ? coHHc(lv(x, 'scout')) * coHHVb(x) : 0; }
 // 설립 절차의 직원 뽑기는 예외: 다시 뽑기까지 기다리는 시간 없이, 자리가 다 찰 때까지 계속 뽑는다
 // 한 자리뿐인 직원(헤드헌터 · A&R 팀장 · 기획 PD)은 이미 있으면 막고, 여러 명인 직원(트레이너 · 사내 프로듀서 · 편집자)은 자리 수까지
 function coFoundCap(s, job, f) { return coStaffCap(coT(s), job, f); }
@@ -492,7 +495,12 @@ function coStaffCand(s, t, job, k, boost, f) {
 function coStaffLine(x) {
   // v195: 레벨마다 성장 가능성 별 (coStPot)
   const j = x.co.job, L = k => `${lvi(x, k)}${coStPot(x, k)}`;
-  return (j === 'trainer' ? `${SKILLS[teachSk(x.co.k)].n} ${L(teachSk(x.co.k))} · 교육 ${L('edu')}` : j === 'edit' ? `편집 ${L('edit')}` : j === 'mfind' || (j === 'cast' && coHHKs(x.co.f).length > 1) ? coJobKs('cast', null, x.co.f).filter(k => has(x, k)).map(k => `${SKILLS[k].n} ${L(k)}`).join(' · ') : j === 'pd' ? `스카우트 ${L('scout')} · 작문 ${L('script')} · 연출 ${L('direct')}${has(x, 'art') ? ` · 그림 ${L('art')}` : ''}` : j === 'anr' ? `스카우트 ${L('scout')} · 작곡 ${L('compose')}` : j === 'prod' ? `작곡 ${L('compose')} · 스카우트 ${L('scout')}${has(x, 'lyric') ? ` · 작사 ${L('lyric')}` : ''} · 잘하는 컨셉 ${coTopCm(x)}` : `스카우트 ${L('scout')}`) + ` · 월급 ${fmtWon(x.co.sal)}`;
+  if (j === 'cast' || j === 'mfind') return coStaffLine0(x, L) + ` · 전달력 ${talentWord(x.tal.verbal)} · 월급 ${fmtWon(x.co.sal)}`;
+  return coStaffLine0(x, L) + ` · 월급 ${fmtWon(x.co.sal)}`;
+}
+function coStaffLine0(x, L) {
+  const j = x.co.job;
+  return (j === 'trainer' ? `${SKILLS[teachSk(x.co.k)].n} ${L(teachSk(x.co.k))} · 교육 ${L('edu')}` : j === 'edit' ? `편집 ${L('edit')}` : j === 'mfind' || (j === 'cast' && coHHKs(x.co.f).length > 1) ? coJobKs('cast', null, x.co.f).filter(k => has(x, k)).map(k => `${SKILLS[k].n} ${L(k)}`).join(' · ') : j === 'pd' ? `스카우트 ${L('scout')} · 작문 ${L('script')} · 연출 ${L('direct')}${has(x, 'art') ? ` · 그림 ${L('art')}` : ''}` : j === 'anr' ? `스카우트 ${L('scout')} · 작곡 ${L('compose')}` : j === 'prod' ? `작곡 ${L('compose')} · 스카우트 ${L('scout')}${has(x, 'lyric') ? ` · 작사 ${L('lyric')}` : ''} · 잘하는 컨셉 ${coTopCm(x)}` : `스카우트 ${L('scout')}`);
 }
 // ───── 직원의 성장 (v195) ─────
 // 직원이 더 클 여지: 20대 후반이면 18쯤, 30대 13, 40대 초중반 8, 그 위로 4 (사람마다 다르다). 뽑을 때 정한다 (예전 직원은 coFix에서 한 번)
@@ -542,8 +550,11 @@ function coTrNeedN(s, k, f) { const t = coT(s); return coP(s, t.tr.concat(...t.g
 function coTrAdvice(s, f) {
   const cd = coStaff(s, 'cast', f)[0];
   if (!cd) return null;
-  let best = null, bv = 0;
-  for (const k of CO_TR_FIELDS) { const n = coTrNeedN(s, k, f), tr = coTrainer(s, k, f), v = n * (tr ? (1 - teachLv(tr, k) / 100) * 0.25 : 1); if (v > bv) { best = k; bv = v; } }
+  // v201: 트레이너 수가 가장 적은 분야부터 권한다 (그 특기를 배우는 사람이 둘 이상인 분야 중, 없으면 한 명이라도). 같으면 배우는 사람이 많은 쪽, 그다음 지금 트레이너가 약한 쪽
+  const C = CO_TR_FIELDS.map(k => { const tr = coTrainer(s, k, f); return { k, n: coTrNeedN(s, k, f), c: coStaff(s, 'trainer', f).filter(x => x.co.k === k).length, w: tr ? teachLv(tr, k) : 0 }; }).filter(o => o.n > 0);
+  const P = C.some(o => o.n >= 2) ? C.filter(o => o.n >= 2) : C;
+  P.sort((a, b) => a.c - b.c || b.n - a.n || a.w - b.w);
+  const best = P.length ? P[0].k : null;
   return best ? { k: best, who: cd, boost: Math.round(16 * coHHc(lv(cd, 'scout'))) } : null;
 }
 E({
@@ -713,9 +724,9 @@ function pplCells(s, x, v, ks, exact) {
 }
 // 직원 지원자 표에서 직업마다 보는 특기 (직원 지원자의 특기는 정확히 보인다)
 function coJobKs(job, k, f) { return job === 'trainer' ? [teachSk(k), 'edu'] : job === 'cast' ? coHHKs(f) : job === 'mfind' ? ['scout', 'edit'] : job === 'anr' ? ['scout', 'compose', 'lyric'] : job === 'pd' ? ['scout', 'script', 'direct', 'art'] : job === 'prod' ? ['compose', 'scout', 'lyric'] : job === 'edit' ? ['edit'] : job === 'ceo' ? ['biz'] : []; }
-function coJobCols(job, k, f) { return PPL_COLS.concat(coJobKs(job, k, f).map(kk => [kk, SKILLS[kk].n]), job === 'prod' ? [['cm', '잘하는 컨셉']] : []); }
+function coJobCols(job, k, f) { return PPL_COLS.concat(coJobKs(job, k, f).map(kk => [kk, SKILLS[kk].n]), job === 'cast' ? [['vb', '전달력']] : [], job === 'prod' ? [['cm', '잘하는 컨셉']] : []); }
 // v195: 레벨 옆에 성장 가능성 별
-function coJobRow(s, x, job, k, f) { const c = pplCells(s, x, null, coJobKs(job, k, f), true); for (const kk of coJobKs(job, k, f)) if (has(x, kk)) c[kk][1] += coStPot(x, kk); if (job === 'prod') c.cm = [0, coTopCm(x)]; return c; }
+function coJobRow(s, x, job, k, f) { const c = pplCells(s, x, null, coJobKs(job, k, f), true); for (const kk of coJobKs(job, k, f)) if (has(x, kk)) c[kk][1] += coStPot(x, kk); if (job === 'prod') c.cm = [0, coTopCm(x)]; if (job === 'cast') c.vb = [x.tal.verbal, talentWord(x.tal.verbal)]; return c; }
 // 트레이너가 권하는 데뷔 멤버 (v133): 트레이너마다 딱 한 명. 표에서 그 줄에 초록 테두리와 '○○ 트레이너 추천'이 붙는다
 // 자기 분야를 더 무겁게 보고, 가르치는 실력이 낮을수록 잘못 본다 (같은 해에는 같은 추천). 돌려주는 값: { 연습생 id: '보컬 트레이너 추천' }
 // v177: 밴드(파트마다) · 버츄얼 아이돌(예능 · 노래 · 게임 · 연기)도 추천한다. 돌려주는 값: { 연습생 id: [분야, …] }
@@ -731,7 +742,7 @@ function coTrRecs(s, kind) {
       : kind === 'vt' ? x => g(x, k) * 0.6 + (g(x, 'variety') + g(x, 'vocal')) * 0.15 + (x.tal.voice - 50) * 0.1 + (x.tal.star - 50) * 0.08 + noise(x)
       : x => g(x, k) * 0.6 + (g(x, 'vocal') + g(x, 'dance')) * 0.15 + (x.tal.looks - 50) * 0.1 + (x.tal.star - 50) * 0.08 + noise(x);
     const best = L.filter(x => !out[x.id]).sort((a, b) => val(b) - val(a))[0];
-    if (best) out[best.id] = [k];
+    if (best) out[best.id] = [{ k, n: tr.name }];
   }
   return out;
 }
@@ -739,7 +750,7 @@ function coTrRecs(s, kind) {
 function coRecCol(s, T, kind) {
   const R = coTrRecs(s, kind);
   T.cols.push(['rec', '트레이너 추천']);
-  for (const r of T.rows) { const L = R[r.k] || []; r.cells.rec = [L.length, L.length ? L.map(k => SKILLS[k].n).join(' · ') : '-']; if (L.length) r.rec = 1; }
+  for (const r of T.rows) { const L = R[r.k] || []; r.cells.rec = [L.length, L.length ? L.map(o => o.n ? `${o.n}(${SKILLS[o.k].n})` : SKILLS[o.k || o].n).join(' · ') : '-']; if (L.length) r.rec = 1; }
   return T;
 }
 E({
@@ -1713,7 +1724,7 @@ E({
   title: (s, d) => `「${(coGroup(s, d.gid) || {}).name || ''}」 아바타`,
   cond: s => coOn(s),
   init(s, d) { if (!coGroup(s, d.gid)) d.skip = true; },
-  text: (s, d) => { const g = coGroup(s, d.gid); return `「${g.name}」 멤버\n${coP(s, g.members).map(x => `· ${x.name} (${pAge(s, x)}세) — ${coMemberSub(s, x)}`).join('\n')}\n\n데뷔할 아바타를 정하자. 좋은 아바타일수록 시청자가 많이 모인다.\n자본금 ${fmtWon(coT(s).money)}`; },
+  text: (s, d) => { const g = coGroup(s, d.gid); return `「${g.name}」 멤버\n${coP(s, g.members).map(x => `· ${x.name} (${pAge(s, x)}세) — ${coMemberSub(s, x)}`).join('\n')}\n\n데뷔할 아바타를 정하자. 좋은 아바타일수록 시청자가 많이 모인다.\n「${coFName(coT(s), 'vidol')}」 자본금 ${fmtWon(coM(coT(s), 'vidol'))}`; },
   ch: (s, d) => { const g = coGroup(s, d.gid), m = g.members.length, t = coT(s); return CO_VAV.map(([av, n, c]) => ({ t: n, h: `${fmtWon(c)} × ${m}명 = ${fmtWon(c * m)}${coM(t, 'vidol') >= c * m ? '' : ` · 자본금 ${fmtWon(c * m - coM(t, 'vidol'))} 모자람`}`, f: s => coVDebut(s, coT(s), g, av, c) })); },
 });
 function coVDebut(s, t, g, av, c) {
@@ -1738,6 +1749,7 @@ function coVGenMonth(s, t, g, sales) {
     for (const k of coSkillsOf(x)) { const tr = coTrainer(s, k, 'vidol'); practice(s, x, k, (k === 'variety' ? 1.5 : 0.8) * (tr ? 1 + teachLv(tr, k) / 80 : 1), coTrainM(s, t, k, 'vidol')); }
     const c = x.co, tg = viTarget(coVAppeal(s, t, x), false) / sat, before = c.subs || 0;
     c.subs = before < tg ? before + Math.round((tg - before) * U.fl(0.02, 0.06) * 1.6 + U.int(3, 20)) : Math.round(before * U.fl(0.99, 1));
+    if (pAge(s, x) > 36) c.subs = Math.round(c.subs * vtAgeFade(pAge(s, x)));
     c.peak = Math.max(c.peak || 0, c.subs);
     if (c.subs >= 1000) rev += c.subs * VT_INC * U.fl(0.6, 1.4);
     if (before < 1e5 && c.subs >= 1e5) { addLog(s, `우리 회사 ${josa(coVName(x), '이가')} 구독자 10만 명을 넘었다.`, 'good'); }
@@ -1868,7 +1880,7 @@ function coAddSub(s, t, f, name) {
 function coMcnP(s, t, x, cut) {
   const c = Math.log10(Math.max(1000, x.yt.subs));
   // v196: 헤드헌터가 직접 만나 설득하면 더 받아들인다. v199: 곡선 — 스카우트 30이면 +3%p · 50이면 +9%p · 70이면 +17%p · 90이면 +28%p
-  return U.clamp(0.6 + (coTier(t, 'mcn') + t.f.mcn.rep / 50 - (c - 3)) * 0.25 - (cut - 0.2) * 2 - (x.yt.mcn ? 0.15 : 0) + 0.35 * coHHc(coMFindB(s)), 0.03, 0.92);
+  return U.clamp(0.6 + (coTier(t, 'mcn') + t.f.mcn.rep / 50 - (c - 3)) * 0.25 - (cut - 0.2) * 2 - (x.yt.mcn ? 0.15 : 0) + 0.35 * coHHPers(s, 'mcn'), 0.03, 0.92);
 }
 // ───── MCN 헤드헌터 (v196 크리에이터 발굴 팀장 → v199 헤드헌터) ─────
 // 있으면: 영입 후보가 한두 명 늘고 더 나은 사람이 오며, 받아들일 가능성 · 재계약 때 남을 가능성이 오르고, 크리에이터의 '앞으로 1년'을 내다본다 (모두 곡선 coHHc)
@@ -1957,6 +1969,7 @@ function coMcnMonth(s, t, sales) {
   for (const x of L) {
     const y = x.yt, cap = y.mode === 'vt' ? 3e6 : 2e7, tg = Math.min(cap, y.tg * mult), b = y.subs;
     y.subs = b < tg ? b + Math.round((tg - b) * U.fl(0.02, 0.05) + U.int(5, 30)) : Math.round(b * U.fl(0.985, 1));
+    if (y.mode === 'vt' && pAge(s, x) > 36) y.subs = Math.round(y.subs * vtAgeFade(pAge(s, x)));
     y.peak = Math.max(y.peak || 0, y.subs); sum += y.subs;
     rev += mcnCrRev(x) * x.co.cut;
     if (b < 1e6 && y.subs >= 1e6) { milestone(s, `${age(s)}세에 우리 회사 크리에이터 ${josa(mcnCrName(x), '이가')} 구독자 100만 명을 넘었다.`); coVRepF(t, 'mcn', 1.5); }
@@ -1980,7 +1993,7 @@ function coMcnYear(s, t) {
 }
 // 계약 만료: 크리에이터가 남을지 정한다 (회사 몫을 낮춰 붙잡을 수 있다)
 // v196: 발굴 팀장이 붙잡으면 조금 더 남는다 (스카우트 100이면 +약 17%p)
-function coMcnStay(s, t, x, cut) { const g = x.yt.subs / Math.max(1, x.co.subs0); return U.clamp(0.35 + U.clamp((g - 1) * 0.5, -0.3, 0.35) + coTier(t, 'mcn') * 0.08 + t.f.mcn.rep / 200 - (cut - 0.2) * 1.5 - Math.max(0, Math.log10(x.yt.subs) - 5.5) * 0.35 + 0.28 * coHHc(coMFindB(s)), 0.05, 0.95); }
+function coMcnStay(s, t, x, cut) { const g = x.yt.subs / Math.max(1, x.co.subs0); return U.clamp(0.35 + U.clamp((g - 1) * 0.5, -0.3, 0.35) + coTier(t, 'mcn') * 0.08 + t.f.mcn.rep / 200 - (cut - 0.2) * 1.5 - Math.max(0, Math.log10(x.yt.subs) - 5.5) * 0.35 + 0.28 * coHHPers(s, 'mcn'), 0.05, 0.95); }
 function coMcnRelease(s, t, x, to) { t.crs = t.crs.filter(id => id !== x.id); x.co = null; x.yt.mcn = to || null; }
 E({
   id: 'co_mrenew', cat: 'MCN', title: (s, d) => `${mcnCrName(s.people[d.id] || { yt: { ch: '' } })} 계약 만료`, tag: 'career',
@@ -2647,7 +2660,16 @@ function coTabStaff(s, t, f) {
   if (has('music')) { const pw = coHireOK(s, 'prod', f); rows.push({ t: '사내 프로듀서 뽑기', h: `사내 프로듀서 ${coProdCount(s)}/${CO_PROD_CAP[coTier(t, 'music')]}명${pds.length > coProdCount(s) ? ' (전담 프로듀서는 제외됨)' : ''} · 그룹에 전담으로 붙이면 앨범 기획 · 선정을 맡는다 · 붙이지 않아도 '사내 제작'으로 곡을 쓴다`, ok: !pw, why: pw, btn: '뽑기', run: s => { fireEvent(s, 'co_hire', { job: 'prod', f }); return ''; } }); }
   if (has('mcn')) { const ew = coHireOK(s, 'edit', f), ea = coAuto(t).on.edit; rows.push({ t: '편집자 뽑기', h: `편집자 ${eds.length}/${CO_ED_CAP[coTier(t, 'mcn')]}명 · 한 명이 크리에이터 ${CO_ED_PER}명까지 맡는다${ea ? ' · 자동: 편집자가 모자라면 3개월마다 지원자를 본다' : ''}`, why: ew, opts: [{ btn: '뽑기', on: true, ok: !ew, run: s => { fireEvent(s, 'co_hire', { job: 'edit', f }); return ''; } }, coAutoSw(t, 'edit')] }); }
   let h = `<div class="sec-h">직원 <span class="n">월급 합계 ${fmtWon(coStaff(s, null, f).reduce((a, x) => a + x.co.sal, 0))}</span></div>` + (t.hire ? '' : `<p class="hint">별은 그 사람이 더 클 수 있는 정도다. 직원은 일하면서 조금씩 늘고, ${coIsGrp(t) ? '그룹 창의 ' : ''}📚 직원교육 탭에서 더 빨리 키울 수 있다.</p>`) + rows.map(actRow).join('');
-  if (tr && trs.length) h += `<div class="sec-h">트레이너</div>` + trs.map(x => actRow({ who: x.id, t: `${trFieldN(x.co.k)} ${x.name} (${gNn(x)} · ${pAge(s, x)}세)`, h: coStaffLine(x), ok: true, danger: true, btn: '내보내기', confirm: `${x.name}을 내보낼까요?`, run: s => coFire(s, x) })).join('');
+  // v201: 트레이너는 분야마다 접고 펼치는 트리 (제목 옆에 그 분야 트레이너 수). 분야 순서는 CO_TR_FIELDS
+  if (tr && trs.length) {
+    h += `<div class="sec-h">트레이너 <span class="n">${trs.length}명</span></div>`;
+    for (const k of CO_TR_FIELDS.concat([...new Set(trs.map(x => x.co.k))].filter(k => !CO_TR_FIELDS.includes(k)))) {
+      const L = trs.filter(x => x.co.k === k).sort((a, b) => teachLv(b, k) - teachLv(a, k)); if (!L.length) continue;
+      const gk = `trf:${f}:${k}`, op = UI.openGroups[gk] !== false;
+      h += `<div class="sec-h tog dict-sub" data-grp="${gk}">${op ? '▾' : '▸'} ${trFieldN(k)} (${L.length}명)</div>`;
+      if (op) h += `<div class="dict-subb">` + L.map(x => actRow({ who: x.id, t: `${x.name} (${gNn(x)} · ${pAge(s, x)}세)`, h: coStaffLine(x), ok: true, danger: true, btn: '내보내기', confirm: `${x.name}을 내보낼까요?`, run: s => coFire(s, x) })).join('') + `</div>`;
+    }
+  }
   if (has('music') && pds.length) h += `<div class="sec-h">사내 프로듀서</div>` + pds.map(x => { const g = t.groups.find(y => y.prod === x.id); return actRow({ who: x.id, t: `${x.name} (${gNn(x)} · ${pAge(s, x)}세)${g ? ` · 「${g.name}」 전담` : ''}`, h: coStaffLine(x), ok: true, danger: true, btn: '내보내기', confirm: `${x.name}을 내보낼까요?`, run: s => coFire(s, x) }); }).join('');
   if (has('mcn') && eds.length) h += `<div class="sec-h">편집자</div>` + eds.map(x => actRow({ who: x.id, t: `${x.name} (${gNn(x)} · ${pAge(s, x)}세)`, h: coStaffLine(x), ok: true, danger: true, btn: '내보내기', confirm: `${x.name}을 내보낼까요?`, run: s => coFire(s, x) })).join('');
   return h;
