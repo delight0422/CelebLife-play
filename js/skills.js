@@ -62,7 +62,8 @@ const SKILLS = {
   en: { n: '영어', cat: 'acad', ic: '🗽', tal: { intel: 1, grit: 1, verbal: 0.6, insight: 0.3 }, p: '영어 공부', les: { n: '영어 학원', c: 25 }, lang: true },
   art: { n: '그림', cat: 'etc', ic: '🎨', tal: { aesth: 1, hands: 1, creative: 0.6, express: 0.3 }, p: '그림 그리기', les: { n: '미술 학원', c: 30 }, fun: true },
   // 스카우트·교육: 배우는 속도는 위 재능만 본다. 실제로 보거나 가르칠 때는 그 분야 특기도 함께 본다 (work.js scoutLv, 트레이너·아이 가르치기)
-  scout: { n: '스카우트', cat: 'etc', ic: '🔍', tal: { insight: 1, intel: 1, grit: 0.3 }, p: '오디션 영상 보며 안목 기르기', les: { n: '캐스팅 실무 강좌', c: 30 } },
+  // v200: 스카우트는 사람을 설득하고 협상도 하니 전달력도 본다 (보통)
+  scout: { n: '스카우트', cat: 'etc', ic: '🔍', tal: { insight: 1, intel: 1, verbal: 0.6, grit: 0.3 }, p: '오디션 영상 보며 안목 기르기', les: { n: '캐스팅 실무 강좌', c: 30 } },
   // 교육: 남을 가르치는 실력 (트레이너·아이 가르치기). 가르칠수록 는다
   edu: { n: '교육', cat: 'etc', ic: '🧑‍🏫', tal: { verbal: 1, insight: 1, intel: 0.6, grit: 0.3 }, p: '교육법 개선', les: { n: '강사 양성 과정', c: 30 } },
   // 사업: 회사 대표가 쓴다 (회사 운영·영업). 집안 형편이 좋을수록 빨리 는다 (person.js bizRichF). 나중에 다른 직업에서도 쓸 수 있다
