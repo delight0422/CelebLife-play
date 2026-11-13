@@ -765,7 +765,7 @@ function showEventRaw() {
   if (typeof chLoad === 'function' && $('#mcard canvas.lv-chc')) { chLoad(); chPaintAll(); }
 
   // 글자를 적는 창은 바로 적을 수 있게 첫 칸에 커서를 둔다 (Enter로 확인)
-  if (ev.form) { const i = $('#mcard input[data-k]:not([type=checkbox]):not([type=radio])'); if (i && FINE_POINTER) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } formSum(); }
+  if (ev.form) { const i = $('#mcard input[data-k]:not([type=checkbox]):not([type=radio]):not([type=hidden])'); if (i && FINE_POINTER) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } formSum(); }
   if (ev.onShow) ev.onShow(s, d, $('#mcard'));
 }
 // ───── 표로 고르는 창 (v131, FM식) ─────

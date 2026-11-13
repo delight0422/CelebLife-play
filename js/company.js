@@ -1757,7 +1757,9 @@ function coGActs(s, t, g) {
   const au = g.auto || {}, line = c => ` · 자동: 자본금 ${fmtWon(c + coFixed(s, t, 'music') * CO_AUTO_RES)} 이상일 때`, gw = coGGoodsWhy(s, t, g), lw = coGLiveWhy(s, t, g);
   return [
     { t: '굿즈 내기', h: `${fmtWon(coGGoodsCost(s, g))} · 팬이 많을수록 많이 팔린다 · 6개월에 한 번${au.goods ? line(coGGoodsCost(s, g)) : ''}`, why: gw, opts: [{ btn: '내기', on: true, ok: !gw, run: s => coGGoods(s, t, g) }, coVAutoBtn(g, 'goods')] },
-    { t: '단독 콘서트', h: `${fmtWon(CO_GLIVE.cost)} · 그룹 팬 ${fmtFans(CO_GLIVE.min)}부터 · 멤버들의 ${g.kind === 'band' ? '연주 · 노래' : '노래 · 춤 · 예능'} 실력이 좋을수록 잘된다 · 1년에 한 번${au.live ? line(CO_GLIVE.cost) : ''}`, why: lw, opts: [{ btn: '열기', on: true, ok: !lw, run: s => coGLive(s, t, g) }, coVAutoBtn(g, 'live')] }];
+    // v193: 아이돌 그룹은 단독 콘서트를 직접 기획한다 (공연장 → 셋리스트 → 토크 → 입장료, concert.js). 밴드는 예전대로
+    g.kind === 'idol' && typeof ccWhy === 'function' ? (() => { const cw = ccWhy(s, t, g); return { t: '단독 콘서트', h: `앨범 ${CC_MIN.alb}장 · 그룹 팬 ${fmtFans(CC_MIN.fans)}부터 · 비용을 다 회수한 뒤 · 공연장 → 셋리스트 → 토크 → 입장료를 정한다 · 1년에 한 번${au.live ? line(ccCost(0)) : ''}`, why: cw, opts: [{ btn: '기획하기', on: true, ok: !cw, run: s => { fireEvent(s, 'co_cc_venue', { gid: g.id }); return ''; } }, coVAutoBtn(g, 'live')] }; })()
+      : { t: '단독 콘서트', h: `${fmtWon(CO_GLIVE.cost)} · 그룹 팬 ${fmtFans(CO_GLIVE.min)}부터 · 멤버들의 ${g.kind === 'band' ? '연주 · 노래' : '노래 · 춤 · 예능'} 실력이 좋을수록 잘된다 · 1년에 한 번${au.live ? line(CO_GLIVE.cost) : ''}`, why: lw, opts: [{ btn: '열기', on: true, ok: !lw, run: s => coGLive(s, t, g) }, coVAutoBtn(g, 'live')] }];
 }
 // 연말 결산: 버츄얼 아이돌 분야 평판은 가장 큰 기수의 구독자만큼 오른다
 function coViYear(s, t) {
@@ -2496,7 +2498,8 @@ function coAutoMonth(s, t) {
   for (const g of coCeo(t, 'music') ? [] : coGActGrps(t)) {
     const au = g.auto || {}, res = coFixed(s, t, 'music') * CO_AUTO_RES;
     if (au.goods && !coGGoodsWhy(s, t, g) && coM(t, 'music') >= coGGoodsCost(s, g) + res) addRes(s, coGGoods(s, t, g));
-    if (au.live && !coGLiveWhy(s, t, g) && coM(t, 'music') >= CO_GLIVE.cost + res) addRes(s, coGLive(s, t, g, true));
+    if (au.live && g.kind === 'idol' && typeof ccWhy === 'function') { if (!ccWhy(s, t, g) && coM(t, 'music') >= ccCost(0) + res) { const x = ccAutoRun(s, t, g, 'auto'); if (x) addRes(s, x); } }
+    else if (au.live && !coGLiveWhy(s, t, g) && coM(t, 'music') >= CO_GLIVE.cost + res) addRes(s, coGLive(s, t, g, true));
   }
 }
 function coTabAuto(s, t, f) {
@@ -2951,7 +2954,9 @@ function ceoManage(s, t, f, C) {
   // v179: 기획사 CEO도 그룹 굿즈 · 단독 콘서트를 연다 (기수 굿즈 · 라이브처럼)
   if (f === 'music') for (const g of coGActGrps(t)) {
     if (!coGGoodsWhy(s, t, g) && can(coGGoodsCost(s, g))) { addRes(s, coGGoods(s, t, g)); return; }
-    if (!coGLiveWhy(s, t, g) && can(CO_GLIVE.cost) && C.dir !== 'profit') { addRes(s, coGLive(s, t, g, true)); return; }
+    // v193: 아이돌 그룹은 단독 콘서트를 처음부터 끝까지 알아서 기획한다 (concert.js, 공연 결과는 CEO 보고서에)
+    if (g.kind === 'idol' && typeof ccWhy === 'function') { if (!ccWhy(s, t, g) && can(ccCost(0)) && C.dir !== 'profit') { const x = ccAutoRun(s, t, g, 'ceo'); if (x) { addRes(s, x); return; } } }
+    else if (!coGLiveWhy(s, t, g) && can(CO_GLIVE.cost) && C.dir !== 'profit') { addRes(s, coGLive(s, t, g, true)); return; }
   }
   if (f === 'mcn' && (C.mx || 0) <= s.t && !coMcnWhy(s, t) && can(0)) { C.mx = s.t + 3; ceoOpen(s, 'co_mscout', { cut: C.dir === 'profit' ? 0.3 : 0.25 }); return; }
   // v178: MCN CEO도 기수 굿즈 · 라이브처럼 합동 콘텐츠 · 굿즈 판매 · 개인 행사를 한다 (개인 행사는 구독자가 가장 많은 크리에이터)

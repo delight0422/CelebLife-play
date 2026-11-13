@@ -53,6 +53,7 @@ function liveBeats(sp) {
   const fi = sp.hf != null && sp.mem && sp.mem[sp.hf] ? sp.hf : sp.mi, mine = sp.mem[fi] ? sp.mem[fi][0] : (sp.cn || g), cn = sp.cn || g;
   const who = cn; // 팬덤 이름은 무대에서 부르지 않는다 (v134: 어느 장면에서 나와도 어색했다)
   const B = [];
+  if (sp.cc) return liveConcert(sp, R, pk, z, lvl, who); // v193: 단독 콘서트 (concert.js)
   if (sp.k === 'meet') return liveMeet(sp, R, pk, z, lvl, who, mine);
   if (sp.k === 'band' || sp.k === 'player') return liveBand(sp, R, pk, z, lvl, cn, mine);
   if (sp.k === 'stream') return liveStream(sp, R, pk, z, lvl);
@@ -592,6 +593,29 @@ function liveChat(x, k, who) {
   if (k === 'don') { const d = $('#st-don'); if (d) { d.textContent = `💰 ${who}`; d.classList.remove('in'); void d.offsetWidth; d.classList.add('in'); } }
 }
 // 팬미팅: 토크(예능) · 노래 · 게임 · 편지 · 끝인사
+// ───── 단독 콘서트 (v193, concert.js) ─────
+// 셋리스트 순서대로: 곡마다 한 장면(반응 세기 b.h, 지쳤으면 숨찬 소리), 토크 · VCR도 한 장면씩. 열기(sc)가 높으면 앙코르
+function liveConcert(sp, R, pk, z, lvl, who) {
+  const C = sp.cc, B = [], f = C.fill || 0, lv3 = h => h >= 0.45 ? 2 : h >= -0.2 ? 1 : 0;
+  B.push({ cap: `${C.venue} · ${f >= 0.995 ? '매진' : `객석 ${Math.round(f * 100)}%`}`, glow: 0.3 + f * 0.3,
+    L: f >= 0.95 ? [[`${who}!! ${who}!!`, 'call'], [pk(LV_BIG), 'big'], [pk(LV_BIG), 'big']] : f >= 0.6 ? [[`${who}!`, 'call'], ['와아!', 'big']] : [['군데군데 빈자리가 보인다', 'soft'], [`${who}…!`, 'soft']] });
+  for (const b of C.B || []) {
+    const l = lv3(b.h);
+    if (b.k === 't') B.push({ cap: `💬 토크 · ${b.who}`, glow: 0.45, L: l === 2 ? [['하하하하!!', 'big'], [`${b.who} 귀여워!!`, 'call']] : l === 1 ? [['하하하', 'soft'], [`${b.who}!`, 'call']] : [['하… 하하…', 'soft'], ['(정적)', 'bad']] });
+    else if (b.k === 'v') B.push({ cap: '🎬 VCR · 숨 고르기', glow: 0.25, L: l >= 1 ? [['꺄아아!!', 'big'], ['화면 속 멤버들 귀여워!!', 'call']] : [['웅성웅성…', 'soft']] });
+    else {
+      const L = l === 2 ? [['♪ 떼창 ♪', 'sing'], [pk(LV_BIG), 'big']] : l === 1 ? [['♪ ♪', 'sing'], [pk(['좋다!', '짝짝짝']), 'soft']] : [[pk(['……', '웅성웅성…']), 'soft']];
+      if (b.first && l >= 1) L.push(['오프닝 미쳤다!!', 'big']);
+      if (b.last && l >= 1) L.push(['♪ ♪ ♪', 'sing']);
+      if (b.tired) L.push([pk(['숨이 차 보인다…', '목소리가 흔들린다…']), 'bad']);
+      B.push({ cap: `${b.no}. 「${b.t}」${b.tt ? '' : ' · 수록곡'}`, glow: 0.5 + l * 0.17, L });
+    }
+  }
+  const sc = sp.sc;
+  if (sc >= 60) B.push({ cap: '앙코르', glow: 0.9, L: [['앙코르!! 앙코르!!', 'call'], [pk(LV_BIG), 'big']] });
+  B.push({ cap: '끝인사', glow: sc >= 75 ? 1 : sc >= 50 ? 0.75 : 0.5, L: sc >= 75 ? [['사랑해!!', 'big'], ['또 와!!', 'big'], [`${who}!! ${who}!!`, 'call']] : sc >= 50 ? [['수고했어!', 'big'], ['짝짝짝', 'soft']] : [['짝… 짝…', 'soft']] });
+  return B;
+}
 function liveMeet(sp, R, pk, z, lvl, who, mine) {
   const g = sp.g, B = [];
   B.push({ cap: `${who} 앞에 ${josa(`「${g}」`, '이가')} 선다`, glow: 0.6, L: [[`${who}!! ${who}!!`, 'call'], [pk(LV_BIG), 'big']] });
@@ -738,7 +762,7 @@ function liveHTML(sp) {
   const oth = k => [0, 1, 2].map(i => `<span class="lm" style="--i:${i + k}">${liveChar('rival' + sp.seed + (i + k), (sp.hue + 90 + (k ? 110 : 0)) % 360, 'rival' + sp.seed + k)}</span>`).join('');
   // 사진 무대 (v154 보탬): 음악방송 · 콘서트 무대는 사용자가 만든 무대 그림을 깔고, 객석 막대는 응원봉 그림으로 (그림이 없으면 예전 그대로)
   const pop = !sp.vn && (sp.k === 'idol' || sp.k === 'solo' || sp.k === 'meet'), ph = pop ? (/콘서트|팬미팅|투어/.test(sp.place) ? 'concert' : 'musicshow') : '';
-  return `<div class="lv-top"><span class="lv-place">${U.esc(sp.place)}</span>${sp.t ? `<span class="lv-t">「${U.esc(sp.t)}」</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
+  return `<div class="lv-top"><span class="lv-place">${U.esc(sp.place)}</span>${sp.cc ? `<span class="lv-t" id="lv-t"></span>` : sp.t ? `<span class="lv-t">「${U.esc(sp.t)}」</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
     + `<div class="lv-stage${sp.vn ? ' vn-' + sp.vn : ''}${ph ? ' ph' : ''}${sp.k === 'set' || sp.k === 'show' || sp.k === 'runway' || sp.k === 'booth' || sp.k === 'eval' || (sp.k === 'class' && (sp.x || {}).room === 'ol') ? ' mcon' : ''}${sp.k === 'class' ? ' rm-' + ((sp.x || {}).room || 'uni') : ''}" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"${pop ? ` data-stick="${1 + hashN('stk' + sp.g) % 3}" data-hue="${sp.hue}"` : ''}>${ph ? `<div class="lv-ph" style="background-image:url('img/st/${ph}.webp')"></div>` : ''}<div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
     + `<div class="lv-floor"></div><div class="lv-oth l">${oth(0)}</div><div class="lv-oth r">${oth(3)}</div>`
     + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? (sp.hue + i * 67) % 360 : sp.hue, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? sp.g + i : sp.g, { sx: liveMemSx(sp, i), cos: sp.cos, mic: sp.mic })}${m[0] || ((sp.k === 'band' || sp.k === 'player') && m[1]) ? `<em>${sp.k === 'band' || sp.k === 'player' ? livePartIc(m[1]) + ' ' : ''}${U.esc(m[0])}</em>` : ''}</span>`).join('')}</div>`
@@ -758,6 +782,7 @@ function liveNext() {
   const b = L.B[L.i];
   if (st) { st.style.setProperty('--glow', b.glow); st.classList.remove('fx-drum', 'fx-win'); if (b.fx) st.classList.add('fx-' + b.fx); st.classList.toggle('gather', !!b.gather); st.classList.toggle('lose', !!b.lose); if (b.clap) { st.classList.remove('clap'); void st.offsetWidth; st.classList.add('clap'); } if (b.walk != null) st.style.setProperty('--walk', b.walk); st.classList.toggle('fl1', b.flash === 1); st.classList.toggle('fl2', b.flash === 2); st.classList.toggle('rec', !!b.rec); st.classList.toggle('play', !!b.play); st.classList.toggle('wr', !!b.write); ['zz1', 'zz2', 'zz3'].forEach((c, i) => st.classList.toggle(c, b.zz === i + 1)); }
   if (b.view != null) { const v = $('#st-view'); if (v) v.textContent = b.view.toLocaleString(); }
+  if (L.sp.cc) { const e = $('#lv-t'); if (e) e.textContent = b.cap; } // v193: 콘서트는 지금 무엇을 하는지 (곡 · 토크 · VCR)
   b.L.forEach((e, j) => L.tm.push(setTimeout(() => (L.sp.k === 'stream' ? liveChat(e[0], e[1], e[2]) : liveBubble(e[0], e[1])), 120 + j * 260)));
   L.tm.push(setTimeout(liveNext, liveBeatMs(b)));
 }
