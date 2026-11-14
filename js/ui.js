@@ -290,8 +290,8 @@ function turnClose(next) {
   UI.turn = null;
   $('#turn').classList.add('hidden');
   if (!S.ended && next !== 'inbox') dreamNow(S);
-  // 모아 둔 성과 토스트(달마다 오른 등급 등)가 있으면 어두운 화면 가운데에 먼저 띄우고, 다 끝나면 이어 간다 (v176)
-  const L = rtTake(S);
+  // v229: 사건 창이 기다리고 있으면 성과 토스트(달마다 오른 등급 등)는 모아 둔 채로 창부터 띄운다. 기다리는 창이 없으면 어두운 화면 가운데에 띄우고, 다 끝나면 이어 간다 (v176)
+  const L = rtHold(S) ? null : rtTake(S);
   render();
   const go = () => {
     if (S.ended) { showEnding(); return; }
@@ -365,12 +365,16 @@ function render() {
   goBtnSync();
   rtDrain(S);
 }
-// 성과 토스트 줄 (v174 · v176): 결과 기사의 성과 · 기업 등급 · 그룹 등급 오름을 s.rtq에 모아 두었다가,
-// 결과 창(afterChoice) · 요약 창(turnClose)을 넘기는 순간 어두운 화면 가운데에 들어온 차례대로 띄우고, 다 뜨면 다음 창으로 이어 간다.
-// rtDrain은 그 밖의 길로 쌓인 것(창 없이 지나간 달 등)을 아무 창도 없을 때 띄운다
-function rtQueue(s, L) { s.rtq = (s.rtq || []).concat(L).slice(-24); }
+// 성과 토스트 줄 (v174 · v176 · v229): 결과 기사의 성과 · 기업 등급 · 그룹 등급 오름을 s.rtq에 모아 둔다.
+// v229: 줄 서 있는 사건 창을 모두 넘긴 뒤(afterChoice · turnClose에서 다음 창이 없을 때)에 어두운 화면 가운데에 들어온 차례대로 한꺼번에 띄운다 (예전엔 창 하나를 넘길 때마다 띄웠다). rtHold: 다음 사건 창이 기다리는 중
+// rtDrain은 그 밖의 길로 쌓인 것(창 없이 지나간 달 등)을 아무 창도 없을 때 띄운다. 인생이 끝났으면 띄우지 않고 버린다 (결산 화면 위에 뜨지 않게)
+// 여러 창의 것이 쌓이므로 ① 넣을 때 미리 거른다 (띄우지 않을 줄이 자리를 차지하지 않게 · 아래 줄이 없는 머리 줄이 다음 창의 줄 위에 붙지 않게) ② 36줄까지 모으고(예전 24줄), 넘치면 오래된 묶음부터 머리 줄째로 버린다
+const RT_Q_MAX = 36;
+function rtQueue(s, L) { let Q = (s.rtq || []).concat(rtKeep(L)); if (Q.length > RT_Q_MAX) { Q = Q.slice(-RT_Q_MAX); const i = Q.findIndex(x => x && x[2] === 'h'); if (i > 0) Q = Q.slice(i); } s.rtq = Q; }
+function rtHold(s) { return !!s && !s.ended && !!s.pending; }
 function rtTake(s) { if (!s || s.ended || !s.rtq || !s.rtq.length) return null; const L = s.rtq; s.rtq = []; return L; }
 function rtDrain(s) {
+  if (s && s.ended && s.rtq && s.rtq.length) { s.rtq = []; return; }
   if (!s || !s.rtq || !s.rtq.length || s.pending || ['#modal', '#live', '#turn'].some(q => !$(q).classList.contains('hidden'))) return;
   const L = s.rtq; s.rtq = []; try { resToast(L, true); } catch (e) { console.error('토스트 오류', e); }
 }
@@ -898,7 +902,7 @@ function showEventRaw() {
   $('#mcard').className = 'mcard' + (T || ev.wide ? ' wide' : '') + (nw ? ' nw-wide' : '') + (ev.card ? ' ' + ev.card : '');
   $('#mcard').innerHTML = h;
   $('#modal').classList.remove('hidden');
-  // 결과 기사: 처음 뜰 때 성과를 토스트 줄에 넣어 둔다. 창이 닫힌 뒤에 '「제목」 결과' 줄부터 차례로 뜬다 (v175). 기사 사진 속 캐릭터를 칠한다
+  // 결과 기사: 처음 뜰 때 성과를 토스트 줄에 넣어 둔다. 줄 서 있는 창을 모두 넘긴 뒤에 '「제목」 결과' 줄부터 차례로 뜬다 (v175 · v229). 기사 사진 속 캐릭터를 칠한다
   // v192: 기사가 아닌 창도 ev.toasts가 있으면 처음 뜰 때 토스트 줄에 넣어 둔다 (CEO 보고서)
   if (!nw && ev.toasts && !d.tsSeen) { d.tsSeen = 1; try { rtQueue(s, ev.toasts(s, d).filter(Boolean)); } catch (e) { console.error('토스트 오류', e); } }
   if (nw && !d.tsSeen) { d.tsSeen = 1; try { const N = ev.news(s, d); rtQueue(s, [['📰', N.t ? `「${N.t}」 결과` : '결과', 'h']].concat(newsToasts(N))); } catch (e) { console.error('성과 토스트 오류', e); } }
@@ -990,8 +994,8 @@ function formEnter() {
 }
 function afterChoice() {
   $('#modal').classList.add('hidden');
-  // v176: 모아 둔 성과 토스트가 있으면 카드만 내린 어두운 화면 가운데에 먼저 띄우고, 다 뜨면(또는 눌러서 넘기면) 이어 간다
-  const L = rtTake(S);
+  // v229: 다음 사건 창이 기다리고 있으면 성과 토스트를 띄우지 않고 모아 둔다. 마지막 창을 넘겼을 때 카드만 내린 어두운 화면 가운데에 한꺼번에 띄우고, 다 뜨면(또는 눌러서 넘기면) 이어 간다 (v176)
+  const L = rtHold(S) ? null : rtTake(S);
   render();
   if (UI.ptoast) { toast(UI.ptoast, 'pt'); UI.ptoast = null; }
   if (L) { resToast(L, true, afterChoiceGo); return; }
@@ -2441,8 +2445,8 @@ function newsEvHTML(s, d, N) {
   return newsHTML(s, d, N) + `<div class="co-last nw-bns">${bns}</div>` + (N.after || '');
 }
 // ───── 성과 토스트 (v172 · v176): 큰 알림이 한 줄씩 차례로 쌓였다가 몇 초 뒤 사라진다 ─────
-// v176: 결과 창을 넘기면 카드만 내리고 어두운 배경(창이 떠 있을 때와 같은 밝기)은 그대로 둔 채, 화면 한가운데에 띄운다.
-//   마지막 알림이 사라지면 어두운 화면도 걷히고 다음 일(다음 사건 창 등, done)로 이어 간다. 화면을 누르거나 스페이스바 · 엔터 · Esc로 바로 넘길 수 있다
+// v176 · v229: 줄 서 있는 창 가운데 마지막 창을 넘기면 카드만 내리고 어두운 배경(창이 떠 있을 때와 같은 밝기)은 그대로 둔 채, 화면 한가운데에 띄운다.
+//   마지막 알림이 사라지면 어두운 화면도 걷히고 다음 일(패널 열기 · 진행 등, done)로 이어 간다. 화면을 누르거나 스페이스바 · 엔터 · Esc로 바로 넘길 수 있다
 // 한꺼번에 RT_MAX개까지만 보이고, 넘치면 오래된 것부터 먼저 사라진다
 const RT_GAP = 700, RT_STAY = 6500, RT_MAX = () => window.innerWidth <= 760 ? 4 : 6;
 function rtKey(L) { UI.rtMap = UI.rtMap || {}; const k = UI.rtN = (UI.rtN || 0) + 1; UI.rtMap[k] = L; delete UI.rtMap[k - 200]; return k; }

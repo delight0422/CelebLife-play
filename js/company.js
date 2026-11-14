@@ -2223,11 +2223,11 @@ E({
 
 // ───── 기업 등급(소형 · 중형 · 대형, 회사마다) · 그룹 등급(갓 차린 회사 ~ 초거대기업, 그룹 전체) ─────
 // v174 (사용자): 7단계는 '그룹 등급'이라 부른다. 자회사가 없으면 그 회사 이름, 있으면 '○○ 그룹'으로 쓴다
-// 등급이 바뀌면 토스트로 알린다: 결과 창(co_res)은 그 창의 토스트에 넣고, 나머지는 s.rtq에 넣어 두면 화면이 꺼내 띄운다 (ui.js rtDrain)
+// 등급이 바뀌면 토스트로 알린다: 결과 창(co_res)은 그 창의 토스트에 넣고, 나머지는 s.rtq에 넣어 두면 화면이 꺼내 띄운다 (ui.js rtDrain). v229: 어느 쪽이든 줄 서 있는 창을 모두 넘긴 뒤에 모아서 뜬다
 const CO_KIND_W = ['엔터테인먼트', '엔터', '뮤직', '레이블', '컴퍼니', '버츄얼', 'MCN', '픽처스', '애니메이션', '스튜디오', '미디어', '프로덕션', '네트워크', '크리에이티브', 'ENT'];
 function coGrpName(t) { if (t.gname) return t.gname; const w = String(t.name || '').trim().split(/\s+/); if (w.length > 1 && CO_KIND_W.includes(w[w.length - 1])) w.pop(); return w.join(' ') + ' 그룹'; }
 function coRankWho(t) { return coFields(t).length > 1 ? coGrpName(t) : `「${t.name}」`; }
-function rtPush(s, x) { s.rtq = (s.rtq || []).concat([x]).slice(-24); }
+function rtPush(s, x) { s.rtq = (s.rtq || []).concat([x]).slice(-36); }
 // 토스트 한 줄: [아이콘, 글, 'g'|'b']
 function coTierToast(msg) { return ['🏢', `기업 등급 ${/커졌다/.test(msg) ? '↑' : '↓'} · ${msg.replace(/!$/, '')}`, /커졌다/.test(msg) ? 'g' : 'b']; }
 function coRankToast(msg) { return ['🏆', `그룹 등급 ↑ · ${msg.replace(/\.$/, '')}`, 'g']; }
