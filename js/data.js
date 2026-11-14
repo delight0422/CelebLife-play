@@ -549,11 +549,12 @@ const VT_BAN = ['시라유키 히나', '유즈하 리코', '아이리 칸나', '
 // 이름 규칙: 대형(tier 3)만 여러 분야에 같은 이름의 계열사를 둘 수 있다 (예: 프라임 아티스트 · 프라임 엔터테인먼트, grp로 묶는다).
 // 소형·중형은 한 분야에만 있고, 다른 분야 회사(제작사·작곡팀·극단 포함)와 이름이 겹치면 안 된다. dev/sim.js NAMECHECK()로 확인한다
 // thr: 오디션 문턱 (특기 레벨 기준. 소형 18~22, 중형 27~30, 대형 36~40). needJp·needEn: 외국어 레벨
+// v227: 대형 음악 기획사 세 곳은 보컬 · 춤 · 랩으로 하나씩 나눈다 (보컬 명가 · 퍼포먼스 명가 · 힙합 명가). 어느 유형이든 맞는 대형이 한 곳씩 있다. 문턱(thr)도 셋이 같다 (예전 40 · 39 · 37)
 // plan: 기획력 (숨은 값, 0~100). 같은 등급이라도 회사마다 다르다. 회사가 주는 곡 완성도와 아이돌 떡상(바이럴·밈) 확률에 들어간다
 const AGENCIES = [
-  { id: 'lum', n: '루미에르 엔터테인먼트', tier: 3, eq: 3, thr: 40, mkt: 'kr', kind: 'music', cut: 0.65, plan: 95, con: '글로벌 기획' },
+  { id: 'lum', n: '루미에르 엔터테인먼트', tier: 3, eq: 3, thr: 39, mkt: 'kr', kind: 'music', cut: 0.65, plan: 95, con: '보컬 명가' },
   { id: 'apex', n: '에이펙스 뮤직', tier: 3, eq: 3, thr: 39, mkt: 'kr', kind: 'music', cut: 0.65, plan: 85, con: '퍼포먼스 명가' },
-  { id: 'bw', n: '블루웨이브 엔터', tier: 3, eq: 3, thr: 37, mkt: 'kr', kind: 'music', cut: 0.6, plan: 75, con: '청량 컨셉' },
+  { id: 'bw', n: '블루웨이브 엔터', tier: 3, eq: 3, thr: 39, mkt: 'kr', kind: 'music', cut: 0.6, plan: 75, con: '힙합 명가' },
   { id: 'hn', n: '하이노트 엔터', tier: 2, eq: 2, thr: 30, mkt: 'kr', kind: 'music', cut: 0.55, plan: 70, con: '보컬 그룹' },
   { id: 'mo', n: '모먼트 엔터', tier: 2, eq: 2, thr: 29, mkt: 'kr', kind: 'music', cut: 0.55, plan: 55, con: '감성 발라드' },
   { id: 'sb', n: '새벽별 엔터', tier: 2, eq: 2, thr: 27, mkt: 'kr', kind: 'music', cut: 0.5, plan: 65, con: '걸크러시' },

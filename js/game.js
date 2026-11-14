@@ -547,9 +547,10 @@ function coBust(s) {
     // 소속된 일 (이름이 바뀌기 전에 찾는다)
     const c = { id, key, n: old, p: pf }, aff = CAREER_IDS.filter(j => CO_AFF[j] && trackOn(s, j) && CO_AFF[j](s.tracks[j], c));
     // 특징은 같은 종류 · 같은 크기 회사의 특징에서 (없으면 같은 종류 아무 크기)
+    // v227: 한국 대형 음악 기획사는 그 자리의 특징을 그대로 잇는다 (보컬 · 춤 · 랩이 한 곳씩 남게)
     const conOf = M => [...new Set(M.map(y => y.o.con).filter(v => v && v !== x.o.con))], K = L.filter(y => coBustKind(y) === kn && (!x.o.mkt || y.o.mkt === x.o.mkt));
     let cons = conOf(K.filter(y => y.o.tier === x.o.tier)); if (!cons.length) cons = conOf(K);
-    const con = cons.length ? U.pick(cons) : x.o.con, pr = x.o.plan != null && CO_PLAN[x.o.tier], plan = pr ? U.int(pr[0], pr[1]) : null;
+    const con = cons.length && !(pf === 'ag' && x.o.kind === 'music' && x.o.tier === 3 && x.o.mkt === 'kr') ? U.pick(cons) : x.o.con, pr = x.o.plan != null && CO_PLAN[x.o.tier], plan = pr ? U.int(pr[0], pr[1]) : null;
     const lines = aff.map(j => `· ${jobName(j)}: ${CO_CLOSE[j](s, s.tracks[j], old, j)}`);
     (s.coGone = s.coGone || []).push(old);
     (s.coNames = s.coNames || {})[x.k] = nn; (s.coMod = s.coMod || {})[x.k] = plan != null ? { con, plan } : { con };
@@ -634,7 +635,9 @@ const fPrac = s => Math.max(0, ...Object.keys(PF_DEPTS).map(d => pfDeptSk(s, d))
 const CO_FOCUS = {
   music: {
     // v219: 재능 · 외국어를 보는 특징은 실력 점수(b)에 더하고 빼는 값으로 (예전엔 재능 70 · 외국어 50이 실력 30과 그대로 섞여 실력이 낮을수록 크게 유리했다)
-    '글로벌 기획': (s, p, x, b) => b + (Math.max(lv(p, 'en'), lv(p, 'jp')) - 15) * 0.5, '퍼포먼스 명가': fSk('dance'), '청량 컨셉': (s, p, x, b) => b + (p.tal.looks - 50) * 0.6, '보컬 그룹': fSk('vocal'), '감성 발라드': fSk('vocal'),
+    '글로벌 기획': (s, p, x, b) => b + (Math.max(lv(p, 'en'), lv(p, 'jp')) - 15) * 0.5, '퍼포먼스 명가': fSk('dance'), '청량 컨셉': (s, p, x, b) => b + (p.tal.looks - 50) * 0.6, '보컬 그룹': fSk('vocal'),
+    // v227: 대형 세 곳은 보컬 명가 · 퍼포먼스 명가 · 힙합 명가 ('글로벌 기획' · '청량 컨셉'은 이제 처음 회사에는 없고, 예전 저장에서 새로 생긴 회사에만 남아 있을 수 있다)
+    '보컬 명가': fSk('vocal'), '힙합 명가': fSk('rap'), '감성 발라드': fSk('vocal'),
     '걸크러시': (s, p) => fAvg(lv(p, 'rap'), lv(p, 'dance')), '밴드 사운드': (s, p) => fInst(p), '신인 발굴': (s, p, x, b) => b + (fTal(p, ['music', 'rhythm', 'voice', 'looks']) - 50) * 0.6,
     '자체 제작': (s, p) => Math.max(lv(p, 'compose'), lv(p, 'lyric')), '힙합': fSk('rap'), '애니송': fSk('vocal'), '팝 솔로': fSk('vocal'),
   },
@@ -671,13 +674,13 @@ const CO_FOCUS = {
   // 배우 소속사 연기 트레이너 채용
   actTr: { '연기파 배우': fSk('acting'), '연극 출신': fSk('acting'), '영화 전문': fSk('acting'), '신인 육성': fSk('edu'), '아역 전문': fSk('edu'), '예능형 배우': fSk('variety') },
   // 기획사 사내 프로듀서 채용
-  pin: { '자체 제작': (s, p) => Math.max(lv(p, 'compose'), lv(p, 'lyric')), '밴드 사운드': (s, p) => fInst(p), '힙합': fSk('rap'), '감성 발라드': fSk('compose') },
+  pin: { '자체 제작': (s, p) => Math.max(lv(p, 'compose'), lv(p, 'lyric')), '밴드 사운드': (s, p) => fInst(p), '힙합': fSk('rap'), '힙합 명가': fSk('rap'), '감성 발라드': fSk('compose') },
   // 마케팅팀 채용: 해외 쪽 회사는 외국어
   mk: Object.fromEntries(['글로벌 기획', '해외 진출', '해외 컬렉션', '해외 번역', '해외 투어', '외화 더빙', '해외 합작'].map(c => [c, (s, p) => fLang(p)])),
 };
 function coFocus(s, kind, con, base, x) { const f = (CO_FOCUS[kind] || {})[con]; return f ? base * (1 - CO_FOCUS_W) + f(s, me(s), x || {}, base) * CO_FOCUS_W : base; }
 // 트레이너 채용: 그 회사가 특화한 분야의 트레이너를 더 뽑는다 (맞으면 +6, 다른 분야면 -2)
-const CO_TR_FOCUS = { '퍼포먼스 명가': 'dance', '보컬 그룹': 'vocal', '감성 발라드': 'vocal', '애니송': 'vocal', '팝 솔로': 'vocal', '힙합': 'rap', '걸크러시': 'rap', '3D 라이브': 'dance', '음악 중심': 'vocal', '노래 방송': 'vocal', '노래·음악': 'vocal', '힐링·잡담': 'variety', '버라이어티': 'variety', '아이돌형': 'variety', '밴드 사운드': 'inst' };
+const CO_TR_FOCUS = { '퍼포먼스 명가': 'dance', '보컬 명가': 'vocal', '힙합 명가': 'rap', '보컬 그룹': 'vocal', '감성 발라드': 'vocal', '애니송': 'vocal', '팝 솔로': 'vocal', '힙합': 'rap', '걸크러시': 'rap', '3D 라이브': 'dance', '음악 중심': 'vocal', '노래 방송': 'vocal', '노래·음악': 'vocal', '힐링·잡담': 'variety', '버라이어티': 'variety', '아이돌형': 'variety', '밴드 사운드': 'inst' };
 function coTrFocusB(ag, k) { const f = ag && CO_TR_FOCUS[ag.con]; if (!f) return 0; return (f === 'inst' ? ['guitar', 'bass', 'piano', 'keyboard', 'drum'].includes(k) : f === k) ? 6 : -2; }
 // 신인 육성 · 신인 발굴 회사는 계약을 1~2년 더 길게 제안한다
 function coLongC(ag) { return ag && ['신인 육성', '신인 발굴'].includes(ag.con) ? 12 * U.int(1, 2) : 0; }
@@ -1817,6 +1820,8 @@ function migrate(s) {
   { const b = s.tracks && s.tracks.band, i = s.tracks && s.tracks.idol;
     if (b && b.b && typeof b.b.tw !== 'number') b.b.tw = Math.min(60, b.months || 0);
     if (i && i.g && typeof i.g.tw !== 'number') i.g.tw = Math.min(60, i.months || 0); }
+  // v227: 대형 음악 기획사 세 곳은 보컬 · 춤 · 랩으로 나뉜다. 예전 저장에서 문을 닫고 새로 생긴 대형의 특징도 그 자리의 것으로 되돌린다
+  if (!s.bigCon) { for (const k of ['ag:lum', 'ag:apex', 'ag:bw']) { const m = s.coMod && s.coMod[k]; if (m && m.con) delete m.con; } s.bigCon = 1; }
   applyCoNames(s);
   // v226: '인기'의 화면 이름이 '대중 호감도'로 바뀌었다. 지난 기록 · 결산 줄에 남은 '○○ 인기 +2' · '인기 ↑' 표기도 옮긴다
   if (!s.popRen) {
