@@ -694,7 +694,8 @@ function renderCoCard() {
 // 사옥 상자 안 회사 배너 (v191): 이름 · 어떤 회사 · 직원 수 · 기획 중이면 표시 (영상 · 애니는 만드는 작품 수도)
 function coMiniHTML(s, t, f) {
   const n = coStaff(s, null, f).length, tags = coPlanTags(s, t, f).map(x => `<span class="cm-tag">${U.esc(x)}</span>`).join('');
-  return `<button type="button" class="co-mini" data-cof="${f}"><span class="cm-ic">${CO_FIELDS[f].ic}</span><span class="cm-b"><b>${U.esc(coFName(t, f))}</b>${tags}<span class="cm-s">${f === coMainF(t) && coIsGrp(t) ? '모회사 · ' : ''}${TIER_N[t.f[f].tier]} ${CO_TYPE_N[f] || CO_FIELDS[f].n} · 직원 ${n}명</span></span><span class="sb-n">›</span></button>`;
+  const dot = typeof coCbManual === 'function' && t.groups.some(g => coFOfKind(g.kind) === f && g.cbRd === 1 && coCbManual(s, t, g));
+  return `<button type="button" class="co-mini" data-cof="${f}">${dot ? '<i class="rdot"></i>' : ''}<span class="cm-ic">${CO_FIELDS[f].ic}</span><span class="cm-b"><b>${U.esc(coFName(t, f))}</b>${tags}<span class="cm-s">${f === coMainF(t) && coIsGrp(t) ? '모회사 · ' : ''}${TIER_N[t.f[f].tier]} ${CO_TYPE_N[f] || CO_FIELDS[f].n} · 직원 ${n}명</span></span><span class="sb-n">›</span></button>`;
 }
 // 그 회사에서 지금 기획하는 것: 작품 기획 회의 · 컴백 회의가 열려 있으면 '기획 중', 영상 · 애니는 만드는 작품 수
 function coPlanTags(s, t, f) {
@@ -702,6 +703,8 @@ function coPlanTags(s, t, f) {
   const vf = q => q.d && q.d.P ? (q.d.P.f === 'anime' ? 'anime' : 'video') : /^co_a/.test(q.id) ? 'anime' : 'video';
   const plan = Q.some(q => (typeof CO_V_CHAIN !== 'undefined' && CO_V_CHAIN.includes(q.id) && vf(q) === f) || ((q.id === 'co_plan' || q.id === 'co_pick') && q.d && t.groups.some(g => g.id === q.d.gid && coFOfKind(g.kind) === f)));
   if (plan) R.push('기획 중');
+  // v211: 컴백 · 데뷔 준비를 시작할 수 있는 팀 (직접 하는 그룹)
+  if (f === 'music' && typeof coCbManual === 'function') { const n = t.groups.filter(g => coFOfKind(g.kind) === f && coCbManual(s, t, g) && !coCbWhy(s, t, g)).length; if (n) R.push(`준비 가능 ${n}팀`); }
   const w = f === 'video' ? (t.vw || []).length : f === 'anime' ? (t.aw || []).length : 0;
   if (w) R.push(`제작 중 ${w}편`);
   return R;

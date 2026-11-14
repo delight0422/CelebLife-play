@@ -1852,3 +1852,7 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
   .led-one tr.led-g td.led-a { padding-left: 16px; }
   .led-one td.led-a.l2 { padding-left: 28px; }
 }
+/* v211: 컴백 · 데뷔 준비를 시작할 수 있게 된 그룹 빨간 점 */
+.co-mini { position: relative; }
+.co-mini .rdot { top: -3px; right: -3px; }
+.ap-tab .rdot.in { display: inline-block; margin-left: 5px; vertical-align: 1px; }
