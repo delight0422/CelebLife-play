@@ -529,12 +529,14 @@ function idLabel(s) {
   return s.slots.some(sl => sl.act === 'job') ? '아르바이트 중' : '진로를 찾는 중';
 }
 // 프로필 박스 (UI 개편 시안): 오른쪽 위에 이름 · 나이, 첫 줄에 신분, 아래에 배너 네 개 (기본 정보 · 가족 · 기록 · 재능 및 특기). 박스 자체는 누르지 않는다
-const PF_BNS = [['born', '🪪', '프로필'], ['fam', '👪', '가족'], ['rec', '📖', '기록'], ['skills', '🎯', '재능 및 특기']];
+const PF_BNS = [['born', '🪪', '프로필'], ['fam', '👪', '가족'], ['rec', '📖', '기록'], ['skills', '🎯', '재능/특기']];
 function renderProfileCard() {
   const s = S, p = me(s), el = $('#profile-card');
   if (!el) return;
   const sc = schoolLine(s);
-  el.innerHTML = `<div class="card-h"><span class="pf-name">👤 ${U.esc(p.name)} <b>${age(s)}세</b></span></div>`
+  // v212: 뛰어난 재능(70 이상)을 이름 옆에 모두 (숨은 재능은 빼고)
+  const gf = TALENTS_SHOWN.filter(t => (p.tal[t.id] || 0) >= 70).map(t => t.n);
+  el.innerHTML = `<div class="card-h"><span class="pf-name">👤 ${U.esc(p.name)} <b>${age(s)}세</b></span>${gf.length ? `<span class="pf-gift">⭐ ${U.esc(gf.join(' · '))}</span>` : ''}</div>`
     + `<div class="pf-id">${U.esc(idLabel(s))}${sc && sc[1] ? `<span class="hint"> · ${U.esc(sc[1])}</span>` : ''}</div>`
     + `<div class="pf-tbn">${PF_BNS.map(([k, ic, n]) => k === 'skills' ? `<button class="pf-tb" data-tstab="tal"><span class="pf-ic">${ic}</span> ${n}</button>` : `<button class="pf-tb" data-pftab="${k}"><span class="pf-ic">${ic}</span> ${n}</button>`).join('')}</div>`;
 }
@@ -591,7 +593,11 @@ function renderJobsCard() {
   if (s.scandal && (s.scandal.resp || s.scandal.seen)) row('scandal', `🔥 ${U.esc(SC[s.scandal.id].n)}`, s.scandal.resp ? '여론을 지켜보는 중' : '대응을 기다리는 중');
   if (s.hiatus) row('hiatus', '🤐 자숙', `${s.hiatus.left}개월 남음 (${ymLater(s, s.hiatus.left)})`);
   if (rows.length) h += `<div class="trks">${rows.join('')}</div>`;
-  if (!any && !rows.length) h += `<div class="empty">아직 하는 일이 없다. 📝 구직활동에서 시작할 수 있다.</div>`;
+  if (!any && !rows.length) {
+    // v212: 구직활동 안내는 처음으로 지원할 수 있는 곳이 생긴 뒤부터 (그 전에는 눌러도 빈 창이다)
+    if (!s.apOpen && typeof jobApplies === 'function' && jobApplies(s).some(a => applyOKNow(s, a))) s.apOpen = 1;
+    h += `<div class="empty">아직 하는 일이 없다.${s.apOpen ? ' 📝 구직활동에서 시작할 수 있다.' : ''}</div>`;
+  }
   el.innerHTML = `<div class="card-h">💼 직업 활동</div><div class="jobs-body">${h}</div>`;
 }
 // 인간관계 박스: 박스를 누르면 인간관계 창. 안에는 가족 배너와 연인 배너 (결혼하면 가족 배너 하나)
@@ -782,7 +788,7 @@ function skIc(k) { const c = SKILL_CATS.find(c => c.id === SKILLS[k].cat); retur
 // '그만두기'는 맨 아래 '특기 그만두기'를 누르면 특기마다 나온다
 // 재능 및 특기 창 (UI 개편 시안): 재능 탭 · 특기 탭
 function panel_skills() {
-  const p = me(S), cnt = capCount(p), tab = UI.tsTab === 'sk' ? 'sk' : 'tal';
+  const p = me(S), cnt = capCount(p), tab = UI.skTab === 'sk' ? 'sk' : 'tal';
   return `<h2>🎯 재능 및 특기</h2><div class="ap-row pf-tabs">${[['tal', '✨ 재능', ''], ['sk', '🎯 특기', `<span class="sk-cnt${cnt >= SKILL_CAP ? ' full' : ''}">${cnt}/${SKILL_CAP}</span>`]].map(([t, n, x]) => `<button class="ap-tab ${tab === t ? 'on' : ''}" data-tstab="${t}">${n}${x ? ' ' + x : ''}</button>`).join('')}</div>`
     + (tab === 'tal' ? pfTalTab(p) : skillsTabHTML());
 }
@@ -1165,11 +1171,12 @@ function showEnding(preview) {
   if (best.length) h += `<section class="en-sec"><h3>🎬 대표작</h3><div class="en-works">${best.map((w, i) => `<div class="en-w${i === 0 ? ' top' : ''}"><div class="en-w-r">${i + 1}</div><div class="en-w-t">「${U.esc(w.title)}」</div><div class="en-w-s">${w.y}년 · ${U.esc(w.type)}${w.by ? ' · ' + U.esc(w.by) : ''}</div>${w.note ? `<div class="en-w-n">${U.esc(w.note)}</div>` : ''}</div>`).join('')}</div></section>`;
   const bonds = endBonds(s);
   if (bonds.length) h += `<section class="en-sec"><h3>🤝 인연</h3><div class="en-bonds">${bonds.map(b => `<div class="en-b ${b.k}"><i style="background:hsl(${hashN(b.n) % 360} 50% 62%)">${U.esc(b.n.slice(0, 1))}</i><div><b>${U.esc(b.n)}</b><span>${U.esc(b.r)}</span></div></div>`).join('')}</div></section>`;
+  // v212: 자녀 박스 — 인연 바로 아래 (예전엔 맨 아래 '자녀로 이어 하기')
+  if (!handoff && heirs.length && !pv) h += `<section class="en-sec"><h3>👶 자녀</h3><div class="heirs">${heirs.map(k => heirCard(s, k)).join('')}</div></section>`;
   h += `</div><div class="en-col2">`;
   if (s.awards.length) h += `<section class="en-sec"><h3>🏆 받은 상 ${s.awards.length}개</h3><div class="en-shelf">${s.awards.map(a => `<div class="en-tr"><i>🏆</i><b>${a.y}</b><span>${U.esc(a.n)}</span></div>`).join('')}</div></section>`;
   if (s.ms.length) h += `<section class="en-sec"><h3>📜 걸어온 길</h3><div class="en-tl">${s.ms.map(m => { const x = msText(m), stripped = x.replace(/^\d+세에 /, ''); return `<div class="en-t"><b>${stripped === x && /^(\d{4}년|타고난)/.test(x) ? 0 : m.a}</b><span>${U.esc(stripped)}</span></div>`; }).join('')}</div></section>`;
   h += `</div></div>`;
-  if (!handoff && heirs.length && !pv) h += `<section class="en-sec"><h3>👶 자녀로 이어 하기</h3><div class="heirs">${heirs.map(k => heirCard(s, k)).join('')}</div></section>`;
   h += `</div>`;
   h += pv ? `<div class="choices end-btns"><button class="btn primary" data-endclose>닫기</button></div>`
     : `<div class="choices end-btns"><button class="btn primary" id="end-new">다시 태어나기</button><button class="btn" id="end-title">첫 화면으로</button><button class="btn ghost" data-endclose>기록 더 보기</button></div>`;
@@ -1305,7 +1312,7 @@ function panelApplyJob() {
   // v206: 지금 지원할 수 없는 곳은 보이지 않는다 (조건은 백과사전에). 숫자는 (지금 지원 가능 / 전체)
   const s = S, list = jobApplies(s), view = UI.apForce || UI.apView || 'co';
   let h = `${UI.apjFrom ? '<button class="btn sm ghost back-btn" data-dictback>← 백과사전</button>' : ''}<h2>📝 구직활동</h2><div class="ap-row pf-tabs">${[['co', '🏢 회사별'], ['job', '💼 직업별']].map(([k, n]) => `<button class="ap-tab ${view === k ? 'on' : ''}" data-apview="${k}">${n}</button>`).join('')}</div>`
-    + `<p class="p-intro">${view === 'co' ? '회사 종류를 누르면 회사가 나오고, 회사를 누르면 그 회사에 지원할 수 있는 자리가 나온다. 회사 없이 혼자 시작하는 일은 회사 종류마다 맨 아래 \'프리랜서\'에 있다.' : '분야를 누르면 직업이 나오고, 직업을 누르면 그 바로 아래에 지원할 수 있는 곳이 나온다. 직업 옆 숫자는 지금 바로 지원할 수 있는 곳의 수다.'}<br>지금 지원할 수 있는 곳만 보인다. 괄호 안은 (지금 지원 가능 / 전체). 직업은 ${JOB_CAP}개까지 같이 할 수 있다.</p>`;
+    + `<p class="p-intro">${view === 'co' ? '회사 종류를 누르면 회사가 나오고, 회사를 누르면 그 회사에 지원할 수 있는 자리가 나온다. 회사 없이 혼자 시작하는 일은 맨 위 \'무소속\'에 분야별로 있다.' : '분야를 누르면 직업이 나오고, 직업을 누르면 그 바로 아래에 지원할 수 있는 곳이 나온다. 직업 옆 숫자는 지금 바로 지원할 수 있는 곳의 수다.'}<br>지금 지원할 수 있는 곳만 보인다. 괄호 안은 (지금 지원 가능 / 전체). 직업은 ${JOB_CAP}개까지 같이 할 수 있다.</p>`;
   UI.apjOpen = UI.apjOpen || {};
   if (!list.some(a => a.ok(s))) return h + `<div class="empty">지금 지원할 수 있는 곳이 없다. 직업마다 조건은 📚 백과사전에서 볼 수 있다.</div>`;
   if (view === 'co') return h + apCoHTML(s, list);
@@ -1415,8 +1422,20 @@ function apCoHTML(s, list) {
   // 지금 지원할 수 있는 자리만, 합격 가능성 순으로
   const rows = (L, spec) => { const K = L.filter(x => x[1].ok); return `<div class="ap-list">${apSorted(s, K.map(x => x[0])).map(a => apCoRow(s, a, K.find(x => x[0] === a)[1].pos, spec)).join('')}</div>`; };
   let h = '';
+  // v212: 무소속 — 회사 없이 혼자 시작하는 일 (인디 · 프리랜서 · 채널 열기 등). 회사 종류 아래가 아니라 맨 위에 따로, 분야(음악 · 방송·영상 등)마다
+  { const F = [].concat(...Object.values(by)).filter(x => x[1].free);
+    if (okN(F)) {
+      const open = !!UI.apcTy.free;
+      h += `<div class="ap-cat"><button class="ap-cat-h ap-tog" data-apcty="free" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} 🧑 무소속<span class="hint">회사 없이 혼자 시작한다 ${frac(F)}</span></button>`;
+      if (open) for (const [cid, cn] of APPLY_CATS) {
+        const L = F.filter(x => applyCatOf(x[0]) === cid); if (!okN(L)) continue;
+        const key = `free|${cid}`, op = !!UI.apcCo[key];
+        h += `<div class="ap-sub ap-sz"><button class="ap-cat-h ap-tog" data-apcco="${key}" data-open="${op ? 1 : 0}">${op ? '▾' : '▸'} ${cn}<span class="hint">${frac(L)}</span></button>${op ? rows(L) : ''}</div>`;
+      }
+      h += `</div>`;
+    } }
   for (const [ty, ic, tn] of AP_CO_TY) {
-    const L = by[ty]; if (!L || !okN(L)) continue;
+    const L = (by[ty] || []).filter(x => !x[1].free); if (!okN(L)) continue;
     const open = !!UI.apcTy[ty], cos = [], ci = {}, desc = AP_CO_DESC[ty];
     for (const x of L) { const k = x[1].co; if (!k) continue; if (ci[k] == null) { ci[k] = cos.length; cos.push({ n: k, gen: x[1].gen, L: [] }); } cos[ci[k]].L.push(x); }
     h += `<div class="ap-cat"><button class="ap-cat-h ap-tog" data-apcty="${ty}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${ic} ${tn}<span class="hint">${frac(L)}</span></button>${desc ? `<div class="ap-tydesc">${desc}</div>` : ''}`;
@@ -1436,9 +1455,6 @@ function apCoHTML(s, list) {
       h += `<div class="ap-sub ap-sz"><button class="ap-cat-h ap-tog" data-apcco="${U.esc(key)}" data-open="${op ? 1 : 0}">${op ? '▾' : '▸'} ${C.sz ? `<span class="ap-szc">${C.sz}</span>` : ''}${U.esc(nm)}<span class="hint">${C.gen ? '어느 회사인지는 붙은 뒤에 정해진다 ' : C.spec ? `${U.esc(C.spec)} ` : ''}${frac(C.L)}</span></button>`
         + (op ? rows(C.L, C.spec) : '') + `</div>`;
     }
-    // 프리랜서: 회사 없이 혼자 시작하는 일
-    const F = L.filter(x => x[1].free);
-    if (okN(F)) { const key = `${ty}|프리랜서`, op = !!UI.apcCo[key]; h += `<div class="ap-sub ap-sz"><button class="ap-cat-h ap-tog" data-apcco="${U.esc(key)}" data-open="${op ? 1 : 0}">${op ? '▾' : '▸'} 🧑 프리랜서<span class="hint">회사 없이 혼자 시작한다 ${frac(F)}</span></button>${op ? rows(F) : ''}</div>`; }
     h += `</div>`;
   }
   return h;
@@ -1484,7 +1500,7 @@ function panelProfile() {
   const s = S, p = me(s), k = UI.pfTab;
   if (k === 'fam') return `<h2>👪 가족</h2>` + famHTML(s);
   if (k === 'rec' || k === 'log' || k === 'works' || k === 'job') { const tab = UI.recTab === 'log' || (k === 'log' && !UI.recTab) ? 'log' : 'career'; return `<h2>📖 기록</h2><div class="ap-row pf-tabs">${[['career', '💼 경력'], ['log', '📖 걸어온 길']].map(([t, n]) => `<button class="ap-tab ${tab === t ? 'on' : ''}" data-rectab="${t}">${n}</button>`).join('')}</div>` + (tab === 'log' ? lifeLogHTML(s) : pfRecHTML(s)); }
-  if (k === 'tal') { UI.tsTab = 'tal'; return panel_skills(); }
+  if (k === 'tal') { UI.skTab = 'tal'; return panel_skills(); }
   return `<h2>🪪 프로필</h2>` + pfBornTab(s, p);
 }
 // 기록 창의 경력 탭: 작품(받은 상 포함) → 번 돈 → 지난 경력. 걸어온 길은 따로 탭 (v162)
@@ -2743,7 +2759,7 @@ document.addEventListener('click', e => {
   if (t.id === 'btn-month') { turnGo(1); return; }
   if (t.dataset.turnok != null) { turnClose(t.dataset.turnok); return; }
   // v202: 요약 창 두 장 (특별한 일 · 결산표)
-  if (t.dataset.tstab) { UI.tsTab = t.dataset.tstab; document.querySelectorAll('#tcard [data-tsp]').forEach(e => e.classList.toggle('hidden', e.dataset.tsp !== UI.tsTab)); document.querySelectorAll('#tcard [data-tstab]').forEach(b => b.classList.toggle('on', b.dataset.tstab === UI.tsTab)); return; }
+  if (t.dataset.tstab && t.closest('#tcard')) { UI.tsTab = t.dataset.tstab; document.querySelectorAll('#tcard [data-tsp]').forEach(e => e.classList.toggle('hidden', e.dataset.tsp !== UI.tsTab)); document.querySelectorAll('#tcard [data-tstab]').forEach(b => b.classList.toggle('on', b.dataset.tstab === UI.tsTab)); return; }
   if (t.dataset.panel) { UI.apjFrom = null; UI.apForce = null; if (t.dataset.panel === 'group' && !UI.overlay) UI.grpTab = 'home'; if (t.dataset.cofx) { UI.coF = t.dataset.cofx; UI.coTab = 'home'; UI.coGrp = null; } if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
   if (t.dataset.close != null) return closePanel();
   if (t.dataset.logsize) { setLogSize(+t.dataset.logsize); if (UI.overlay === 'menu') renderPanel(); return; }
@@ -2808,8 +2824,8 @@ document.addEventListener('click', e => {
   if (t.dataset.pgrp) { UI.pplOpen[t.dataset.pgrp] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.apg) { const c = t.dataset.aptab, g = t.dataset.apg; UI.apTab[c] = UI.apTab[c] === g ? null : g; renderPanel(); return; }
   if (t.dataset.trk) { UI.trk = t.dataset.trk; openPanel('trk'); return; }
-  if (t.dataset.myprof != null) { UI.tsTab = 'tal'; if (UI.overlay) { UI.overlay = 'skills'; renderPanel(); } else openPanel('skills'); return; }
-  if (t.dataset.tstab) { UI.tsTab = t.dataset.tstab; if (UI.overlay) { UI.overlay = 'skills'; renderPanel(); } else openPanel('skills'); return; }
+  if (t.dataset.myprof != null) { UI.skTab = 'tal'; if (UI.overlay) { UI.overlay = 'skills'; renderPanel(); } else openPanel('skills'); return; }
+  if (t.dataset.tstab) { UI.skTab = t.dataset.tstab; if (UI.overlay) { UI.overlay = 'skills'; renderPanel(); } else openPanel('skills'); return; }
   if (t.dataset.kid) { UI.kid = t.dataset.kid; if (UI.overlay) { UI.overlay = 'kid'; renderPanel(); } else openPanel('kid'); return; }
 });
 document.addEventListener('input', e => { if (e.target.id === 'tbl-q') evTblFilter(e.target.value); if (e.target.id === 'pick-q') { UI.pickQ = e.target.value; renderPanel(); } if (e.target.dataset && e.target.dataset.won != null) wonEq(e.target); });

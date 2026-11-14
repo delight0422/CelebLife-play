@@ -678,7 +678,17 @@ function fameBase(s) {
   for (let i = 1; i < P.length; i++) if (x <= P[i][0]) return P[i - 1][1] + (P[i][1] - P[i - 1][1]) * (x - P[i - 1][0]) / (P[i][0] - P[i - 1][0]);
   return 100;
 }
-function fameMonth(s) { s.buzz = (s.buzz || 0) * 0.9; const tg = U.clamp(fameBase(s) + s.buzz, 0, 100), f = s.fame || 0; s.fame = U.clamp(f + (tg - f) * (tg > f ? 0.3 : 0.03), 0, 100); }
+// v212: 회사 대표는 인기 · 팬이 줄어도 인지도가 내려가지 않고, 회사가 크고 평판이 좋을수록 높은 곳까지 천천히 계속 오른다 (대표로 이름이 알려진다)
+//   유명한 부모에게서 이어받은 인지도(s.fameMin)는 바닥으로 남는다 ('누구의 자녀')
+const FAME_CO = [0, 20, 45, 75];
+function fameCo(s) { if (typeof coOn !== 'function' || !coOn(s)) return -1; const t = coT(s); let v = 0; for (const f in t.f || {}) v = Math.max(v, (FAME_CO[t.f[f].tier] || 0) + (t.f[f].rep || 0) * 0.2); return U.clamp(v, 0, 100); }
+function fameMonth(s) {
+  s.buzz = (s.buzz || 0) * 0.9;
+  const tg = U.clamp(fameBase(s) + s.buzz, 0, 100), f = s.fame || 0, co = fameCo(s);
+  let n = f + (tg - f) * (tg > f ? 0.3 : co >= 0 ? 0 : 0.03);
+  if (co >= 0) n += co > n ? Math.max(0.05, (co - n) * 0.02) : 0.05; // 회사 크기만큼은 빨리, 그 위로도 아주 조금씩 계속
+  s.fame = U.clamp(Math.max(n, s.fameMin || 0), 0, 100);
+}
 function addFame(s, v) { if (!v) return 0; const b = s.fame || 0; s.fame = U.clamp(b + v, 0, 100); s.buzz = U.clamp((s.buzz || 0) + v, 0, 40); return s.fame - b; }
 function fameWord(v) { return v >= 85 ? '모르는 사람 없음' : v >= 65 ? '유명함' : v >= 45 ? '꽤 알려짐' : v >= 25 ? '조금 알려짐' : v >= 8 ? '아는 사람만 앎' : '무명'; }
 // 직업별 인기(s.jpop[직업] 0~100, 처음 50): 그 직업으로서 대중이 나를 얼마나 좋아하는지. 배우로는 호감인데 영화감독으로는 비호감일 수도 있다
@@ -1546,6 +1556,12 @@ function migrate(s) {
   if (s.varPrem) { s.awPrem = Object.assign({}, s.awPrem, { variety: ((s.awPrem || {}).variety || 0) + s.varPrem }); s.awN = Object.assign({}, s.awN, { variety: s.varAwN || 1 }); }
   delete s.varPrem; delete s.varAwN;
   if (s.trendTV) ytTrendCheck(s, false);
+  // v212: 이미 자녀로 이어받은 세이브 — 부모에게서 넘어온 지인 정리 (부모님 지인은 셋까지, 나보다 열두 살 넘게 많은 '후배'는 부모의 후배였으니 모르는 사이로)
+  if ((s.gen || 1) > 1 && !s.pkFix) {
+    s.pkFix = 1; const my = me(s);
+    Object.values(s.people).filter(p => p.rel === '부모님 지인').sort((a, b) => (b.aff || 0) - (a.aff || 0)).slice(3).forEach(p => { p.rel = '업계'; p.hidden = !p.ind; });
+    for (const p of Object.values(s.people)) if (p.rel === '후배' && my && p.by < my.by) { p.rel = '업계'; p.hidden = !p.ind; }
+  }
   // 피드백 23: 하나뿐이던 '인기'를 직업별 인기로 나눴다. 하던(했던) 직업은 예전 인기 값에서 시작하고, 인지도는 팬 수로 다시 셈한다
   if (s.fame == null) {
     const old = typeof s.pop === 'number' ? s.pop : 50;

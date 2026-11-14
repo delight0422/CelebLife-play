@@ -218,7 +218,7 @@ function continueAs(s, kidId) {
   const kid = s.people[kidId], old = me(s), sp = (kid.parents || []).map(id => s.people[id]).find(p => p && p.id !== old.id) || partner(s);
   const sib = kids(s).filter(k => k.id !== kidId);
   const ns = blankState();
-  ns.gen = (s.gen || 1) + 1;
+  ns.gen = (s.gen || 1) + 1; ns.pkFix = 1;
   ns.people = s.people; ns.me = kid.id;
   kid.rel = '나'; kid.aff = 100;
   const ka = Math.max(0, kidAge(s, kid));
@@ -232,19 +232,24 @@ function continueAs(s, kidId) {
   if (sp) { sp.rel = sp.g === '여' ? '엄마' : '아빠'; sp.aff = 80; }
   const momP = old.g === '여' ? old : (sp && sp.g === '여' ? sp : null), dadP = old.g === '남' ? old : (sp && sp.g === '남' ? sp : null);
   ns.family = { mom: momP ? momP.id : null, dad: dadP ? dadP.id : null, single: !(momP && dadP) };
+  // v212: '부모님 지인'은 부모와 아주 가까웠던(친밀도 70 이상) 업계 사람 가운데 가장 가까운 셋까지만. 예전엔 55 이상이면 모두 넘어와서, 아이 인간관계에 부모 또래 연예인이 줄줄이 남았다
+  const PK_REL = ['동료', '친구', '동기', '선배', '후배', '지인', '멤버', '전 멤버', '제자', '부모님 지인'];
+  const pk = new Set(Object.values(ns.people).filter(p => PK_REL.includes(p.rel) && p.aff >= 70 && p.ind && p.alive !== false && p.id !== kid.id && !(sp && p.id === sp.id)).sort((a, b) => b.aff - a.aff).slice(0, 3).map(p => p.id));
   for (const p of Object.values(ns.people)) {
     if (p.id === kid.id || p.id === old.id || (sp && p.id === sp.id)) continue;
     // 예전 주인공의 형제자매는 이제 친척이라 목록에서 빠진다
     if (p.rel === '형제자매') { p.rel = '친척'; p.hidden = true; continue; }
     if (p.rel === '자녀') { p.rel = '형제자매'; p.aff = 60; continue; }
     // 부모님과 친하던 업계 사람은 '부모님 지인'으로 남는다. 나머지는 다시 모르는 사이가 된다
-    if (['동료', '친구', '동기', '선배', '지인', '멤버', '전 멤버', '제자'].includes(p.rel)) { if (p.aff >= 55 && p.ind) { p.rel = '부모님 지인'; p.aff = 35; } else { p.rel = '업계'; p.hidden = !p.ind; } }
+    if (PK_REL.includes(p.rel)) { if (pk.has(p.id)) { p.rel = '부모님 지인'; p.aff = 35; } else { p.rel = '업계'; p.hidden = !p.ind; } }
     if (['전 연인', '연인', '배우자', '전 배우자'].includes(p.rel)) { p.rel = '업계'; p.hidden = !p.ind; }
   }
   ns.olderSib = sib.filter(k => k.by < kid.by).length; ns.youngerSib = sib.filter(k => k.by >= kid.by).length;
   ns.persona = pickPersona(kid);
   ns.health = U.wpick(HEALTHS, h => h.w).id;
   ns.stress = 5; ns.rep = 60; ns.fame = 0; ns.buzz = 0; ns.jpop = {};
+  // v212: 유명한 부모의 아이는 태어날 때부터 알려져 있다 (부모 인지도의 80~95%에서 시작, 60%는 바닥으로 남는다)
+  { const pf = Math.max(s.fame || 0, s.fameMin || 0); if (pf >= 10) { ns.fame = Math.round(pf * U.fl(0.8, 0.95)); ns.fameMin = Math.round(pf * 0.6); } }
   for (const id of CAREER_IDS) ns.tracks[id] = { st: 'none' };
   ns.trend = s.trend; ns.trendTV = s.trendTV;
   // 같은 세상이 이어지니 회사 이름도 그대로 (v115: 예전엔 빠져서 다시 불러오면 처음 이름으로 돌아갔다)

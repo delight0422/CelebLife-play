@@ -1733,7 +1733,7 @@ E({
     t: `${partN(k)} (${lvi(me(s), k)}레벨)`,
     f: s => {
       if (d.join) { const p = U.clamp(U.sig((lv(me(s), k) - 24) / 5), 0.1, 0.9); queueEv(s, 'band_join_res', 1, { k, p }); return `인디 밴드 ${partN(k)} 자리에 지원했다.`; }
-      fireEvent(s, 'band_name', { k, join: false }); return '';
+      fireEvent(s, 'band_make_name', { k, join: false }); return '';
     },
   })).concat([{ t: '그만둔다', f: () => '밴드는 다음에 하기로 했다.' }]),
 });
@@ -1742,6 +1742,23 @@ E({
   init(s, d) { d.pass = U.chance(d.p); },
   text: (s, d) => d.pass ? `지원한 밴드에서 같이 하자는 연락이 왔다! ${partN(d.k)} 자리다.` : '지원한 밴드들에서 연락이 오지 않았다.',
   ch: (s, d) => d.pass ? [{ t: '합류한다', f: s => { fireEvent(s, 'band_name', { k: d.k, join: true }); return ''; } }] : [{ t: '다음에 다시', f: () => '밴드 오디션에 떨어졌다.' }],
+});
+// v212: 직접 만드는 밴드는 이름을 내가 쓴다 (예전엔 후보 셋 가운데 고르기). 처음 적힌 이름은 예시
+E({
+  id: 'band_make_name', cat: '밴드', title: '밴드 결성', tag: 'career',
+  init(s, d) { d.mem = []; const used = new Set(s.usedNames || []); d.name = U.shuffle(BAND_NAMES.filter(n => !used.has(n)))[0] || U.pick(BAND_NAMES) + ' ' + U.int(2, 9); },
+  text: (s, d) => `나는 ${partN(d.k)} 담당. 먼저 밴드 이름을 정하자.\n\n나머지 멤버(${BAND_NEED.filter(k => k !== d.k).map(partN).join('·')}${d.k === 'keyboard' ? '' : ', 있으면 키보드'})는 이름을 정한 다음 🧭 진로 창에서 구인 글을 올리거나 아는 사람에게 부탁해서 모은다.`,
+  form: (s, d) => [{ k: 'name', label: '밴드 이름', value: d.name, max: 20 }],
+  submitT: () => '이 이름으로 한다',
+  cancel: () => '밴드 결성을 미뤘다.',
+  submit(s, d, v) {
+    const name = String(v.name || '').replace(/[<>&"'`「」]/g, '').trim().slice(0, 20);
+    if (!name) return { err: '밴드 이름을 적어 주세요' };
+    if ((s.usedNames || []).includes(name)) return { err: '이미 있는 이름이에요. 다른 이름을 적어 주세요' };
+    const jb = !trackOn(s, 'band') && jobBlock(s, 'band');
+    if (jb) return { err: `${jb}` };
+    return { log: startBand(s, d, name) };
+  },
 });
 // 이름을 정한다. 직접 만든 밴드는 이름만 정하고 멤버는 진로 창에서 모은다. 합류한 밴드는 이미 멤버와 이름이 있다
 E({

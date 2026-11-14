@@ -1856,3 +1856,19 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .co-mini { position: relative; }
 .co-mini .rdot { top: -3px; right: -3px; }
 .ap-tab .rdot.in { display: inline-block; margin-left: 5px; vertical-align: 1px; }
+/* v212: 프로필 박스 뛰어난 재능 */
+#profile-card .card-h { flex-wrap: wrap; row-gap: 2px; }
+.pf-gift { margin-left: var(--sp-2); font-size: var(--fs-2); font-weight: 700; color: #a56a00; }
+/* v212: 진행 버튼 크게 · '선택 대기중'도 한 줄 */
+:root { --go-h: 50px; }
+.turn-go, .turn-jump .btn { height: var(--go-h); }
+.turn-go { font-size: 17px; padding: 0 10px; gap: 6px; white-space: nowrap; }
+.turn-jump .btn { padding: 4px 10px; }
+@media (max-width: 760px) { :root { --go-h: 44px; } .turn-go { font-size: var(--fs-4); padding: 0 var(--sp-3); } }
+/* v212: 인생 결산 자녀 박스 — 흰 카드 위 글자는 어두운 색으로 (예전엔 금색이라 안 보였다) */
+.en-cur .heir-card, .en-cur .heir-card .row span { color: #241a3a; }
+.en-cur .heir-card b { color: #241a3a; }
+.en-cur .heir-card .row b { color: #5b3fd6; }
+.en-cur .heir-card .muted, .en-cur .heir-card .hc-g, .en-cur .heir-card .hc-sk { color: #5d5670; }
+.en-cur .heir-card .btn.primary { color: #fff; }
+.en-col1 .heirs { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); text-align: left; }
