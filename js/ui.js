@@ -2281,6 +2281,7 @@ function newsBody(N, pick, ht) {
   let p = pk ? `${A}의 ${N.what} ${newsQ(T, '이가')} 발매 첫 주 음원 차트 최고 ${pk}위에 올랐다.` : `${A}의 ${N.what} ${newsQ(T, '이가')} 나왔지만 음원 차트 100위 안에는 들지 못했다.`;
   if (w) p += ` 음악방송에서는 ${w}번 1위에 올랐다.`; else if (N.show && pk && pk <= 20) p += ' 음악방송 1위는 아쉽게 놓쳤다.';
   if (N.albums) p += ` 앨범은 ${N.albums.toLocaleString()}장이 팔렸다.`;
+  if (N.cn) p += ` ${N.cn}`; // v223: 순위가 그렇게 나온 까닭 한 줄 (팬덤 · 입소문 · 같은 때 나온 곡)
   P.push(p);
   p = [N.c ? `이번 곡은 '${N.c}' 컨셉으로 꾸몄다.` : '', N.by || '', ht && N.c ? `이 곡이 크게 뜨면서 '${N.c}' 컨셉이 새 유행으로 떠올랐다.` : N.c && N.c === N.tr0 ? '요즘 유행하는 컨셉을 발 빠르게 택했다.' : ''].filter(Boolean).join(' ');
   if (p) P.push(p);

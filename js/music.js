@@ -34,6 +34,35 @@ function chartFromScore(sc) {
   return null;
 }
 function chartText(peak) { return peak ? `음원 차트 최고 ${peak}위` : '음원 차트 100위 밖'; }
+// ───── v223: 내 곡(아이돌 · 솔로 · 밴드)의 차트 순위는 '화력'으로 정한다 ─────
+// 화력 = 대중 청취(곡의 힘만 본다) + 팬덤 스트리밍(팬 수가 받친다). 그달 차트의 다른 곡(CHART_LAD)과, 같은 때 곡을 낸 업계 인물(npc.js)과 견줘 순위를 매긴다
+// 곡이 약해도 팬덤이 크면 상위권에 든다 (일부러 그렇게 둔다). 팬 증가 · 음악방송 1위 · 저작권료는 예전처럼 곡 점수(sc)로 정한다
+const CHART_LAD = [[1, 100e4], [10, 30e4], [50, 7e4], [100, 2.5e4]]; // [순위, 그 순위에 필요한 화력]
+const CHART_K = 13; // 곡 점수에서 팬 몫을 뺀 뒤 더하는 값: 팬 400명쯤인 가수의 순위가 예전과 같게 나오도록 맞춘 숫자
+// 팬이 400명도 안 되는 무명 · 데뷔곡은 곡이 좋아도 들어 볼 사람이 적다: 팬 몫을 400명까지만 빼서, 그 아래는 예전 순위 그대로 나온다
+function songPure(sc, fans) { return sc - Math.log10(1 + Math.max(400, fans)) * 3.2 + CHART_K; }
+function chartPub(pure) { return 1e4 * Math.pow(2, (pure - 50) / 6); } // 대중 청취: 50점 1만, 12점마다 4배
+function chartFandom(fans, pure) { return 1.6 * Math.pow(Math.max(0, fans), 0.9) * U.clamp(1 + (pure - 60) / 160, 0.85, 1.2); } // 팬덤 스트리밍: 팬 1만 6천 · 10만 5만 · 100만 40만쯤, 곡이 좋으면 조금 더
+function chartRankOf(pw) {
+  const L = CHART_LAD; if (pw >= L[0][1]) return 1;
+  for (let i = 1; i < L.length; i++) if (pw >= L[i][1]) { const f = Math.log(L[i - 1][1] / pw) / Math.log(L[i - 1][1] / L[i][1]); return Math.max(1, Math.round(L[i - 1][0] * Math.pow(L[i][0] / L[i - 1][0], f))); }
+  return null;
+}
+// 음반은 팬 수 × 구매율에 곡의 힘을 곱한다 (0.7~1.3배)
+function albBuyMul(pure) { return U.clamp(1 + (pure - CHART_MID) / 50, 0.7, 1.3); }
+const CHART_MID = 70;
+function chartRank(s, sc, fans) {
+  const pure = songPure(sc, fans), pub = chartPub(pure), fd = chartFandom(fans, pure), pw = pub + fd;
+  let peak = chartRankOf(pw), by = null;
+  // 같은 때 곡을 낸 업계 인물 가운데 나보다 화력이 센 곡 하나마다 한 계단 밀린다
+  if (peak && typeof npcChartAbove === 'function') { const A = npcChartAbove(s, pw); if (A.length) { peak += A.length; by = A[0]; if (peak > 100) peak = null; } }
+  let cn = '';
+  if (by && peak && chartRankOf(pw) <= 10 && U.chance(0.6)) { cn = `같은 때 나온 ${NPC_F[by.f].n} ${by.n}의 신곡에 밀려 순위가 조금 내려갔다.`; if (typeof npcKnow === 'function') npcKnow(by); }
+  else if (peak && peak <= 50 && fd >= pub * 1.5 && U.chance(0.6)) cn = '팬들이 밤낮으로 스트리밍을 돌려 순위를 끌어올렸다.';
+  else if (peak && peak <= 30 && pub >= fd * 4) cn = '팬이 아닌 사람들 사이에서도 입소문을 탔다.';
+  else if (!peak && fans >= 3e4) cn = '팬들은 열심히 들었지만 대중의 귀에는 닿지 못했다.';
+  return { peak, pw, pub, fd, pure, cn };
+}
 function royaltyFromScore(sc, mult) { return Math.round(Math.pow(Math.max(0, sc - 42), 2.2) * 800 * mult); }
 // 같은 곡에 가창·작곡처럼 여러 몫이 있으면 한 줄로 합친다. 매달 5%씩 줄고, 처음의 4% 밑으로는 안 떨어진다
 function addCatalog(s, title, kind, sc, mult, job) {
@@ -167,13 +196,13 @@ function billPay(s, o) {
 function fmtBill(v) { const m = Math.round(Math.abs(v) / 1e3) / 10; return Math.abs(v) >= 1e8 ? fmtWon(Math.abs(v)) : `${m.toLocaleString()}만 원`; }
 // 연습생 · 제작 비용을 다 갚은 순간 (v118 UI C4): 기분 좋은 순간이라 창으로
 function debtClear(s, k, t) {
-  milestone(s, `${age(s)}세에 처음으로 ${k === 'band' ? '밴드' : '그룹'} 정산을 받았다.`);
-  queueEv(s, 'debt_clear', 0, { fromTr: k !== 'band' || !!t.fromTr }, true);
+  milestone(s, k === 'solo' ? `${age(s)}세에 연습생 시절 비용을 다 갚았다.` : `${age(s)}세에 처음으로 ${k === 'band' ? '밴드' : '그룹'} 정산을 받았다.`);
+  queueEv(s, 'debt_clear', 0, { fromTr: k !== 'band' || !!t.fromTr, solo: k === 'solo' }, true);
 }
 E({
   id: 'debt_clear', cat: '정산', title: '비용을 다 갚았다!', tag: 'career', keepPop: true,
-  text: (s, d) => `${d.fromTr ? '연습생 시절 비용과 ' : ''}앨범 제작비를 다 갚았다. 이제부터는 정산금이 내 손에 들어온다!`,
-  ch: (s, d) => [{ t: '드디어!', f: () => `${d.fromTr ? '연습생 시절 비용과 ' : ''}앨범 제작비를 다 갚았다. 이제부터 정산이 들어온다!` }],
+  text: (s, d) => d.solo ? '연습생 시절 비용을 다 갚았다. 이제부터는 음반 · 음원 정산금이 내 손에 들어온다!' : `${d.fromTr ? '연습생 시절 비용과 ' : ''}앨범 제작비를 다 갚았다. 이제부터는 정산금이 내 손에 들어온다!`,
+  ch: (s, d) => [{ t: '드디어!', f: () => d.solo ? '연습생 시절 비용을 다 갚았다. 이제부터 음반 · 음원 정산이 들어온다!' : `${d.fromTr ? '연습생 시절 비용과 ' : ''}앨범 제작비를 다 갚았다. 이제부터 정산이 들어온다!` }],
 });
 
 // ───── 유행을 바꾼 곡 (v165) ─────
@@ -583,7 +612,7 @@ E({
   text: (s, d) => `${AG[d.ag].n} 밴드 연습생 오디션. 어떤 파트로 볼까?`,
   ch: (s, d) => bandTrParts(s).map(k => { const p = bandTrP(s, AG[d.ag], k); return { t: `${partN(k)} (${lvi(me(s), k)}레벨)`, h: `합격 가능성 ${fmtPct(p)} · 결과는 다음 달`, f: s => { s.cd['aud_' + d.ag] = s.t + 12; queueEv(s, 'idol_aud', 1, { ag: d.ag, p, kind: 'band', part: k }); return `${AG[d.ag].n} 밴드 연습생 오디션을 ${partN(k)}${josa(partN(k), '으로').slice(partN(k).length)} 봤다.`; } }; }).concat([{ t: '그만둔다', f: () => '오디션을 보지 않기로 했다.' }]),
 });
-function traineeScore(s, t) { return t.kind === 'band' ? bandTrScore(s, t.part) : t.kind === 'solo' ? soloScore(s, t.stype || bestSoloType(s)) / 0.85 : idolScore(s); }
+function traineeScore(s, t) { return t.kind === 'band' ? bandTrScore(s, t.part) : t.kind === 'solo' ? soloTrScore(s, t.stype || bestSoloType(s)) : idolScore(s); }
 // 첫 연습생 계약: 17세가 될 때까지 (17세가 넘어서 들어오면 1년). 그 뒤로는 1년마다 재계약을 통보받는다
 function trFirstMonths(s) { return Math.max(12, 17 * 12 - s.t); }
 function trContractText(s) { const m = trFirstMonths(s), y = Math.floor(m / 12), mo = m % 12; return m > 12 ? `17세까지(${y ? y + '년' : ''}${y && mo ? ' ' : ''}${mo ? mo + '개월' : ''}), 그 뒤로는 1년씩` : '1년씩'; }
@@ -733,8 +762,9 @@ function idolTraineeMonth(s, t) {
     if (t.kind !== 'solo' && !t.team && t.months >= 9 && (t.kind === 'band' || age(s) >= 15) && (t.rank <= Math.max(6, t.pool * 0.35) || t.seatLost) && !married(s) && U.chance((t.seatLost ? 0.9 : 0.45) * idolTeamMul(s, t)) && !hasQ(s, 'idol_team')) queueEv(s, 'idol_team', 0);
     // v222: 솔로 연습생은 데뷔조가 없다. 혼자 설 실력이 되고(soloTrReady) 평가가 상위권이면 회사가 솔로 데뷔를 정한다. 가끔은 그룹 데뷔조 자리를 권한다
     if (t.kind === 'solo' && age(s) >= 15) {
-      if (t.months >= 6 && soloTrReady(s, t, t.stype) && t.rank <= Math.max(6, t.pool * 0.4) && U.chance(0.6)) { if (!hasQ(s, 'solo_trdebut')) queueEv(s, 'solo_trdebut', 0); }
-      else if (t.months >= 9 && age(s) <= 20 && !married(s) && !(t.grpAsk > s.t) && idolScore(s) + pm(s, 'audition', 0) >= idolBar(s, t) && U.chance(0.25 * idolTeamMul(s, t)) && !hasQ(s, 'solo_togroup')) queueEv(s, 'solo_togroup', 0);
+      if (t.months >= 6 && soloTrReady(s, t, t.stype) && t.rank <= Math.max(6, t.pool * 0.4)) { if (U.chance(0.6) && !hasQ(s, 'solo_trdebut')) queueEv(s, 'solo_trdebut', 0); }
+      // v223: 그룹 제안은 외모가 좋은데(65부터) 솔로 데뷔가 오래(18달 넘게) 미뤄졌을 때만. 외모가 좋을수록 잘 온다
+      else if (t.months >= SOLO_GRP_M && age(s) <= 22 && !married(s) && !(t.grpAsk > s.t) && me(s).tal.looks >= SOLO_GRP_LOOKS && U.chance((0.06 + (me(s).tal.looks - SOLO_GRP_LOOKS) * 0.004) * idolTeamMul(s, t)) && !hasQ(s, 'solo_togroup')) queueEv(s, 'solo_togroup', 0);
     }
     // 아이돌 연습생이 오래 데뷔조에 못 들었는데 혼자 설 실력은 되면, 회사가 솔로 데뷔를 권한다 (스무 살이 넘으면 더 자주)
     if (t.kind === 'idol' && !t.team && t.months >= 18 && age(s) >= 17 && !(t.soloAsk > s.t) && !hasQ(s, 'idol_team') && !hasQ(s, 'idol_tosolo') && soloTrReady(s, t, bestSoloType(s)) && U.chance(age(s) >= 20 ? 0.3 : 0.12)) queueEv(s, 'idol_tosolo', 0);
@@ -1147,7 +1177,7 @@ function idolRelease(s, t, c, debut, a) {
   const ob = typeof idolTakeB === 'function' ? idolTakeB(t) : { st: 0, part: 0 };
   const sc = songScore(s, { perf: cPerf(groupPower(s, g), cf), q, fans: gf, tier: 0, trend: c === s.trend, bonus: IDOL_TIER_B[t.tier] + (g.star - 50) * 0.12 + (c === g.sig ? 3 : 0) + Math.min(t.cbCount, 6) * 0.6 + buzz + g.mo - tired + rookie + cScoreB(cf) + ob.st });
   g.mo = g.mo * 0.6 + U.normal(0, 4.5);
-  const peak = chartFromScore(sc);
+  const ck = chartRank(s, sc, gf), peak = ck.peak; // v223: 순위는 화력으로
   jpopWork(s, 'idol', sc);
   const main = t.mkt === 'jp' ? 'jp' : 'kr';
   const gain = { kr: 0, jp: 0, us: 0 };
@@ -1168,7 +1198,7 @@ function idolRelease(s, t, c, debut, a) {
   cNote(s, cf, title);
   // 앨범 판매량: 앨범 간격이 길어서(6~9달) 한 번 낼 때 팬들이 여러 장씩 산다 (IDOL_ALBUM_MULT). v154: 수록곡이 좋으면 조금 더 팔린다 (평균이면 그대로)
   const sideM = a && a.side != null ? U.clamp(1 + (a.side + (ALB_NPC_ADJ[t.tier] || 0) - (16 + t.tier * 7)) / 250, 0.9, 1.15) : 1;
-  const albums = Math.round((g.f.kr * U.fl(0.25, 0.45) + g.f.jp * 0.25 + g.f.us * 0.1) * IDOL_ALBUM_MULT * sideM * loySaleM(g));
+  const albums = Math.round((g.f.kr * U.fl(0.25, 0.45) + g.f.jp * 0.25 + g.f.us * 0.1) * IDOL_ALBUM_MULT * sideM * loySaleM(g) * albBuyMul(ck.pure));
   // v192: 팬 충성도는 곡 완성도(q)만 본다
   const lyD = loyAlbum(g, q, t.months / 12);
   // 앨범 제작비: 아직 작은 그룹에는 회사도 돈을 덜 쓴다 (그룹 팬 30만 명이 되면 다 쓴다)
@@ -1199,7 +1229,7 @@ function idolRelease(s, t, c, debut, a) {
   addWork(s, { type: debut ? '데뷔 앨범' : '앨범', title, by: g.name, sc, pay, note: chartText(peak) + (wins ? ` · 음악방송 1위 ${wins}회` : ''), card });
   if (peak === 1 && !s.flags.no1) { s.flags.no1 = true; milestone(s, `${age(s)}세에 ${g.name}의 ${josa(`「${title}」`, '으로')} 음원 차트 1위를 했다.`); }
   for (const id of g.members) { const m = s.people[id]; if (m) bond(s, m, sc >= 65 ? 3 : 1); }
-  return { sc, peak, wins, albums, gain, my, pay, title, cm: comments(sc, actNick(s, 'idol')), wrote, debt: t.debt, card, lyD };
+  return { sc, peak, wins, albums, gain, my, pay, title, cm: comments(sc, actNick(s, 'idol')), wrote, debt: t.debt, card, lyD, cn: ck.cn, pw: ck.pw };
 }
 E({
   id: 'idol_aud', cat: '오디션', title: (s, d) => d.kind === 'band' ? '밴드 연습생 오디션 결과' : '아이돌 오디션 결과', tag: 'career',
@@ -1338,7 +1368,7 @@ E({
   id: 'idol_cbres', cat: '앨범 성적', title: '앨범 성적표', tag: 'career',
   plio: (s, d) => typeof plioSong === 'function' ? plioSong(s, d, 'idol') : null,
   live: (s, d) => d.card && d.card.live,
-  init(s, d) { const t = s.tracks.idol; if (t.st !== 'active') { d.skip = true; return; } d.r = idolRelease(s, t, d.c, d.debut, d.a || null); d.card = d.r.card; if (typeof npcClashDue === 'function') npcClashDue(s, 'idolg', d.r.sc, d.r.title); teamRel(s, 'idol', t, d.r.peak, !d.r.peak || d.r.peak > 60); },
+  init(s, d) { const t = s.tracks.idol; if (t.st !== 'active') { d.skip = true; return; } d.r = idolRelease(s, t, d.c, d.debut, d.a || null); d.card = d.r.card; if (typeof npcClashDue === 'function') npcClashDue(s, 'idolg', d.r.sc, d.r.title, d.r.pw); teamRel(s, 'idol', t, d.r.peak, !d.r.peak || d.r.peak > 60); },
   // v154: 성적표 위에 '제작 과정' 배너
   // v172 시안: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 순위 · 팬 · 정산 같은 숫자는 창이 뜰 때 토스트로
   html: (s, d) => d.card && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.idol_cbres.news(s, d)) : '',
@@ -1353,7 +1383,7 @@ E({
     if (r.pay > 0) ts.push(['💰', `정산금 +${fmtWon(r.pay)}`, 'g']);
     if (r.debt > 0) ts.push(['💸', `${r.pay > 0 ? '' : '정산금 없음 · '}남은 연습생·제작 비용 ${fmtWon(r.debt)}`, 'b']);
     const by = a && a.mine ? `타이틀곡은 멤버 ${josa(actName(s, 'idol'), '이가')} 직접 썼다.` : mk && mk.pk && mk.pk[0] && mk.pk[0].by ? `작곡은 ${josa(mk.pk[0].by, '이가')} 맡았다.` : '';
-    return { who: A, what: d.debut ? '데뷔 앨범 타이틀곡' : '새 앨범 타이틀곡', kind: d.debut ? 'debut' : '', t: r.title, c: d.c, peak: r.peak, wins: r.wins, show: true, albums: r.albums, by, ag: t.agN, sc: r.sc,
+    return { who: A, what: d.debut ? '데뷔 앨범 타이틀곡' : '새 앨범 타이틀곡', kind: d.debut ? 'debut' : '', t: r.title, c: d.c, peak: r.peak, wins: r.wins, show: true, albums: r.albums, cn: r.cn, by, ag: t.agN, sc: r.sc,
       end: `${josa(A, '은는')} 앞으로 두 달 동안 음악방송과 예능에서 ${d.debut ? '데뷔 ' : ''}활동을 이어 간다.`, pl: typeof plioSong === 'function' ? plioSong(s, d, 'idol') : null, ts };
   },
   text(s, d) {
@@ -2050,7 +2080,7 @@ E({
     if (cf.rap != null) cf.rap = bv ? lv(bv, 'rap') : 0;
     const sc = songScore(s, { perf: cPerf(bandPower(s, t), cf), q: d.q, fans: t.b.f, tier: t.tier, trend: !!d.c && d.c === s.trend, bonus: (d.self ? 3 : 0) + cScoreB(cf) + bandArrB(s, t, d) });
     cNote(s, cf, d.title);
-    d.peak = chartFromScore(sc); d.ht = false; // 밴드는 음악방송 1위가 없어 유행을 바꾸지 않는다 (v166)
+    const ck = chartRank(s, sc, t.b.f); d.peak = ck.peak; d.cn = ck.cn; d.ht = false; // 밴드는 음악방송 1위가 없어 유행을 바꾸지 않는다 (v166)
     jpopWork(s, 'band', sc);
     d.gain = fanGainRaw(sc, t.b.f, t.st === 'signed' ? 1 : 0.6, starCap(60, 'kr'));
     t.b.f = Math.max(0, t.b.f + d.gain);
@@ -2064,7 +2094,7 @@ E({
     if (t.st === 'signed') {
       d.signed = true; d.fromTr = !!t.fromTr;
       t.debt = (t.debt || 0) + BAND_PROD[t.tier] * (0.45 + 0.55 * Math.min(1, t.b.f / 1e5)) / (bandMembers(s, t).length + 1);
-      const albums = Math.round(t.b.f * U.fl(0.15, 0.3));
+      const albums = Math.round(t.b.f * U.fl(0.15, 0.3) * albBuyMul(ck.pure));
       d.pay = bandIncome(s, t, albums * 14000 + (d.peak ? (101 - d.peak) * 250e4 : 0), '앨범·음원 정산'); d.debt = t.debt; d.gross = t.gross;
       if (t.lastBill) { t.lastBill.t = `「${d.title}」 앨범 · 음원 정산`; d.bill = t.lastBill; }
     }
@@ -2083,7 +2113,7 @@ E({
     if (d.peak && d.peak <= 10 && !t.hitMs) { t.hitMs = true; milestone(s, `${age(s)}세에 밴드 「${t.b.name}」의 ${josa(`「${d.title}」`, '이가')} 차트 ${d.peak}위에 올랐다.`); }
     for (const m of bandMembers(s, t)) bond(s, m, sc >= 60 ? 4 : 0);
     d.sc = sc; d.cm = comments(sc, actNick(s, 'band'));
-    if (typeof npcClashDue === 'function') npcClashDue(s, 'band', sc, d.title);
+    if (typeof npcClashDue === 'function') npcClashDue(s, 'band', sc, d.title, ck.pw);
   },
   // v172 시안: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 숫자는 토스트로
   html: (s, d) => d.card && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.band_relres.news(s, d)) : '',
@@ -2095,7 +2125,7 @@ E({
     if (d.signed && d.pay > 0) ts.push(['💰', `정산금 +${fmtWon(d.pay)}`, 'g']);
     if (d.signed && d.debt > 0) ts.push(['💸', `${d.pay > 0 ? '' : '정산금 없음 · '}남은 ${d.fromTr ? '연습생·' : ''}제작 비용 ${fmtWon(d.debt)}`, 'b']);
     const by = d.self ? `멤버 ${josa(actName(s, 'band'), '이가')} 직접 쓴 곡이다.` : d.w ? `작곡은 ${josa(d.w, '이가')} 맡았다.` : '';
-    return { who: A, what: first ? '첫 곡' : '새 곡', kind: first ? 'debut' : '', t: d.title, c: d.c, peak: d.peak, wins: 0, by, ag: d.signed ? t.agN : '', sc: d.sc,
+    return { who: A, what: first ? '첫 곡' : '새 곡', kind: first ? 'debut' : '', t: d.title, c: d.c, peak: d.peak, wins: 0, cn: d.cn, by, ag: d.signed ? t.agN : '', sc: d.sc,
       end: d.signed ? `${josa(A, '은는')} 쇼케이스를 시작으로 공연을 이어 간다.` : `${josa(A, '은는')} 클럽 공연으로 팬들을 만날 예정이다.`, pl: typeof plioSong === 'function' ? plioSong(s, d, 'band') : null, ts };
   },
   // 순위 · 팬 · 반응은 카드에 있다. 본문에는 곡 정보와 앞으로 들어올 돈만 (예전 세이브의 카드 없는 창은 예전처럼)
@@ -2249,13 +2279,17 @@ function soloBlock(s) {
 }
 // (v222부터 인디 가수가 볼 때만) v219: 솔로 계약은 곧바로 데뷔라 연습생 오디션보다 문턱이 높다 (예전 '회사 문턱 - 4' → 회사 문턱 + 소형 0 · 중형 2 · 대형 4. 곧 예전보다 4 · 6 · 8 높다)
 // v222: 기획사 솔로 오디션에 붙으면 솔로 연습생으로 들어간다 (예전엔 곧바로 데뷔). 합격 문턱은 아이돌 연습생 오디션과 같은 틀 — 어릴수록 재능을 더 보고, 실력은 솔로 유형 점수로 본다
-function soloTrAudScore(s, type) { const w = idolTalW(age(s)); return soloScore(s, type) / 0.85 * (1 - w) + idolTalPts(me(s)) * w; }
+// v223: 솔로는 혼자 노래(랩 · 춤)로 서는 자리라 외모를 덜 본다. 실력 점수의 외모 보정은 절반만, 재능도 목소리 · 음감 · 스타성을 앞에 둔다
+function soloTrScore(s, type) { const lk = talB(me(s).tal.looks, false); return (soloScore(s, type) - lk) / 0.85 + lk * 0.5; }
+function soloTal(p) { const t = p.tal; return (t.voice + t.music + t.star + (t.looks + t.rhythm + t.express + t.athletic) * 0.5) / 5; }
+function soloTrAudScore(s, type) { const w = idolTalW(age(s)); return soloTrScore(s, type) * (1 - w) + (20 + (soloTal(me(s)) - 45) * 1.5) * w; }
 // 이미 인디 가수로 활동 중이면 예전처럼 곧바로 계약하는 오디션이다 (문턱도 예전 그대로: 회사 문턱 + 소형 0 · 중형 2 · 대형 4)
+const SOLO_GRP_M = 18, SOLO_GRP_LOOKS = 65;
 function soloIndieOn(s) { const t = s.tracks.solo; return !!t && t.st === 'indie'; }
 function soloTrBlock(s) { return soloIndieOn(s) ? '' : jobBlock(s, 'idol', ['trainee']); }
 function soloAudP(s, ag, type) { const a = age(s); if (soloIndieOn(s)) return audP(coFocus(s, 'music', ag.con, soloScore(s, type)) + pm(s, 'audition', 0) + (a <= 22 ? 2 : -3), ag.thr + ag.tier * 2 - 2); return audP(coFocus(s, 'music', ag.con, soloTrAudScore(s, type)) + (a <= 13 ? 2.5 : a <= 16 ? 1.5 : a <= 24 ? 0 : -2) + pm(s, 'audition', 0), ag.thr - 2); }
 // 솔로로 데뷔할 만한 실력인가 (예전 솔로 오디션의 합격선: 회사 문턱 + 소형 0 · 중형 2 · 대형 4)
-function soloTrReady(s, t, type) { const ag = AG[t.ag]; return !!ag && coFocus(s, 'music', ag.con, soloScore(s, type)) + pm(s, 'audition', 0) >= ag.thr + ag.tier * 2 - 2; }
+function soloTrReady(s, t, type) { const ag = AG[t.ag]; return !!ag && coFocus(s, 'music', ag.con, soloScore(s, type) - talB(me(s).tal.looks, false) * 0.5) + pm(s, 'audition', 0) >= ag.thr + ag.tier * 2 - 2; }
 for (const ag of musicAgencies()) JOB_APPLY.push({
   id: 'solo_' + ag.id, trk: 'solo', g: '🎙️ 솔로 가수', get n() { return `${ag.n} 솔로 오디션`; }, get tag() { return agTag(ag); },
   show: s => (!trackOn(s, 'solo') || s.tracks.solo.st === 'indie') && age(s) >= 14 && age(s) <= 32,
@@ -2409,7 +2443,7 @@ E({
     const sc = songScore(s, { perf: cPerf(soloScore(s, t.type), cf), q: d.q, fans: totalFans(s), tier: signed ? t.tier : 0, trend: (d.tr = d.c ? d.c === s.trend : U.chance(0.3)), bonus: (d.self ? 3 : 0) + (p.tal.star - 50) * 0.12 + cScoreB(cf) });
     cNote(s, cf, d.title);
     // v167: 솔로도 아이돌처럼 음악방송에 나가 1위를 한다 (팬이 적으면 1위 횟수가 적다). 유행을 바꾸는 조건도 아이돌과 같다
-    d.peak = chartFromScore(sc); d.wins = showWins(sc, totalFans(s)); d.ht = hitTrend(s, d.c, d.peak, d.wins);
+    const ck = chartRank(s, sc, totalFans(s)); d.peak = ck.peak; d.cn = ck.cn; d.wins = showWins(sc, totalFans(s)); d.ht = hitTrend(s, d.c, d.peak, d.wins);
     jpopWork(s, 'solo', sc);
     d.gain = Math.round(fanGain(s, sc, mk, signed ? 1.1 : 0.7) * myRoom(s, mk));
     s.fans[mk] = Math.max(0, s.fans[mk] + d.gain);
@@ -2418,11 +2452,11 @@ E({
     // v154: 수록곡에 실린 내 곡 · 가사
     if (d.a) { const r = albRoyalty(s, d.a, sc, 'solo', true); d.roy += r.m; d.side = r.txt; }
     // 음반·음원 판매 정산: 팬 일부가 음반을 사고(아이돌 앨범보다 적게), 차트에 오르면 음원 수익이 붙는다. 소속이면 회사 몫을 뗀다
-    const buyers = Math.round(totalFans(s) * U.fl(SOLO_SALE.lo, SOLO_SALE.hi));
+    const buyers = Math.round(totalFans(s) * U.fl(SOLO_SALE.lo, SOLO_SALE.hi) * albBuyMul(ck.pure));
     // 정산서 (v118 UI C2)
     const gross = buyers * 14000 + (d.peak ? (101 - d.peak) * SOLO_SALE.chart : 0);
     d.sale = 0;
-    if (gross > 0) { const r = billPay(s, { t, rev: gross, cut: signed ? t.cut : 0, n: 1, costN: '연습생 비용', what: '음반·음원 정산', job: 'solo', title: `「${d.title}」 음반 · 음원 정산` }); d.sale = Math.round(r.share); d.bill = r.bill; }
+    if (gross > 0) { const owed = t.debt > 0; const r = billPay(s, { t, rev: gross, cut: signed ? t.cut : 0, n: 1, costN: '연습생 비용', what: '음반·음원 정산', job: 'solo', title: `「${d.title}」 음반 · 음원 정산` }); d.sale = Math.round(r.share); d.bill = r.bill; if (owed && t.debt <= 0 && !t.firstPay) { t.firstPay = true; debtClear(s, 'solo', t); } } // v223: 연습생 시절 비용을 다 갚으면 축하 창
     t.rel++; musicRookie(s, true); t.nextRel = U.int(3, 6); t.alb = null; t.yearBest = Math.max(t.yearBest || 0, sc);
     if (d.peak && (!t.bestPeak || d.peak < t.bestPeak)) t.bestPeak = d.peak;
     // 발매 결과 카드 (v118 UI C1): 내 노래 · 랩 · 무대, 곡, 팬, 유행, 컨셉 궁합, 홍보
@@ -2440,7 +2474,7 @@ E({
     if (t.rel === 1) milestone(s, `${age(s)}세에 첫 솔로곡 ${josa(`「${d.title}」`, '을를')} 냈다.`);
     if (d.peak && d.peak <= 10 && !t.hitMs) { t.hitMs = true; milestone(s, `${age(s)}세에 ${josa(`「${d.title}」`, '으로')} 음원 차트 ${d.peak}위에 올랐다.`); }
     d.sc = sc; d.cm = comments(sc, actNick(s, 'solo'));
-    if (typeof npcClashDue === 'function') npcClashDue(s, 'solo', sc, d.title);
+    if (typeof npcClashDue === 'function') npcClashDue(s, 'solo', sc, d.title, ck.pw);
   },
   // v172 시안: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 숫자는 토스트로
   html: (s, d) => d.card && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.solo_relres.news(s, d)) : '',
@@ -2450,7 +2484,7 @@ E({
     if (d.sale) ts.push(['💰', `음반·음원 정산 +${fmtWon(d.sale)}`, 'g']);
     if (d.roy >= 1e4) ts.push(['🎧', `매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)}`, 'g']);
     const by = d.self ? `${josa(A, '이가')} 직접 쓴 곡이다.` : d.w ? `작곡은 ${josa(d.w, '이가')} 맡았다.` : '';
-    return { who: A, solo: true, what: first ? '데뷔곡' : '신곡', kind: first ? 'debut' : '', t: d.title, c: d.c, peak: d.peak, wins: d.wins, show: true, by, ag: t.st === 'signed' ? t.agN : '', sc: d.sc,
+    return { who: A, solo: true, what: first ? '데뷔곡' : '신곡', kind: first ? 'debut' : '', t: d.title, c: d.c, peak: d.peak, wins: d.wins, show: true, cn: d.cn, by, ag: t.st === 'signed' ? t.agN : '', sc: d.sc,
       end: `${josa(A, '은는')} 음악방송과 라디오로 활동을 이어 간다.`, pl: typeof plioSong === 'function' ? plioSong(s, d, 'solo') : null, ts };
   },
   text: (s, d) => `「${d.title}」${d.self ? ` (자작곡${d.c ? ` · '${d.c}' 컨셉` : ''})` : d.w && d.c ? ` (작곡 ${d.w} · '${d.c}' 컨셉)` : ''} 성적이 나왔다.${d.side ? ` ${d.side}` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}${d.wins ? ` · 음악방송 1위 ${d.wins}회` : ''}\n팬 ${sgnFans(d.gain)}`}${d.sale ? `\n\n음반·음원 정산 ${fmtWon(d.sale)}` : ''}\n매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.card ? '' : `\n\n반응: ${d.cm}`}`,

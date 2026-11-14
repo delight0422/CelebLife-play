@@ -881,7 +881,7 @@ E({
 E({
   id: 'solo_togroup', cat: '연습생', title: '그룹 데뷔조 제안', tag: 'career',
   cond: s => idolIsSoloTr(s) && !married(s),
-  text: s => { const t = s.tracks.idol; return `${t.agN}에서 새 그룹 데뷔조를 꾸리는데 한 자리가 비었다고 한다. "솔로 준비는 잠깐 접고, 그룹으로 먼저 데뷔해 보지 않을래?"\n\n받으면 데뷔조에 들어가 반년쯤 준비한 뒤 그룹으로 데뷔한다. 계약도 그룹 전속 계약(${yrs(84)})으로 바뀐다.`; },
+  text: s => { const t = s.tracks.idol; return `${t.agN}에서 새 그룹 데뷔조를 꾸리는데 한 자리가 비었다고 한다. "솔로 데뷔가 계속 미뤄지고 있잖아. 네 얼굴이면 그룹에서도 바로 눈에 띌 거야. 그룹으로 먼저 데뷔해 보지 않을래?"\n\n받으면 데뷔조에 들어가 반년쯤 준비한 뒤 그룹으로 데뷔한다. 계약도 그룹 전속 계약(${yrs(84)})으로 바뀐다.`; },
   ch: () => [
     { t: '데뷔조에 들어간다', h: '데뷔조에서 빠지게 되면 다시 솔로 준비로 돌아온다', f: s => { const t = s.tracks.idol; t.kind = 'idol'; t.wasSolo = true; t.gMonths = Math.max(t.gMonths || 0, 84); t.team = true; t.prep = 0; t.seatLost = false; t.seatQ = false; return '솔로 준비를 접고 그룹 데뷔조에 들어갔다!' + fx(s, { stress: -4 }); } },
     { t: '솔로 준비를 계속한다', h: '한동안 다시 권하지 않는다', f: s => { s.tracks.idol.grpAsk = s.t + 18; return '그룹 제안을 사양하고 솔로 준비를 계속하기로 했다.'; } },

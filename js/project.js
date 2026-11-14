@@ -75,7 +75,7 @@ function projRelease(s, t, P) {
   const fans = Math.round(own * 0.35 + M.reduce((n, x) => n + (x.pg ? x.pg.f : 0), 0) * 0.35);
   const cf = cFit(s, P.c, PP, 2);
   const sc = songScore(s, { perf: cPerf(groupPower(s, g), cf), q: a.q, fans, tier: 0, trend: P.c === s.trend, bonus: (IDOL_TIER_B[ag.tier] || 7) + 2 + (g.star - 50) * 0.12 + cScoreB(cf) });
-  const peak = chartFromScore(sc), wins = showWins(sc, fans);
+  const peak = chartRank(s, sc, fans).peak, wins = showWins(sc, fans); // v223: 순위는 화력으로 (music.js chartRank)
   const G = Math.max(0, fanGainRaw(sc, fans, 0.6 + ag.tier * 0.25, starCap(g.star, 'kr')));
   // 내 팬: 그룹 안에서 나를 좋아하는 몫 (아이돌 앨범과 같은 식). 원래 그룹에는 프로젝트 팬의 일부가 넘어온다
   const share = U.clamp(0.3 + ((p.tal.looks * 0.4 + p.tal.star * 0.3 + Math.max(lv(p, 'vocal'), lv(p, 'rap')) * 0.15 + lv(p, 'dance') * 0.15) - 45) / 80, 0.12, 0.85) * 3 / PP.length;

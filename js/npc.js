@@ -79,6 +79,7 @@ function npcMonth(s) {
     const act = 0.07 * (ps === 'dil' ? 1.5 : ps === 'shy' ? 0.6 : 1);
     if (U.chance(act)) {
       const hit = U.chance(0.1 + n.sk / 400);
+      if (NPC_FANM[n.f] && typeof chartPub === 'function') n.rl = { t: s.t, pw: npcSongPow(n, hit) }; // v223: 곡을 낸 달과 그 곡의 화력 (내 곡 순위 · 맞대결에 쓴다)
       n.pop = U.clamp(n.pop + (hit ? U.fl(3, 7) : U.fl(0, 2)), 1, 99);
       npcNews(s, n, hit ? F.hit + '.' : U.pick(F.rel) + '.', false, hit && n.f !== 'idolg');
     } else if (U.chance(ps === 'trb' ? 0.012 : 0.003)) {
@@ -175,10 +176,15 @@ function npcClashTick(s) {
   if (queueEv(s, 'npc_clash', 0, { id: n.id, pre: soon.at === s.t ? 2 : 1 }) && soon.at === s.t) s.queue.unshift(s.queue.pop());
 }
 // 내 곡 성적이 나온 달: 정면으로 겨루기로 했으면 맞대결 결과 창이 이어서 뜬다 (music.js 성적 사건들이 부른다)
-function npcClashDue(s, f, sc, title) {
+// v223: 음악 쪽 인물(아이돌 그룹 · 솔로 가수 · 밴드)의 곡 화력. 곡의 힘은 실력에서, 팬덤은 인기에서 나온다 (music.js chartPub · chartFandom과 같은 눈금)
+const NPC_FANM = { idolg: 1, solo: 0.5, band: 0.3 };
+function npcSongPow(n, hit) { const pure = 38 + n.sk * 0.45 + (hit ? 10 : 0) + U.normal(0, 7), fans = Math.pow(10, 3.3 + n.pop * 0.03) * (NPC_FANM[n.f] || 0.5); return chartPub(pure) + chartFandom(fans, pure); }
+// 이번 달이나 지난달에 곡을 낸 인물 가운데 화력이 pw보다 센 사람들 (가까운 순)
+function npcChartAbove(s, pw) { return npcList(s).filter(n => n.rl && s.t - n.rl.t <= 1 && n.ph !== 'rest' && n.rl.pw > pw).sort((a, b) => a.rl.pw - b.rl.pw); }
+function npcClashDue(s, f, sc, title, pw) {
   const c = s.npc && s.npc.cl; if (!c || c.f !== f) return;
   s.npc.cl = null;
-  if (s.t - c.t <= 6) queueEv(s, 'npc_clashres', 0, { id: c.id, sc, title }, true);
+  if (s.t - c.t <= 6) queueEv(s, 'npc_clashres', 0, { id: c.id, sc, title, pw }, true);
 }
 function npcCollabN(f) { return f === 'vtuber' ? '합동 방송' : f === 'idolg' || f === 'solo' || f === 'band' ? '합동 무대' : f === 'actor' || f === 'voice' ? '동반 출연' : f === 'variety' ? '동반 출연' : f === 'model' ? '합동 화보' : '합작'; }
 // 같이 일해서 느는 팬: 상대 인기가 높을수록. 크지 않게
@@ -245,7 +251,8 @@ E({
   id: 'npc_clashres', cat: '업계', title: '맞대결 결과', tag: 'career', cond: s => npcOn(s),
   init(s, d) {
     const n = npcBy(s, d.id); if (!n) { d.skip = true; return; }
-    d.win = d.sc >= U.clamp(42 + n.pop * 0.42 + U.normal(0, 6), 20, 98);
+    // v223: 내 곡의 화력을 상대 곡의 화력과 견준다 (상대가 요즘 낸 곡이 있으면 그 곡, 없으면 새로 잰다). 화력이 없는 예전 세이브는 예전 식
+    d.win = d.pw != null ? d.pw >= (n.rl && s.t - n.rl.t <= 1 ? n.rl.pw : npcSongPow(n, U.chance(0.1 + n.sk / 400))) : d.sc >= U.clamp(42 + n.pop * 0.42 + U.normal(0, 6), 20, 98);
     d.x = (d.win ? fx(s, { fkr: npcFanGain(s, n), fame: 1 }) : fx(s, { stress: 6 })).trim().replace(/^\(|\)$/g, '');
     if (d.win) n.pop = U.clamp(n.pop - 1, 1, 99);
   },
