@@ -459,7 +459,8 @@ function groupNameRaw(size = U.int(4, 9)) { const b = U.pick(GROUP_NAMES), x = U
 // v228: 곡 제목 다듬기 — ① 나올 때 계절과 어긋나는 제목(한겨울에 나오는 '여름' 곡 · 한여름의 '겨울' 곡)을 피한다 (곡은 지은 지 석 달 안에 나온다)
 //   ② 내 지난 곡과 뒷말이 같은 제목(Vintage Drive 다음에 Golden Drive)을 피한다 ③ '강렬' · '힙합'은 늘 그 컨셉 낱말로 짓는다 (잔잔한 제목이 섞이지 않게)
 function songSeasonOff(n) { const s = NAME_S; if (!s || s.birthMonth == null) return false; const M = [0, 1, 2, 3].map(i => (calM(s) + i) % 12); return (/여름|Summer/.test(n) && M.some(m => m === 11 || m <= 1)) || (/겨울|눈송이|Winter/.test(n) && M.some(m => m >= 5 && m <= 7)); }
-function songWordUsed(n) { const s = NAME_S, i = n.lastIndexOf(' '); if (!s || i < 0) return false; const w = n.slice(i + 1); return (s.works || []).filter(x => /싱글|앨범|OST|피처링|곡$/.test(x.type || '')).slice(-14).some(x => typeof x.title === 'string' && x.title !== n && x.title.includes(' ') && x.title.slice(x.title.lastIndexOf(' ') + 1) === w); }
+// v231: 뒷말뿐 아니라 앞말이 같은 제목(희미한 호수 다음에 희미한 미로)도 피한다. 앞말 = 마지막 띄어쓰기 앞 전부
+function songWordUsed(n) { const s = NAME_S, i = n.lastIndexOf(' '); if (!s || i < 0) return false; const a = n.slice(0, i), w = n.slice(i + 1); return (s.works || []).filter(x => /싱글|앨범|OST|피처링|곡$/.test(x.type || '')).slice(-14).some(x => { if (typeof x.title !== 'string' || x.title === n) return false; const j = x.title.lastIndexOf(' '); return j >= 0 && (x.title.slice(j + 1) === w || x.title.slice(0, j) === a); }); }
 // 마흔 번 안에 못 찾으면 계절 · 뒷말은 접고, 이미 쓴 제목만 아닌 것으로 (예전 freshName과 같게)
 function songFresh(gen) { let n, alt = null; for (let i = 0; i < 40; i++) { n = gen(); if (nameTaken(n)) continue; if (!songSeasonOff(n) && !songWordUsed(n)) return n; alt = alt || n; } return alt || n; }
 function songTitleEn() { return songFresh(() => songPair(SONG_EA, SONG_EB)); }
