@@ -49,14 +49,13 @@ function taeSpouse(s) {
   s.preg.tae = x.id;
   return x;
 }
-// 태어난 아이에게 태교한 쪽 재능을 얹는다 (98까지). 돌려주는 글은 출산 기록 뒤에 붙인다
+// 태어난 아이에게 태교한 쪽 재능을 얹는다 (98까지). 기록에는 적지 않는다 (v218)
 function taeBoost(s, c) {
   const x = s.preg && TAEGYO_BY[s.preg.tae]; if (!x || !c) return '';
   // 부모 평균보다 낮게 물려받았어도 평균에서 시작해 +8~15 (태교한 티가 나게)
   const PR = (c.parents || []).map(id => s.people[id]).filter(Boolean);
   for (const k of x.tal) { const avg = PR.length ? PR.reduce((n, p) => n + (p.tal[k] || 45), 0) / PR.length : 45; c.tal[k] = Math.round(U.clamp(Math.max(c.tal[k], avg) + U.int(8, 15), 3, 98)); }
-  if (!pregMe(s)) return ''; // v217: 배우자가 한 태교는 기록에 적지 않는다 (재능만 오른다)
-  return ` 태교 덕분인지 ${x.tal.map(k => TALENT_BY[k].n).join(' · ')}${josa(TALENT_BY[x.tal[x.tal.length - 1]].n, '이가').slice(TALENT_BY[x.tal[x.tal.length - 1]].n.length)} 남다르다.`;
+  return ''; // v218: 출산 기록에 태교 이야기는 적지 않는다 (누가 임신했든 재능만 오른다)
 }
 // v214: 임신 소식 — 결혼한 뒤 아이가 생기면(계획했든 아니든) 먼저 이 창이 뜨고, 아홉 달 뒤에 태어난다 (baby, late). 그동안 s.preg
 const PREG_M = 9;
