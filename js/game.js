@@ -217,7 +217,9 @@ function careerSkill(s, id) {
 }
 // v219: 인기가 오르내린 만큼은 화살표로만 (숫자는 보여 주지 않는다)
 function popArrow(d) { return d >= 5 ? '↑↑' : d > 0 ? '↑' : d <= -5 ? '↓↓' : '↓'; }
-function popWord(v) { return v >= 80 ? '국민 호감' : v >= 62 ? '호감' : v >= 42 ? '보통' : v >= 25 ? '비호감' : '안티 많음'; }
+// v225: 인기(그 직업으로서 대중이 나를 얼마나 좋게 보는지, 처음 50)의 단계 글. 아직 대중이 나를 모르면(popUnknown) 단계 대신 '아직 알려지지 않음'
+function popWord(v) { return v >= 80 ? '사랑받는 중' : v >= 62 ? '좋게 보는 편' : v >= 42 ? '무난함' : v >= 25 ? '시선이 곱지 않음' : '미움받는 중'; }
+function popUnknown(s) { return (s.fame || 0) < 8 && totalFans(s) < 1000; }
 function repWord(v) { return v >= 80 ? '모두가 칭찬' : v >= 62 ? '좋은 사람' : v >= 42 ? '무난' : v >= 25 ? '뒷말 있음' : '적이 많음'; }
 function wealthWord(w) { return w <= 1 ? '가장 가난한' : w <= 3 ? '형편이 빠듯한' : w <= 6 ? '평범한' : w <= 8 ? '형편이 넉넉한' : '아주 부유한'; }
 

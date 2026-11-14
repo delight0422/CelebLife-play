@@ -564,7 +564,7 @@ function jobFacts(s, id) {
   if (gf != null) F.push(['그룹 팬', fmtFans(gf)]);
   const jf = Math.round((s.jf || {})[id] || 0);
   if (POP_JOBS.includes(id) || jf > 0) F.push([gf != null ? '개인 팬' : '모은 팬', fmtFans(jf)]); // v219: 그룹이 없는 일은 '이 일로 모은 팬'
-  if (POP_JOBS.includes(id)) F.push(['인기', popTxt(jpop(s, id))]);
+  if (POP_JOBS.includes(id)) F.push(['인기', popTxt(jpop(s, id), s)]);
   const cl = contractLine(s, id);
   if (cl) F.push(['계약', cl.replace('계약 ', '')]);
   return F;
@@ -1565,11 +1565,11 @@ function pfJobTab(s) {
 // 직업별 번 돈: 맨 위에 합계, 아래에 직업마다 많이 번 것부터. 어느 직업도 아닌 돈은 '그 밖에', 나눠 적기 전(예전 세이브)에 번 돈은 '예전에 번 돈'
 // 직업별 인기: 지금 하는 직업과 예전에 했던 직업 (대중 앞에 이름을 거는 직업만)
 // 인기 글자: '45(보통)'
-function popTxt(v) { return popWord(v); } // v219: 숫자 없이 낱말로만
+function popTxt(v, s) { return s && popUnknown(s) ? '아직 알려지지 않음' : popWord(v); } // v219: 숫자 없이 낱말로만
 function jobPopHTML(s) {
   const L = POP_JOBS.filter(id => CAREERS[id] && s.tracks[id] && s.tracks[id].st !== 'none');
   if (!L.length) return '';
-  return `<div class="sec-h">⭐ 인기</div>` + mastBars(L.map(id => ({ n: jobEarnName(id), tag: trackOn(s, id) ? '' : '예전', down: true, v: jpop(s, id), txt: popTxt(jpop(s, id)) })), 'pop', 'wide');
+  return `<div class="sec-h">⭐ 인기</div>` + mastBars(L.map(id => ({ n: jobEarnName(id), tag: trackOn(s, id) ? '' : '예전', down: true, v: popUnknown(s) ? 0 : jpop(s, id), txt: popTxt(jpop(s, id), s) })), 'pop', 'wide');
 }
 function jobEarnName(j) { return EARN_EXTRA[j] || (CAREERS[j] ? `${jobIc(j)} ${jobName(j)}` : j); }
 function jobEarnHTML(s) {
@@ -2106,7 +2106,7 @@ function panelJob() {
   // 실력은 '내 실력' 한 줄만: 직업 정보에 '내 실력'이 없으면 그 일과 가장 가까운 특기를 '내 실력'으로 넣는다
   if (!ci.some(r => Array.isArray(r) && r[0] === '내 실력')) { const cs = careerSkill(s, id); if (cs) info.push(['내 실력', cs]); }
   // 개인 팬 = 이 일로 모은 팬 (v149): 직업마다 따로 센다. 합친 팬 수는 상태 박스에 있다
-  if (POP_JOBS.includes(id)) info.unshift(['인기', popTxt(jpop(s, id))]);
+  if (POP_JOBS.includes(id)) info.unshift(['인기', popTxt(jpop(s, id), s)]);
   info.unshift([jobGroupFans(s, id) != null ? '개인 팬' : '이 일로 모은 팬', fmtFans(Math.round((s.jf || {})[id] || 0))]);
   const cl = contractLine(s, id); if (cl) { const m = c.cLeft(s, t); info.push(['계약 기간', `${cl.replace('계약 ', '')} (${Math.max(0, m)}개월 남음)`]); }
   // 회사 대표는 회사가 곧 소속: 내 실력 · 돈 줄 말고는 모두 회사 탭
@@ -2516,7 +2516,7 @@ function pfWorksTab(s) {
 function homeNow(s) {
   const r = REGION_BY[s.region], hm = s.home, where = `${s.place}`;
   if (isDorm(s)) return { ic: '🏢', k: '기획사 숙소', n: '기획사 숙소', d: '집세가 들지 않는다' };
-  if (hm.mode === 'parents') return { ic: '👪', k: '본가', n: `${where} 본가`, d: age(s) >= 19 ? `부모님 집 · 매달 생활비 ${homeBase(s)}만 원과 번 돈의 15%를 보탠다` : '부모님 집' };
+  if (hm.mode === 'parents') return { ic: '👪', k: '본가', n: `${where} 본가`, d: age(s) >= 19 ? `부모님 집 · 매달 생활비 ${homeBase(s)}만 원과 번 돈의 15%를 보탠다${homeFeeNote(s)}` : '부모님 집' };
   const t = hm.type || 'monthly', z = homeSize(hm), nm = homeName(t, z), mc = homeMonthly(s.region, t, z), eq = ` · 장비 ${SIZE_EQ[z]}개까지 · ${SIZE_REST_N[z]}`;
   if (t === 'monthly') return { ic: '🔑', k: '월세', n: `${where} ${nm}`, d: `보증금 ${fmtWon(hm.deposit || 0)} · 매달 월세·생활비 ${mc}만 원${eq}` };
   if (t === 'jeonse') return { ic: '📄', k: '전세', n: `${where} ${nm}`, d: `전세금 ${fmtWon(hm.deposit || 0)}${hm.loan ? ` (남은 대출 ${fmtWon(hm.loan)})` : ''} · 월세 없음 · 매달 관리비·생활비 ${mc}만 원${hm.loan ? ' + 대출 상환' : ''}${eq}` };
@@ -2529,7 +2529,7 @@ const LIFE_SECS = [['home', '🏠', '집'], ['subs', '🥗', '지속 관리'], [
 function lifeSecSum(s, k) {
   if (k === 'home') {
     const hn = homeNow(s), r = REGION_BY[s.region], hm = s.home, t = hm.type || 'monthly';
-    const cost = isDorm(s) ? '집세 없음' : hm.mode === 'parents' ? (age(s) >= 19 ? `생활비 월 ${homeBase(s)}만 원 + 번 돈의 15%` : '부모님 집') : t === 'monthly' ? `월세·생활비 월 ${r.rent}만 원` : `관리비·생활비 월 ${Math.round(r.rent * (t === 'jeonse' ? 0.55 : 0.45))}만 원${hm.loan ? ' + 대출 상환' : ''}`;
+    const cost = isDorm(s) ? '집세 없음' : hm.mode === 'parents' ? (age(s) >= 19 ? `생활비 월 ${homeBase(s)}만 원 + 번 돈의 15%${homeFeeNote(s)}` : '부모님 집') : t === 'monthly' ? `월세·생활비 월 ${r.rent}만 원` : `관리비·생활비 월 ${Math.round(r.rent * (t === 'jeonse' ? 0.55 : 0.45))}만 원${hm.loan ? ' + 대출 상환' : ''}`;
     const owe = (hm.loan || 0) + Math.max(0, s.debt) + (s.sibLoan ? s.sibLoan.left : 0) + (s.friendLoan ? s.friendLoan.left : 0);
     return { main: hn.n, sub: cost + (owe ? ` · 갚을 돈 ${fmtWon(owe)}` : '') };
   }

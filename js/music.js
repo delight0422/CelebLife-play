@@ -2289,12 +2289,20 @@ function soloBlock(s) {
 // v223: 솔로는 혼자 노래(랩 · 춤)로 서는 자리라 외모를 덜 본다. 실력 점수의 외모 보정은 절반만, 재능도 목소리 · 음감 · 스타성을 앞에 둔다
 function soloTrScore(s, type) { const lk = talB(me(s).tal.looks, false); return (soloScore(s, type) - lk) / 0.85 + lk * 0.5; }
 function soloTal(p) { const t = p.tal; return (t.voice + t.music + t.star + (t.looks + t.rhythm + t.express + t.athletic) * 0.5) / 5; }
-function soloTrAudScore(s, type) { const w = idolTalW(age(s)); return soloTrScore(s, type) * (1 - w) + (20 + (soloTal(me(s)) - 45) * 1.5) * w; }
+// v225 솔로 연습생 오디션 밸런스: 넉넉한 집에서 어릴 때부터 명문 학원을 다닌 재능 있는 지원자가 대형 기획사에 붙을 가능성이 절반쯤 되게 맞췄다 (예전엔 60~90%)
+//   ① 재능 점수의 기울기를 낮췄다 (재능 1에 1.5점 → 1.2점: 재능 68이면 54점 → 48점)
+//   ② 퍼포먼스형은 춤 재능(리듬감 · 운동신경 · 스타성)으로 본다 (예전엔 유형과 상관없이 목소리 · 음감 위주라 노래 재능만 좋아도 퍼포먼스형이 잘 붙었다)
+//   ③ 회사가 클수록 문턱이 더 높다 (소형 그대로 · 중형 +4 · 대형 +9)
+//   ④ 그 유형의 주특기(보컬 · 랩 · 댄스)가 너무 낮으면 깎인다 (소형 15 · 중형 20 · 대형 25레벨에 모자란 만큼 × 0.5점)
+const SOLO_AUD_K = 1.2, SOLO_AUD_B = [0, 4, 9];
+function soloTalT(p, type) { const t = p.tal; return type === 'perf' ? (t.rhythm + t.athletic + t.star + (t.looks + t.express + t.music + t.voice) * 0.5) / 5 : soloTal(p); }
+function soloTrAudScore(s, type) { const w = idolTalW(age(s)); return soloTrScore(s, type) * (1 - w) + (20 + (soloTalT(me(s), type) - 45) * SOLO_AUD_K) * w; }
+function soloAudGate(s, ag, type) { return Math.max(0, 10 + ag.tier * 5 - lv(me(s), type === 'perf' ? 'dance' : type)) * 0.5; }
 // 이미 인디 가수로 활동 중이면 예전처럼 곧바로 계약하는 오디션이다 (문턱도 예전 그대로: 회사 문턱 + 소형 0 · 중형 2 · 대형 4)
 const SOLO_GRP_M = 18, SOLO_GRP_LOOKS = 65;
 function soloIndieOn(s) { const t = s.tracks.solo; return !!t && t.st === 'indie'; }
 function soloTrBlock(s) { return soloIndieOn(s) ? '' : jobBlock(s, 'idol', ['trainee']); }
-function soloAudP(s, ag, type) { const a = age(s); if (soloIndieOn(s)) return audP(coFocus(s, 'music', ag.con, soloScore(s, type)) + pm(s, 'audition', 0) + (a <= 22 ? 2 : -3), ag.thr + ag.tier * 2 - 2); return audP(coFocus(s, 'music', ag.con, soloTrAudScore(s, type)) + (a <= 13 ? 2.5 : a <= 16 ? 1.5 : a <= 24 ? 0 : -2) + pm(s, 'audition', 0), ag.thr - 2); }
+function soloAudP(s, ag, type) { const a = age(s); if (soloIndieOn(s)) return audP(coFocus(s, 'music', ag.con, soloScore(s, type)) + pm(s, 'audition', 0) + (a <= 22 ? 2 : -3), ag.thr + ag.tier * 2 - 2); return audP(coFocus(s, 'music', ag.con, soloTrAudScore(s, type)) + (a <= 13 ? 2.5 : a <= 16 ? 1.5 : a <= 24 ? 0 : -2) + pm(s, 'audition', 0) - soloAudGate(s, ag, type), ag.thr - 2 + SOLO_AUD_B[U.clamp(ag.tier, 1, 3) - 1]); }
 // 솔로로 데뷔할 만한 실력인가 (예전 솔로 오디션의 합격선: 회사 문턱 + 소형 0 · 중형 2 · 대형 4)
 function soloTrReady(s, t, type) { const ag = AG[t.ag]; return !!ag && coFocus(s, 'music', ag.con, soloScore(s, type) - talB(me(s).tal.looks, false) * 0.5) + pm(s, 'audition', 0) >= ag.thr + ag.tier * 2 - 2; }
 for (const ag of musicAgencies()) JOB_APPLY.push({

@@ -609,7 +609,7 @@ E({
     const r = REGION_BY[s.region], inSeoul = s.region === 'seoul' || s.region === 'gangnam';
     // 이미 서울에 살면 '서울로 올라가기'는 보여 주지 않는다 (같은 말이 두 번 나오지 않게)
     return [
-      { t: '본가에 남는다', h: `생활비 월 ${homeBase(s)}만 원과 번 돈의 15% 보태기 · 나이가 들수록 더 보탠다`, f: s => { s.home.mode = 'parents'; return '본가에 남기로 했다.'; } },
+      { t: '본가에 남는다', h: `생활비 월 ${homeBase(s)}만 원과 번 돈의 15% 보태기${homeFeeNote(s)} · 나이가 들수록 더 보탠다`, f: s => { s.home.mode = 'parents'; return '본가에 남기로 했다.'; } },
       inSeoul ? null : { t: '서울로 올라가 월세 원룸을 구한다', h: `보증금 ${HOUSE.seoul.dep}만 원 · 월세·생활비 월 ${REGION_BY.seoul.rent}만 원 · 기획사와 방송국이 가깝다 · 돈이 모자라면 빚이 된다`, f: s => { const x = moveTo(s, 'seoul', 'monthly'); milestone(s, `${age(s)}세에 서울 ${s.place}에서 자취를 시작했다.`); return x; } },
       { t: `${s.place}에서 월세 원룸을 구한다`, h: `보증금 ${HOUSE[s.region].dep}만 원 · 월세·생활비 월 ${r.rent}만 원`, f: s => moveTo(s, s.region, 'monthly') },
     ].filter(Boolean);
@@ -626,7 +626,7 @@ E({
     const o = [], hm = s.home, own = hm.mode === 'alone', hn = own ? homeNow(s) : null;
     if (own && (!needApt(s) || inApt(s))) o.push({ t: `원래 내 집으로 간다 (${hn.n})`, h: hn.d, f: () => `숙소를 나와 ${josa(hn.n, '으로')} 돌아갔다.` });
     // 결혼했으면 본가로 돌아가지 않고 둘이 살 집을 구한다
-    if (!isSpouse(partner(s))) o.push({ t: '본가로 내려간다', ok: () => canHome, h: canHome ? `${s.birthPlace || '본가'} · 생활비 월 ${homeBase(s)}만 원과 번 돈의 15% 보태기` : (parentsAlive(s).length ? '부모님이 다시 들어오는 건 반대하신다' : '돌아갈 본가가 없다'), f: s => { moveHomeParents(s); s.done.leave_home = s.done.leave_home || 1; return '숙소를 나와 본가로 돌아갔다.'; } }); // v224: 여기서 본가를 골랐으면 열아홉 살의 '어디서 살까?'를 또 묻지 않는다
+    if (!isSpouse(partner(s))) o.push({ t: '본가로 내려간다', ok: () => canHome, h: canHome ? `${s.birthPlace || '본가'} · 생활비 월 ${homeBase(s)}만 원과 번 돈의 15% 보태기${homeFeeNote(s)}` : (parentsAlive(s).length ? '부모님이 다시 들어오는 건 반대하신다' : '돌아갈 본가가 없다'), f: s => { moveHomeParents(s); s.done.leave_home = s.done.leave_home || 1; return '숙소를 나와 본가로 돌아갔다.'; } }); // v224: 여기서 본가를 골랐으면 열아홉 살의 '어디서 살까?'를 또 묻지 않는다
     // 결혼했으면 원룸 대신 투룸
     const sz = needApt(s) ? 'l' : isSpouse(partner(s)) ? 'm' : 's', mn = homeName('monthly', sz);
     if (!(own && hm.type === 'monthly')) o.push({ t: `${s.place}에서 ${josa(mn, '을를')} 구한다`, h: `보증금 ${fmtWon(homeNeed(s.region, 'monthly', sz))} · 월세·생활비 월 ${homeMonthly(s.region, 'monthly', sz)}만 원 · 돈이 모자라면 빚이 된다`, f: s => { const x = moveTo(s, s.region, 'monthly', sz); milestone(s, `${age(s)}세에 숙소를 나와 ${s.place}에서 자취를 시작했다.`); return x; } });

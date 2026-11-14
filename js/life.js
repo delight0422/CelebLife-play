@@ -197,7 +197,10 @@ function houseNote(s) { const h = s.home; return (h.loan ? '대출을 뺀 금액
 // 매달 집 관련 비용 (기획사 숙소에 살 때는 들지 않는다)
 // 본가에 살 때 보태는 생활비: 나이가 들수록 늘고, 번 돈의 15%도 함께 보탠다 (최대 100만 원)
 function homeBase(s) { const a = age(s), poor = s.wealth <= 3; return (a < 23 ? (poor ? 50 : 25) : a < 27 ? (poor ? 60 : 40) : (poor ? 80 : 60)) + (s.flags.homeFeeUp ? 30 : 0); }
-function homeFee(s) { return homeBase(s) * 1e4 + Math.min(100e4, Math.round(((s.mon.ent || 0) + (s.mon.job || 0)) * 0.15 / 1e4) * 1e4); }
+// v225: 스물두 살까지는 버는 돈이 없는 달에 기본 생활비를 내지 않는다 (수입 없는 대학생이 본가에 살기만 해도 다달이 빚이 쌓이던 것)
+// 저작권료는 생활비보다 뒤에 들어와서, 지난달에 번 돈(lastMon.ent)도 함께 본다
+function homeFee(s) { const inc = (s.mon.ent || 0) + (s.mon.job || 0), none = inc <= 0 && !((s.lastMon || {}).ent > 0); return (age(s) < 23 && none ? 0 : homeBase(s) * 1e4) + Math.min(100e4, Math.round(inc * 0.15 / 1e4) * 1e4); }
+function homeFeeNote(s) { return age(s) < 23 ? ' · 22세까지는 버는 돈이 없는 달엔 내지 않는다' : ''; }
 function housingMonth(s) {
   const h = s.home, r = REGION_BY[s.region];
   // 결혼했는데 원룸에 살면 둘이 살 집으로 옮긴다 (events.js home_wed)
@@ -325,7 +328,7 @@ function lifeActs(s) {
   if (s.friendLoan) A.push({ sec: 'loan', t: `${s.friendLoan.name}에게 빌린 돈 한 번에 갚기`, price: `남은 돈 ${fmtWon(s.friendLoan.left)}`, eff: `지금은 매달 ${fmtWon(s.friendLoan.pay)}씩 저절로 갚는 중`, ok: s.money >= s.friendLoan.left, why: '돈이 모자라다', btn: '갚기', run: s => { const L = s.friendLoan; addMoney(s, -L.left, `${L.name}에게 갚은 돈`); s.friendLoan = null; return `${L.name}에게 빌린 ${josa(fmtWon(L.left), '을를')} 다 갚았다.`; } });
   // 형제자매에게 빌리기: 가장 가까운 형제에게 빌린다
   { const b = bestSib(s); if (a >= 19 && b) { const v = sibLendAmt(s), no = sibLendWhy(s, b); A.push({ sec: 'loan', t: `${b.name}에게 돈 빌리기`, price: fmtWon(v), eff: `형제자매 · 이자 없음 · 매달 ${fmtWon(sibLoanPay(v))}씩 저절로 갚는다`, ok: !no, why: no, btn: '빌리기', confirm: `${b.name}에게 ${josa(fmtWon(v), '을를')} 빌릴까요?\n매달 ${fmtWon(sibLoanPay(v))}씩 저절로 갚아요.`, run: s => sibBorrow(s, b) }); } }
-  if (h.mode === 'alone' && parentsAlive(s).length) A.push({ sec: 'home', homeType: 'parents', t: '본가로 돌아가기', price: `생활비 월 ${homeBase(s)}만 원`, eff: `${josa(s.birthPlace || '본가', '으로')} 돌아간다 · 번 돈의 15%도 보탠다`, note: houseAsset(s) ? `지금 집은 정리한다 (${fmtWon(houseAsset(s))} 돌려받음)` : '', ok: canMove && !s.flags.kickedOut && !needApt(s) && !married(s), why: s.flags.kickedOut ? '부모님이 다시 들어오는 건 반대하신다' : needApt(s) ? '아이가 셋이라 아파트에서 살아야 한다' : married(s) ? '결혼했으면 둘이 살 집에서 산다' : why, btn: '돌아가기', run: moveHomeParents });
+  if (h.mode === 'alone' && parentsAlive(s).length) A.push({ sec: 'home', homeType: 'parents', t: '본가로 돌아가기', price: `생활비 월 ${homeBase(s)}만 원`, eff: `${josa(s.birthPlace || '본가', '으로')} 돌아간다 · 번 돈의 15%도 보탠다${homeFeeNote(s)}`, note: houseAsset(s) ? `지금 집은 정리한다 (${fmtWon(houseAsset(s))} 돌려받음)` : '', ok: canMove && !s.flags.kickedOut && !needApt(s) && !married(s), why: s.flags.kickedOut ? '부모님이 다시 들어오는 건 반대하신다' : needApt(s) ? '아이가 셋이라 아파트에서 살아야 한다' : married(s) ? '결혼했으면 둘이 살 집에서 산다' : why, btn: '돌아가기', run: moveHomeParents });
 
   for (const [id, x] of Object.entries(SUBS)) {
     const on = !!(s.subs && s.subs[id]);
