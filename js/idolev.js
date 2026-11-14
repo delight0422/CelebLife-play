@@ -22,7 +22,7 @@ function idolPhase(s, t) {
 // 일정 칸 이름도 시기를 따른다 (연습생 · 밴드 연습생은 예전 그대로)
 Object.defineProperty(CAREERS.idol, 'act', {
   configurable: true,
-  get() { const s = typeof S !== 'undefined' ? S : null; if (idolIsBand(s)) return BAND_TR_ACT; const t = s && s.tracks && s.tracks.idol; return t && t.st === 'active' ? IDOL_PH[idolPhase(s, t)] : IDOL_ACT; },
+  get() { const s = typeof S !== 'undefined' ? S : null; if (idolIsBand(s)) return BAND_TR_ACT; if (idolIsSoloTr(s)) return SOLO_TR_ACT; const t = s && s.tracks && s.tracks.idol; return t && t.st === 'active' ? IDOL_PH[idolPhase(s, t)] : IDOL_ACT; },
 });
 CAREERS.idol.autoList = (s, t) => {
   if (t.st !== 'active') return [{ ic: IDOL_ACT.ic, n: t.kind === 'band' ? '밴드 연습 (합주·트레이닝)' : '연습생 트레이닝', eff: '회사 연습실 · 월말 평가', on: true }];
@@ -343,7 +343,7 @@ E({
 // ② 월말 평가 뒤 트레이너 면담: 가장 약한 쪽을 맡은 트레이너(회사 트레이너팀 인물)
 E({
   id: 'idol_tr_talk', cat: '연습생', title: '트레이너 면담', tag: 'career', bg: 'practice', p: 0.04, cd: 10,
-  cond: s => idTr(s) && idT(s).months >= 3 && !idT(s).team,
+  cond: s => idTr(s) && idT(s).kind !== 'solo' && idT(s).months >= 3 && !idT(s).team,
   init(s, d) {
     const t = idT(s), p = me(s), L = typeof coTeamPeople === 'function' ? coTeamPeople(s, t.ag + '#tr') : [];
     const ks = ['vocal', 'dance', 'rap'].filter(k => has(p, k)).sort((a, b) => lv(p, a) - lv(p, b));
@@ -847,3 +847,43 @@ function idolRenew(s, t, pa, pc, cut1) {
   endGroup(s, '계약 만료로 해체'); idolMoveQ(s);
   return '멤버 절반 넘게 떠나기로 했다. 그룹은 사실상 해체됐다.' + fx(s, { stress: 6 });
 }
+// ───── v222: 솔로 연습생 · 데뷔 갈래 ─────
+// 기획사 솔로 오디션에 붙으면 아이돌 연습생과 같은 틀(idol 트랙, kind 'solo', stype = 솔로 유형)로 들어간다. 데뷔조는 없고, 실력이 차면 회사가 솔로 데뷔를 정한다 (music.js idolTraineeMonth)
+// 갈래: 아이돌 연습생에게 솔로 데뷔를 권하기도 하고(idol_tosolo), 솔로 연습생에게 그룹 데뷔조 자리를 권하기도 한다(solo_togroup)
+function idolIsSoloTr(s) { const t = s && s.tracks && s.tracks.idol; return !!t && t.kind === 'solo' && t.st === 'trainee'; }
+function soloTypeAs(type) { const n = soloTypeN(type); return n + josa(n, '으로').slice(n.length); }
+// 연습생을 마치고 같은 회사에서 솔로로 데뷔한다. 쌓인 트레이닝 비용은 솔로 정산에서 먼저 갚는다 (billPay)
+function soloDebutFromTr(s, type) {
+  const t = s.tracks.idol, ag = t.ag, debt = t.debt || 0, months = t.kind === 'solo' ? t.gMonths || 60 : Math.min(t.gMonths || 60, 60), cut = t.cut;
+  for (const n of people(s, n => n.rel === '동기' && n.trainee === t.ag)) { n.rel = '친구'; n.trainee = null; }
+  t.st = 'ended'; t.endNote = `${t.agN} 연습생 (솔로 데뷔)`; t.hist.push(t.endNote);
+  const r = startSoloSigned(s, ag, { type, months, cut });
+  s.tracks.solo.debt = debt; s.tracks.solo.fromTr = true;
+  milestone(s, `${age(s)}세에 연습생을 마치고 솔로 ${soloTypeAs(type)} 데뷔했다.`);
+  return r || '';
+}
+E({
+  id: 'solo_trdebut', cat: '데뷔', title: '솔로 데뷔 확정', tag: 'career', keepPop: true,
+  cond: s => idolIsSoloTr(s),
+  text: s => { const t = s.tracks.idol; return `${t.agN}에서 나를 불렀다. "이제 혼자 무대에 세워도 되겠다."\n\n솔로 ${soloTypeAs(t.stype)} 데뷔가 정해졌다. (연습생 ${yrsMo(t.months)} · 최근 평가 ${t.rank}위)${t.debt > 0 ? ` 그동안 쌓인 트레이닝 비용 ${fmtWon(t.debt)}은 음반 · 음원 정산에서 먼저 갚는다.` : ''}`; },
+  ch: () => [{ t: '드디어 데뷔다', f: s => soloDebutFromTr(s, s.tracks.idol.stype || bestSoloType(s)) + fx(s, { stress: -6 }) }],
+});
+E({
+  id: 'idol_tosolo', cat: '연습생', title: '솔로 데뷔 제안', tag: 'career',
+  cond: s => idTr(s) && idT(s).kind === 'idol' && !idT(s).team,
+  init(s, d) { d.type = bestSoloType(s); },
+  text: (s, d) => { const t = s.tracks.idol; return `${t.agN} 신인개발팀에서 따로 불렀다. "그룹 데뷔조에는 자리가 잘 안 맞는데, 혼자서는 충분히 설 수 있을 것 같아. 솔로 ${soloTypeAs(d.type)} 데뷔해 볼래?"\n\n받으면 연습생을 마치고 곧바로 솔로 데뷔 준비에 들어간다.`; },
+  ch: (s, d) => [
+    { t: '솔로로 데뷔한다', f: s => soloDebutFromTr(s, d.type) },
+    { t: '그룹 데뷔를 기다린다', h: '1년 뒤에 다시 이야기할 수 있다', f: s => { s.tracks.idol.soloAsk = s.t + 12; return '솔로 제안을 사양하고 그룹 데뷔를 기다리기로 했다.'; } },
+  ],
+});
+E({
+  id: 'solo_togroup', cat: '연습생', title: '그룹 데뷔조 제안', tag: 'career',
+  cond: s => idolIsSoloTr(s) && !married(s),
+  text: s => { const t = s.tracks.idol; return `${t.agN}에서 새 그룹 데뷔조를 꾸리는데 한 자리가 비었다고 한다. "솔로 준비는 잠깐 접고, 그룹으로 먼저 데뷔해 보지 않을래?"\n\n받으면 데뷔조에 들어가 반년쯤 준비한 뒤 그룹으로 데뷔한다. 계약도 그룹 전속 계약(${yrs(84)})으로 바뀐다.`; },
+  ch: () => [
+    { t: '데뷔조에 들어간다', h: '데뷔조에서 빠지게 되면 다시 솔로 준비로 돌아온다', f: s => { const t = s.tracks.idol; t.kind = 'idol'; t.wasSolo = true; t.gMonths = Math.max(t.gMonths || 0, 84); t.team = true; t.prep = 0; t.seatLost = false; t.seatQ = false; return '솔로 준비를 접고 그룹 데뷔조에 들어갔다!' + fx(s, { stress: -4 }); } },
+    { t: '솔로 준비를 계속한다', h: '한동안 다시 권하지 않는다', f: s => { s.tracks.idol.grpAsk = s.t + 18; return '그룹 제안을 사양하고 솔로 준비를 계속하기로 했다.'; } },
+  ],
+});

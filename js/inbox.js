@@ -124,8 +124,8 @@ function negoTerms(d) {
   const o = d.orig || d, L = [];
   const v = (a, b, f) => a == null || f(a) === f(b) ? f(b) : `${WAS(f(a))} → ${NOW(f(b))}`;
   if (d.sal) L.push(`월급 ${v(o.sal, d.sal, fmtWon)}`);
-  if (d.months) L.push(d.kind === 'idol' ? `데뷔하면 그룹 전속 계약 ${v(o.months, d.months, yrs)} (연습생 계약은 ${d.trC || '17세까지, 그 뒤로는 1년씩'})` : `계약 기간 ${v(o.months, d.months, yrs)}`);
-  if (d.cut != null) L.push(`벌어들인 돈 중 회사 몫 ${v(o.cut, d.cut, pctN)} · 내 몫 ${v(o.cut == null ? null : 1 - o.cut, 1 - d.cut, pctN)}${d.kind === 'idol' || d.kind === 'band' ? ' (내 몫은 멤버 수대로 나눈다)' : ''}`);
+  if (d.months) L.push(d.kind === 'idol' ? `데뷔하면 ${d.k2 === 'solo' ? '솔로' : d.k2 === 'band' ? '밴드' : '그룹'} 전속 계약 ${v(o.months, d.months, yrs)} (연습생 계약은 ${d.trC || '17세까지, 그 뒤로는 1년씩'})` : `계약 기간 ${v(o.months, d.months, yrs)}`);
+  if (d.cut != null) L.push(`벌어들인 돈 중 회사 몫 ${v(o.cut, d.cut, pctN)} · 내 몫 ${v(o.cut == null ? null : 1 - o.cut, 1 - d.cut, pctN)}${(d.kind === 'idol' && d.k2 !== 'solo') || d.kind === 'band' ? ' (내 몫은 멤버 수대로 나눈다)' : ''}`);
   if (d.bonus) L.push(`계약금 ${v(o.bonus, d.bonus, fmtWon)} (한 번에)`);
   if (d.feeR != null) L.push(`작품마다 연출료 프리랜서의 ${v(o.feeR, d.feeR, pctN)}${d.pjFee ? ` (데뷔작 약 ${fmtWon(Math.round(d.pjFee * d.feeR / 1e5) * 1e5)})` : ''}`);
   return L.map(x => '· ' + x).join('\n');

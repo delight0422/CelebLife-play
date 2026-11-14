@@ -498,8 +498,8 @@ function panelSoon() {
 }
 // 직업 이름: 진로 목록과 같은 이름 (연주가만 짧게)
 // 밴드 연습생(idol 트랙 kind 'band')은 직업 카드 · 창에서 '밴드 연습생' · 🎸로 보인다 (v116 버그 8). 진로 백과사전 설명은 그대로
-function jobName(id) { return id === 'player' ? '연주가' : id === 'idol' && idolIsBand(S) ? '밴드 연습생' : id === 'agency' && S && (S.tracks.agency || {}).hire && trackOn(S, 'agency') ? 'CEO' : CAREERS[id].n; }
-function jobIc(id) { return id === 'idol' && idolIsBand(S) ? '🎸' : CAREERS[id].ic || '⭐'; }
+function jobName(id) { return id === 'player' ? '연주가' : id === 'idol' && idolIsBand(S) ? '밴드 연습생' : id === 'idol' && typeof idolIsSoloTr === 'function' && idolIsSoloTr(S) ? '솔로 연습생' : id === 'agency' && S && (S.tracks.agency || {}).hire && trackOn(S, 'agency') ? 'CEO' : CAREERS[id].n; }
+function jobIc(id) { return id === 'idol' && idolIsBand(S) ? '🎸' : id === 'idol' && typeof idolIsSoloTr === 'function' && idolIsSoloTr(S) ? '🎙️' : CAREERS[id].ic || '⭐'; }
 // 직업마다 관련 분야의 유행: 직업 창 맨 위에 그 분야 유행만 보인다 (모델은 없음)
 const JOB_FIELD = { idol: 'music', band: 'music', solo: 'music', player: 'music', composer: 'music', lyricist: 'music', producer: 'music', anr: 'music', trainer: 'music', dancer: 'music', animator: 'anime', adir: 'anime', voice: 'anime', webtoon: 'web', webnovel: 'web', actor: 'drama', director: 'drama', writer: 'drama', acttrainer: 'drama', variety: 'show', youtube: 'yt', vidol: 'yt', editor: 'yt', agency: 'music' };
 function trendRowHTML(s, only) {
@@ -752,11 +752,11 @@ for (const [k, L] of Object.entries({
   // 회의실: 컴백 · 신곡 · 편곡 회의, 프로듀서 · A&R · 마케터의 기획, 계약 이야기
   meeting: ['co_plan', 'co_pick', 'idol_cb', 'band_cb', 'band_arr', 'solo_meet', 'band_meet', 'prod_plan', 'prod_song', 'anr_pick', 'mk_promo', 'mk_launch', 'co_aud_pick', 'co_trn_out', 'contract_nego', 'idol_contract', 'solo_contract', 'band_contract', 'idol_renew', 'idol_jp'],
   // 연습실: 연습생 오디션 · 평가 · 데뷔조 · 방출, 같이 남아서 하는 연습
-  practice: ['idol_aud', 'bandtr_pick', 'idol_team', 'idol_cut', 'idol_teamcut', 'team_stay', 'team_flop', 'tr_eval', 'co_eval', 'co_eval_res', 'co_sq_ready', 'co_tr_left', 'dc_aud'],
+  practice: ['idol_aud', 'bandtr_pick', 'idol_tosolo', 'solo_togroup', 'idol_team', 'idol_cut', 'idol_teamcut', 'team_stay', 'team_flop', 'tr_eval', 'co_eval', 'co_eval_res', 'co_sq_ready', 'co_tr_left', 'dc_aud'],
   // 길거리: 캐스팅
   street: ['child_model'],
   // 음악방송 대기실: 데뷔 날 · 서바이벌 프로그램
-  waiting: ['idol_debut', 'band_debut', 'idol_surv'],
+  waiting: ['idol_debut', 'band_debut', 'solo_trdebut', 'idol_surv'],
   // fansign(팬사인회장)은 v157 팬사인회 사건에서 쓴다
 })) for (const id of L) SC_OF[id] = k;
 function scLoad() {
@@ -1713,7 +1713,7 @@ const DICT_TABS = [['career', '🧭 진로'], ['life', '🏠 생활']];
 const CAREER_REQ = {
   idol: [['기획사 아이돌 오디션', '11~24세 · 노래 · 랩 · 춤 중 하나를 할 줄 알아야 한다 · 일본 · 미국 기획사는 일본어나 영어도 본다']],
   band: [['밴드 만들기', '14세부터 · 보컬 · 기타 · 베이스 · 드럼 · 키보드 중 하나가 8레벨 이상'], ['인디 밴드 구인 공고에 지원', '14세부터 · 위 파트 중 하나가 18레벨 이상'], ['기획사 밴드 연습생 오디션', '13~24세 · 보컬이나 악기 하나가 12레벨 이상 · 한국 소형 · 중형 기획사'], ['기획사에 밴드 데모 보내기', '인디 밴드 멤버가 다 모이면']],
-  solo: [['인디 가수로 시작하기', '15세부터 · 보컬이나 랩이 12레벨 이상'], ['기획사 솔로 오디션', '15~30세 · 노래나 랩을 할 줄 알아야 한다 · 일본 · 미국 기획사는 일본어나 영어도 본다']],
+  solo: [['인디 가수로 시작하기', '15세부터 · 보컬이나 랩이 12레벨 이상'], ['기획사 솔로 오디션', '15~30세 · 노래나 랩을 할 줄 알아야 한다 · 붙으면 솔로 연습생으로 들어가고, 혼자 설 실력이 되면 회사가 데뷔를 정한다 · 이미 인디 가수로 활동 중이면 붙는 대로 곧바로 계약한다 · 일본 · 미국 기획사는 일본어나 영어도 본다']],
   player: [['연주가로 활동 시작', '14세부터 · 악기 하나가 15레벨 이상']],
   dancer: [['프리랜서 댄서로 시작하기', '15세부터 · 댄스 25레벨 이상'], ['댄스팀 입단 오디션', '15~35세']],
   actor: [['드라마 · 영화 오디션 (활동 지원)', '8세부터 · 연기 10레벨 이상 · 붙으면 배우 일을 시작한다'], ['배우 소속사 오디션', '8~40세'], ['지금 소속사를 통해 연기 시작하기', '14세부터 · 음악 소속사에 있을 때 · 연기 15레벨 이상'], ['소속사 없이 배우 시작하기', '19세부터 · 연기 15레벨 이상']],
@@ -2136,7 +2136,7 @@ function panelJob() {
   const isM = r => Array.isArray(r) && MONEY_ROWS.includes(r[0]), isB = r => !Array.isArray(r) && r.bars;
   // 활동명 (v162): 직업 지원 창이 아니라 여기서만 바꾼다
   const sn = snRowHTML(s, id);
-  return h + sn + infoGroups([['⭐ 나', info.filter(r => !isM(r) && !isB(r))], ['📈 숙련도', info.filter(isB)], ['💰 계약 · 돈', info.filter(isM)]]) + (c.desc ? `<p class="hint" style="margin-top:var(--sp-3)">${U.esc(c.desc)}</p>` : '') + jobQuitHTML(s, id);
+  return h + sn + infoGroups([['⭐ 나', info.filter(r => !isM(r) && !isB(r))], ['📈 숙련도', info.filter(isB)], ['💰 계약 · 돈', info.filter(isM)]]) + (c.desc ? `<p class="hint" style="margin-top:var(--sp-3)">${U.esc(id === 'idol' && typeof idolIsSoloTr === 'function' && idolIsSoloTr(s) ? SOLO_TR_DESC : c.desc)}</p>` : '') + jobQuitHTML(s, id);
 }
 // 탈퇴 · 그만두기 (v163: 정보 탭 맨 아래). 누르면 정말 할지 한 번 묻는다
 function jobQuitHTML(s, id) {
