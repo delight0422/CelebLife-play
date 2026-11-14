@@ -155,7 +155,7 @@ function wbMonth(s, id, t) {
   // 군 복무 중에는 휴재한다 (연재는 끊기지 않고 독자만 조금씩 빠진다)
   if (s.army) { w.readers = Math.round(w.readers * 0.97); return; }
   // 논란 자숙 중에도 휴재로 세지 않는다 (v93: 자숙하다 연재가 끊기지 않게). 독자만 조금씩 빠진다
-  if (s.hiatus && !n) { w.readers = Math.round(w.readers * 0.97); return; }
+  if ((s.hiatus || pregMe(s)) && !n) { w.readers = Math.round(w.readers * 0.97); return; } // v214: 임신 중에도 휴재로 세지 않는다
   // 끈기가 낮으면 일을 넣어도 원고를 미루다 마감을 놓친다 (v93, 정식 연재만)
   let lazy = false;
   if (n && w.pro && U.chance(wbLazyP(s))) { n = 0; lazy = true; }

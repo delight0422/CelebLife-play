@@ -103,6 +103,7 @@ CAREERS.animator = {
     if (t.mode === 'emp') {
       empMonth(s, 'animator', t);
       earn(s, t.sal, '월급', 'animator');
+      if (!n && pregMe(s)) return; // v214: 임신 중에는 쉬어도 평가가 깎이지 않는다
       if (!n) { t.idle = (t.idle || 0) + 1; if (t.idle >= 4) { t.idle = 0; empRep(s, 'animator', t, -8); addLog(s, '작화팀에서 요즘 맡은 컷이 밀린다는 말을 들었다.', 'career'); } return; }
       t.idle = 0;
       practice(s, p, 'art', 1.3 * n); addStress(s, 2);

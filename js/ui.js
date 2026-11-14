@@ -124,7 +124,7 @@ function growSnap(s) {
 function growLines(a, b) {
   const L = [];
   for (const k in b.sk) if (a.sk[k] != null && b.sk[k] > a.sk[k]) L.push(`${SKILLS[k].n} ${a.sk[k]}→${b.sk[k]}레벨이 되었다.`);
-  for (const k in b.tal) if (b.tal[k] > a.tal[k]) L.push(`${TALENT_BY[k].n} 재능 ${a.tal[k]}→${b.tal[k]}`);
+  for (const k in b.tal) if (b.tal[k] > a.tal[k]) L.push(`${TALENT_BY[k].n} ${a.tal[k]}→${b.tal[k]}`);
   for (const k in b.m) { const v0 = a.m[k] ? a.m[k].v : 0; if (b.m[k].v > v0) L.push(`${b.m[k].n} ${v0}→${b.m[k].v}`); }
   for (const k of ['평판', '인지도']) if (b[k] > a[k]) L.push(`${k} ${a[k]}→${b[k]}`);
   return L;
@@ -538,6 +538,8 @@ function renderProfileCard() {
   const gf = TALENTS_SHOWN.filter(t => (p.tal[t.id] || 0) >= 70).map(t => t.n);
   el.innerHTML = `<div class="card-h"><span class="pf-name">👤 ${U.esc(p.name)} <b>${age(s)}세</b></span>${gf.length ? `<span class="pf-gift">⭐ ${U.esc(gf.join(' · '))}</span>` : ''}</div>`
     + `<div class="pf-id">${U.esc(idLabel(s))}${sc && sc[1] ? `<span class="hint"> · ${U.esc(sc[1])}</span>` : ''}</div>`
+    // v214: 임신은 상태로 프로필 박스에 (내가 임신했으면 직업 활동을 쉰다)
+    + (s.preg ? `<div class="pf-st">${pregMe(s) ? '🤰 임신 중' : `👶 ${U.esc((partner(s) || { name: '배우자' }).name)} 임신 중`} · ${s.preg.left > 0 ? `${s.preg.left}개월 뒤 출산 (${ymLater(s, s.preg.left)})` : '곧 출산'}${pregMe(s) ? ' · 직업 활동은 쉰다' : ''}</div>` : '')
     + `<div class="pf-tbn">${PF_BNS.map(([k, ic, n]) => k === 'skills' ? `<button class="pf-tb" data-tstab="tal"><span class="pf-ic">${ic}</span> ${n}</button>` : `<button class="pf-tb" data-pftab="${k}"><span class="pf-ic">${ic}</span> ${n}</button>`).join('')}</div>`;
 }
 // 직업 배너에 보이는 것 (UI 개편 시안): 소속 · 그룹 팬 · 개인 팬 · 인기 · 계약 만료일. 없는 것은 빼고 보여 준다
@@ -592,7 +594,6 @@ function renderJobsCard() {
   // 논란 창을 아직 안 봤으면 직업 활동 칸에 미리 띄우지 않는다 (v129)
   if (s.scandal && (s.scandal.resp || s.scandal.seen)) row('scandal', `🔥 ${U.esc(SC[s.scandal.id].n)}`, s.scandal.resp ? '여론을 지켜보는 중' : '대응을 기다리는 중');
   if (s.hiatus) row('hiatus', '🤐 자숙', `${s.hiatus.left}개월 남음 (${ymLater(s, s.hiatus.left)})`);
-  if (s.preg) row('preg', '🤰 임신', `${s.preg.left}개월 뒤 출산 (${ymLater(s, s.preg.left)}) · 연예계 활동은 쉰다`);
   if (rows.length) h += `<div class="trks">${rows.join('')}</div>`;
   if (!any && !rows.length) {
     // v212: 구직활동 안내는 처음으로 지원할 수 있는 곳이 생긴 뒤부터 (그 전에는 눌러도 빈 창이다)
@@ -1006,12 +1007,13 @@ function resSplit(s, L0, M) {
 //   확인 하나뿐인 창은 그 창이 곧 결과라 토스트는 없고, 그사이 생긴 일만. noRes 창은 예전처럼 아무것도 띄우지 않는다
 function resAfter(pre, i) {
   const M = CH_END; CH_END = undefined;
+  const unc = CH_UNC; CH_UNC = false;
   if (!pre || !S || S.ended || pre.noRes === true) return false;
-  const { mine, other } = resSplit(S, pre.L0, M), one = !pre.form && pre.C.length < 2 && pre.noRes !== 'toast';
+  const { mine, other } = resSplit(S, pre.L0, M), one = !pre.form && pre.C.length < 2 && pre.noRes !== 'toast' && !unc;
   // noRes 'toast' (작품 기획 중 고르는 창): 제작 시작 창처럼 따로 그리는 창이 바로 뜨면 그 창이 결과를 보여 주니 생략
   const nx = S.pending && EVENTS[S.pending.id], c = pre.C[i];
   // v205: ev.noToast — 창 글을 되풀이할 뿐인 결과(데뷔조의 합이 맞기 시작했다 등)는 토스트를 띄우지 않는다 (기록에는 남는다)
-  if (mine.length && !one && !pre.noToast && !(pre.noRes === 'toast' && nx && nx.card && nx.card !== 'plan-card')) ctoastShow({ cat: pre.cat, title: pre.title, pick: c ? c.t : '', L: mine });
+  if (mine.length && !one && !pre.noToast && !(pre.noRes === 'toast' && nx && nx.card && nx.card !== 'plan-card')) ctoastShow({ cat: pre.cat, title: pre.title, pick: c ? c.t : '', L: mine, all: unc });
   if (!other.length) return false;
   resShow({ cat: '방금 고른 것과 따로', title: '그사이 생긴 일', L: other, next: afterChoice });
   return true;
@@ -1020,9 +1022,9 @@ function resAfter(pre, i) {
 // 화면 아래쪽 가운데에 크게. 한동안(글이 길수록 오래, 6~16초) 남고, 마우스를 올리면 멈춘다. ✕로 닫는다
 // 떠 있는 동안 창(사건 · 결과 · 요약)은 토스트 위쪽으로 비켜 선다 (body.ct-on, --ct-h). 한꺼번에 3개까지, 넘치면 오래된 것부터
 // v209: 결과 한 줄이 잘된 일(1)인지 · 안된 일(-1)인지 · 둘 다 아닌지(0). 0인 줄은 토스트로 띄우지 않는다 (멤버를 정했다 · 출자했다 같은 것)
-const TONE_B = /그런 쪽으로 볼 수 없다|결혼은 생각하지 않는다|자리를 피했|떨어졌|불합격|탈락|거절|실패|혹평|손해|망했|해체|떠났|그만뒀|그만두었|잃었|식었|아쉬|실수(?! 없)|지쳐|논란|모자라|못 했|못했|빚을 내|빚 \d|폐업|문을 닫|쫓겨|불발|무산|하락|지쳤|다쳤|줄었|낮아졌|내려갔|싸늘|외면|비판|악플|헤어졌|이혼|💔|⚠️/;
+const TONE_B = /맞대결에서 밀렸다|그런 쪽으로 볼 수 없다|결혼은 생각하지 않는다|자리를 피했|떨어졌|불합격|탈락|거절|실패|혹평|손해|망했|해체|떠났|그만뒀|그만두었|잃었|식었|아쉬|실수(?! 없)|지쳐|논란|모자라|못 했|못했|빚을 내|빚 \d|폐업|문을 닫|쫓겨|불발|무산|하락|지쳤|다쳤|줄었|낮아졌|내려갔|싸늘|외면|비판|악플|헤어졌|이혼|💔|⚠️/;
 const TONE_BS = /떨어졌|불합격|탈락|거절|실패|혹평|손해|망했|해체|폐업|문을 닫|무산|불발|하지 못|못했|못 했|지쳐/;
-const TONE_G = /같은 마음이었|사귀게 됐|오늘부터 1일|결혼했다|합격|뽑혔|발탁|성공|(?:^|[^0-9])1위|🏆|상을 받|돌파|매진|호평|대박|흥행|올랐|늘었|데뷔했|데뷔한다|데뷔하게 됐|데뷔가 확정|데뷔를 확정|데뷔 무대|화제가 됐|화제가 되|화제를 모|화제였|캐스팅됐|캐스팅되었|캐스팅이 확정|계약했|재계약을 하고|선정|칭찬|반응이 좋|터졌|인기를|이겼|우승|입상|승진|벌었|받아 줬|손잡았|제작을 시작했|\[새 특기|높아졌|좋아했|뜨거웠|박수|환호|등급 ↑/;
+const TONE_G = /더 주목받았다|같은 마음이었|사귀게 됐|오늘부터 1일|결혼했다|합격|뽑혔|발탁|성공|(?:^|[^0-9])1위|🏆|상을 받|돌파|매진|호평|대박|흥행|올랐|늘었|데뷔했|데뷔한다|데뷔하게 됐|데뷔가 확정|데뷔를 확정|데뷔 무대|화제가 됐|화제가 되|화제를 모|화제였|캐스팅됐|캐스팅되었|캐스팅이 확정|계약했|재계약을 하고|선정|칭찬|반응이 좋|터졌|인기를|이겼|우승|입상|승진|벌었|받아 줬|손잡았|제작을 시작했|\[새 특기|높아졌|좋아했|뜨거웠|박수|환호|등급 ↑/;
 // 내가 고른 거절 · 그만둠(주어가 없는 문장: '입사 제안을 거절했다', '고백을 정중히 거절했다', '애니메이터 일을 그만뒀다')은 빼고 본다
 //   남이 거절한 것('김도윤은 주연 제안을 거절했다')은 주어가 있어 그대로 실패
 const TONE_N = /(?:제안|고백|부탁|요청|초대|섭외|의뢰|권유)[을를]\s*(?:정중히\s*|결국\s*)?거절했다|(?:일|활동|연재|방송|수업|아르바이트|알바)[을를]\s*그만(?:뒀|두었)다/;
@@ -1035,14 +1037,15 @@ function logTone(x) {
   return g && b ? (TONE_BS.test(t) ? -1 : 1) : g ? 1 : b ? -1 : 0;
 }
 function ctoastShow(o) {
-  const L = (o.L || []).map(x => [x, logTone(x)]).filter(([, tn]) => tn);
+  // v214: o.all — 결과가 정해져 있지 않던 선택(확률을 굴린 선택)은 잘됐다 · 안됐다 낱말이 없는 줄도 띄운다 (일상 줄은 빼고)
+  const L = (o.L || []).map(x => [x, logTone(x)]).filter(([x, tn]) => tn || (o.all && x.k !== 'flavor' && String(x.x || '').trim()));
   if (!L.length) return; // v209: 잘됐다 · 안됐다가 없는 결과는 토스트를 띄우지 않는다
-  const nG = L.filter(([, tn]) => tn > 0).length, nB = L.length - nG, tone = nB && !nG ? 'b' : nG && !nB ? 'g' : 'm';
+  const nG = L.filter(([, tn]) => tn > 0).length, nB = L.filter(([, tn]) => tn < 0).length, tone = nB && !nG ? 'b' : nG && !nB ? 'g' : 'm';
   let box = $('#ctoast');
   if (!box) { box = document.createElement('div'); box.id = 'ctoast'; box.className = 'ctoast'; document.body.appendChild(box); }
   const e = document.createElement('div'), hd = [o.cat, o.title].filter(Boolean).filter((x, i, A) => A.indexOf(x) === i).join(' · ');
   e.className = 'ct-i ' + tone;
-  e.innerHTML = `<button type="button" class="ct-x" aria-label="닫기">✕</button><div class="ct-h">${tone === 'g' ? '✅ ' : tone === 'b' ? '❌ ' : ''}${U.esc(hd || '방금 한 일')}</div>${o.pick ? `<div class="ct-pick">✔ ${U.esc(o.pick)}</div>` : ''}<div class="ct-b">${L.map(([x, tn]) => `<div class="ct-l ${tn > 0 ? 'g' : 'b'}">${resLine(x.x)}${x.sub ? `<span class="res-sub">${nl(x.sub)}</span>` : ''}</div>`).join('')}</div>`;
+  e.innerHTML = `<button type="button" class="ct-x" aria-label="닫기">✕</button><div class="ct-h">${tone === 'g' ? '✅ ' : tone === 'b' ? '❌ ' : ''}${U.esc(hd || '방금 한 일')}</div>${o.pick ? `<div class="ct-pick">✔ ${U.esc(o.pick)}</div>` : ''}<div class="ct-b">${L.map(([x, tn]) => `<div class="ct-l ${tn > 0 ? 'g' : tn < 0 ? 'b' : ''}">${resLine(x.x)}${x.sub ? `<span class="res-sub">${nl(x.sub)}</span>` : ''}</div>`).join('')}</div>`;
   const len = L.map(([x]) => x).reduce((a, x) => a + String(x.x || '').replace(/<[^>]+>/g, '').length, 0), ms = Math.min(16000, 6000 + len * 45);
   let tm = null; const go = () => { clearTimeout(tm); tm = setTimeout(() => ctOut(e), ms); };
   e.addEventListener('mouseenter', () => clearTimeout(tm)); e.addEventListener('mouseleave', go);
@@ -1079,6 +1082,7 @@ function pResHTML() { return UI.pRes && UI.pRes.length ? `<div class="p-res"><bu
 function actDone(L0, title, onPend) {
   // 누른 일로 생긴 사건 중 고를 게 없는 것(방송 결과 등)은 창 없이 처리해서 결과에 같이 보여 준다
   const M = CH_END; CH_END = undefined;
+  const actUnc = !!UI.actUnc; UI.actUnc = false;
   autoEvs(S); pullNow(S); save(S);
   const L = logsAfter(S, L0);
   if (S.ended) { closePanel(); stopLoop(); showEnding(); return; }
@@ -1087,7 +1091,7 @@ function actDone(L0, title, onPend) {
     closePanel(); stopLoop();
     // v202: 누른 일의 결과는 아래쪽 토스트로, 그사이 생긴 일은 다음 창 '그사이 생긴 일'로 (resAfter와 같다)
     const { mine, other } = resSplit(S, L0, M);
-    if (mine.length) ctoastShow({ title: title || '방금 한 일', L: mine });
+    if (mine.length) ctoastShow({ title: title || '방금 한 일', L: mine, all: actUnc });
     if (other.length) resShow({ cat: '방금 한 것과 따로', title: '그사이 생긴 일', L: other, next: showEvent }); else showEvent();
     return;
   }
@@ -1647,7 +1651,6 @@ function panelTrk() {
     const sc = s.scandal, T = SC[sc.id];
     return `<h2>🔥 ${U.esc(T.n)}</h2>` + infoTable([['시작', `${ymLater(s, sc.t - s.t)}`], ['사람들이 하는 말', scText(T.claim, s)], ['실제로는', T.know[sc.truth]], ['내 대응', sc.resp ? { apo: (T.lab || {}).apo || '사과문', deny: (T.lab || {}).deny || '해명', prove: '증거로 반박', sue: '법적 대응', quiet: '침묵', hiatus: '자숙' }[sc.resp] : '아직 고르지 않았다']]);
   }
-  if (key === 'preg' && s.preg) return `<h2>🤰 임신</h2>` + infoTable([['출산', `${ymLater(s, s.preg.left)} (${s.preg.left}개월 남음)`], ['그동안', '무대 · 방송 · 촬영 같은 연예계 활동과 지원을 쉰다. 작곡 · 글 · 회사 일처럼 무대에 서지 않는 일은 그대로 한다']]);
   if (key === 'hiatus' && s.hiatus) return `<h2>🤐 자숙</h2>` + infoTable([['까닭', s.hiatus.n], ['끝나는 때', `${ymLater(s, s.hiatus.left)} (${s.hiatus.left}개월 남음)`], ['그동안', '직업 활동과 지원을 할 수 없다']]);
   if (key === 'brands') {
     const B = s.brands || [];
@@ -2788,9 +2791,9 @@ document.addEventListener('click', e => {
   if (t.dataset.fbtn != null) { if (t.disabled) return; const pre = resPre(S); fbtnRun(S, +t.dataset.fbtn); if (!resAfter(pre, -1)) afterChoice(); return; }
   if (t.dataset.cancel != null) { cancelForm(S); afterChoice(); return; }
   // 창을 내려 둔 채 패널 버튼으로 새 창(자본금 꺼내기 등)을 열면 그 창은 바로 보여 준다. 내려 둔 창은 대기열에 돌아가 있다가 새 창을 마치면 다시 뜬다 (v116 버그 1)
-  if (t.dataset.act != null) { const a = UI.acts[+t.dataset.act]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, jf0 = totalFans(S), jfJ = UI.overlay === 'job' ? UI.jobId : null, r = a.run(S); jfAdd(S, jfJ, totalFans(S) - jf0); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t, () => { if (UI.overlay === 'company' || UI.overlay === 'group') S.uiOpen = UI.overlay; }); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
+  if (t.dataset.act != null) { const a = UI.acts[+t.dataset.act]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, jf0 = totalFans(S), jfJ = UI.overlay === 'job' ? UI.jobId : null; CH_RAND = 0; const r = a.run(S); UI.actUnc = CH_RAND > 0; jfAdd(S, jfJ, totalFans(S) - jf0); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t, () => { if (UI.overlay === 'company' || UI.overlay === 'group') S.uiOpen = UI.overlay; }); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
   // 오른쪽 생활 카드의 버튼과 탭
-  if (t.dataset.lact != null) { const a = (UI.lacts || [])[+t.dataset.lact]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, r = a.run(S); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
+  if (t.dataset.lact != null) { const a = (UI.lacts || [])[+t.dataset.lact]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending; CH_RAND = 0; const r = a.run(S); UI.actUnc = CH_RAND > 0; applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
   // 오른쪽 생활 칸의 묶음을 누르면 그 묶음 창이 뜬다 (휴대폰 생활 창에서 누르면 그 창이 바뀐다)
   if (t.dataset.lifesec) { UI.lifeSec = t.dataset.lifesec; if (UI.overlay !== 'life') UI.lifeFrom = 'card'; if (UI.overlay) { UI.overlay = 'lifesec'; renderPanel(); } else openPanel('lifesec'); return; }
   // 재정 박스를 누르면 재정 창, 창 안의 1개월·1년·연도별 탭

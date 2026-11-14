@@ -263,7 +263,7 @@ function projChoices(s, ps, onPass) {
 }
 E({
   id: 'actor_offer', cat: '캐스팅', title: '오디션 연락', tag: 'career',
-  cond: s => s.tracks.actor.st === 'active' && !s.tracks.actor.proj,
+  cond: s => s.tracks.actor.st === 'active' && !s.tracks.actor.proj && !pregMe(s),
   init(s, d) { d.ps = genProjects(s, s.tracks.actor.tier, U.int(2, 3)); },
   text: s => { const t = s.tracks.actor; return `오디션을 보러 오라는 작품이 들어왔다. 하나만 고를 수 있다.\n\n연기 ${lvi(me(s), 'acting')}레벨 · '${ACTOR_TIERS[t.tier]}' · 요즘 드라마 유행 '${s.trendTV.drama}'`; },
   ch: (s, d) => projChoices(s, d.ps, () => {}).concat([{ t: '이번엔 다 넘긴다', f: () => '들어온 작품을 모두 거절했다.' }]),
@@ -377,7 +377,7 @@ E({
 // 작품 홍보 예능: 공개를 앞둔 작품의 배우들이 함께 예능에 나간다. 재밌게 나오면 작품 성적이 조금 오른다
 E({
   id: 'promo_show', cat: '예능 섭외', title: '작품 홍보 출연', tag: 'career',
-  cond: s => trackOn(s, 'actor') && !s.hiatus && !s.preg,
+  cond: s => trackOn(s, 'actor') && !s.hiatus && !pregMe(s),
   init(s, d) {
     const t = s.tracks.actor, w = (t.wait || []).find(x => x.id === d.id);
     if (!w) { d.skip = true; return; }

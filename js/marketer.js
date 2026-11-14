@@ -199,7 +199,7 @@ function mkMonth(s, t) {
     // 시장조사: 시장 이해도가 닿을 수 있는 높이 쪽으로
     const tg = U.clamp(25 + lv(p, 'study') * 0.3 + lv(p, 'scout') * 0.2 + p.tal.intel * 0.25 + p.tal.insight * 0.15, 0, 100);
     t.mi = U.clamp(t.mi + (tg - t.mi) * 0.12, 0, 100);
-  } else t.mi = Math.max(0, t.mi - 3);
+  } else if (!pregMe(s)) t.mi = Math.max(0, t.mi - 3);
   // 팬덤 관리: 내가 칸을 넣어 두면 팬덤 분위기가 내 실력만큼 좋아진다
   for (const g of t.groups) g.mood = U.clamp(g.mood + ((n ? 47 + (sc - 38) * 0.8 : 32) + U.normal(0, 5) - g.mood) * 0.15, 0, 100);
   // 광고 집행 (칸을 넣은 달만 나아간다)

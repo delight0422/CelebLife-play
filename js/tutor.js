@@ -150,7 +150,7 @@ function tuMonth(s, t) {
       if (!t.cls1) { t.cls1 = 1; if (t.months <= 2) classShow(s, '첫 수업', `${t.co}에서 ${t.subj} 첫 수업을 했다.`, tuClass(s, t, 'first'), { boxes: tuClassBoxes(s, t) }); }
       else if (calM(s) === 2) classShow(s, '개강', `${t.co} ${t.subj} 새 학기 수업을 시작했다.`, tuClass(s, t, 'term', { key: false }), { quiet: true, boxes: tuClassBoxes(s, t) });
     }
-  } else {
+  } else if (!pregMe(s)) { // v214: 임신 중에는 쉬어도 수강생 · 평가가 그대로다
     t.stu = Math.round(t.stu * (ol ? 0.97 : 0.9));
     t.rep = Math.max(0, t.rep - 1);
   }

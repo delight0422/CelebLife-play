@@ -33,12 +33,23 @@ function babyGiven(s, g, other) {
 }
 // 아이의 성: 아빠 쪽 (아빠가 없으면 엄마 성)
 function babySur(s, other) { const pme = me(s), sp = other || partner(s), dadP = pme.g === '여' ? sp : pme; return (dadP || pme).name.slice(0, 1); }
+// v214: 임신 소식 — 결혼한 뒤 아이가 생기면(계획했든 아니든) 먼저 이 창이 뜨고, 아홉 달 뒤에 태어난다 (baby, late). 그동안 s.preg
+const PREG_M = 9;
+E({
+  id: 'preg_news', cat: '가족', title: '아이가 생겼다', keepPop: true,
+  cond: s => { const sp = partner(s); return isSpouse(sp) && canConceive(s, sp) && !s.preg && !hasQ(s, 'baby') && !hasQ(s, 'oops_birth'); },
+  init(s, d) { s.preg = { left: PREG_M, me: myGender(s) === '여' }; queueEv(s, 'baby', PREG_M, { late: true }, true); },
+  text: (s, d) => { const sp = partner(s), my = myGender(s) === '여', nth = kids(s).length ? ` ${kids(s).length + 1}번째 아이다.` : '';
+    return (my ? `요즘 몸이 이상해서 테스트기를 사 봤다. 선명한 두 줄이 떴다.` : `${sp ? josa(sp.name, '이가') : '아내가'} 할 말이 있다며 테스트기를 내밀었다. 선명한 두 줄이 떠 있었다.`)
+      + `\n\n${d.oops ? '피임을 했는데도 ' : ''}아이가 생겼다.${nth} ${ymLater(s, PREG_M)}에 태어난다.` + (my ? '\n\n아이가 태어날 때까지 직업 활동은 쉰다. 연습과 생활은 그대로 할 수 있다.' : ''); },
+  ch: (s, d) => [{ t: '확인', f: s => `아이가 생겼다. ${ymLater(s, s.preg ? s.preg.left : PREG_M)}에 태어난다.` + fx(s, { stress: d.oops ? 4 : -4 }) }],
+});
 // 아이가 생겼다: 성별을 알려 주고 이름을 직접 짓는다 (성은 아빠 쪽으로 정해져 있다). late: 혼전 임신 뒤 결혼해서 몇 달 뒤 태어난 아이
 E({
   // noRes: 이름을 정하면 결과 창 없이 바로 '○○의 인생' 창으로 넘어간다 (v139). 스트레스 변화는 그 창에 적는다
   id: 'baby', cd: 12, noRes: true, cat: '가족', title: (s, d) => d.late ? '아이가 태어났다' : '아이가 생겼다',
   // 결혼한 뒤의 아이는 아이 계획(kid_plan)에서 정한다. 예전엔 한 달 3% 우연이었는데, 다른 사건에 밀려 거의 뜨지 않았다
-  cond: s => { const sp = partner(s); return !!sp && canConceive(s, sp); },
+  cond: s => { const sp = partner(s); return (!!sp && canConceive(s, sp)) || !!s.preg; },
   init(s, d) { d.g = U.chance(0.5) ? '여' : '남'; d.sur = babySur(s); d.given = babyGiven(s, d.g); },
   text: (s, d) => { const sp = partner(s), kid = d.g === '여' ? '딸' : '아들', nth = kids(s).length ? ` ${kids(s).length + 1}번째 아이다.` : ''; return (d.late ? `${kid}이 태어났다.${nth}` : `${d.oops ? '피임을 했는데도 ' : ''}${sp ? josa(sp.name, '과와') + ' 사이에 ' : ''}아이가 생겼다. ${kid}이다.${nth}`) + ' 이름을 지어 주자.'; },
   form: (s, d) => [{ k: 'given', label: `이름 (성은 '${d.sur}')`, value: d.given, max: 4 }],
@@ -46,6 +57,7 @@ E({
     const given = (v.given || '').trim().replace(/\s+/g, '');
     if (!given) return { err: '이름을 적어 주세요' };
     const c = makeChild(s, null, { g: d.g, name: d.sur + given });
+    s.preg = null;
     milestone(s, `${age(s)}세에 ${c.g === '여' ? '딸' : '아들'} ${josa(c.name, '이가')} 태어났다.`);
     const f = fx(s, { stress: -6 });
     fireEvent(s, 'baby_heir', { id: c.id, fx: f.replace(/[\[\]()]/g, '').trim() });
@@ -112,15 +124,17 @@ function kidEduQ(s, k) { return s.queue.some(q => q.id === 'kid_edu_open' && q.d
 // '아직은 아니다'·'갖지 않는다'를 골라도 4%는 피임에 실패해 아이가 생긴다. 갖지 않기로(그만 낳기로) 하면 그 배우자와는 다시 묻지 않고, 해마다 1.5%는 생긴다 (턴제 실험 7차: 5년 뒤 다시 묻던 것 없앰)
 const KID_MAX = 5;
 function kidPlanOK(s) { const sp = partner(s); return isSpouse(sp) && sp.g !== myGender(s) && age(s) >= 20 && pAge(s, sp) >= 20 && canConceive(s, sp) && kids(s).length < KID_MAX; }
-function kidOops(s, p) { if (U.chance(p) && !hasQ(s, 'baby')) queueEv(s, 'baby', U.int(2, 8), { oops: true }); }
+function kidOops(s, p) { if (U.chance(p) && !s.preg && !hasQ(s, 'baby') && !hasQ(s, 'preg_news')) queueEv(s, 'preg_news', U.int(1, 4), { oops: true }); }
 function kidPlanMonth(s) {
   const K = s.kidPlan = s.kidPlan || {};
   if (!kidPlanOK(s)) { K.trying = false; return; }
+  // v214: 임신 중에는 아이 계획 이야기를 하지 않는다 (속도위반 결혼 뒤 일곱 달도)
+  if (s.preg || hasQ(s, 'oops_birth') || hasQ(s, 'preg_news')) return;
   if (K.next == null) { K.next = s.t + U.int(4, 10); return; }
   if (K.trying) {
     const m = momIn(s, partner(s)), ma = ageOf(s, m), p = ma < 35 ? 0.2 : ma < 40 ? 0.12 : 0.05;
     if (hasQ(s, 'baby')) return;
-    if (U.chance(p)) { K.trying = false; K.next = s.t + U.int(14, 22); queueEv(s, 'baby', 0); }
+    if (U.chance(p)) { K.trying = false; K.next = s.t + U.int(14, 22) + PREG_M; queueEv(s, 'preg_news', 0); }
     else if (s.t >= K.tryEnd) { K.trying = false; K.next = s.t + U.int(2, 4); K.miss = true; }
     return;
   }

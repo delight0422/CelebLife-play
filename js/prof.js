@@ -136,7 +136,7 @@ function pfMonth(s, t) {
   if (t.st !== 'active') return;
   const g = t.route === 'grad', n = slotsOn(s, 'c_prof'), p = me(s);
   t.months++; t.stM = (t.stM || 0) + 1;
-  if (g && t.tier === 0) addMoney(s, -PF_FEE, '대학원 등록금');
+  if (g && t.tier === 0 && !pregMe(s)) addMoney(s, -PF_FEE, '대학원 등록금'); // v214: 임신 중에는 휴학 (등록금 없음, 학위는 그만큼 밀린다)
   const sal = pfSal(t); if (sal) earn(s, sal, t.tier >= 3 || !g ? '교수 월급' : '강의료', 'prof');
   // 정년 65세 (겸임 · 초빙은 계약이 끝나면 그만이다)
   if (age(s) >= 65 && !hasQ(s, 'pf_retire') && (g ? t.tier >= 2 : t.type === 'full' || t.type === 'ind')) { queueEv(s, 'pf_retire', 0); return; }
@@ -156,7 +156,7 @@ function pfMonth(s, t) {
     if (t.stM % 6 === 0) pfOutput(s, t);
     if (pfTeaches(t) && (t.studs || []).length < 8 && U.chance(0.035)) pfStudent(s, t);
     if (g && t.tier === 0) t.gw = (t.gw || 0) + 1;
-  } else if (pfTeaches(t)) t.rep = Math.max(0, t.rep - 1.5);
+  } else if (pfTeaches(t) && !pregMe(s)) t.rep = Math.max(0, t.rep - 1.5);
   pfStudNews(s, t);
   if (g) pfGradMonth(s, t, n);
 }

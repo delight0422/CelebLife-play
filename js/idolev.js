@@ -45,7 +45,7 @@ const IDOL_WAYS = [
   { id: 'lyr', ic: '✍️', n: '가사 쓰기', f: 'subLyr', show: (s, t) => t.st === 'active' && has(me(s), 'lyric'), no: (s, t) => t.st !== 'active' ? '데뷔한 뒤에 할 수 있다' : '작사 특기가 있어야 한다', h: s => has(me(s), 'lyric') ? `실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡 · 작사 ${lvi(me(s), 'lyric')}레벨` : '실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡' },
   { id: 'act', ic: '🎭', n: '연기 연습', sk: 'acting', show: () => true, h: (s, t) => `연기 ↑ · 스트레스 조금 ↑${t.st === 'active' ? ' · 연기가 늘면 웹드라마 제안이 온다' : ''}` },
   { id: 'fan', ic: '💬', n: '팬 소통', show: (s, t) => t.st === 'active', no: () => '데뷔한 뒤에 할 수 있다', h: () => '라이브 방송 · 메시지 · 내 팬 ↑ · 그룹 팬 조금 ↑ · 스트레스 조금 ↑ · 가끔 말실수' },
-  { id: 'mate', ic: '🤝', n: t => t.st === 'active' ? '멤버 챙기기' : '동기 챙기기', show: (s, t) => t.st === 'active' || idMates(s, t).length > 0, no: () => '같이 지내는 동기가 없다', h: (s, t) => { const n = (t.st === 'active' ? idMem(s, t) : idMates(s, t)).length; return `💸 켜 두면 매달 밥값 ${fmtWon(5e4 * (n + 1))}이 나간다 (한 사람에 5만 원) · ${t.st === 'active' ? '멤버 사이 ↑ · 팀워크 ↑' : '동기 사이 ↑'} · 스트레스 ↓`; } },
+  { id: 'mate', ic: '🤝', n: t => t.st === 'active' ? '멤버 챙기기' : '동기 챙기기', show: (s, t) => t.st === 'active' || idMates(s, t).length > 0, no: () => '같이 지내는 동기가 없다', h: (s, t) => { const n = (t.st === 'active' ? idMem(s, t) : idMates(s, t)).length; return `💸 매달 밥값 ${fmtWon(5e4 * (n + 1))}이 나간다 (한 사람에 5만 원) · ${t.st === 'active' ? '멤버 사이 ↑ · 팀워크 ↑' : '동기 사이 ↑'} · 스트레스 ↓`; } },
   { id: 'var', ic: '😆', n: '예능 감 익히기', sk: 'variety', show: () => true, h: (s, t) => `예능 ↑ · 스트레스 조금 ↑${t.st === 'active' ? ' · 개인 예능 섭외가 더 자주 온다' : ''}` },
 ];
 function idolWayN(t, w) { return typeof w.n === 'function' ? w.n(t) : w.n; }
@@ -64,10 +64,33 @@ function idolPicks(s, t) {
   // v159: '한 번 하는 일'(외부 레슨 · 게릴라 공연)은 뺐다 (사용자 결정: 직업 창에는 켜 두는 일만. 한 번 하는 일이 필요하면 활동 지원으로)
   return IDOL_WAYS.map((w, i) => {
     const can = w.show(s, t), on = can && idolWayOn(t, w), room = !w.sk || has(me(s), w.sk) || skRoom(s, w.sk);
-    return { sw: true, on, sec: i === 0 ? `켜 두면 매달 꾸준히 한다 · ${IDOL_WAY_MAX}가지까지 (지금 ${n}가지)` : '', t: `${w.ic} ${idolWayN(t, w)}`, tag: on ? '켜 둠' : '', h: w.h(s, t), btn: on ? '끄기' : '켜기', ok: on || (can && n < IDOL_WAY_MAX && room), why: !can ? w.no(s, t) : !room ? `특기가 ${SKILL_CAP}개라 ${SKILLS[w.sk].n} 특기를 새로 배울 수 없다` : `${IDOL_WAY_MAX}가지까지만 켜 둘 수 있다 · 하나를 먼저 끈다`, run: s => idolWaySet(s, t, w, !on) };
+    return { sw: true, on, sec: i === 0 ? `매달 꾸준히 한다 · ${IDOL_WAY_MAX}가지까지 (지금 ${n}가지)` : '', t: `${w.ic} ${idolWayN(t, w)}`, tag: on ? '켜 둠' : '', h: w.h(s, t), btn: on ? '끄기' : '켜기', ok: on || (can && n < IDOL_WAY_MAX && room), why: !can ? w.no(s, t) : !room ? `특기가 ${SKILL_CAP}개라 ${SKILLS[w.sk].n} 특기를 새로 배울 수 없다` : `${IDOL_WAY_MAX}가지까지만 켜 둘 수 있다 · 하나를 먼저 끈다`, run: s => idolWaySet(s, t, w, !on) };
   });
 }
 CAREERS.idol.picks = (s, t) => idolPicks(s, t);
+// v214: 솔로 가수도 아이돌처럼 매달 꾸준히 하는 일을 고른다 (연기 연습 · 팬 소통 · 예능 감 익히기, 두 가지까지). 인디 · 소속 모두
+const SOLO_WAYS = [
+  { id: 'act', ic: '🎭', n: '연기 연습', sk: 'acting', h: () => '연기 ↑ · 스트레스 조금 ↑' },
+  { id: 'fan', ic: '💬', n: '팬 소통', h: () => '라이브 방송 · 메시지 · 내 팬 ↑ · 스트레스 조금 ↑' },
+  { id: 'var', ic: '😆', n: '예능 감 익히기', sk: 'variety', h: () => '예능 ↑ · 스트레스 조금 ↑' },
+];
+function soloPicks(s, t) {
+  if (s.army || (t.st !== 'indie' && t.st !== 'signed') || t.withGroup) return [];
+  const n = SOLO_WAYS.filter(w => idolWayHas(t, w.id)).length;
+  return SOLO_WAYS.map((w, i) => {
+    const on = idolWayHas(t, w.id), room = !w.sk || has(me(s), w.sk) || skRoom(s, w.sk);
+    return { sw: true, on, sec: i === 0 ? `매달 꾸준히 한다 · ${IDOL_WAY_MAX}가지까지 (지금 ${n}가지)` : '', t: `${w.ic} ${w.n}`, tag: on ? '켜 둠' : '', h: w.h(s, t), btn: on ? '끄기' : '켜기', ok: on || (n < IDOL_WAY_MAX && room), why: !room ? `특기가 ${SKILL_CAP}개라 ${SKILLS[w.sk].n} 특기를 새로 배울 수 없다` : `${IDOL_WAY_MAX}가지까지만 켜 둘 수 있다 · 하나를 먼저 끈다`, run: s => idolWaySet(s, t, w, !on) };
+  });
+}
+CAREERS.solo.picks = (s, t) => soloPicks(s, t);
+function soloWaysMonth(s, t) {
+  if ((t.st !== 'indie' && t.st !== 'signed') || t.withGroup) return;
+  if (!jobN(s, 'solo')) return; // 일정에 가수 일이 없는 달(자숙 · 임신 등)은 쉰다
+  const p = me(s);
+  if (idolWayHas(t, 'act') && has(p, 'acting')) { practice(s, p, 'acting', 0.7); addStress(s, 0.8); }
+  if (idolWayHas(t, 'var') && has(p, 'variety')) { practice(s, p, 'variety', 0.7); addStress(s, 0.8); }
+  if (idolWayHas(t, 'fan')) { s.fans.kr += Math.round((20 + Math.sqrt(totalFans(s)) * 0.6) * U.fl(0.6, 1.4) * popSpeed(s) * myRoom(s, 'kr')); addStress(s, 1); }
+}
 
 // 매달: 켜 둔 일 · 고정 예능 · 매니저 · 트레이너 특훈 (연습생 · 데뷔 뒤 모두)
 function idolWaysMonth(s, t) {

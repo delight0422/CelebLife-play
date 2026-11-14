@@ -311,7 +311,7 @@ function sideProdAg(s) {
 }
 E({
   id: 'p_side', cd: 12, cat: '프로듀싱 의뢰', title: '회사가 허락한 프로듀싱 의뢰', tag: 'career',
-  p: s => !s.army && !s.hiatus && !trackOn(s, 'producer') && !busyWith(s, 'produce') && sideProdAg(s) && producerReady(s) ? 0.03 : 0,
+  p: s => !s.army && !s.hiatus && !pregMe(s) && !trackOn(s, 'producer') && !busyWith(s, 'produce') && sideProdAg(s) && producerReady(s) ? 0.03 : 0,
   init(s, d) {
     const t = s.tracks.producer, rep = t.rep != null ? t.rep : 10, g = sideProdAg(s) || { agN: '회사', cut: 0.3 };
     d.agN = g.agN; d.cut = g.cut; d.title = songTitle();
@@ -672,7 +672,7 @@ CAREERS.anr = {
     empMonth(s, 'anr', t);
     earn(s, t.sal, '월급', 'anr');
     const n = slotsOn(s, 'c_anr'), p = me(s);
-    if (!n) { t.idle++; if (t.idle >= 4) { t.idle = 0; queueEv(s, 'anr_warn', 0); } return; }
+    if (!n) { if (pregMe(s)) return; t.idle++; if (t.idle >= 4) { t.idle = 0; queueEv(s, 'anr_warn', 0); } return; } // v214: 임신 중에는 쉬어도 경고가 없다
     t.idle = 0;
     practice(s, p, 'scout', 1.2 * n, 1);
     for (const k of ['compose', 'lyric']) useSkill(s, p, k, 0.2 * n);
@@ -933,7 +933,7 @@ CAREERS.trainer = {
       const sk = x.sk[t.k];
       if (n && sk && sk.pot - sk.lv < 3 && sk.pot < 100 && U.chance(0.03 + teachLv(p, t.k) / 1000)) sk.pot += 1;
     }
-    if (!n) empRep(s, 'trainer', t, -0.5);
+    if (!n && !pregMe(s)) empRep(s, 'trainer', t, -0.5);
     t.next--;
     if (t.next <= 0 && !hasQ(s, 'tr_eval')) { t.next = 6; queueEv(s, 'tr_eval', 0); }
     if (t.k === 'dance' && U.chance(0.03 + t.rep / 800) && !s.inbox.some(m => m.kind === 'choreo')) { const a = makeArtist(s, t.rep); sendMsg(s, 'choreo', { from: `${a.name} 소속사`, title: '안무 의뢰', months: 6, d: { a, fee: Math.round((150 + a.tier * 200 + t.rep * 5) * 1e4) } }); }

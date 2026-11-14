@@ -391,7 +391,7 @@ function lifeActs(s) {
   // 새 특기 배우기: 성인이 되면 아직 안 배운 특기를 직접 골라 학원에 등록할 수 있다 (석 달에 한 번)
   if (a >= 19) { const left = learnable(s);
     A.push({ sec: 'learn', t: '새 특기 배우기', price: '학원비 한 달 치', eff: '아직 안 배운 특기를 골라 학원에 등록한다', note: '석 달에 한 번', ok: a >= 19 && !s.army && left.length > 0 && !(s.cd.learn > s.t), why: a < 19 ? '성인이 된 뒤에' : s.army ? '군 복무 중' : !left.length && !skRoom(s) ? `특기가 ${SKILL_CAP}개다. 특기 칸에서 하나를 그만둬야 새로 배울 수 있다` : !left.length ? '배울 수 있는 특기를 다 배웠다' : `${s.cd.learn - s.t}개월 뒤에 다시`, btn: '고르기', run: s => { fireEvent(s, 'learn_pick', {}); return ''; } }); }
-  if (a >= 19) A.push({ sec: 'rest', autoKey: 'trip', autoMin: 450e4, autoH: '켜 두면 반년마다, 가진 돈이 450만 원 이상일 때 저절로 다녀온다', t: '여행 다녀오기', price: '150만 원', eff: '스트레스가 크게 풀린다', note: '반년에 한 번', ok: a >= 19 && s.money >= 150e4 && !(s.cd.trip > s.t) && !s.army, why: a < 19 ? '성인이 된 뒤에' : s.cd.trip > s.t ? '얼마 전에 다녀왔다' : '돈이 모자라다', btn: '다녀오기', run: s => { s.cd.trip = s.t + 6; return U.pick(['제주도', '부산', '오사카', '방콕', '강릉']) + '에 다녀왔다.' + fx(s, { money: -150e4, stress: -35 }); } });
+  if (a >= 19) A.push({ sec: 'rest', autoKey: 'trip', autoMin: 450e4, autoH: '반년마다, 가진 돈이 450만 원 이상일 때 저절로 다녀온다', t: '여행 다녀오기', price: '150만 원', eff: '스트레스가 크게 풀린다', note: '반년에 한 번', ok: a >= 19 && s.money >= 150e4 && !(s.cd.trip > s.t) && !s.army, why: a < 19 ? '성인이 된 뒤에' : s.cd.trip > s.t ? '얼마 전에 다녀왔다' : '돈이 모자라다', btn: '다녀오기', run: s => { s.cd.trip = s.t + 6; return U.pick(['제주도', '부산', '오사카', '방콕', '강릉']) + '에 다녀왔다.' + fx(s, { money: -150e4, stress: -35 }); } });
   return A;
 }
 

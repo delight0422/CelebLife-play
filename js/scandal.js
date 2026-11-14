@@ -373,7 +373,8 @@ E({
 });
 // 매달: 자숙 기간이 줄고 꼬리표가 옅어진다 (game.js tick에서 부른다)
 function scandalMonth(s) {
-  if (s.preg) { s.preg.left--; if (s.preg.left <= 0) s.preg = null; } // v213: 임신 기간
+  // v214: 임신 기간. 0이 돼도 출산 창(baby · oops_birth)이 지울 때까지 남는다. 출산 창이 줄에 없으면(예전 세이브 등) 여기서 지운다
+  if (s.preg) { if (s.preg.left > 0) s.preg.left--; if (s.preg.left <= 0 && !hasQ(s, 'baby') && !hasQ(s, 'oops_birth')) s.preg = null; }
   if (s.hiatus) { s.hiatus.left--; if (s.hiatus.left <= 0) { queueEv(s, 'hiatus_end', 0, { n: s.hiatus.n }, true); s.hiatus = null; } }
   if (s.stigma > 0) s.stigma = Math.max(0, s.stigma - 1.5);
 }

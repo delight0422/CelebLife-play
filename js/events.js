@@ -525,7 +525,7 @@ const JUDGE_SHOWS = ['스타 오디션 K', '라이징 스테이지', '넥스트 
   '꿈의 오디션', '한 소절의 기적', '무대 위의 신인', '첫 번째 마이크', '다음 스타를 찾아서', '오디션 로드'];
 E({
   id: 'judge_guest', cd: 36, p: 0.01, cat: '방송', title: '심사위원 섭외',
-  cond: s => age(s) >= 22 && !s.army && totalFans(s) >= 2e5 && !s.hiatus,
+  cond: s => age(s) >= 22 && !s.army && totalFans(s) >= 2e5 && !s.hiatus && !pregMe(s),
   init(s, d) { d.show = U.pick(JUDGE_SHOWS); d.fee = Math.round((300 + Math.min(1700, totalFans(s) / 2000)) / 10) * 10 * 1e4; },
   text: (s, d) => `오디션 프로그램 「${d.show}」에서 심사위원으로 나와 달라고 한다. 출연료 ${fmtWon(d.fee)}.`,
   ch: (s, d) => [
@@ -1004,7 +1004,7 @@ function propose(s, n) {
 // 결혼하면 몇 달 뒤 아이가 태어난다. 결혼하지 않겠다고 하면 이름이 알려진 사람은 바로 논란이 된다
 E({
   id: 'oops_baby', cd: 24, cat: '연애', title: '두 줄',
-  p: s => { const p = partner(s); return p && p.rel === '연인' && p.g !== myGender(s) && age(s) >= 20 && pAge(s, p) >= 20 && canConceive(s, p) && s.t - (p.dateT || s.t) >= 6 && kids(s).length < 3 ? 0.004 : 0; },
+  p: s => { const p = partner(s); return p && p.rel === '연인' && p.g !== myGender(s) && age(s) >= 20 && pAge(s, p) >= 20 && canConceive(s, p) && s.t - (p.dateT || s.t) >= 6 && kids(s).length < 3 && !s.preg && !hasQ(s, 'baby') && !hasQ(s, 'oops_birth') && !hasQ(s, 'preg_news') ? 0.004 : 0; },
   init(s, d) { const p = partner(s); if (!p) { d.skip = true; return; } d.id = p.id; d.fame = scFame(s) >= 3000 || anyTrackActive(s); },
   text: (s, d) => { const p = s.people[d.id]; return myGender(s) === '여' ? `요즘 몸이 이상해서 테스트기를 사 봤다. 선명한 두 줄이 떴다. ${p.name}의 아이다.` : `${josa(p.name, '이가')} 할 말이 있다며 테스트기를 내밀었다. 선명한 두 줄이 떠 있었다.`; },
   ch: (s, d) => {
@@ -1013,7 +1013,7 @@ E({
       { t: '결혼한다', h: '결혼식 1,000만 원 · 결혼하면 두 사람의 재산을 합친다 · 아이는 일곱 달쯤 뒤에 태어난다', f: s => {
         const x = marryNow(s, 1000e4, `서둘러 ${josa(p.name, '과와')} 결혼했다. 작은 결혼식을 올렸다.`);
         queueEv(s, 'oops_birth', 7, {}, true);
-        if (myGender(s) === '여') s.preg = { left: 7 };
+        s.preg = { left: 7, me: myGender(s) === '여' };
         // 이름이 알려진 사람이면 '속도위반 결혼' 기사가 난다. 아이돌·버튜버는 팬이 많이 떠난다
         let news = '';
         if (d.fame) {
@@ -1028,7 +1028,7 @@ E({
         s.flags.oopsLeft = { id: p.id, t: s.t };
         // 아이는 상대가 키운다. 나는 매달 양육비를 보낸다 (자녀로 남는다)
         queueEv(s, 'oops_birth', 7, { ex: p.id }, true);
-        if (myGender(s) === '여') s.preg = { left: 7 };
+        if (myGender(s) === '여') s.preg = { left: 7, me: true };
         const x = myGender(s) === '여' ? `${josa(p.name, '과와')} 헤어졌다. 아이는 낳은 뒤 ${josa(p.name, '이가')} 데려가 키우기로 했다.` : `${josa(p.name, '과와')} 헤어졌다. 아이는 ${josa(p.name, '이가')} 혼자 낳아 키우겠다고 했다.`;
         if (d.fame && !s.scandal) { startScandal(s, 'oops', 'real'); return x; }
         return x + fx(s, { rep: -8, stress: 10 });
@@ -1043,6 +1043,7 @@ E({
     const ex = d.ex && s.people[d.ex];
     // 결혼해서 낳은 아이는 내가 이름을 짓는다 (baby 창). 헤어진 상대가 혼자 낳아 키우는 아이는 그쪽이 짓는다
     if (!d.ex) { d.skip = true; fireEvent(s, 'baby', { late: true }); return; }
+    s.preg = null;
     const c = makeChild(s, ex || null);
     d.id = c.id;
     if (ex) { c.withEx = ex.id; aff(c, -35); }
@@ -1221,7 +1222,7 @@ function personTown(s, x) {
 E({
   id: 'home_call', cd: 18, cat: '섭외', title: '고향에서 온 연락', tag: 'career',
   p: s => (0.004 + (s.fame || 0) / 100 * 0.012) * (s.region === s.birthRegion ? 1.5 : 1),
-  cond: s => age(s) >= 16 && (s.fame || 0) >= 20 && !!homeTown(s) && !s.army && !s.hiatus && !s.scandal,
+  cond: s => age(s) >= 16 && (s.fame || 0) >= 20 && !!homeTown(s) && !/^서울/.test(s.birthPlace || '') && !s.army && !s.hiatus && !pregMe(s) && !s.scandal,
   init(s, d) {
     d.town = homeTown(s);
     // 솔로 가수 · 연주가로 활동하면 혼자, 아니면 활동 중인 그룹 전체가 간다 (v163). 그룹 없는 연습생은 예전처럼 혼자
@@ -1252,7 +1253,7 @@ E({
 E({
   id: 'member_home', cd: 24, cat: '섭외', title: '멤버 고향에서 온 연락', tag: 'career',
   p: s => 0.005 + (s.fame || 0) / 100 * 0.01,
-  cond: s => age(s) >= 16 && !s.army && !s.hiatus && !s.scandal && !!homeGrp(s) && homeGrp(s).mem.length > 0,
+  cond: s => age(s) >= 16 && !s.army && !s.hiatus && !pregMe(s) && !s.scandal && !!homeGrp(s) && homeGrp(s).mem.length > 0,
   init(s, d) {
     const G = homeGrp(s), x = U.pick(G.mem);
     d.mid = x.id; d.town = personTown(s, x);

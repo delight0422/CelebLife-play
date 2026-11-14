@@ -306,7 +306,7 @@ E({
 function dirGoFree(s, why) { const t = s.tracks.director, co = t.co; t.hist.push(`${co} 전속 감독 (${why})`); Object.assign(t, { mode: 'indie', co: '', sal: 0, feeR: 0, renewQ: false, cEnd: null, cMonths: 0, bonus: 0 }); return `${josa(co, '을를')} 나와 프리랜서 감독이 됐다.`; }
 E({
   id: 'dir_assign', cat: '연출', title: '다음 작품', tag: 'career',
-  cond: s => trackOn(s, 'director') && s.tracks.director.mode === 'excl' && !s.tracks.director.proj && !s.hiatus,
+  cond: s => trackOn(s, 'director') && s.tracks.director.mode === 'excl' && !s.tracks.director.proj && !s.hiatus && !pregMe(s),
   init(s, d) {
     const t = s.tracks.director;
     d.pj = U.pick(genDirProjects(s, 3).filter(x => x.tk !== 'short')) || Object.assign(genDirProjects(s, 1)[0], { tk: 'web' });
@@ -352,7 +352,7 @@ E({
 // 연출 제안: 두세 작품 중 하나에 손을 든다 (연출 자리 찾기로 받은 제안은 세 작품)
 E({
   id: 'dir_offer', cat: '연출 제안', title: '연출 제안', tag: 'career',
-  cond: s => trackOn(s, 'director') && !s.tracks.director.proj && s.tracks.director.mode === 'indie' && !s.hiatus,
+  cond: s => trackOn(s, 'director') && !s.tracks.director.proj && s.tracks.director.mode === 'indie' && !s.hiatus && !pregMe(s),
   init(s, d) { d.ps = genDirProjects(s, d.seek ? 3 : U.int(2, 3)); },
   text: s => `연출 제안이 들어왔다. 하나를 고를 수 있다.\n\n'${DIR_TIERS[s.tracks.director.tier]}' · 연출 ${lvi(me(s), 'direct')}레벨`,
   ch: (s, d) => dirChoices(s, d.ps).concat([{ t: '이번엔 넘긴다', f: () => '들어온 제안을 모두 넘겼다.' }]),

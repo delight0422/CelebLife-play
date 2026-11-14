@@ -195,7 +195,7 @@ function gateApplies() {
   for (const a of JOB_APPLY.concat(ACT_APPLY)) {
     const ok = a.ok, why = a.why, job = JOB_APPLY.includes(a), ex = jaTags(a.id);
     const jb = s => job ? (a.trk ? jobBlock(s, a.trk, ex) : '') : aaBlock(s, a);
-    const pg = s => !!s.preg && (a.trk ? pregBlock(s, a.trk) : !job);
+    const pg = s => pregMe(s);
     a.ok = s => !s.hiatus && !pg(s) && !jb(s) && (!ok || ok(s));
     a.why = s => s.hiatus ? `자숙 중이다 (${s.hiatus.left}개월 남음)` : pg(s) ? `임신 중이다 (${s.preg.left}개월 뒤 출산)` : jb(s) || (why ? why(s) : '');
   }
@@ -842,12 +842,14 @@ function submitForm(s, vals) {
   const ev = EVENTS[p.id];
   s.pending = null;
   const jf0 = totalFans(s), lt = p.tok || p.d._lt || U.uid();
-  let r; ledPush(s, p.id, p.d); try { r = ev.submit(s, p.d, vals) || {}; } finally { ledPop(s, lt, r && r.log); }
+  let r; CH_RAND = 0; ledPush(s, p.id, p.d); try { r = ev.submit(s, p.d, vals) || {}; } finally { ledPop(s, lt, r && r.log); }
+  const uncF = CH_RAND > 0;
   jfAdd(s, evJobOf(s, p.id, p.d), totalFans(s) - jf0);
   applyLocks(s);
   if (r.err) { if (!s.pending) s.pending = p; return r.err; }
   if (r.log) addLog(s, r.log, ev.tag || 'ev');
   autoEvs(s); chMark(s); pullNow(s); pullBack(s); autoEvs(s);
+  CH_UNC = uncF;
   save(s);
   return '';
 }
@@ -862,6 +864,7 @@ function cancelForm(s) {
 }
 // 적는 창 아래 다른 버튼 (v180, ev.fbtn): 확인 · 그만두기 말고 따로 할 일 (배우 섭외 창의 '섭외를 마친다' 등). b.ok === false면 못 누른다
 function fbtnRun(s, i) {
+  CH_UNC = false;
   const p = s.pending;
   if (!p) return;
   const ev = EVENTS[p.id], b = (ev.fbtn ? ev.fbtn(s, p.d) || [] : [])[i];
@@ -873,6 +876,9 @@ function fbtnRun(s, i) {
   autoEvs(s); chMark(s); pullNow(s); pullBack(s); autoEvs(s);
   save(s);
 }
+// v214: 고른 선택지가 확률(U.chance)을 굴렸는지 센다 → 굴렸으면 결과가 정해져 있지 않던 선택이라 성공 · 실패 낱말이 없어도 토스트로 알린다 (ui.js resAfter · actDone)
+let CH_RAND = 0, CH_UNC = false;
+{ const c0 = U.chance; U.chance = p => { CH_RAND++; return c0(p); }; }
 function choose(s, i) {
   const p = s.pending;
   if (!p) return;
@@ -881,7 +887,8 @@ function choose(s, i) {
   if (!c || (c.ok && !c.ok(s))) return;
   s.pending = null;
   const jf0 = totalFans(s), lt = p.tok || (p.d && p.d._lt) || U.uid();
-  let r; ledPush(s, p.id, p.d); try { r = c.f ? c.f(s, p.d) : ''; } finally { ledPop(s, lt, r); }
+  let r; CH_RAND = 0; ledPush(s, p.id, p.d); try { r = c.f ? c.f(s, p.d) : ''; } finally { ledPop(s, lt, r); }
+  const unc = CH_RAND > 0;
   jfAdd(s, evJobOf(s, p.id, p.d), totalFans(s) - jf0);
   applyLocks(s);
   if (r) {
@@ -893,6 +900,7 @@ function choose(s, i) {
   }
   // 고른 뒤 이어서 생긴 사건도 고를 게 없으면 창 없이 처리한다
   autoEvs(s); chMark(s); pullNow(s); pullBack(s); autoEvs(s);
+  CH_UNC = unc; // 이어서 저절로 처리된 사건들이 덮어쓰지 않게 맨 끝에
   save(s);
 }
 // 턴제 (turn-test): 창을 띄우지 않고 바로 처리하는 사건
@@ -1069,8 +1077,10 @@ function jobIdleMonth(s) {
     if (t.jobIdle === 2) addLog(s, `${c.n} 일을 손 놓고 있다는 말이 돈다. 평가가 떨어지기 시작했다.`, 'career');
   }
 }
-// v213: 임신 중(s.preg, 내가 임신했을 때)에는 무대 · 방송 · 촬영처럼 아티스트 쪽 직업 활동과 지원을 쉰다. 작곡 · 글 · 회사 일 등은 그대로
-function pregBlock(s, trk) { if (!s.preg) return false; const c = CAREER_PLAN.find(x => x.id === trk); return !!c && c.g === 'artist'; }
+// v214: 임신은 상태다 (s.preg = { left: 태어날 때까지 남은 달, me: 내가 임신했나 }). 아이가 생긴 것을 안 때부터 태어날 때까지
+//   내가 임신했으면 직업 활동(모든 직업의 일정 칸 · 지원)을 쉰다. 군대와 달리 일정 칸 자체는 비어 있어 연습 · 생활은 그대로 한다
+function pregMe(s) { return !!s.preg && s.preg.me !== false; }
+function pregBlock(s, trk) { return pregMe(s); }
 function actOK(s, id) {
   const a = actInfo(id);
   if (a.sys) return false;
@@ -1088,7 +1098,7 @@ function wantedLocks(s) {
   if (s.army) return s.slots.map(() => 'army');
   if (s.ill && s.ill.all) return s.slots.map(() => 'sick');
   const L = [];
-  for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && c.locks && trackOn(s, id) && !pregBlock(s, id)) L.push(...c.locks(s, s.tracks[id])); }
+  for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && c.locks && trackOn(s, id) && (!pregBlock(s, id) || s.tracks[id].proj)) L.push(...c.locks(s, s.tracks[id])); } // 임신 중에도 이미 찍고 있던 작품(proj)의 고정 칸은 남는다
   if (s.projects.some(w => w.slot)) L.push('proj');
   if (s.kidTeach) L.push('kidteach');
   if (s.ill && s.ill.rest) L.push('sick');

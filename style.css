@@ -1872,3 +1872,5 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .en-cur .heir-card .muted, .en-cur .heir-card .hc-g, .en-cur .heir-card .hc-sk { color: #5d5670; }
 .en-cur .heir-card .btn.primary { color: #fff; }
 .en-col1 .heirs { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); text-align: left; }
+/* v214: 프로필 박스 상태 줄 (임신) */
+.pf-st { margin-top: var(--sp-1); font-size: var(--fs-2); font-weight: 700; color: #b03a7a; }
