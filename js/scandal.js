@@ -29,7 +29,13 @@ function partnerKind(s) {
 function datingMul(s) { return ({ idol: 2, celeb: 1, normal: 0.5 })[partnerKind(s)] || 1; }
 function staffOn(s) { return ['trainer', 'acttrainer', 'anr', 'director', 'writer'].some(id => trackOn(s, id)); }
 function memberAffAvg(s) { const g = s.tracks.idol.g, m = g.members.map(id => s.people[id]).filter(Boolean); return m.length ? m.reduce((a, x) => a + x.aff, 0) / m.length : 60; }
-function madeSongs(s) { return ['composer', 'producer', 'solo', 'band'].some(id => trackOn(s, id)); }
+// v224: 곡을 직접 쓴 사람(작곡가 · 프로듀서이거나 자작곡을 낸 적이 있다)과, 남이 써 준 곡을 부르기만 한 가수(솔로 · 밴드로 곡을 낸 적이 있다)를 나눠 본다
+// 예전에는 솔로 · 밴드이기만 하면(연습생이어도) '내가 만든 곡' 표절 의혹이 났다
+function wroteSongs(s) { return ['composer', 'producer'].some(id => trackOn(s, id)) || (s.works || []).some(w => /자작곡/.test(w.note || '')); }
+function sangSongs(s) { return (s.works || []).some(w => w.type === '싱글' || w.type === '밴드 싱글'); }
+function madeSongs(s) { return ['composer', 'producer', 'solo', 'band'].some(id => trackOn(s, id)) && (wroteSongs(s) || sangSongs(s)); }
+// 표절 의혹이 난 곡을 내가 썼는지: 논란이 시작될 때 정해 둔다 (own)
+function plOwn(s) { return s.scandal && s.scandal.own != null ? !!s.scandal.own : wroteSongs(s); }
 
 // 논란 종류. who: 걸릴 수 있는지, w: 얼마나 자주, truth: 진실, sev: 무게(1~3)
 // claim: 사람들이 하는 말, know: 실제로는 어떤지 (claim 바로 뒤에 이어 붙는 문장), lab: 대응 버튼 이름 바꾸기, soft: 잘못은 아닌 일(열애·신상)
@@ -81,9 +87,12 @@ const SC = {
     know: { fake: '하지만 멤버들과 사이는 좋다. 그날은 다들 지쳐 있었을 뿐이다.', real: '요즘 멤버들과 사이가 정말 안 좋은 건 사실이다.' },
   },
   plagiarism: {
-    n: '표절 의혹', who: s => madeSongs(s), w: () => 1, truth: () => U.chance(0.15) ? 'real' : U.chance(0.6) ? 'half' : 'fake', sev: 2,
-    claim: '내가 만든 곡이 외국 노래와 비슷하다는 비교 영상이 올라왔다.',
-    know: { fake: '하지만 전혀 다른 곡이다. 흔한 코드 진행 하나가 겹칠 뿐이다.', half: '그 노래를 즐겨 듣긴 했다. 나도 모르게 비슷해졌을 수도 있다.', real: '마감에 쫓겨 그 노래를 많이 따라 한 게 맞다.' },
+    // v224: 곡을 쓴 적이 없는 가수는 '내가 부른 곡'으로 (곡을 쓴 사람이 따로 있어 무게도 가볍다)
+    n: '표절 의혹', who: s => madeSongs(s), w: () => 1, truth: () => U.chance(0.15) ? 'real' : U.chance(0.6) ? 'half' : 'fake', sev: s => plOwn(s) ? 2 : 1,
+    claim: s => plOwn(s) ? '내가 만든 곡이 외국 노래와 비슷하다는 비교 영상이 올라왔다.' : '내가 부른 곡이 외국 노래와 비슷하다는 비교 영상이 올라왔다. 곡을 쓴 사람은 따로 있지만, 사람들은 노래를 부른 나를 먼저 찾았다.',
+    know: { fake: '하지만 전혀 다른 곡이다. 흔한 코드 진행 하나가 겹칠 뿐이다.',
+      half: s => plOwn(s) ? '그 노래를 즐겨 듣긴 했다. 나도 모르게 비슷해졌을 수도 있다.' : '곡을 쓴 작곡가에게 물어보니 그 노래를 즐겨 듣긴 했다고 한다. 자기도 모르게 비슷해졌을 수도 있다고 했다.',
+      real: s => plOwn(s) ? '마감에 쫓겨 그 노래를 많이 따라 한 게 맞다.' : '곡을 쓴 작곡가에게 물어보니, 마감에 쫓겨 그 노래를 많이 따라 했다고 털어놓았다.' },
   },
   acting: {
     n: '발연기 논란', who: () => false, truth: () => 'perf', sev: 1, noFight: true,
@@ -180,6 +189,7 @@ function scCmN(id) { return SC[id].cm || SC[id].n; }
 function startScandal(s, id, truth) {
   const T = SC[id];
   s.scandal = { id, truth: truth || T.truth(s), t: s.t };
+  if (id === 'plagiarism') s.scandal.own = wroteSongs(s) ? 1 : 0;
   queueEv(s, 'scandal', 0, {}, true);
 }
 // 지각 (v93): 끈기가 낮으면 일정이 잡힌 달에 가끔 늦는다 (v215: 성실성이 높을수록 드물게)
@@ -245,7 +255,7 @@ E({
   plio: s => s.scandal && typeof commSpec === 'function' ? (s.scandal.cm && s.scandal.cm.t === scCmN(s.scandal.id) ? s.scandal.cm : (s.scandal.cm = commSpec(s, { k: 'scandal', bd: '이슈 게시판', t: scCmN(s.scandal.id), me: me(s).name, tn: scCmTn(s) }))) : null,
   cond: s => !!s.scandal && !s.scandal.resp,
   title: s => s.scandal ? SC[s.scandal.id].n : '논란',
-  text: s => { const sc = s.scandal, T = SC[sc.id]; return `${scText(T.claim, s)} 기사와 댓글이 쏟아지고 있다. ${T.know[sc.truth]}`; },
+  text: s => { const sc = s.scandal, T = SC[sc.id]; return `${scText(T.claim, s)} 기사와 댓글이 쏟아지고 있다. ${scText(T.know[sc.truth], s)}`; },
   ch: s => {
     const sc = s.scandal, T = SC[sc.id], L = T.lab || {}, ag = scAgency(s), m = hiatusMonths(s, T);
     // 상습 지각 논란에 사과하거나 자숙하면 마음을 고쳐먹는다: 성실성 재능이 조금 오른다 (v129)

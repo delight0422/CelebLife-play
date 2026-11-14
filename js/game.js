@@ -242,6 +242,20 @@ function addWork(s, w) {
   s.works.push(Object.assign({ y: calY(s), a: age(s) }, w, { pay: pay || undefined }));
 }
 
+// v224: 선택 결과 한 줄에 같은 특기가 두 번 적히지 않게 합친다 — "(보컬 +1 · 스트레스 -4) [보컬 +2]" → "(보컬 +3 · 스트레스 -4)"
+// 괄호는 결과로 오른 만큼(fx), 대괄호는 이미 가진 특기를 사건에서 또 골라 오른 만큼(learnMe)이다
+function skMerge(x) {
+  if (typeof x !== 'string' || x.indexOf(' [') < 0) return x;
+  const rx = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), at = n => new RegExp('((?:\\(|· )' + rx(n) + ' \\+)(\\d+)(?= ·|\\))'), add = {};
+  const x0 = x.replace(/ \[[^\[\]]+\]/g, '');
+  let y = x.replace(/ \[([^\[\]]+)\]/g, (m, body) => {
+    const its = body.split(' · '); if (!its.every(it => /^.+ \+\d+$/.test(it))) return m;
+    const keep = its.filter(it => { const mm = /^(.+) \+(\d+)$/.exec(it); if (!at(mm[1]).test(x0)) return true; add[mm[1]] = (add[mm[1]] || 0) + +mm[2]; return false; });
+    return keep.length ? ` [${keep.join(' · ')}]` : '';
+  });
+  for (const n in add) y = y.replace(at(n), (m, a, b) => a + (+b + add[n]));
+  return y;
+}
 // 수치를 바꾸고 "(보컬 +2 · 돈 -3만 원)" 같은 꼬리말을 돌려준다. sk: { 특기: 양 } 은 배운 특기만 오른다
 function fx(s, o) {
   const parts = [];
@@ -732,6 +746,7 @@ function evAvail(s, ev) {
   if (ev.once && s.done[ev.id]) return false;
   if (s.cd[ev.id] && s.cd[ev.id] > s.t) return false;
   if (s.army && !ev.army) return false;
+  if (s.ill && s.ill.wander && evCat(ev, s) === '배움') return false; // v224: 사춘기 방황 중에는 새로 배워 보자는 사건이 뜨지 않는다
   try { return !ev.cond || ev.cond(s); } catch (e) { console.error(ev.id, e); return false; }
 }
 // ───── 성과의 평가 변화 (턴제 요약 '성과' 칸) ─────
@@ -880,7 +895,7 @@ function fbtnRun(s, i) {
   const ev = EVENTS[p.id], b = (ev.fbtn ? ev.fbtn(s, p.d) || [] : [])[i];
   if (!b || b.ok === false) return;
   s.pending = null;
-  let r; ledPush(s, p.id, p.d); try { r = b.f ? b.f(s, p.d) : ''; } finally { ledPop(s, p.tok || p.d._lt || U.uid(), r); }
+  let r; ledPush(s, p.id, p.d); try { r = skMerge(b.f ? b.f(s, p.d) : ''); } finally { ledPop(s, p.tok || p.d._lt || U.uid(), r); }
   applyLocks(s);
   if (r) addLog(s, r, ev.tag || 'ev');
   autoEvs(s); chMark(s); pullNow(s); pullBack(s); autoEvs(s);
@@ -897,7 +912,7 @@ function choose(s, i) {
   if (!c || (c.ok && !c.ok(s))) return;
   s.pending = null;
   const jf0 = totalFans(s), lt = p.tok || (p.d && p.d._lt) || U.uid();
-  let r; CH_RAND = 0; ledPush(s, p.id, p.d); try { r = c.f ? c.f(s, p.d) : ''; } finally { ledPop(s, lt, r); }
+  let r; CH_RAND = 0; ledPush(s, p.id, p.d); try { r = skMerge(c.f ? c.f(s, p.d) : ''); } finally { ledPop(s, lt, r); }
   const unc = CH_RAND > 0;
   jfAdd(s, evJobOf(s, p.id, p.d), totalFans(s) - jf0);
   applyLocks(s);
@@ -977,7 +992,7 @@ function autoEvs(s) {
     const k0 = learnedSkills(me(s)).length, e0 = evalSnap(s), dv0 = EV_E0 && EV_E0.id === p.id ? EV_E0.dv : [];
     s.pending = null;
     const jf0 = totalFans(s), lt = p.tok || (d && d._lt) || U.uid();
-    let r; ledPush(s, p.id, d); try { r = c.f ? c.f(s, d) : ''; } finally { ledPop(s, lt, r || (ev.noCh ? tx : '')); }
+    let r; ledPush(s, p.id, d); try { r = skMerge(c.f ? c.f(s, d) : ''); } finally { ledPop(s, lt, r || (ev.noCh ? tx : '')); }
     jfAdd(s, evJobOf(s, p.id, d), totalFans(s) - jf0);
     const dv = dvAdd(dv0, evalDiff(e0, evalSnap(s))).filter(([k]) => !(/→/.test(r || '') && / 평가$/.test(k)));
     applyLocks(s);
@@ -1106,15 +1121,17 @@ function availableActs(s) {
 }
 function wantedLocks(s) {
   if (s.army) return s.slots.map(() => 'army');
-  if (s.ill && s.ill.all) return s.slots.map(() => 'sick');
+  if (s.ill && s.ill.all && !s.ill.wander) return s.slots.map(() => 'sick');
   const L = [];
   for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && c.locks && trackOn(s, id) && (!pregBlock(s, id) || s.tracks[id].proj)) L.push(...c.locks(s, s.tracks[id])); } // 임신 중에도 이미 찍고 있던 작품(proj)의 고정 칸은 남는다
   if (s.projects.some(w => w.slot)) L.push('proj');
   if (s.kidTeach) L.push('kidteach');
   if (pregMe(s)) L.push('taegyo'); // v215: 임신 중 고정 일정
-  if (s.ill && s.ill.rest) L.push('sick');
+  if (s.ill && s.ill.rest && !s.ill.wander) L.push('sick');
   // 직업 활동은 늘 고정 (턴제 실험 6차): 하는 직업마다 한 칸. 회사 · 촬영이 이미 그 직업 칸을 잡아 두었으면 더 넣지 않는다 ('+c_직업')
   for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && c.act && actOK(s, 'c_' + id) && !L.includes('c_' + id)) L.push('+c_' + id); }
+  // v224 사춘기 방황: 회사 연습시간 · 촬영 · 직업 활동처럼 정해진 일은 그대로 두고, 남는 칸만 모두 치료·요양으로 묶는다 (예전엔 모든 칸이 묶이고 직업도 멈췄다)
+  if (s.ill && s.ill.wander) while (L.length < s.slots.length) L.push('sick');
   return L;
 }
 // 학원: 실력이 오를수록 비싸지고(고급 레슨), 일정 수준을 넘으면 학원에서는 더 배울 게 없다
@@ -1237,10 +1254,9 @@ function tick(s) {
   // 학교 수업은 학업을 조금씩 올려 준다. 귀가부는 집에서 공부하는 시간이 있어 더 빨리 오른다
   if (schoolYear(s) >= 1 && !s.edu.graduated && !s.army && has(me(s), 'study')) practice(s, me(s), 'study', s.flags.homeClub ? 0.5 : 0.25);
   if (!s.army) scoutByWork(s);
-  if (!s.army && !(s.ill && s.ill.wander)) { for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && trackOn(s, id) && c.monthly) { (s.carM = s.carM || {})[id] = (s.carM[id] || 0) + 1; EARN_JOB = id; const L0 = s.log[s.log.length - 1], e0 = evalSnap(s), jf0 = totalFans(s); try { c.monthly(s, s.tracks[id]); } finally { EARN_JOB = null; } jfAdd(s, id, totalFans(s) - jf0); resDv(s, L0, e0); } } worksMonth(s); jobIdleMonth(s); lateMonth(s); stageMonth(s); }
+  if (!s.army) { for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && trackOn(s, id) && c.monthly) { (s.carM = s.carM || {})[id] = (s.carM[id] || 0) + 1; EARN_JOB = id; const L0 = s.log[s.log.length - 1], e0 = evalSnap(s), jf0 = totalFans(s); try { c.monthly(s, s.tracks[id]); } finally { EARN_JOB = null; } jfAdd(s, id, totalFans(s) - jf0); resDv(s, L0, e0); } } worksMonth(s); jobIdleMonth(s); lateMonth(s); stageMonth(s); }
   // 군 복무 중에도 내 회사는 돌아간다 (대표의 할 일은 못 한다)
-  else if (s.army) { armyMonth(s); if (typeof coArmy === 'function') coArmy(s); }
-  else { worksMonth(s); if (typeof coArmy === 'function') coArmy(s); } // v221: 사춘기 방황 중 — 직업의 매달 처리는 멈추고, 이미 나온 작품 수익과 내 회사는 그대로 돈다
+  else { armyMonth(s); if (typeof coArmy === 'function') coArmy(s); }
   familyMonth(s);
   uniMonth(s);
   livingMoney(s);
@@ -1266,7 +1282,7 @@ function tick(s) {
   autoEvs(s); pullNow(s);
   s.lastMon = s.mon;
   // 돈 흐름 창의 '1년': 최근 12달의 항목별 수입·지출을 남겨 둔다
-  s.monHist = (s.monHist || []).concat([{ t: s.t, items: s.mon.items, fam: s.mon.familyPaid || 0 }]).slice(-12);
+  s.monHist = (s.monHist || []).concat([{ t: s.t, items: s.mon.items, fam: s.mon.familyPaid || 0, loan: s.mon.loanPaid || 0 }]).slice(-12);
   const fade = age(s) >= 50 ? 0.99 : age(s) >= 35 ? 0.993 : 0.996;
   MK.forEach(m => { s.fans[m] = Math.round(s.fans[m] * fade); });
   jfSync(s);
@@ -1347,7 +1363,10 @@ function famCall(s, n) {
 function peopleYear(s) {
   for (const n of people(s)) {
     const na = pAge(s, n);
-    if (!['자녀', '형제자매', '엄마', '아빠', '업계'].includes(n.rel) && !n.ind && n.job === '학생' && na >= 20 && U.chance(0.45)) {
+    // v224: 학창 시절에 만난 사람은 열아홉 살이 넘으면 '학생'이 아니다 — 대학생이 되고, 그 뒤 일을 시작한다 (예전엔 스무 살이 넘어도 운이 없으면 계속 '학생'이었다)
+    const free = !['자녀', '형제자매', '엄마', '아빠', '업계'].includes(n.rel) && !n.ind;
+    if (free && n.job === '학생' && na >= 19 && na < 23) n.job = '대학생';
+    if (free && ((n.job === '학생' && na >= 23) || (n.job === '대학생' && na >= 22 && U.chance(0.45)))) {
       n.job = U.pick(['회사원', '대학원생', '공무원 준비생', '간호사', '카페 사장', '프리랜서 디자이너', '은행원', '스트리머', '교사', '개발자']);
       const near = n.rel === '연인' || n.rel === '배우자';
       if (near || n.aff >= 40) addLog(s, `${near ? n.rel + ' ' : ''}${josa(n.name, '이가')} ${n.job}${n.job.endsWith('생') ? '이' : ''} 되었${near ? '다.' : '다는 소식을 들었다.'}`, 'news');
@@ -1397,7 +1416,7 @@ function livingMoney(s) {
   // 등록금: 대학은 3월에 들어가서 생일과 상관없다 (v117 학사 일정)
   if (inUni(s) && !s.army) {
     if (s.wealth >= 5 && parentsAlive(s).length) s.mon.familyPaid = (s.mon.familyPaid || 0) + 70e4;
-    else { s.debt += 70e4; s.mon.items['학자금 대출'] = (s.mon.items['학자금 대출'] || 0) - 70e4; }
+    else { s.debt += 70e4; s.mon.loanPaid = (s.mon.loanPaid || 0) + 70e4; } // v224: 현금이 나가는 게 아니라 빚이 느는 것이라 지출 내역에는 넣지 않고 따로 적는다 (loanPaid)
   }
   if (a >= 19 && !s.army) {
     if (!isDorm(s)) housingMonth(s);
@@ -1407,7 +1426,7 @@ function livingMoney(s) {
   if (s.debt > 0 && s.money > 0) {
     const reserve = a >= 19 ? REGION_BY[s.region].rent * 2e4 : 0;
     const pay = Math.min(s.debt, Math.max(0, s.money - reserve));
-    if (pay > 0) { s.debt -= pay; s.money -= pay; s.mon.items['빚 갚기'] = (s.mon.items['빚 갚기'] || 0) - pay; }
+    if (pay > 0) { s.debt -= pay; s.money -= pay; s.mon.exp += pay; s.mon.items['빚 갚기'] = (s.mon.items['빚 갚기'] || 0) - pay; } // v224: 메인 화면 '지난달 나간 돈'에도 잡힌다 (예전엔 재정 창에만 보였다)
   }
   s.debtM = s.debt > 3000e4 ? (s.debtM || 0) + 1 : 0;
 }
@@ -1465,9 +1484,13 @@ function armyMonth(s) {
 }
 function flavor(s) {
   if (!U.chance(0.28) || s.army) return;
-  const c = FLAVOR.filter(f => { try { return f.c(s) && (!f.w || f.w(s) > 0); } catch (e) { return false; } });
-  if (!c.length) return;
-  const f = U.wpick(c, f => f.w ? f.w(s) : 1);
+  const all = FLAVOR.map((f, i) => ({ f, i })).filter(({ f }) => { try { return f.c(s) && (!f.w || f.w(s) > 0); } catch (e) { return false; } });
+  if (!all.length) return;
+  // v224: 같은 말이 자꾸 되풀이되지 않게, 한번 나온 줄은 2년(줄에 cd가 있으면 그만큼) 동안 다시 고르지 않는다. 남는 줄이 없으면 가장 오래전에 나온 줄을 고른다
+  const T = s.flvT = s.flvT || {}, fresh = all.filter(({ f, i }) => !(T[i] > s.t - (f.cd || 24)));
+  const pk = fresh.length ? U.wpick(fresh, x => x.f.w ? x.f.w(s) : 1) : all.slice().sort((a, b) => (T[a.i] || 0) - (T[b.i] || 0))[0];
+  T[pk.i] = s.t;
+  const f = pk.f;
   addLog(s, f.x + fx(s, f.f || {}), 'flavor');
 }
 function successCheck(s) {

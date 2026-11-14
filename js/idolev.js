@@ -97,7 +97,7 @@ function soloWaysMonth(s, t) {
   if (idolWayHas(t, 'cover')) {
     const k = soloVoice(t, p), base = (10 + Math.sqrt(totalFans(s)) * 0.35) * U.fl(0.6, 1.4) * popSpeed(s) * myRoom(s, 'kr');
     practice(s, p, k, 0.4); addStress(s, 0.8);
-    if (U.chance(0.02 + lv(p, k) / 2500)) { const g = Math.round(base * U.fl(8, 20)); s.fans.kr += g; addLog(s, `올린 커버 영상이 크게 퍼졌다. "원곡보다 좋다"는 댓글이 달렸다. (팬 +${fmtFans(g)})`, 'good'); }
+    if (U.chance(0.02 + lv(p, k) / 2500)) { const g = Math.round(base * U.fl(8, 20)); s.fans.kr += g; addLog(s, `올린 커버 영상이 크게 퍼졌다. ${U.pick(['"원곡보다 좋다"는 댓글이 달렸다.', '"이 목소리 누구냐"는 댓글이 줄줄이 달렸다.', '원곡을 부른 가수의 팬들까지 찾아와 칭찬을 남겼다.', '추천 영상에 올라 조회수가 하루 만에 몇 배로 뛰었다.', '짧게 잘라 낸 영상이 여기저기로 퍼져 나갔다.'])} (한국 팬 +${fmtFans(g)})`, 'good'); }
     else s.fans.kr += Math.round(base);
   }
 }
@@ -144,7 +144,7 @@ function soloExtraMonth(s, t) {
 }
 function soloRelCan(t) { return !!t && !t.alb && t.nextRel > 0 && t.nextRel < 90; }
 function soloRelPush(t) { if (soloRelCan(t)) t.nextRel++; }
-function soloFxLine(d) { return [d.gain > 0 ? `내 팬 +${fmtFans(d.gain)}` : '', d.pop > 0.3 ? '인기 ↑' : d.pop < -0.3 ? '인기 ↓' : '', d.roy >= 1e4 ? `매달 들어올 음원 수익 약 ${fmtWon(d.roy)}` : ''].filter(Boolean).join(' · '); }
+function soloFxLine(d) { return [d.gain > 0 ? `${MK_N[d.mk || 'kr']} 팬 +${fmtFans(d.gain)}` : '', d.pop > 0.3 ? '인기 ↑' : d.pop < -0.3 ? '인기 ↓' : '', d.roy >= 1e4 ? `매달 들어올 음원 수익 약 ${fmtWon(d.roy)}` : ''].filter(Boolean).join(' · '); }
 INBOX.solo_ost = {
   ic: '🎬',
   text: (s, m) => `${m.d.big ? '기대작으로 꼽히는 ' : ''}${m.d.genre} 드라마 「${m.d.drama}」의 OST를 불러 달라는 제안이다. 가창료 ${fmtWon(soloShare(s.tracks.solo, m.d.fee))}.\n\n드라마가 잘되면 OST도 같이 뜬다.`,
@@ -162,7 +162,7 @@ E({
     d.hit = U.normal(d.big ? 0.5 : 0, 1) + (s.trendTV && d.genre === s.trendTV.drama ? 0.4 : 0);
     const sc = U.clamp(30 + lv(p, 'vocal') * 0.5 + (p.tal.voice - 50) * 0.1 + d.hit * 7 + Math.log10(1 + totalFans(s)) * 1.6 + U.normal(0, 5), 0, 100);
     d.sc = Math.round(sc); d.peak = chartFromScore(sc);
-    d.gain = Math.round(Math.max(0, fanGain(s, sc, mk, 0.5)) * myRoom(s, mk)); s.fans[mk] += d.gain;
+    d.mk = mk; d.gain = Math.round(Math.max(0, fanGain(s, sc, mk, 0.5)) * myRoom(s, mk)); s.fans[mk] += d.gain;
     d.pop = jpopAdd(s, 'solo', Math.max(0, (sc - 55) / 10));
     d.roy = addCatalog(s, d.title, 'OST 가창', sc, (d.sg != null ? d.sg : t.st === 'signed') ? 0.18 : 0.3, 'solo');
     if (sc >= 74) addFame(s, 1);
@@ -193,7 +193,7 @@ E({
     // 곡 주인의 실력 · 인기가 크고, 내 노래(랩)가 보탠다
     const sc = U.clamp(22 + sk * 0.35 + pop * 0.3 + lv(p, soloVoice(t, p)) * 0.2 + U.normal(0, 6), 0, 100);
     d.sc = Math.round(sc); d.peak = chartFromScore(sc);
-    d.gain = Math.round(npcFanGain(s, { pop }) * (0.4 + Math.max(0, sc - 45) / 25) * myRoom(s, mk)); s.fans[mk] += d.gain;
+    d.mk = mk; d.gain = Math.round(npcFanGain(s, { pop }) * (0.4 + Math.max(0, sc - 45) / 25) * myRoom(s, mk)); s.fans[mk] += d.gain;
     d.pop = jpopAdd(s, 'solo', Math.max(0, (sc - 55) / 12));
     d.roy = addCatalog(s, d.title, '피처링', sc, (d.sg != null ? d.sg : t.st === 'signed') ? 0.09 : 0.15, 'solo');
     if (n) { if (sc >= 70) n.pop = U.clamp(n.pop + 2, 1, 99); if (sc >= 66) npcRel(s, n, 8); }
@@ -243,7 +243,7 @@ E({
     d.pay = signed ? Math.round(Math.max(0, rev - V.cost) * (1 - cut)) : Math.round(rev);
     d.net = signed ? d.pay : Math.round(rev - (d.cost != null ? d.cost : V.cost));
     if (d.pay > 0) earn(s, d.pay, '단독 공연', 'solo');
-    d.gain = Math.round(Math.max(0, d.sold * (d.heat - 50) / 40) * myRoom(s, mk)); s.fans[mk] += d.gain;
+    d.mk = mk; d.gain = Math.round(Math.max(0, d.sold * (d.heat - 50) / 40) * myRoom(s, mk)); s.fans[mk] += d.gain;
     d.pop = jpopAdd(s, 'solo', d.heat >= 82 ? U.fl(3, 5) : d.heat >= 67 ? U.fl(1.5, 3) : d.heat >= 52 ? 0.8 : d.fill < 0.5 ? -2 : -0.5);
     t.liveN = (t.liveN || 0) + 1; t.liveT = s.t + SOLO_LIVE_GAP;
     practice(s, p, soloMain(t), 2, 1); addStress(s, 8);

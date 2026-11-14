@@ -52,7 +52,7 @@ function breakUp(s, n, why) { n.rel = '전 연인'; aff(n, -20); s.partner = nul
 // ── 결혼: 재산을 합친다 ──
 // 배우자 수입(만 원). 매달 월급의 절반이 집으로 들어온다. 업계 사람은 이름값에 따라
 // 월급은 세금을 뗀 실수령 (피드백 24: 예전 값은 회사원 130만 원처럼 너무 낮았다). 절반을 집에 보탠다
-const SP_PAY = { '회사원': 320, '개발자': 450, '간호사': 340, '교사': 320, '공무원': 300, '은행원': 420, '디자이너': 280, '프리랜서 디자이너': 250, '카페 사장': 260, '대학원생': 80, '공무원 준비생': 0, '학생': 0, '전업주부': 0, '스트리머': 200 };
+const SP_PAY = { '회사원': 320, '개발자': 450, '간호사': 340, '교사': 320, '공무원': 300, '은행원': 420, '디자이너': 280, '프리랜서 디자이너': 250, '카페 사장': 260, '대학원생': 80, '공무원 준비생': 0, '학생': 0, '대학생': 0, '전업주부': 0, '스트리머': 200 };
 function spouseIncome(p) { let v = SP_PAY[p.job]; if (v == null) v = p.ind ? Math.round(250 + Math.log10(1 + (p.fame || 0)) * 60) : 300; return v * 1e4; }
 function spousePay(s, p) { return Math.round(spouseIncome(p) * 0.5 / 1e4) * 1e4; }
 // 결혼할 때 배우자가 모아 둔 돈
@@ -270,7 +270,10 @@ E({
   cond: s => age(s) >= 9 && age(s) <= 12,
   text: () => '반장 선거가 열린다. 나가 볼까?',
   ch(s) {
-    const p = U.clamp(0.2 + me(s).tal.humor / 150 + me(s).tal.looks / 400, 0.1, 0.85);
+    // v224: 전달력이 가장 크고(갈수록 가파른 곡선), 유머 감각 · 외모가 조금 보탠다. 외향적이면 1.3배, 내향적이면 0.6배
+    // 전달력 30 · 내향적 18% / 전달력 50 · 그 밖의 성격 41% / 전달력 70 · 외향적 70%쯤 (유머 감각 · 외모 50 기준)
+    const q = me(s), pid = per(s).id;
+    const p = U.clamp((0.08 + 0.55 * Math.pow(U.clamp(q.tal.verbal, 0, 100) / 100, 1.6) + q.tal.humor / 600 + q.tal.looks / 800) * (pid === 'outgoing' ? 1.3 : pid === 'introvert' ? 0.6 : 1), 0.05, 0.85);
     return [
       { t: '나간다', h: `당선 가능성 ${pct(p)}`, f: s => U.chance(p) ? '반장이 됐다!' + fx(s, { rep: 3, stress: -4 }) : '두 표 차이로 떨어졌다.' + fx(s, { stress: 3 * pm(s, 'loseStress') }) },
       { t: '안 나간다', f: () => '반장 선거는 구경만 했다.' },
@@ -363,7 +366,7 @@ E({
   text: () => '고등학교 동아리 신청 기간이다. 어디에 들어갈까?\n\n동아리에서 하는 특기는 졸업할 때까지 더 빨리 는다.',
   // v220: 예술고 실용음악과에는 합창부 대신 밴드부 (보컬)이 있다 (다른 학교는 합창부만)
   init(s, d) { const mus = s.edu.hs === '예술고 실용음악과'; d.o = fitPick(s, CLUBS.map(x => mus && x[1] === 'vocal' ? ['밴드부 (보컬)', 'vocal'] : x).filter(x => skOpen(s, x[1])), 5); },
-  ch: (s, d) => d.o.map(([t, k]) => ({ t, h: has(me(s), k) ? `${skN(k)} 연습이 더 빨리 는다` : gainH(s, k), f: s => { s.edu.club = k; return `${t.replace(/ \(.*\)/, '')}에 들어갔다.` + learnMe(s, k) + fx(s, { sk: { [k]: 1 } }); } })).concat([{ t: '귀가부', h: '집에 일찍 와서 공부한다 · 학업이 오른다', f: s => { s.flags.homeClub = true; return '동아리는 들지 않았다. 집에 일찍 와서 공부하는 시간이 늘었다.' + fx(s, { sk: { study: 3 } }); } }]),
+  ch: (s, d) => d.o.map(([t, k]) => ({ t, f: s => { s.edu.club = k; return `${t.replace(/ \(.*\)/, '')}에 들어갔다.` + learnMe(s, k) + fx(s, { sk: { [k]: 1 } }); } })).concat([{ t: '귀가부', h: '집에 일찍 와서 공부한다 · 학업이 오른다', f: s => { s.flags.homeClub = true; return '동아리는 들지 않았다. 집에 일찍 와서 공부하는 시간이 늘었다.' + fx(s, { sk: { study: 3 } }); } }]),
 });
 E({
   id: 'anime', once: true, p: 0.003, cat: '학창 시절', title: '애니에 빠졌다', tal: 'intel',
@@ -623,7 +626,7 @@ E({
     const o = [], hm = s.home, own = hm.mode === 'alone', hn = own ? homeNow(s) : null;
     if (own && (!needApt(s) || inApt(s))) o.push({ t: `원래 내 집으로 간다 (${hn.n})`, h: hn.d, f: () => `숙소를 나와 ${josa(hn.n, '으로')} 돌아갔다.` });
     // 결혼했으면 본가로 돌아가지 않고 둘이 살 집을 구한다
-    if (!isSpouse(partner(s))) o.push({ t: '본가로 내려간다', ok: () => canHome, h: canHome ? `${s.birthPlace || '본가'} · 생활비 월 ${homeBase(s)}만 원과 번 돈의 15% 보태기` : (parentsAlive(s).length ? '부모님이 다시 들어오는 건 반대하신다' : '돌아갈 본가가 없다'), f: s => { moveHomeParents(s); return '숙소를 나와 본가로 돌아갔다.'; } });
+    if (!isSpouse(partner(s))) o.push({ t: '본가로 내려간다', ok: () => canHome, h: canHome ? `${s.birthPlace || '본가'} · 생활비 월 ${homeBase(s)}만 원과 번 돈의 15% 보태기` : (parentsAlive(s).length ? '부모님이 다시 들어오는 건 반대하신다' : '돌아갈 본가가 없다'), f: s => { moveHomeParents(s); s.done.leave_home = s.done.leave_home || 1; return '숙소를 나와 본가로 돌아갔다.'; } }); // v224: 여기서 본가를 골랐으면 열아홉 살의 '어디서 살까?'를 또 묻지 않는다
     // 결혼했으면 원룸 대신 투룸
     const sz = needApt(s) ? 'l' : isSpouse(partner(s)) ? 'm' : 's', mn = homeName('monthly', sz);
     if (!(own && hm.type === 'monthly')) o.push({ t: `${s.place}에서 ${josa(mn, '을를')} 구한다`, h: `보증금 ${fmtWon(homeNeed(s.region, 'monthly', sz))} · 월세·생활비 월 ${homeMonthly(s.region, 'monthly', sz)}만 원 · 돈이 모자라면 빚이 된다`, f: s => { const x = moveTo(s, s.region, 'monthly', sz); milestone(s, `${age(s)}세에 숙소를 나와 ${s.place}에서 자취를 시작했다.`); return x; } });
@@ -1314,8 +1317,8 @@ E({
   id: 'puberty', cat: '사춘기', title: '다 그만두고 싶다', keepPop: true,
   cond: s => age(s) < 19,
   init(s, d) { if (s.wandered || s.ill || (s.busyM || 0) < WANDER_AT - 2) { d.skip = true; return; } s.wandered = true; s.busyM = 0; s.ill = { n: '사춘기 방황', left: 12, rest: true, all: true, wander: true }; },
-  text: () => `어느 날 아침, 가방을 메고 나와서는 학원에도 연습실에도 가지 않았다. 다음 날도, 그다음 날도 마찬가지였다. "나는 왜 이걸 하고 있지?" 하는 생각이 머리를 떠나지 않는다.\n\n앞으로 1년 동안 모든 일정이 멈춘다.`,
-  ch: () => [{ t: '…', f: () => '모든 걸 내려놓고 방황하기 시작했다. 1년 동안 모든 일정이 멈춘다.' }],
+  text: () => `어느 날 아침, 가방을 메고 나와서는 학원에 가지 않았다. 다음 날도, 그다음 날도 마찬가지였다. "나는 왜 이걸 하고 있지?" 하는 생각이 머리를 떠나지 않는다.\n\n앞으로 1년 동안, 회사 연습시간이나 촬영처럼 정해진 일 말고는 아무것도 손에 잡히지 않는다. 내가 넣어 둔 일정은 모두 멈춘다.`,
+  ch: () => [{ t: '…', f: () => '방황하기 시작했다. 1년 동안 정해진 일 말고는 일정이 모두 멈춘다.' }],
 });
 // 학원 친구: 학원에 다니는 학생에게 가끔 생긴다
 E({

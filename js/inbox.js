@@ -124,7 +124,7 @@ function negoTerms(d) {
   const o = d.orig || d, L = [];
   const v = (a, b, f) => a == null || f(a) === f(b) ? f(b) : `${WAS(f(a))} → ${NOW(f(b))}`;
   if (d.sal) L.push(`월급 ${v(o.sal, d.sal, fmtWon)}`);
-  if (d.months) L.push(d.kind === 'idol' ? `데뷔하면 ${d.k2 === 'solo' ? '솔로' : d.k2 === 'band' ? '밴드' : '그룹'} 전속 계약 ${v(o.months, d.months, yrs)} (연습생 계약은 ${d.trC || '17세까지, 그 뒤로는 1년씩'})` : `계약 기간 ${v(o.months, d.months, yrs)}`);
+  if (d.months) L.push(d.kind === 'idol' ? `데뷔하면 ${d.k2 === 'solo' ? '솔로' : d.k2 === 'band' ? '밴드' : '그룹'} 전속 계약 ${v(o.months, d.months, yrs)} (연습생 계약은 ${d.trC || '17세가 될 때까지이고, 그 뒤로는 1년씩 다시 맺는다'})` : `계약 기간 ${v(o.months, d.months, yrs)}`);
   if (d.cut != null) L.push(`벌어들인 돈 중 회사 몫 ${v(o.cut, d.cut, pctN)} · 내 몫 ${v(o.cut == null ? null : 1 - o.cut, 1 - d.cut, pctN)}${(d.kind === 'idol' && d.k2 !== 'solo') || d.kind === 'band' ? ' (내 몫은 멤버 수대로 나눈다)' : ''}`);
   if (d.bonus) L.push(`계약금 ${v(o.bonus, d.bonus, fmtWon)} (한 번에)`);
   if (d.feeR != null) L.push(`작품마다 연출료 프리랜서의 ${v(o.feeR, d.feeR, pctN)}${d.pjFee ? ` (데뷔작 약 ${fmtWon(Math.round(d.pjFee * d.feeR / 1e5) * 1e5)})` : ''}`);
@@ -151,7 +151,7 @@ function negoJobWhy(s, d) { if (d.renew) return ''; const x = d.kind === 'wbcp' 
 function startNego(s, d) { const x = Object.assign({ tried: [], lev: 0.3, vb: me(s).tal.verbal }, d); x.orig = x.orig || { sal: x.sal, months: x.months, cut: x.cut, bonus: x.bonus }; fireEvent(s, 'contract_nego', x); return ''; }
 E({
   id: 'contract_nego', cat: '계약', title: (s, d) => d.renew ? '재계약 조건' : '계약 조건', tag: 'career',
-  text: (s, d) => { const N = NEGO[d.kind]; return (d.note ? d.note + '\n\n' : '') + (d.tried.length ? `${d.agN}의 ${d.renew ? '재계약' : '계약'} 조건이 이렇게 됐다.` : `${d.agN}에서 ${d.renew ? '재계약 조건을' : '계약서를'} 내밀었다. ${typeof N.what === 'function' ? N.what(d) : N.what}`) + `\n\n${negoTerms(d)}` + (d.oneAsk && d.tried.length ? '' : `\n\n${d.oneAsk ? '조건 중 한 가지만 원하는 쪽으로 바꿔 달라고 할 수 있다' : '마음에 들지 않는 조건은 한 가지씩 바꿔 달라고 할 수 있다'}. 요구가 받아들여지지 않으면 원래 조건으로 돌아오지만, 회사가 제안을 거둬들일 수도 있다.`); },
+  text: (s, d) => { const N = NEGO[d.kind]; return (d.note ? d.note + '\n\n' : '') + (d.tried.length ? `${d.agN}의 ${d.renew ? '재계약' : '계약'} 조건은 ${d.chg ? '이렇게 바뀌었다' : '처음 그대로다'}.` : `${d.agN}에서 ${d.renew ? '재계약 조건을' : '계약서를'} 내밀었다. ${typeof N.what === 'function' ? N.what(d) : N.what}`) + `\n\n${negoTerms(d)}` + (d.oneAsk && d.tried.length ? '' : `\n\n${d.oneAsk ? '조건 중 한 가지만 원하는 쪽으로 바꿔 달라고 할 수 있다' : '마음에 들지 않는 조건은 한 가지씩 바꿔 달라고 할 수 있다'}. 요구가 받아들여지지 않으면 원래 조건으로 돌아오지만, 회사가 제안을 거둬들일 수도 있다.`); },
   ch(s, d) {
     const N = NEGO[d.kind], why = negoJobWhy(s, d) || (N.block ? N.block(s, d) : '');
     const o = [{ t: d.renew ? '이 조건으로 재계약한다' : '이 조건으로 계약한다', ok: () => !why, h: why, f: s => N.sign(s, d) }];
@@ -159,7 +159,7 @@ E({
       const p = negoP(d), r = negoRisk(d);
       o.push({ t: a.t, ok: () => !why, h: `받아들여질 가능성 ${fmtPct(p)} · 안 되면 회사가 제안을 거둬들일 가능성 ${fmtPct(r)}`, f: s => {
         const nd = Object.assign({}, d, { tried: d.tried.concat(a.k) });
-        if (U.chance(p)) { a.to(nd); if (N.retune) N.retune(nd, a.k); nd.note = NOW('요구가 받아들여졌다! ' + a.done(nd)); fireEvent(s, 'contract_nego', nd); return a.done(nd); }
+        if (U.chance(p)) { a.to(nd); nd.chg = true; if (N.retune) N.retune(nd, a.k); nd.note = NOW('요구가 받아들여졌다! ' + a.done(nd)); fireEvent(s, 'contract_nego', nd); return a.done(nd); }
         // 회사가 제안을 거둬들이면 창으로 분명히 알려 준다
         if (U.chance(r)) { const msg = N.lost ? N.lost(s, d) : `${d.agN}에서 계약 이야기를 없던 일로 하자고 했다.` + fx(s, { stress: 5 }); fireEvent(s, 'nego_lost', { msg, renew: !!d.renew }); return msg; }
         nd.note = `요구가 받아들여지지 않았다. ${josa(d.agN, '은는')} 그 조건은 바꿀 수 없다고 했다.`;
@@ -260,8 +260,8 @@ WORK_TYPES.musical = {
     addWork(s, { type: '뮤지컬', title: w.title, sc, pay: fee, note: `${r.n} · ${{ 2: '대호평', 1: '호평', 0: '무난', '-1': '아쉬움', '-2': '대혹평' }[lvR]}` });
     if (sc >= 65) s.flags.musicalGood = (s.flags.musicalGood || 0) + 1;
     const best = cast.slice().sort((a, b) => b.aff - a.aff)[0];
-    const text = `뮤지컬 「${w.title}」의 마지막 공연이 끝났다. ${review}.\n\n출연료 ${fmtWon(fee)} · 팬 ${sgnFans(fans)}\n${best ? `${josa(best.name, '과와')} 가장 가까워졌다.` : ''}`;
-    return { text, log: `뮤지컬 「${w.title}」 ${r.n} — ${review}. (출연료 +${fmtWon(fee)} · 팬 ${sgnFans(fans)})` };
+    const text = `뮤지컬 「${w.title}」의 마지막 공연이 끝났다. ${review}.\n\n출연료 ${fmtWon(fee)} · 한국 팬 ${sgnFans(fans)}\n${best ? `${josa(best.name, '과와')} 가장 가까워졌다.` : ''}`;
+    return { text, log: `뮤지컬 「${w.title}」 ${r.n} — ${review}. (출연료 +${fmtWon(fee)} · 한국 팬 ${sgnFans(fans)})` };
   },
 };
 // 잘 해낸 적이 있거나 이름이 알려지면 제작사가 먼저 역할을 제안한다 (메시지함)

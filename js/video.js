@@ -346,7 +346,7 @@ E({
     if (t.works === 1) milestone(s, `${age(s)}세에 ${T.n} ${josa(`「${pj.title}」`, '으로')} 첫 작품에 출연했다.`);
     if (d.up && t.tier >= 4 && !t.leadMs) { t.leadMs = true; milestone(s, `${age(s)}세에 ${josa(`「${pj.title}」`, '으로')} ${josa(ACTOR_TIERS[t.tier], '이가')} 되었다.`); }
   },
-  text: (s, d) => `${PJ_TYPES[d.pj.tk].n} 「${d.pj.title}」(${roleTxt(d.pj)})이 공개됐다.\n\n${d.res} · ${d.review}\n팬 ${sgnFans(d.gain + (d.boom || 0))} · 출연료 ${fmtWon(d.fee)}`
+  text: (s, d) => `${PJ_TYPES[d.pj.tk].n} 「${d.pj.title}」(${roleTxt(d.pj)})이 공개됐다.\n\n${d.res} · ${d.review}\n한국 팬 ${sgnFans(d.gain + (d.boom || 0))} · 출연료 ${fmtWon(d.fee)}`
     + (d.review === '연기 대호평' ? (d.flop ? `\n\n작품 성적은 아쉬웠지만, 본 사람들 사이에서 '인생 연기'라는 말이 돌았다. 명장면 클립이 조금씩 퍼졌다.` : `\n\n'인생 연기'라는 말이 쏟아졌다. 명장면 클립이 여기저기 퍼졌다.`) : '')
     + (d.review === '연기 대혹평' ? `\n\n연기 장면만 모은 영상이 조롱거리가 됐다. 작품을 본 사람이 많을수록 비웃음도 커졌다.` : d.bad ? '\n\n연기력 논란 기사가 났다.' : '')
     + (d.oldSchool && d.bad ? '\n\n교복 입은 모습이 어색해서 몰입이 안 된다는 말이 많았다.' : '')

@@ -420,7 +420,7 @@ E({
     // 대작이 크게 잘되면 몇 달 뒤 부가 판권(해외 배급·VOD 등) 수익이 들어온다
     if (big && d.fee && sc >= 76) queueEv(s, 'dir_ip', U.int(3, 8), { t: pj.title, fee: d.fee, sc }, true);
   },
-  text: (s, d) => `${DIR_PJ[d.pj.tk].n} ${josa(`「${d.pj.title}」`, "이가")} 공개됐다.\n\n${d.res} · ${d.review}\n팬 ${sgnFans(d.gain + (d.boom || 0))}${d.fee ? ` · 연출료 ${fmtWon(d.fee)}` : d.pj.tk === 'short' ? ' · 연출료 없음 (내 돈으로 찍은 단편영화)' : ''}${d.bonus ? ` · ${d.fest ? '상금' : '흥행 인센티브'} ${fmtWon(d.bonus)}` : ''}${d.sale ? ` · ${d.buyer}에 상영권 판매 ${fmtWon(d.sale)}` : ''}` + dirReviewText(d) + (d.up ? `\n\n이 작품으로 '${DIR_TIERS[s.tracks.director.tier]}' 소리를 듣게 됐다.` : '') + wupText(s, d),
+  text: (s, d) => `${DIR_PJ[d.pj.tk].n} ${josa(`「${d.pj.title}」`, "이가")} 공개됐다.\n\n${d.res} · ${d.review}\n한국 팬 ${sgnFans(d.gain + (d.boom || 0))}${d.fee ? ` · 연출료 ${fmtWon(d.fee)}` : d.pj.tk === 'short' ? ' · 연출료 없음 (내 돈으로 찍은 단편영화)' : ''}${d.bonus ? ` · ${d.fest ? '상금' : '흥행 인센티브'} ${fmtWon(d.bonus)}` : ''}${d.sale ? ` · ${d.buyer}에 상영권 판매 ${fmtWon(d.sale)}` : ''}` + dirReviewText(d) + (d.up ? `\n\n이 작품으로 '${DIR_TIERS[s.tracks.director.tier]}' 소리를 듣게 됐다.` : '') + wupText(s, d),
   // v174: 결과 창을 인터넷 기사로 (ui.js newsEvHTML). 기사는 사실만, 반응은 댓글(영상 댓글), 얻은 것은 토스트로
   html: (s, d) => d.sc != null && d.res && typeof newsEvHTML === 'function' ? newsEvHTML(s, d, EVENTS.dir_res.news(s, d)) : '',
   news(s, d) {

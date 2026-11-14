@@ -795,6 +795,9 @@ function renderMoneyCard() {
   if (s.sibLoan) m += `<div class="row"><span>형제자매에게 빌린 돈</span><b class="neg">${fmtWon(s.sibLoan.left)}</b></div>`;
   if (s.friendLoan) m += `<div class="row"><span>${U.esc(s.friendLoan.name)}에게 빌린 돈</span><b class="neg">${fmtWon(s.friendLoan.left)}</b></div>`;
   m += `<div class="row"><span>지난달 들어온 돈</span><b class="pos">+${fmtWon(lm.inc)}</b></div><div class="row"><span>지난달 나간 돈</span><b class="neg">${Math.round(lm.exp) ? '-' : ''}${fmtWon(lm.exp)}</b></div>`;
+  // v224: 번 돈이 빚 갚는 데 먼저 나가 현금이 안 늘 때 까닭이 보이게
+  { const rp = lm.items && lm.items['빚 갚기'] ? -lm.items['빚 갚기'] : 0; if (rp > 0) m += `<div class="hint">나간 돈 가운데 ${fmtWon(rp)}은 빚을 갚는 데 들어갔다</div>`; }
+  if (lm.loanPaid) m += `<div class="hint">등록금 ${fmtWon(lm.loanPaid)}은 학자금 대출로 냈다 (빚이 그만큼 늘었다)</div>`;
   if (lm.familyPaid) m += `<div class="hint">가족이 대 준 돈 ${fmtWon(lm.familyPaid)} (${famPaidWhat(s)})</div>`;
   m += `<div class="mn-r total"><span>총자산 (집 포함)</span><b>${fmtWon(s.money + ha)}</b></div>`;
   const mc = $('#money-card'); if (mc) mc.innerHTML = m;
@@ -1689,7 +1692,7 @@ function panelTrk() {
   }
   if (key === 'scandal' && s.scandal) {
     const sc = s.scandal, T = SC[sc.id];
-    return `<h2>🔥 ${U.esc(T.n)}</h2>` + infoTable([['시작', `${ymLater(s, sc.t - s.t)}`], ['사람들이 하는 말', scText(T.claim, s)], ['실제로는', T.know[sc.truth]], ['내 대응', sc.resp ? { apo: (T.lab || {}).apo || '사과문', deny: (T.lab || {}).deny || '해명', prove: '증거로 반박', sue: '법적 대응', quiet: '침묵', hiatus: '자숙' }[sc.resp] : '아직 고르지 않았다']]);
+    return `<h2>🔥 ${U.esc(T.n)}</h2>` + infoTable([['시작', `${ymLater(s, sc.t - s.t)}`], ['사람들이 하는 말', scText(T.claim, s)], ['실제로는', scText(T.know[sc.truth], s)], ['내 대응', sc.resp ? { apo: (T.lab || {}).apo || '사과문', deny: (T.lab || {}).deny || '해명', prove: '증거로 반박', sue: '법적 대응', quiet: '침묵', hiatus: '자숙' }[sc.resp] : '아직 고르지 않았다']]);
   }
   if (key === 'hiatus' && s.hiatus) return `<h2>🤐 자숙</h2>` + infoTable([['까닭', s.hiatus.n], ['끝나는 때', `${ymLater(s, s.hiatus.left)} (${s.hiatus.left}개월 남음)`], ['그동안', '직업 활동과 지원을 할 수 없다']]);
   if (key === 'brands') {
@@ -1698,7 +1701,7 @@ function panelTrk() {
     return `<h2>📺 광고 모델</h2>` + infoTable(B.map(x => { const b = BRAND_BY[x.id]; return [b.n, `${b.cat} · 모델료 ${fmtWon(x.fee)} · ${ymLater(s, x.end - s.t)}까지`]; }));
   }
   if (key === 'army' && s.army) return `<h2>🪖 군 복무</h2>` + infoTable([['전역', `${ymLater(s, s.army.left)} (${s.army.left}개월 남음)`], ['월급', '100만 원 (생활비는 들지 않는다)'], ['일정', '복무하는 동안 모든 칸이 묶이고 특기를 연습할 수 없다']]);
-  if (key === 'ill' && s.ill) return `<h2>${s.ill.wander ? '🌀' : '🏥'} ${U.esc(s.ill.n)}</h2>` + infoTable([[s.ill.wander ? '남은 기간' : '회복', `${s.ill.left}개월 남음`], ['일정', s.ill.wander ? '모든 일정이 멈춘다' : s.ill.all ? '모든 칸이 치료로 묶인다' : '한 칸이 치료로 묶인다']]);
+  if (key === 'ill' && s.ill) return `<h2>${s.ill.wander ? '🌀' : '🏥'} ${U.esc(s.ill.n)}</h2>` + infoTable([[s.ill.wander ? '남은 기간' : '회복', `${s.ill.left}개월 남음`], ['일정', s.ill.wander ? '회사 연습시간 · 촬영처럼 정해진 일 말고는 모든 칸이 묶인다' : s.ill.all ? '모든 칸이 치료로 묶인다' : '한 칸이 치료로 묶인다']]);
   const p = me(s);
   const bonus = ks => ks.map(x => `${SKILLS[x].n} ${has(p, x) ? lvi(p, x) + '레벨' : '(안 배움)'}`).join(' · ');
   if (key === 'uni' && s.edu.uni) return `<h2>🎓 ${U.esc(s.edu.uni.n)}</h2>` + infoTable([['졸업', `${ymLater(s, s.edu.uni.end - s.t)} (${s.edu.uni.end - s.t}개월 남음)`], ['빨리 느는 특기', bonus(s.edu.uni.bonus)], ['등록금', s.wealth >= 5 && parentsAlive(s).length ? '부모님이 내 주신다' : '학자금 대출 (매달 70만 원씩 빚)']]);
@@ -2630,9 +2633,10 @@ function moneyTable(items) {
 }
 function panelMoney() {
   const s = S, tab = UI.monTab || 'm', hist = s.monHist || [];
-  let items = {}, fam = 0, when = '';
-  if (tab === 'm') { const lm = s.lastMon || { items: {} }; items = lm.items || {}; fam = lm.familyPaid || 0; when = '지난달'; }
-  else { for (const m of hist) { for (const [k, v] of Object.entries(m.items || {})) items[k] = (items[k] || 0) + v; fam += m.fam || 0; } when = hist.length >= 12 ? '최근 1년' : `최근 ${Math.max(1, hist.length)}개월`; }
+  let items = {}, fam = 0, loan = 0, when = '';
+  if (tab === 'm') { const lm = s.lastMon || { items: {} }; items = lm.items || {}; fam = lm.familyPaid || 0; loan = lm.loanPaid || 0; when = '지난달'; }
+  else { for (const m of hist) { for (const [k, v] of Object.entries(m.items || {})) items[k] = (items[k] || 0) + v; fam += m.fam || 0; loan += m.loan || 0; } when = hist.length >= 12 ? '최근 1년' : `최근 ${Math.max(1, hist.length)}개월`; }
+  if (items['학자금 대출']) { items = Object.assign({}, items); loan += -items['학자금 대출']; delete items['학자금 대출']; }
   const T = moneyTable(items), net = T.iSum - T.eSum;
   // 탭: 1개월 · 1년(최근 12달) · 연도별(올해와 작년, 예전 기록 창에 있던 표)
   let h = `<div class="pn-head"><h2>💰 재정</h2><div class="seg">${[['m', '1개월'], ['y', '1년'], ['cal', '연도별']].map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-montab="${k}">${n}</button>`).join('')}</div></div>`;
@@ -2644,6 +2648,7 @@ function panelMoney() {
     const list = (arr, cls) => arr.length ? arr.map(([k, v]) => `<div class="mon-row${v > 0 && (s.bills || {})[k] ? ' has-bill' : ''}"${v > 0 && (s.bills || {})[k] ? ` data-bill="${billKey(s.bills[k])}"` : ''}><span>${U.esc(k)}${v > 0 && (s.bills || {})[k] ? ' 🧾' : ''}</span><b class="${cls}">${v > 0 ? '+' : '-'}${fmtWon(Math.abs(v))}</b></div>`).join('') : '<div class="hint">없음</div>';
     h += `<div class="two-col"><div><div class="sec-h">수입</div>${list(T.inc, 'pos')}</div><div><div class="sec-h">지출</div>${list(T.exp, 'neg')}</div></div>`;
     if (fam) h += `<div class="lnote" style="margin-top:var(--sp-2)">가족이 대 준 돈 ${fmtWon(fam)} (${famPaidWhat(s)})</div>`;
+    if (loan) h += `<div class="lnote" style="margin-top:var(--sp-2)">학자금 대출로 낸 등록금 ${fmtWon(loan)} (현금이 나가지 않고 빚이 그만큼 늘었다)</div>`;
   }
   // 지금 상황과 빌리기·갚기
   const owe = [['빚', s.debt], ['주택·전세 대출', s.home.loan || 0], ['형제자매에게 빌린 돈', s.sibLoan ? s.sibLoan.left : 0], [s.friendLoan ? `${s.friendLoan.name}에게 빌린 돈` : '', s.friendLoan ? s.friendLoan.left : 0]].filter(([, v]) => v > 0);

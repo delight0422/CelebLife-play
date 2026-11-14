@@ -183,6 +183,8 @@ function netWorth(s) { return s.money - s.debt + houseAsset(s); }
 function married(s) { return typeof isSpouse === 'function' && isSpouse(partner(s)); }
 // 내가 느끼는 형편: 본가에 살면 부모님 형편도 함께 본다 (돈 걱정하는 일상 문구에 쓴다)
 function feelRich(s) { const w = homeWealth(s); return s.home && s.home.mode === 'parents' ? Math.max(w, s.wealth) : w; }
+// v224: 돈 걱정하는 일상 문구(월세 날 · 축의금 · 편의점 도시락)는 형편 눈금만으로는 모자라다 — 현금이 수천만 원 있어도 눈금은 4 이하일 수 있다. 빚을 뺀 현금이 500만 원이 안 될 때만 나온다
+function moneyTight(s) { return feelRich(s) <= 4 && s.money - (s.debt || 0) < 500e4; }
 function homeWealth(s) {
   const yr = (s.monHist || []).reduce((a, m) => a + Object.values(m.items || {}).reduce((x, v) => x + Math.max(0, v), 0), 0);
   const v = netWorth(s) + yr * 3, cut = [0, 5e7, 1.5e8, 3e8, 6e8, 1e9, 2e9, 4e9, 1e10];

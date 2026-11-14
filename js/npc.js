@@ -74,11 +74,12 @@ function npcMonth(s) {
     const tgt = { rookie: 14 + n.sk * 0.15, rise: 30 + n.sk * 0.35, peak: 45 + n.sk * 0.5, fall: 18 + n.sk * 0.2 }[n.ph];
     n.pop = U.clamp(n.pop + (tgt - n.pop) * 0.03 + U.normal(0, 0.6), 1, 99);
     // 은퇴 · 해체: 내리막이 길어지고 인기가 떨어지면. 빈자리는 신인이 채운다
-    if (n.ph === 'fall' && yrs > 1 && U.chance(n.pop < 35 ? 0.04 : 0.02)) { npcOut(s, n, F.team ? '해체를 발표했다.' : '은퇴를 발표했다.'); continue; }
+    if (n.ph === 'fall' && yrs > 1 && !(n.hitT > s.t - 18) && U.chance(n.pop < 35 ? 0.04 : 0.02)) { /* v224: 히트를 낸 지 1년 반이 안 됐으면 은퇴 · 해체하지 않는다 */ npcOut(s, n, F.team ? '해체를 발표했다.' : '은퇴를 발표했다.'); continue; }
     // 활동: 성실파는 자주, 조용한 사람은 드물게
     const act = 0.07 * (ps === 'dil' ? 1.5 : ps === 'shy' ? 0.6 : 1);
     if (U.chance(act)) {
       const hit = U.chance(0.1 + n.sk / 400);
+      if (hit) n.hitT = s.t;
       if (NPC_FANM[n.f] && typeof chartPub === 'function') n.rl = { t: s.t, pw: npcSongPow(n, hit) }; // v223: 곡을 낸 달과 그 곡의 화력 (내 곡 순위 · 맞대결에 쓴다)
       n.pop = U.clamp(n.pop + (hit ? U.fl(3, 7) : U.fl(0, 2)), 1, 99);
       npcNews(s, n, hit ? F.hit + '.' : U.pick(F.rel) + '.', false, hit && n.f !== 'idolg');
