@@ -480,9 +480,27 @@ const CM_POST = {
     C: { great: ['홍보 담당자 상 줘라', '입덕함', '회사가 드디어 일함ㅋㅋ', '이번엔 뜰 듯'], good: ['나도 봄', '괜찮네', '이번엔 좀 다른 듯'], meh: ['나도 몰랐음', '아쉽다', '조용하긴 함'], bad: ['팬들만 속 탐', '홍보 담당자 누구임', '곡이 아까움'] },
   },
   scandal: {
-    T: { meh: ['{me} {t} 뭐임?', '{me} 이야기 정리해 줌', '{me} 입장 언제 나옴?'] },
-    B: { meh: '기사 보고 왔는데 아직 뭐가 맞는지 모르겠음. 아는 사람 있음?' },
-    C: { meh: ['중립기어 박음', '입장 나올 때까지 기다리자', '실망임', '원래 그런 줄 알았음', '팬인데 믿고 기다림', '사실이면 끝이지', '또 시작이네 다들 진정하셈', '기사 제목만 보고 욕하지 말자'] },
+    // v215: P = [제목, 본문] 짝 (제목과 본문이 따로 놀지 않게). 무게: lo 가벼운 논란(지각 등) · mid 보통 · hi 무거운 논란(학폭 등). scandal.js scCmTn
+    P: {
+      lo: [['{me} {t} 뭐임?', '기사 제목만 보고 왔는데 무슨 일인지 잘 모르겠음. 아는 사람 설명 좀.'],
+        ['{me} {t} 정리해 줌', '① {t} 기사가 남 ② 목격담이 몇 개 올라옴 ③ 본인 입장은 아직 없음. 큰일은 아닌 듯한데 반복되면 이미지 깎일 듯.'],
+        ['{me} {t} 이게 그렇게 큰일임?', '잘한 건 아닌데 이 정도로 욕먹을 일인가 싶음. 사과하고 고치면 되는 거 아님?'],
+        ['{me} 요즘 말 나오는 거 봄?', '{t} 얘기가 여기저기서 보이던데 진짜인지는 모르겠음. 다들 어떻게 생각함?']],
+      mid: [['{me} {t} 뭐임?', '기사 보고 왔는데 아직 뭐가 맞는지 모르겠음. 아는 사람 있음?'],
+        ['{me} {t} 정리해 줌', '① {t} 글이 올라옴 ② 기사로 퍼짐 ③ 양쪽 말이 다름 ④ 본인 입장은 아직 없음. 사실 확인 전이니 일단 지켜보는 게 맞는 듯.'],
+        ['{me} 입장 언제 나옴?', '벌써 며칠째인데 아무 말이 없음. 빨리 뭐라도 말해 줬으면.'],
+        ['{me} 이번 건 좀 실망임', '아직 확실한 건 없다지만 이런 얘기가 나온 것부터 아쉬움. 사실이 아니길 바람.']],
+      hi: [['{me} {t} 이거 진짜임?', '보고 충격받음. 사실이면 그냥 넘어갈 일이 아닌데… 아는 사람 있음?'],
+        ['{me} {t} 정리해 줌', '① {t} 글이 올라옴 ② 비슷한 증언이 더 나왔다는 말이 있음 ③ 소속사는 확인 중이라고만 함. 사실로 드러나면 활동을 이어 가기 어려울 듯.'],
+        ['{me} 입장 언제 나옴?', '이 정도 일이면 빨리 입장을 내야 하는 거 아님? 침묵이 길어질수록 더 안 좋아 보임.'],
+        ['{me} 팬인데 너무 힘들다', '아니라고 믿고 싶은데 글이 너무 구체적이라 마음이 복잡함. 제발 아니었으면.']],
+    },
+    T: { meh: ['{me} {t} 뭐임?'] }, B: { meh: '기사 보고 왔는데 아직 뭐가 맞는지 모르겠음. 아는 사람 있음?' },
+    C: {
+      lo: ['사과하고 고치면 됨', '이 정도는 넘어가자', '좀 실망이긴 함', '프로면 기본은 지켜야지', '다음부터 잘하면 되지', '기사가 좀 부풀린 듯', '주변 사람들은 좀 곤란했겠다', '팬인데 따끔하게 혼나고 오길', '중립기어 박음', '별일 아닌 듯', '반복되면 그때 욕해도 안 늦음', '입장 나오면 다시 봄'],
+      mid: ['중립기어 박음', '입장 나올 때까지 기다리자', '실망임', '팬인데 믿고 기다림', '또 시작이네 다들 진정하셈', '기사 제목만 보고 욕하지 말자', '사실이면 실망일 듯', '아니면 글쓴 사람이 책임져야지', '양쪽 말 다 들어 봐야 함', '요즘 이런 글 너무 많음', '입장문 빨리 좀', '일단 지켜봄'],
+      hi: ['사실이면 끝이지', '이건 그냥 못 넘어감', '입장문 빨리 내라', '아니길 바란다 진짜', '팬인데 손이 떨림', '중립기어 박음', '증거 나올 때까지는 기다리자', '거짓이면 퍼뜨린 사람이 책임져야 함', '광고 다 내려갈 듯', '실망이라는 말로는 부족함', '해명이 먼저임', '사실 확인 전에 몰아가지는 말자'],
+    },
   },
   act: {
     T: { great: ['{w} 봤냐 미쳤음', '{me} {w} 레전드 찍음', '{w} 사진 한 장으로 끝남'], good: ['{w} 괜찮더라', '{me} {w} 보고 옴', '{w} 생각보다 좋음'], meh: ['{w} 어땠음?', '{w} 그냥 그렇던데', '{me} {w} 본 사람?'], bad: ['{w} 좀 아쉬움', '{me} {w} 이게 맞냐', '{w} 보고 실망함'] },
@@ -509,9 +527,10 @@ function commTone(sc) { return sc >= 80 ? 'great' : sc >= 65 ? 'good' : sc >= 52
 // 글 하나와 댓글, 그리고 인기글 목록
 function commParts(sp) {
   const R = liveRng(sp.seed), pk = a => a[Math.floor(R() * a.length)], P = CM_POST[sp.k] || CM_POST.ego;
-  const tn = P.T[sp.tn] ? sp.tn : 'meh', fill = x => x.split('{t}').join(sp.t).split('{w}').join(sp.w || sp.t).split('{me}').join(sp.me);
+  // v215: 제목 · 본문 짝(P.P)이 있는 종류(논란)는 짝으로 고른다. 예전 기록의 'meh'는 보통(mid)으로
+  const PP = P.P ? P.P[sp.tn] || P.P.mid : null, tn = PP ? (P.P[sp.tn] ? sp.tn : 'mid') : P.T[sp.tn] ? sp.tn : 'meh', fill = x => x.split('{t}').join(sp.t).split('{w}').join(sp.w || sp.t).split('{me}').join(sp.me);
   const used = {}, take = arr => { for (let i = 0; i < 12; i++) { const x = pk(arr); if (!used[x]) { used[x] = 1; return x; } } return null; };
-  const title = fill(pk(P.T[tn])), views = Math.round(300 + R() * 4000 * (tn === 'great' || tn === 'top' ? 6 : 1));
+  const pr = PP ? pk(PP) : null, title = fill(pr ? pr[0] : pk(P.T[tn])), views = Math.round(300 + R() * 4000 * (tn === 'great' || tn === 'top' ? 6 : 1));
   // 댓글: 내 이름이 없으면 이름이 들어간 댓글은 뺀다
   const pool = P.C[tn].filter(x => sp.me || !x.includes('{me}')), C = [];
   // 활동 글 (v162): 예전 라이브온 댓글(그 활동 · 나에 대한 반응)을 앞에 넣는다
@@ -525,7 +544,7 @@ function commParts(sp) {
   const r0 = Math.floor(R() * 2), hot = (sp.np || []).map(([n, ph], i) => { const A = CM_NPC[ph] || CM_NPC.rise; return A[(r0 + i) % A.length].split('{n}').join(n); }); // 두 사람이 같은 말로 올라오지 않게
   while (hot.length < 4) { const x = take(CM_CHAT); if (!x) break; hot.push(x); }
   const pu = Math.round(views * (0.03 + R() * 0.08));
-  return { title, body: fill(P.B[tn]), who: take(PL_NICK) || '익명', views, up: pu, dn: Math.round(pu * (dk[0] + dk[1] * R2())), C, hot: hot.map(x => [x, 3 + Math.floor(R() * 90)]) };
+  return { title, body: fill(pr ? pr[1] : P.B[tn]), who: take(PL_NICK) || '익명', views, up: pu, dn: Math.round(pu * (dk[0] + dk[1] * R2())), C, hot: hot.map(x => [x, 3 + Math.floor(R() * 90)]) };
 }
 function commHTML(sp) {
   const top = `<div class="pl-top"><span class="pl-logo cm">💬 ${PF.comm.en}</span><span class="pl-sub">${PF.comm.n} · ${U.esc(sp.bd)}</span></div>`;
@@ -545,7 +564,7 @@ function commNow(s) {
   if (UI.cmNow && UI.cmNow.t === s.t && UI.cmNow.id === me(s).id) return UI.cmNow.sp;
   const nm = me(s).name, bd = '자유 게시판';
   let sp;
-  if (s.scandal && typeof SC !== 'undefined' && SC[s.scandal.id]) sp = commSpec(s, { k: 'scandal', bd: '이슈 게시판', t: typeof scCmN === 'function' ? scCmN(s.scandal.id) : SC[s.scandal.id].n, me: nm, tn: 'meh' });
+  if (s.scandal && typeof SC !== 'undefined' && SC[s.scandal.id]) sp = commSpec(s, { k: 'scandal', bd: '이슈 게시판', t: typeof scCmN === 'function' ? scCmN(s.scandal.id) : SC[s.scandal.id].n, me: nm, tn: typeof scCmTn === 'function' ? scCmTn(s) : 'mid' });
   else if (totalFans(s) < 300 && (s.fame || 0) < 5) sp = commSpec(s, { k: 'ego', bd, me: nm, tn: 'none' });
   else sp = commSpec(s, { k: 'ego', bd, me: nm, tn: (s.stigma || 0) >= 15 ? 'bad' : (s.fame || 0) >= 55 ? 'great' : (s.fame || 0) >= 25 ? 'good' : 'meh' });
   // 요즘(1년 안) 한 활동의 장면이 기록에 있으면 사진이 붙은 활동 글로 (분위기는 그 활동 반응)

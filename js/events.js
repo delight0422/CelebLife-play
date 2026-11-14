@@ -1014,6 +1014,7 @@ E({
         const x = marryNow(s, 1000e4, `서둘러 ${josa(p.name, '과와')} 결혼했다. 작은 결혼식을 올렸다.`);
         queueEv(s, 'oops_birth', 7, {}, true);
         s.preg = { left: 7, me: myGender(s) === '여' };
+        queueEv(s, 'taegyo', 0, {}, true);
         // 이름이 알려진 사람이면 '속도위반 결혼' 기사가 난다. 아이돌·버튜버는 팬이 많이 떠난다
         let news = '';
         if (d.fame) {
@@ -1028,7 +1029,7 @@ E({
         s.flags.oopsLeft = { id: p.id, t: s.t };
         // 아이는 상대가 키운다. 나는 매달 양육비를 보낸다 (자녀로 남는다)
         queueEv(s, 'oops_birth', 7, { ex: p.id }, true);
-        if (myGender(s) === '여') s.preg = { left: 7, me: true };
+        if (myGender(s) === '여') { s.preg = { left: 7, me: true }; queueEv(s, 'taegyo', 0, {}, true); }
         const x = myGender(s) === '여' ? `${josa(p.name, '과와')} 헤어졌다. 아이는 낳은 뒤 ${josa(p.name, '이가')} 데려가 키우기로 했다.` : `${josa(p.name, '과와')} 헤어졌다. 아이는 ${josa(p.name, '이가')} 혼자 낳아 키우겠다고 했다.`;
         if (d.fame && !s.scandal) { startScandal(s, 'oops', 'real'); return x; }
         return x + fx(s, { rep: -8, stress: 10 });
@@ -1043,8 +1044,9 @@ E({
     const ex = d.ex && s.people[d.ex];
     // 결혼해서 낳은 아이는 내가 이름을 짓는다 (baby 창). 헤어진 상대가 혼자 낳아 키우는 아이는 그쪽이 짓는다
     if (!d.ex) { d.skip = true; fireEvent(s, 'baby', { late: true }); return; }
-    s.preg = null;
     const c = makeChild(s, ex || null);
+    taeBoost(s, c); // 임신 상태를 지우기 전에 (고른 태교를 본다)
+    s.preg = null;
     d.id = c.id;
     if (ex) { c.withEx = ex.id; aff(c, -35); }
     milestone(s, `${age(s)}세에 ${c.g === '여' ? '딸' : '아들'} ${josa(c.name, '이가')} 태어났다.`);

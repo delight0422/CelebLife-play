@@ -123,7 +123,7 @@ function growSnap(s) {
 }
 function growLines(a, b) {
   const L = [];
-  for (const k in b.sk) if (a.sk[k] != null && b.sk[k] > a.sk[k]) L.push(`${SKILLS[k].n} ${a.sk[k]}→${b.sk[k]}레벨이 되었다.`);
+  for (const k in b.sk) if (a.sk[k] != null && b.sk[k] > a.sk[k]) L.push(`${SKILLS[k].n} ${a.sk[k]}→${b.sk[k]}레벨`);
   for (const k in b.tal) if (b.tal[k] > a.tal[k]) L.push(`${TALENT_BY[k].n} ${a.tal[k]}→${b.tal[k]}`);
   for (const k in b.m) { const v0 = a.m[k] ? a.m[k].v : 0; if (b.m[k].v > v0) L.push(`${b.m[k].n} ${v0}→${b.m[k].v}`); }
   for (const k of ['평판', '인지도']) if (b[k] > a[k]) L.push(`${k} ${a[k]}→${b[k]}`);
@@ -399,6 +399,7 @@ function markInboxRead(s) { let ch = false; for (const m of s.inbox) if (!m.read
 function lockWhy(s, lock) {
   if (lock === 'army') return s.army ? `군 복무 중 · 전역까지 ${s.army.left}개월` : '전역';
   if (lock === 'sick') return s.ill ? `${s.ill.n} · ${s.ill.left}개월 쉰다` : '몸을 회복하는 중';
+  if (lock === 'taegyo') { const x = s.preg && TAEGYO_BY[s.preg.tae]; return `${x ? x.n : '태교'}${s.preg ? ` · ${s.preg.left > 0 ? `${s.preg.left}개월 뒤 출산` : '곧 출산'}` : ''}`; }
   if (lock === 'kidteach') { const k = s.kidTeach && s.people[s.kidTeach.id]; return k ? `${k.name}에게 ${josa(SKILLS[s.kidTeach.sk].n, '을를')} 가르치는 중 · ${s.kidTeach.left}개월 남음` : '아이를 가르치는 중'; }
   if (lock === 'proj') { const w = s.projects.find(x => x.slot), W = w && WORK_TYPES[w.type]; return W && W.status ? W.status(s, w) : '맡은 작품'; }
   if (lock && lock[0] === '+') return jobName(lock.slice(3));
@@ -1029,16 +1030,21 @@ const TONE_G = /더 주목받았다|같은 마음이었|사귀게 됐|오늘부�
 //   남이 거절한 것('김도윤은 주연 제안을 거절했다')은 주어가 있어 그대로 실패
 const TONE_N = /(?:제안|고백|부탁|요청|초대|섭외|의뢰|권유)[을를]\s*(?:정중히\s*|결국\s*)?거절했다|(?:일|활동|연재|방송|수업|아르바이트|알바)[을를]\s*그만(?:뒀|두었)다/;
 function toneStrip(t) { return (t.match(/[^.!?]+[.!?]*/g) || [t]).filter(sn => { const m = sn.match(TONE_N); return !(m && !/[가-힣](?:은|는|이|가)\s/.test(sn.slice(0, m.index))); }).join(' '); }
+// v215: 재능 · 특기가 오른 글('성실성 재능 +1' · '보컬 +2' · '[새 특기: 예능]')은 잘된 일로 친다 → 늘 토스트
+const TONE_UP = new RegExp(`재능 \\+\\d|\\[새 특기|(?:${Object.values(SKILLS).map(x => x.n).join('|')}) \\+\\d`);
+// 앨범 · 신곡 준비를 시작했다는 글은 결과가 아니라 토스트로 띄우지 않는다 (솔로 · 밴드 · 아이돌)
+const TONE_SKIP = /컨셉으로 .{1,14} 준비를 시작했다|컨셉으로 기획했다/;
 function logTone(x) {
   if (!x || x.k === 'flavor') return 0;
   if (x.k === 'good') return 1; // v209: 결과 기록(x.r)이라도 글로 성공 · 실패를 가린다
   if (x.k === 'bad' || x.k === 'warn') return -1;
-  const t = toneStrip(String(x.x || '').replace(/<[^>]+>/g, '')), g = TONE_G.test(t), b = TONE_B.test(t);
+  const t = toneStrip(String(x.x || '').replace(/<[^>]+>/g, '')), g = TONE_G.test(t) || TONE_UP.test(t), b = TONE_B.test(t);
+  if (TONE_SKIP.test(t) && !TONE_UP.test(t)) return 0;
   return g && b ? (TONE_BS.test(t) ? -1 : 1) : g ? 1 : b ? -1 : 0;
 }
 function ctoastShow(o) {
   // v214: o.all — 결과가 정해져 있지 않던 선택(확률을 굴린 선택)은 잘됐다 · 안됐다 낱말이 없는 줄도 띄운다 (일상 줄은 빼고)
-  const L = (o.L || []).map(x => [x, logTone(x)]).filter(([x, tn]) => tn || (o.all && x.k !== 'flavor' && String(x.x || '').trim()));
+  const L = (o.L || []).map(x => [x, logTone(x)]).filter(([x, tn]) => tn || (o.all && x.k !== 'flavor' && String(x.x || '').trim() && !TONE_SKIP.test(String(x.x))));
   if (!L.length) return; // v209: 잘됐다 · 안됐다가 없는 결과는 토스트를 띄우지 않는다
   const nG = L.filter(([, tn]) => tn > 0).length, nB = L.filter(([, tn]) => tn < 0).length, tone = nB && !nG ? 'b' : nG && !nB ? 'g' : 'm';
   let box = $('#ctoast');
@@ -1807,7 +1813,7 @@ function pplRank(n) { const j = `${n.job || ''} ${n.co && n.co.job ? n.co.job : 
 function pplCmp(s, a, b) {
   const my = age(s), da = Math.abs(pAge(s, a) - my), db = Math.abs(pAge(s, b) - my);
   if (da !== db) return da - db;
-  if (Math.round(a.aff) !== Math.round(b.aff)) return a.aff - b.aff;
+  if (Math.round(a.aff) !== Math.round(b.aff)) return b.aff - a.aff; // v215: 친밀도 높은 사람부터
   const ra = pplRank(a), rb = pplRank(b);
   if (ra !== rb) return rb - ra;
   const ta = (typeof orgOf === 'function' ? orgOf(s, a) : '') || a.job || '', tb = (typeof orgOf === 'function' ? orgOf(s, b) : '') || b.job || '';

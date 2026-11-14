@@ -1085,7 +1085,7 @@ function actOK(s, id) {
   const a = actInfo(id);
   if (a.sys) return false;
   // 특기 연습은 일정 칸이 생기면(초등학교 입학) 바로 (v121: 예전엔 만 7세부터라 생일이 늦으면 입학하고도 몇 달 연습을 못 했다)
-  if (a.skill) return has(me(s), a.skill) && slotCount(s) > 0;
+  if (a.skill) return has(me(s), a.skill) && slotCount(s) > 0 && !(pregMe(s) && PREG_NO_SK.includes(a.skill)); // v215: 임신 중에는 댄스 · 연기 연습도 쉰다
   // 자숙 중에는 직업 활동을 못 한다
   if (a.trk) { const c = CAREERS[a.trk]; return trackOn(s, a.trk) && !s.hiatus && !pregBlock(s, a.trk) && !(c.slotOK && !c.slotOK(s, s.tracks[a.trk])); }
   return age(s) >= (a.min || 0);
@@ -1101,6 +1101,7 @@ function wantedLocks(s) {
   for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && c.locks && trackOn(s, id) && (!pregBlock(s, id) || s.tracks[id].proj)) L.push(...c.locks(s, s.tracks[id])); } // 임신 중에도 이미 찍고 있던 작품(proj)의 고정 칸은 남는다
   if (s.projects.some(w => w.slot)) L.push('proj');
   if (s.kidTeach) L.push('kidteach');
+  if (pregMe(s)) L.push('taegyo'); // v215: 임신 중 고정 일정
   if (s.ill && s.ill.rest) L.push('sick');
   // 직업 활동은 늘 고정 (턴제 실험 6차): 하는 직업마다 한 칸. 회사 · 촬영이 이미 그 직업 칸을 잡아 두었으면 더 넣지 않는다 ('+c_직업')
   for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && c.act && actOK(s, 'c_' + id) && !L.includes('c_' + id)) L.push('+c_' + id); }
@@ -1125,6 +1126,10 @@ function applyLocks(s) {
     const e = !sl.lock ? slotMine(sl) : sl.prev ? { act: sl.prev, lesson: !!sl.prevLesson, payer: sl.payer || 'family' } : null;
     if (e) (e.dflt ? dflt : mine).push(e);
   }
+  // v215: 임신 때문에 쉬는 연습 칸(댄스 · 연기, 학원 설정째)은 따로 두었다가(s.pregHold) 출산 뒤 되돌린다
+  { const held = e => !!e.act && e.act.startsWith('p_') && PREG_NO_SK.includes(e.act.slice(2));
+    if (pregMe(s)) { for (const e of mine.concat(s.slotOver || [])) if (held(e)) (s.pregHold = s.pregHold || []).push(Object.assign({}, e, { dflt: false })); }
+    else if (s.pregHold && s.pregHold.length) { mine.push(...s.pregHold); s.pregHold = null; } }
   // 직업 활동은 늘 고정이라 내 일정에서는 뺀다
   const ok = e => !!e.act && !e.act.startsWith('c_') && actOK(s, e.act);
   const all = mine.concat(s.slotOver || []).filter(ok), show = all.slice(0, room);
@@ -1164,6 +1169,7 @@ function doActivity(s, sl, i) {
   if (sl.act === 'army' || sl.act === 'proj') return;
   if (sl.act === 'sick') { addStress(s, -6); return; }
   if (sl.act === 'kidteach') { kidTeachMonth(s); return; }
+  if (sl.act === 'taegyo') { addStress(s, -3); return; }
   if (a.skill) {
     const k = a.skill, sk = SKILLS[k];
     let lesson = !!(sl.lesson && sk.les);
@@ -1569,6 +1575,8 @@ function migrate(s) {
   delete s.varPrem; delete s.varAwN;
   if (s.trendTV) ytTrendCheck(s, false);
   delete s.fameMin; // v213: 물려받은 인지도 바닥은 없앴다
+  // v215: 이미 임신 중인 세이브는 태교를 고르는 창부터
+  if (s.preg && !s.preg.tae && typeof hasQ === 'function' && !hasQ(s, 'taegyo')) queueEv(s, 'taegyo', 0, {}, true);
   // v212: 이미 자녀로 이어받은 세이브 — 부모에게서 넘어온 지인 정리 (부모님 지인은 셋까지, 나보다 열두 살 넘게 많은 '후배'는 부모의 후배였으니 모르는 사이로)
   if ((s.gen || 1) > 1 && !s.pkFix) {
     s.pkFix = 1; const my = me(s);
