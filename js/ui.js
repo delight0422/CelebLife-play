@@ -452,7 +452,8 @@ function renderSchedule() {
     }
     h += `</div>`;
   });
-  if (typeof kidBusy === 'function' && kidBusy(s)) h += `<div class="slot-over">🎒 놀 틈이 없다<br><span class="hint">놀기 · 쉬기 칸이 하나도 없으면 학교에서 생기는 일(축제 · 좋아하는 사람)이 드물어진다</span></div>`;
+  if (typeof kidBusy === 'function' && kidBusy(s) && !s.wandered && (s.busyM || 0) >= WANDER_WARN) h += `<div class="slot-over" style="color:var(--bad,#c33)">⚠️ 마음이 지쳐 간다<br><span class="hint">이대로 쉴 틈 없이 지내면 머지않아 크게 엇나간다 · 놀기나 쉬기를 한 칸 넣자</span></div>`;
+  else if (typeof kidBusy === 'function' && kidBusy(s)) h += `<div class="slot-over">🎒 놀 틈이 없다<br><span class="hint">놀기 · 쉬기 칸이 하나도 없으면 학교에서 생기는 일(축제 · 좋아하는 사람)이 드물어진다</span></div>`;
   // 고정 일정에 밀려 칸 밖으로 나간 일정 (고정 일정이 끝나면 다시 올라온다)
   const over = (s.slotOver || []).filter(e => !e.dflt);
   if (over.length) h += `<div class="slot-over">⤵ 밀려난 일정: ${over.map(e => U.esc(actInfo(e.act).n)).join(' · ')}<br><span class="hint">칸이 늘거나 고정 일정이 끝나면 다시 올라온다</span></div>`;
@@ -776,7 +777,7 @@ function renderStatusCard() {
   const s = S;
   let st = `<div class="card-h">❤ 상태</div>`;
   if (s.army) st += `<div class="st-alert" data-trk="army">🪖 군 복무 중 · 전역까지 ${s.army.left}개월</div>`;
-  if (s.ill) st += `<div class="st-alert" data-trk="ill">🏥 ${U.esc(s.ill.n)} · 회복까지 ${s.ill.left}개월</div>`;
+  if (s.ill) st += `<div class="st-alert" data-trk="ill">${s.ill.wander ? '🌀' : '🏥'} ${U.esc(s.ill.n)} · ${s.ill.wander ? '끝날 때까지' : '회복까지'} ${s.ill.left}개월</div>`;
   st += `<div class="row${s.stress >= 80 ? ' hot' : ''}"><span>스트레스</span><b>${Math.round(s.stress)}</b></div>${bar(s.stress, 100, 'stress')}`;
   st += `<div class="row"><span>팬</span><b>${fmtFans(totalFans(s))}</b></div>`;
   st += `<div class="row"><span>인지도</span><b>${fameWord(s.fame || 0)}</b></div>${bar(s.fame || 0, 100, 'pop')}`;
@@ -1697,7 +1698,7 @@ function panelTrk() {
     return `<h2>📺 광고 모델</h2>` + infoTable(B.map(x => { const b = BRAND_BY[x.id]; return [b.n, `${b.cat} · 모델료 ${fmtWon(x.fee)} · ${ymLater(s, x.end - s.t)}까지`]; }));
   }
   if (key === 'army' && s.army) return `<h2>🪖 군 복무</h2>` + infoTable([['전역', `${ymLater(s, s.army.left)} (${s.army.left}개월 남음)`], ['월급', '100만 원 (생활비는 들지 않는다)'], ['일정', '복무하는 동안 모든 칸이 묶이고 특기를 연습할 수 없다']]);
-  if (key === 'ill' && s.ill) return `<h2>🏥 ${U.esc(s.ill.n)}</h2>` + infoTable([['회복', `${s.ill.left}개월 남음`], ['일정', s.ill.all ? '모든 칸이 치료로 묶인다' : '한 칸이 치료로 묶인다']]);
+  if (key === 'ill' && s.ill) return `<h2>${s.ill.wander ? '🌀' : '🏥'} ${U.esc(s.ill.n)}</h2>` + infoTable([[s.ill.wander ? '남은 기간' : '회복', `${s.ill.left}개월 남음`], ['일정', s.ill.wander ? '모든 일정이 멈춘다' : s.ill.all ? '모든 칸이 치료로 묶인다' : '한 칸이 치료로 묶인다']]);
   const p = me(s);
   const bonus = ks => ks.map(x => `${SKILLS[x].n} ${has(p, x) ? lvi(p, x) + '레벨' : '(안 배움)'}`).join(' · ');
   if (key === 'uni' && s.edu.uni) return `<h2>🎓 ${U.esc(s.edu.uni.n)}</h2>` + infoTable([['졸업', `${ymLater(s, s.edu.uni.end - s.t)} (${s.edu.uni.end - s.t}개월 남음)`], ['빨리 느는 특기', bonus(s.edu.uni.bonus)], ['등록금', s.wealth >= 5 && parentsAlive(s).length ? '부모님이 내 주신다' : '학자금 대출 (매달 70만 원씩 빚)']]);
@@ -2676,7 +2677,7 @@ function panelMenu() {
     <button class="btn" data-panel="help">도움말</button>
     <button class="btn" id="m-title">첫 화면으로 (자동 저장됨)</button>
     ${retireBtnHTML(S)}
-  </div><p class="hint">키보드: 스페이스바 진행 · 1 한 달 후 · 2 1년 후</p>`;
+  </div><p class="hint">키보드: 스페이스바 진행 · 1 한 달 후</p>`;
 }
 function panelHall() {
   const h = getHall();
@@ -2949,11 +2950,11 @@ document.addEventListener('keydown', e => {
     if (!$('#modal').classList.contains('hidden') || !$('#confirm').classList.contains('hidden')) return;
     turnGo(turnMax(S));
   }
-  // 1 = 1달 후, 2 = 1년 후 (진행 버튼 오른쪽 작은 버튼, UI 개편 시안). 창이 떠 있을 때는 먹지 않는다
-  if ((e.code === 'Digit1' || e.code === 'Numpad1' || e.code === 'Digit2' || e.code === 'Numpad2') && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey) {
+  // 1 = 1달 후 (글자판 위 숫자 줄의 1 · 키패드 1 어느 쪽이든. 한글 입력 상태에서도 되게 code · key · keyCode를 다 본다). 창이 떠 있을 때는 먹지 않는다. v221: 숫자 2(1년 후)는 없앴다
+  if ((e.code === 'Digit1' || e.code === 'Numpad1' || e.key === '1' || e.keyCode === 49 || e.keyCode === 97) && !e.repeat && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
     if (UI.turn || UI.overlay || liveOn() || !$('#modal').classList.contains('hidden') || !$('#confirm').classList.contains('hidden') || !$('#pop').classList.contains('hidden')) return;
     e.preventDefault();
-    turnGo(e.code.endsWith('1') ? 1 : 12);
+    turnGo(1);
   }
 });
 (function init() { try { const v = localStorage.getItem('celebLife.logSize'); if (v) document.documentElement.style.setProperty('--log-size', v + 'px'); } catch (e) { } showTitle(); })();

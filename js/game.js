@@ -1237,9 +1237,10 @@ function tick(s) {
   // 학교 수업은 학업을 조금씩 올려 준다. 귀가부는 집에서 공부하는 시간이 있어 더 빨리 오른다
   if (schoolYear(s) >= 1 && !s.edu.graduated && !s.army && has(me(s), 'study')) practice(s, me(s), 'study', s.flags.homeClub ? 0.5 : 0.25);
   if (!s.army) scoutByWork(s);
-  if (!s.army) { for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && trackOn(s, id) && c.monthly) { (s.carM = s.carM || {})[id] = (s.carM[id] || 0) + 1; EARN_JOB = id; const L0 = s.log[s.log.length - 1], e0 = evalSnap(s), jf0 = totalFans(s); try { c.monthly(s, s.tracks[id]); } finally { EARN_JOB = null; } jfAdd(s, id, totalFans(s) - jf0); resDv(s, L0, e0); } } worksMonth(s); jobIdleMonth(s); lateMonth(s); stageMonth(s); }
+  if (!s.army && !(s.ill && s.ill.wander)) { for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && trackOn(s, id) && c.monthly) { (s.carM = s.carM || {})[id] = (s.carM[id] || 0) + 1; EARN_JOB = id; const L0 = s.log[s.log.length - 1], e0 = evalSnap(s), jf0 = totalFans(s); try { c.monthly(s, s.tracks[id]); } finally { EARN_JOB = null; } jfAdd(s, id, totalFans(s) - jf0); resDv(s, L0, e0); } } worksMonth(s); jobIdleMonth(s); lateMonth(s); stageMonth(s); }
   // 군 복무 중에도 내 회사는 돌아간다 (대표의 할 일은 못 한다)
-  else { armyMonth(s); if (typeof coArmy === 'function') coArmy(s); }
+  else if (s.army) { armyMonth(s); if (typeof coArmy === 'function') coArmy(s); }
+  else { worksMonth(s); if (typeof coArmy === 'function') coArmy(s); } // v221: 사춘기 방황 중 — 직업의 매달 처리는 멈추고, 이미 나온 작품 수익과 내 회사는 그대로 돈다
   familyMonth(s);
   uniMonth(s);
   livingMoney(s);
@@ -1249,6 +1250,7 @@ function tick(s) {
   flavor(s);
   successCheck(s);
   inboxMonth(s);
+  if (typeof kidMonth === 'function') kidMonth(s); // v221: 사춘기 · 학창 시절 놀기 (events.js)
   scandalMonth(s);
   npcMonth(s); // 업계 인물이 스스로 움직인다 (12-2)
   coBust(s); // v206: 가끔 회사가 문을 닫고 새 회사가 생긴다
@@ -1431,7 +1433,7 @@ function bodyMonth(s) {
   if (s.stress >= 80) s.hiStressM = (s.hiStressM || 0) + 1;
   else { s.hiStressM = Math.max(0, (s.hiStressM || 0) - 1); s.stressWarned = false; }
   if (s.stress >= 70) s.longStress = (s.longStress || 0) + 1;
-  if (s.ill) { s.ill.left--; if (s.ill.left <= 0) { addLog(s, `${s.ill.n}에서 회복했다.`); s.ill = null; } }
+  if (s.ill) { s.ill.left--; if (s.ill.left <= 0) { addLog(s, s.ill.wander ? '긴 방황이 끝났다. 다시 마음을 잡았다.' : `${s.ill.n}에서 회복했다.`); s.ill = null; } }
   jpopMonth(s); fameMonth(s);
   if (s.stress >= 85 && anyTrackActive(s)) s.rep = U.clamp(s.rep - 0.4, 0, 100);
   else s.rep = U.clamp(s.rep + (60 - s.rep) * 0.004, 0, 100);

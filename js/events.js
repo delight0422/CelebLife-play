@@ -741,7 +741,7 @@ E({
 E({
   id: 'collapse', cd: 12, cat: '몸과 마음', title: '쓰러졌다',
   // 번아웃을 버티고 계속 무리하면: 여덟 달 넘게 스트레스 80 이상, 지금 90 이상
-  p: s => s.hiStressM >= 8 && s.stress >= 90 ? 0.2 : 0,
+  p: s => !s.ill && s.hiStressM >= 8 && s.stress >= 90 ? 0.2 : 0,
   cond: s => age(s) >= 13,
   text: s => `연습 도중 눈앞이 하얘지더니 그대로 쓰러졌다. 눈을 떠 보니 병원이었다.\n\n원인: 여덟 달 넘게 스트레스가 80을 넘었고, 지금은 ${Math.round(s.stress)}까지 쌓였다.`,
   ch: () => [{ t: '입원한다', h: '200만 원 · 두 달 동안 모든 일정이 멈춘다', f: s => { s.ill = { n: '과로', left: 2, rest: true, all: true }; s.hiStressM = 0; return '두 달 동안 입원해 쉬었다.' + fx(s, { money: -200e4, stress: -30 }); } }],
@@ -1284,4 +1284,75 @@ E({
     } },
     { t: '이번엔 거절한다', f: s => `${s.people[d.mid] ? s.people[d.mid].name + '의 ' : ''}고향 ${d.town}의 제안을 정중히 거절했다.` },
   ],
+});
+// ───── v221: 사춘기 · 학원 친구 · 학창 시절 추억 ─────
+// 중 · 고등학생이 놀 틈 없이(kidBusy) 오래 지내면 먼저 낌새가 보이고(WANDER_WARN개월째에 창으로 경고), 그래도 쉬지 않으면 WANDER_AT개월째에 1년 동안 방황한다 (평생 한 번)
+// 놀기 · 쉬기 칸을 넣으면 쌓인 달이 한 달에 두 달씩 줄어든다
+const WANDER_WARN = 24, WANDER_AT = 30;
+function kidLesson(s) { return s.slots.filter(sl => sl.lesson && actInfo(sl.act).les); }
+function kidMonth(s) {
+  const p = me(s);
+  if (age(s) >= 19 || schoolYear(s) < 1 || s.edu.graduated) return;
+  // 학창 시절에 친구와 놀면 통찰력 · 유머 감각이 아주 조금 자라고(12년 내내 놀아도 6쯤) 추억이 쌓인다
+  // 재능은 정수로만 오른다: 놀 때마다 조금씩 모아 두었다가(s.talAcc) 1이 차면 +1 (두 해 남짓에 1)
+  if (s.slots.some(sl => sl.act === 'play')) { const A = s.talAcc = s.talAcc || {}; for (const k of ['insight', 'humor']) { A[k] = (A[k] || 0) + 0.04; if (A[k] >= 1) { A[k] -= 1; if (p.tal[k] < 100) p.tal[k] = Math.min(100, Math.round(p.tal[k]) + 1); } } s.memo = (s.memo || 0) + 1; }
+  if (s.wandered || s.ill) return;
+  if (!kidBusy(s)) { if (s.busyM) s.busyM = Math.max(0, s.busyM - 2); return; }
+  if (!s.slots.some(sl => !sl.lock)) return; // 칸이 전부 고정(연습생 · 촬영 · 활동기)이라 쉴 칸을 넣을 수 없는 달은 세지 않는다
+  s.busyM = (s.busyM || 0) + 1;
+  // 경고는 한 해에 한 번까지 (쉬었다 다시 바빠져 같은 달수로 돌아와도 또 띄우지 않게)
+  if (s.busyM === WANDER_WARN && !(s.pubWarnT > s.t - 12) && !hasQ(s, 'puberty_warn')) { s.pubWarnT = s.t; queueEv(s, 'puberty_warn', 0, {}, true); }
+  else if (s.busyM >= WANDER_AT && !hasQ(s, 'puberty')) queueEv(s, 'puberty', 0, {}, true);
+}
+E({
+  id: 'puberty_warn', cat: '사춘기', title: '요즘 좀 이상하다', keepPop: true,
+  cond: s => age(s) < 19,
+  text: () => `요즘 부쩍 말수가 줄었다. 연습을 하다가도 멍하니 서 있고, 친구들이 놀러 간 이야기를 하면 혼자 창밖만 본다. 마음 놓고 놀아 본 게 언제인지 기억도 나지 않는다.\n\n이대로 숨 돌릴 틈 없이 지내면 머지않아 크게 엇나갈 것 같다. 일정에 '친구와 놀기'나 '푹 쉬기'를 한 칸 넣어 두면 차츰 나아진다.`,
+  ch: () => [{ t: '알겠다', f: () => '쉴 틈이 없어 마음이 지쳐 간다. 이대로면 머지않아 크게 엇나갈 것 같다.' }],
+});
+E({
+  id: 'puberty', cat: '사춘기', title: '다 그만두고 싶다', keepPop: true,
+  cond: s => age(s) < 19,
+  init(s, d) { if (s.wandered || s.ill || (s.busyM || 0) < WANDER_AT - 2) { d.skip = true; return; } s.wandered = true; s.busyM = 0; s.ill = { n: '사춘기 방황', left: 12, rest: true, all: true, wander: true }; },
+  text: () => `어느 날 아침, 가방을 메고 나와서는 학원에도 연습실에도 가지 않았다. 다음 날도, 그다음 날도 마찬가지였다. "나는 왜 이걸 하고 있지?" 하는 생각이 머리를 떠나지 않는다.\n\n앞으로 1년 동안 모든 일정이 멈춘다.`,
+  ch: () => [{ t: '…', f: () => '모든 걸 내려놓고 방황하기 시작했다. 1년 동안 모든 일정이 멈춘다.' }],
+});
+// 학원 친구: 학원에 다니는 학생에게 가끔 생긴다
+E({
+  id: 'acad_friend', cd: 30, p: 0.03, cat: '학원', title: '학원 친구',
+  cond: s => age(s) < 19 && schoolYear(s) >= 1 && !s.edu.graduated && !s.ill && kidLesson(s).length > 0 && people(s, n => n.acad).length < 3,
+  init(s, d) { const g0 = myGender(s); d.k = actInfo(U.pick(kidLesson(s)).act).skill; d.g = U.chance(0.65) ? g0 : (g0 === '여' ? '남' : '여'); d.name = genName(d.g); d.trait = U.pick(TRAITS).id; d.look = U.pick(d.g === '여' ? LOOKS_F : LOOKS_M); },
+  text: (s, d) => `${SKILLS[d.k].les.n}에서 같은 반 ${josa(d.name, '과와')} 자주 마주친다. 쉬는 시간마다 붙어 다니다 보니 어느새 친해졌다.`,
+  ch: (s, d) => [{ t: '친구가 생겼다', f: s => { const n = makePerson(s, { g: d.g, name: d.name, trait: d.trait, look: d.look, age: age(s), rel: '친구', aff: 50, met: `${SKILLS[d.k].les.n} 친구` }); if (n) n.acad = d.k; return `${SKILLS[d.k].les.n}에서 ${josa(d.name, '과와')} 친구가 되었다.`; } }],
+});
+// 학원 빠지고 놀자는 친구
+E({
+  id: 'acad_skip', cd: 9, p: 0.05, cat: '학원', title: '오늘만 빠지자',
+  cond: s => age(s) < 19 && schoolYear(s) >= 4 && !s.edu.graduated && !s.ill && kidLesson(s).length > 0 && people(s, n => n.rel === '친구' && !n.far).length > 0,
+  init(s, d) { const F = people(s, n => n.rel === '친구' && !n.far), A = F.filter(x => x.acad); d.id = U.pick(A.length ? A : F).id; d.k = actInfo(U.pick(kidLesson(s)).act).skill; },
+  text: (s, d) => { const n = s.people[d.id]; return `${SKILLS[d.k].les.n}에 가는 길에 ${josa(n.name, '이가')} 팔을 잡아끈다. "오늘 하루만 빠지자. 떡볶이 먹고 노래방 가자."`; },
+  ch: (s, d) => { const n = s.people[d.id]; return [
+    { t: '따라간다', h: '스트레스 ↓ · 친구와 가까워진다', f: s => { aff(n, 6); n.contactT = s.t; s.memo = (s.memo || 0) + 6; const caught = U.chance(0.25); return `${josa(n.name, '과와')} 학원을 빠지고 해가 질 때까지 놀았다.` + (caught ? ' 집에 오니 학원에서 전화가 와 있었다. 한참 혼났다.' : ' 오래 기억에 남을 하루였다.') + fx(s, { stress: caught ? -4 : -9 }); } },
+    { t: '학원에 간다', f: s => { aff(n, -1); return `${n.name}에게 다음에 가자고 하고 학원에 갔다.`; } },
+  ]; },
+});
+// 학창 시절 추억(s.memo: 친구와 논 달 · 학원을 빠지고 논 날): 놀아 본 만큼 성인이 된 뒤 이야깃거리와 인연이 된다
+function memoP(s) { return Math.min(1, (s.memo || 0) / 120); }
+E({
+  id: 'school_story', cd: 30, p: s => 0.02 * memoP(s), cat: '추억', title: '학창 시절 이야기',
+  cond: s => age(s) >= 20 && (s.memo || 0) >= 30 && typeof showbizOn === 'function' && showbizOn(s) && !s.army && !s.hiatus,
+  init(s, d) { d.lyr = has(me(s), 'lyric') && U.chance(0.5); d.g = Math.round((60 + Math.sqrt(totalFans(s)) * 1.2) * U.fl(0.7, 1.3) * popSpeed(s) * myRoom(s, 'kr')); },
+  text: (s, d) => d.lyr ? '가사를 쓰다 막혀서 학창 시절 일기를 꺼냈다. 학원을 빠지고 친구와 놀던 날, 해 질 녘 운동장 같은 기억들이 그대로 가사가 됐다.' : '라이브 방송에서 학창 시절 이야기를 꺼냈다. 친구들과 몰려다니던 이야기에 댓글 창이 웃음으로 가득 찼다. "의외로 평범하게 놀았네"라는 반응이 많다.',
+  ch: (s, d) => [{ t: '그때가 좋았다', f: s => { if (d.lyr) { practice(s, me(s), 'lyric', 3); return '학창 시절 기억을 가사로 옮겼다. 작사 실력이 늘었다.'; } return '학창 시절 이야기가 팬들 사이에서 화제가 됐다.' + fx(s, { fkr: d.g, stress: -2 }); } }],
+});
+E({
+  id: 'alumni', cd: 96, p: s => 0.012 * memoP(s), cat: '추억', title: '오랜만의 연락',
+  cond: s => age(s) >= 23 && (s.memo || 0) >= 30 && typeof showbizOn === 'function' && showbizOn(s) && !s.army,
+  init(s, d) {
+    const F = people(s, n => n.rel === '친구' && !n.ind && !n.alum && !n.trainee && Math.abs(pAge(s, n) - age(s)) <= 2 && (n.acad || /초등학교|학원|학창|학교|동아리/.test(n.met || '')));
+    const n = F.length ? U.pick(F) : makePerson(s, { age: age(s), rel: '친구', aff: 40, met: '학창 시절 친구' });
+    d.id = n.id; d.job = U.pick(['방송 작가', '연예부 기자', '라디오 PD', '잡지 에디터']); n.alum = true; if (!n.job || /학생/.test(n.job)) n.job = d.job; else d.job = n.job;
+  },
+  text: (s, d) => { const n = s.people[d.id]; return `학창 시절 같이 놀던 ${josa(n.name, '이가')} 오랜만에 연락을 해 왔다. 지금은 ${josa(d.job, '으로')} 일한다고 한다. "네 이야기를 주변에 좀 해도 괜찮지?"`; },
+  ch: (s, d) => { const n = s.people[d.id]; return [{ t: '반갑게 만난다', f: s => { aff(n, 8); n.contactT = s.t; return `${josa(d.job, '이가')} 된 ${josa(n.name, '과와')} 오랜만에 만났다. 덕분에 나를 좋게 본 이야기가 퍼졌다.` + fx(s, { fame: 1, rep: 2 }); } }]; },
 });

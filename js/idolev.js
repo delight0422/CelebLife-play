@@ -126,33 +126,37 @@ function soloHeatW(h) { return h >= 82 ? '공연장이 터질 듯했다' : h >= 
 function soloExtraMonth(s, t) {
   if (!soloOn(s) || t.withGroup || !t.rel || s.army || s.hiatus || s.ill || pregMe(s) || !jobN(s, 'solo')) return;
   const p = me(s), fans = totalFans(s), fame = s.fame || 0, X = t.xcd = t.xcd || {};
-  // OST: 노래하는 가수(래퍼형은 빼고), 보컬 35레벨 · 팬 5천 명부터. 이름이 알려질수록 자주, 기대작도 더 자주
-  if (t.type !== 'rap' && lv(p, 'vocal') >= 35 && fans >= 5000 && !(X.ost > s.t) && !s.inbox.some(m => m.kind === 'solo_ost') && !hasQ(s, 'solo_ostres') && U.chance(0.02 + Math.min(0.03, fame / 2000))) {
+  // v221: OST · 피처링은 신곡을 준비하지 않을 때만 온다 (다음 곡까지 날짜를 세는 동안). 받으면 다음 신곡이 한 달 밀린다 (soloRelPush)
+  const free = !t.alb && t.nextRel > 1 && t.nextRel < 90 && !musRelQ(s, 'solo');
+  // OST: 노래하는 가수(래퍼형은 빼고), 보컬 35레벨 · 팬 5천 명부터. 이름이 알려질수록, 그리고 OST를 많이 부르고 잘될수록 자주 (쉬는 간격도 10개월 → 4개월까지 짧아진다)
+  if (free && t.type !== 'rap' && lv(p, 'vocal') >= 35 && fans >= 5000 && !(X.ost > s.t) && !s.inbox.some(m => m.kind === 'solo_ost') && !hasQ(s, 'solo_ostres') && U.chance(0.02 + Math.min(0.03, fame / 2000) + Math.min(0.06, (t.ostN || 0) * 0.005 + (t.ostHit || 0) * 0.012))) {
     const genre = s.trendTV && U.chance(0.4) ? s.trendTV.drama : U.pick(DRAMA_TRENDS), drama = dramaTitle(genre), big = U.chance(U.clamp(0.1 + fame / 150, 0.1, 0.6));
-    X.ost = s.t + 10;
+    X.ost = s.t + Math.max(4, 10 - (t.ostN || 0) - (t.ostHit || 0));
     sendMsg(s, 'solo_ost', { from: `드라마 「${drama}」 제작진`, title: 'OST 가창 제안', months: 3, d: { drama, genre, big, fee: Math.round((100 + lv(p, 'vocal') * 4 + fame * 10) * (big ? 1.8 : 1)) * 1e4 } });
   }
-  // 피처링: 팬 3천 명부터. 내 인지도와 비슷한 급의 솔로 가수 · 아이돌 그룹에서 온다 (아는 사이면 더 자주)
-  if (fans >= 3000 && !(X.feat > s.t) && !s.inbox.some(m => m.kind === 'solo_feat') && !hasQ(s, 'solo_featres') && typeof npcNear === 'function' && npcOn(s) && U.chance(0.025)) {
-    const L = npcNear(s, 'solo').concat(npcNear(s, 'idolg')).filter(n => n.rk !== 'rival');
-    if (L.length) { const n = U.wpick(L, x => 1 + (x.kn ? 2 : 0) + (x.rk ? 3 : 0)); X.feat = s.t + 8; npcKnow(n); sendMsg(s, 'solo_feat', { from: n.n, title: '피처링 제안', months: 3, d: { id: n.id, fee: Math.round(50 + lv(p, soloVoice(t, p)) * 2 + fame * 5) * 1e4 } }); }
+  // 피처링: 팬 3천 명부터. 내 인지도와 비슷한 급의 솔로 가수 · 밴드에서 온다 (아이돌 그룹에서는 오지 않는다). 아는 사이면, 그리고 피처링을 많이 하고 잘될수록 자주
+  if (free && fans >= 3000 && !(X.feat > s.t) && !s.inbox.some(m => m.kind === 'solo_feat') && !hasQ(s, 'solo_featres') && typeof npcNear === 'function' && npcOn(s) && U.chance(0.025 + Math.min(0.05, (t.featN || 0) * 0.004 + (t.featHit || 0) * 0.01))) {
+    const L = npcNear(s, 'solo').concat(npcNear(s, 'band')).filter(n => n.rk !== 'rival');
+    if (L.length) { const n = U.wpick(L, x => 1 + (x.kn ? 2 : 0) + (x.rk ? 3 : 0)); X.feat = s.t + Math.max(4, 8 - (t.featN || 0) - (t.featHit || 0)); npcKnow(n); sendMsg(s, 'solo_feat', { from: n.n, title: '피처링 제안', months: 3, d: { id: n.id, fee: Math.round(50 + lv(p, soloVoice(t, p)) * 2 + fame * 5) * 1e4 } }); }
   }
   // 단독 공연: 발표곡 3곡 · 팬 2만 명부터, 2년에 한 번
   if (t.rel >= 3 && fans >= 2e4 && !(t.liveT > s.t) && !hasQ(s, 'solo_concert') && !hasQ(s, 'solo_concertres') && U.chance(0.25)) queueEv(s, 'solo_concert', 0, {});
 }
+function soloRelCan(t) { return !!t && !t.alb && t.nextRel > 0 && t.nextRel < 90; }
+function soloRelPush(t) { if (soloRelCan(t)) t.nextRel++; }
 function soloFxLine(d) { return [d.gain > 0 ? `내 팬 +${fmtFans(d.gain)}` : '', d.pop > 0.3 ? '인기 ↑' : d.pop < -0.3 ? '인기 ↓' : '', d.roy >= 1e4 ? `매달 들어올 음원 수익 약 ${fmtWon(d.roy)}` : ''].filter(Boolean).join(' · '); }
 INBOX.solo_ost = {
   ic: '🎬',
   text: (s, m) => `${m.d.big ? '기대작으로 꼽히는 ' : ''}${m.d.genre} 드라마 「${m.d.drama}」의 OST를 불러 달라는 제안이다. 가창료 ${fmtWon(soloShare(s.tracks.solo, m.d.fee))}.\n\n드라마가 잘되면 OST도 같이 뜬다.`,
   ch: (s, m) => [
-    { t: '부른다', ok: s => soloOn(s) && !s.army && !s.hiatus, h: '두 달 뒤 드라마와 함께 공개된다 · 곡이 잘되면 팬과 인기가 오른다', f: s => { const t = s.tracks.solo, pay = soloShare(t, m.d.fee); earn(s, pay, 'OST 가창료', 'solo'); useSkill(s, me(s), 'vocal', 2); queueEv(s, 'solo_ostres', 2, { drama: m.d.drama, genre: m.d.genre, big: m.d.big, pay, title: songTitle() }, true); return `드라마 「${m.d.drama}」 OST를 녹음했다. 두 달 뒤 드라마와 함께 공개된다.` + fx(s, { stress: 2 }); } },
+    { t: '부른다', ok: s => soloOn(s) && !s.army && !s.hiatus, h: '두 달 뒤 드라마와 함께 공개된다 · 곡이 잘되면 팬과 인기가 오른다' + (soloRelCan(s.tracks.solo) ? ' · 다음 신곡이 한 달 늦어진다' : ''), f: s => { const t = s.tracks.solo, pay = soloShare(t, m.d.fee); soloRelPush(t); earn(s, pay, 'OST 가창료', 'solo'); useSkill(s, me(s), 'vocal', 2); queueEv(s, 'solo_ostres', 2, { drama: m.d.drama, genre: m.d.genre, big: m.d.big, pay, title: songTitle(), sg: t.st === 'signed' }, true); return `드라마 「${m.d.drama}」 OST를 녹음했다. 두 달 뒤 드라마와 함께 공개된다.` + fx(s, { stress: 2 }); } },
     { t: '거절한다', f: () => 'OST 제안을 거절했다.' },
   ],
 };
 E({
   id: 'solo_ostres', cat: 'OST', title: 'OST 성적', tag: 'career', keepPop: true,
   init(s, d) {
-    const t = s.tracks.solo; if (!soloOn(s)) { d.skip = true; return; }
+    const t = s.tracks.solo; // v221: 녹음한 곡은 그사이 가수를 그만뒀어도 나오고, 작품 기록에 남는다
     const p = me(s), mk = t.mkt || 'kr';
     // 드라마 흥행 (기대작 · 유행 장르면 조금 유리) + 내 노래. 팬이 많으면 조금 더
     d.hit = U.normal(d.big ? 0.5 : 0, 1) + (s.trendTV && d.genre === s.trendTV.drama ? 0.4 : 0);
@@ -160,8 +164,9 @@ E({
     d.sc = Math.round(sc); d.peak = chartFromScore(sc);
     d.gain = Math.round(Math.max(0, fanGain(s, sc, mk, 0.5)) * myRoom(s, mk)); s.fans[mk] += d.gain;
     d.pop = jpopAdd(s, 'solo', Math.max(0, (sc - 55) / 10));
-    d.roy = addCatalog(s, d.title, 'OST 가창', sc, t.st === 'signed' ? 0.18 : 0.3, 'solo');
+    d.roy = addCatalog(s, d.title, 'OST 가창', sc, (d.sg != null ? d.sg : t.st === 'signed') ? 0.18 : 0.3, 'solo');
     if (sc >= 74) addFame(s, 1);
+    t.ostN = (t.ostN || 0) + 1; if (sc >= 74) t.ostHit = (t.ostHit || 0) + 1;
     addWork(s, { type: 'OST', title: d.title, by: actName(s, 'solo'), sc: d.sc, pay: d.pay || 0, note: `드라마 「${d.drama}」 · ${chartText(d.peak)}` });
     if (d.peak && d.peak <= 10 && !t.ostMs) { t.ostMs = true; milestone(s, `${age(s)}세에 드라마 「${d.drama}」 OST ${josa(`「${d.title}」`, '으로')} 음원 차트 ${d.peak}위에 올랐다.`); }
   },
@@ -175,7 +180,7 @@ INBOX.solo_feat = {
     const n = npcBy(s, m.d.id);
     if (!n) return [{ t: '확인', f: () => '제안은 없던 일이 됐다.' }];
     return [
-      { t: '참여한다', ok: s => soloOn(s) && !s.army && !s.hiatus, h: '다음 달에 곡이 나온다 · 곡이 잘되면 팬과 인기가 오른다', f: s => { const t = s.tracks.solo, pay = soloShare(t, m.d.fee); earn(s, pay, '피처링 참여료', 'solo'); npcRel(s, n, 12); useSkill(s, me(s), soloVoice(t, me(s)), 1.5); queueEv(s, 'solo_featres', 1, { id: n.id, nn: n.n, pay, title: songTitle() }, true); return `${n.n}의 신곡 피처링을 녹음했다. 다음 달에 나온다.` + fx(s, { stress: 2 }); } },
+      { t: '참여한다', ok: s => soloOn(s) && !s.army && !s.hiatus, h: '다음 달에 곡이 나온다 · 곡이 잘되면 팬과 인기가 오른다' + (soloRelCan(s.tracks.solo) ? ' · 다음 신곡이 한 달 늦어진다' : ''), f: s => { const t = s.tracks.solo, pay = soloShare(t, m.d.fee); soloRelPush(t); earn(s, pay, '피처링 참여료', 'solo'); npcRel(s, n, 12); useSkill(s, me(s), soloVoice(t, me(s)), 1.5); queueEv(s, 'solo_featres', 1, { id: n.id, nn: n.n, pay, title: songTitle(), sg: t.st === 'signed' }, true); return `${n.n}의 신곡 피처링을 녹음했다. 다음 달에 나온다.` + fx(s, { stress: 2 }); } },
       { t: '정중히 거절한다', f: s => { npcRel(s, n, n.ps === 'amb' ? -6 : -2); return `${n.n}의 피처링 제안을 정중히 거절했다.`; } },
     ];
   },
@@ -183,15 +188,16 @@ INBOX.solo_feat = {
 E({
   id: 'solo_featres', cat: '피처링', title: '피처링 곡 성적', tag: 'career', keepPop: true,
   init(s, d) {
-    const t = s.tracks.solo; if (!soloOn(s)) { d.skip = true; return; }
+    const t = s.tracks.solo;
     const p = me(s), mk = t.mkt || 'kr', n = npcBy(s, d.id), pop = n ? n.pop : 30, sk = n ? n.sk : 50;
     // 곡 주인의 실력 · 인기가 크고, 내 노래(랩)가 보탠다
     const sc = U.clamp(22 + sk * 0.35 + pop * 0.3 + lv(p, soloVoice(t, p)) * 0.2 + U.normal(0, 6), 0, 100);
     d.sc = Math.round(sc); d.peak = chartFromScore(sc);
     d.gain = Math.round(npcFanGain(s, { pop }) * (0.4 + Math.max(0, sc - 45) / 25) * myRoom(s, mk)); s.fans[mk] += d.gain;
     d.pop = jpopAdd(s, 'solo', Math.max(0, (sc - 55) / 12));
-    d.roy = addCatalog(s, d.title, '피처링', sc, t.st === 'signed' ? 0.09 : 0.15, 'solo');
+    d.roy = addCatalog(s, d.title, '피처링', sc, (d.sg != null ? d.sg : t.st === 'signed') ? 0.09 : 0.15, 'solo');
     if (n) { if (sc >= 70) n.pop = U.clamp(n.pop + 2, 1, 99); if (sc >= 66) npcRel(s, n, 8); }
+    t.featN = (t.featN || 0) + 1; if (sc >= 74) t.featHit = (t.featHit || 0) + 1;
     addWork(s, { type: '피처링', title: d.title, by: d.nn, sc: d.sc, pay: d.pay || 0, note: chartText(d.peak) });
   },
   text: (s, d) => { const fl = soloFxLine(d); return `내가 피처링한 ${d.nn}의 신곡 ${josa(`「${d.title}」`, '이가')} 나왔다. ${chartText(d.peak)}.${d.sc >= 74 ? ' "피처링이 곡을 살렸다"는 말이 많다.' : d.sc < 58 ? ' 곡이 크게 알려지지는 못했다.' : ''}${fl ? `\n\n${fl}` : ''}`; },
@@ -200,10 +206,16 @@ E({
 E({
   id: 'solo_concert', cat: '단독 공연', title: '단독 공연을 열까?', tag: 'career',
   cond: s => soloOn(s),
-  init(s, d) { const t = s.tracks.solo; d.dm = Math.round(soloDemand(s, t)); d.nth = (t.liveN || 0) + 1; },
-  text: (s, d) => { const t = s.tracks.solo, signed = t.st === 'signed'; return `${signed ? `${josa(t.agN, '이가')} ${d.nth === 1 ? '첫' : `${d.nth}번째`} 단독 공연을 열어 보자고 한다.` : `내 이름을 건 ${d.nth === 1 ? '첫' : `${d.nth}번째`} 단독 공연을 열 때가 됐다.`} 발표곡 ${t.rel}곡, 팬 ${fmtFans(totalFans(s))}.\n\n공연장이 클수록 많이 벌 수 있지만, 자리가 비면 분위기가 식는다. ${signed ? '대관과 무대 비용을 뺀 수익을 회사와 나눈다.' : '대관과 무대 비용은 내 돈으로 먼저 낸다.'}`; },
+  // d.cv: 회사가 잡을 공연장 (올 사람 수에 맞는 곳. 가끔 몸을 사려 한 단계 작은 곳, 자리가 1.7배 안쪽이면 가끔 욕심을 내 한 단계 큰 곳)
+  init(s, d) { const t = s.tracks.solo; d.dm = Math.round(soloDemand(s, t)); d.nth = (t.liveN || 0) + 1; let v0 = 0; SOLO_VENUE.forEach((V, i) => { if (V.seat <= d.dm * 1.15) v0 = i; }); const up = SOLO_VENUE[v0 + 1]; d.cv = U.clamp(v0 + (up && up.seat <= d.dm * 1.7 && U.chance(0.25) ? 1 : U.chance(0.15) ? -1 : 0), 0, SOLO_VENUE.length - 1); },
+  text: (s, d) => { const t = s.tracks.solo, signed = t.st === 'signed'; return signed ? `${josa(t.agN, '이가')} ${d.nth === 1 ? '첫' : `${d.nth}번째`} 단독 공연을 기획하려 한다. 발표곡 ${t.rel}곡, 팬 ${fmtFans(totalFans(s))}.\n\n공연장과 규모는 회사가 정한다. 대관과 무대 비용을 뺀 수익을 회사와 나눈다.` : `내 이름을 건 ${d.nth === 1 ? '첫' : `${d.nth}번째`} 단독 공연을 열 때가 됐다. 발표곡 ${t.rel}곡, 팬 ${fmtFans(totalFans(s))}.\n\n공연장이 클수록 많이 벌 수 있지만, 자리가 비면 분위기가 식는다. 대관과 무대 비용은 내 돈으로 먼저 낸다.`; },
   ch(s, d) {
     const t = s.tracks.solo, signed = t.st === 'signed';
+    // v221: 회사 소속이면 공연장은 회사가 정하고, 나는 기획 전에 할지 말지만 답한다 (인디 · 내 회사 소속은 내가 고른다)
+    if (signed) { const V = SOLO_VENUE[d.cv != null ? d.cv : SOLO_VENUE.reduce((b, x, i) => x.seat <= d.dm * 1.15 ? i : b, 0)]; return [
+      { t: '하겠다고 한다', h: '공연장은 회사가 잡는다 · 다음 달에 무대에 선다', f: s => { t.liveT = s.t + SOLO_LIVE_GAP; queueEv(s, 'solo_concertres', 1, { v: SOLO_VENUE.indexOf(V), signed, cut: t.cut || 0, cost: 0 }, true); return `${josa(t.agN, '이가')} ${V.n}(${V.seat.toLocaleString()}석)을 잡았다. 다음 달에 무대에 선다.`; } },
+      { t: '이번엔 하지 않겠다고 한다', h: '1년 뒤에 다시 이야기한다', f: s => { t.liveT = s.t + 12; return '단독 공연은 다음으로 미뤘다.'; } },
+    ]; }
     let v0 = 0; SOLO_VENUE.forEach((V, i) => { if (V.seat <= d.dm * 1.15) v0 = i; });
     const C = [v0 - 1, v0, v0 + 1].filter(i => i >= 0 && i < SOLO_VENUE.length).map(i => {
       const V = SOLO_VENUE[i], r = d.dm / V.seat, cost = signed ? 0 : V.cost;
