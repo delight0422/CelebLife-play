@@ -298,7 +298,7 @@ function liveProps(sp) {
 const PF = { live: { n: '라이브온', c: '#B8F044' }, video: { n: '라이브온', en: 'LIVEON', c: '#B8F044' }, comm: { n: '와글', en: 'WAGGLE', c: '#7C9CFF' } };
 // 왼쪽은 방송 화면(아바타 · LIVE · 시청자 수 · 후원 알림), 오른쪽은 채팅
 // 여기서는 채팅이 곧 현장 반응이다. 줄 종류: chat(채팅) · don(후원) · del(매니저가 지운 채팅) · join(다른 방송인이 들어옴)
-// sp.x = { sub: 방송 종류(debut · d3 · anniv · concert · endure · avatar 새 아바타 공개 · mile 구독자 기념 · grad 졸업 · collab 합방), co: 합방 상대, mgr: 매니저가 있는지(없으면 '삭제된 채팅'), subs: 구독자, nick: 팬들이 부르는 이름, mates: 들어올 방송인 이름들, d3 }. 요인: sk(방송 실력)
+// sp.x = { sub: 방송 종류(debut · d3 · anniv · concert · endure 켠왕 · avatar 새 아바타 공개 · mile 구독자 기념 · grad 졸업 · collab 합방), co: 합방 상대, mgr: 매니저가 있는지(없으면 '삭제된 채팅'), subs: 구독자, nick: 팬들이 부르는 이름, mates: 들어올 방송인 이름들, d3 }. 요인: sk(방송 실력)
 const LV_NICK = ['말랑콩', '새벽두시', '감자튀김', '구름빵', '민트초코', '별사탕', '야근러', '고양이집사', '무지개떡', '초코우유', '졸린곰', '라면물', '콩나물국', '월요병', '귤껍질', '도토리묵', '밤샘러', '솜사탕', '버스기사', '옥수수'];
 const LV_CHAT = {
   hi: ['ㅎㅇ', '왔다!!', '하이~', '기다렸어ㅠㅠ', '오늘도 출석', '방송 켰다!!'],

@@ -40,7 +40,7 @@ E({
   text: (s, d) => "아이가 태어날 때까지 어떤 태교를 할지 정한다. 고른 태교에 따라 아이가 그쪽 재능을 더 타고난다.\n\n태어날 때까지 일정 한 칸이 '태교'로 고정된다. 댄스 · 연기처럼 몸을 크게 쓰는 연습은 쉰다.",
   ch: (s, d) => TAEGYO.map(x => ({ t: `${x.ic} ${x.n}`, h: `${x.h} · 아이의 ${x.tal.map(k => TALENT_BY[k].n).join(' · ')} ↑`, f: s => { if (s.preg) s.preg.tae = x.id; return `태교는 ${josa(x.n, '으로')} 하기로 했다.`; } })),
 });
-// v216: 배우자가 임신했으면 태교는 배우자가 정한다. 자기 특기와 맞닿은 태교일수록 고를 가능성이 크다 (특기 레벨 × 그 특기에 드는 재능이 태교 재능과 겹치는 만큼, 제곱해서)
+// v216: 배우자가 임신했으면 태교는 배우자가 정한다 (v217: 화면에는 말하지 않고 효과만 — 임신 소식 · 출산 기록 모두). 자기 특기와 맞닿은 태교일수록 고를 가능성이 크다 (특기 레벨 × 그 특기에 드는 재능이 태교 재능과 겹치는 만큼, 제곱해서)
 function taeSpouse(s) {
   if (!s.preg || s.preg.tae || pregMe(s)) return null;
   const sp = partner(s), sk = sp ? learnedSkills(sp) : [];
@@ -49,13 +49,13 @@ function taeSpouse(s) {
   s.preg.tae = x.id;
   return x;
 }
-function taeSpouseTxt(s) { const x = taeSpouse(s), sp = partner(s); return x ? `태교는 ${sp ? josa(sp.name, '이가') : '배우자가'} 맡는다. ${josa(x.n, '으로')} 하겠다고 한다.` : ''; }
 // 태어난 아이에게 태교한 쪽 재능을 얹는다 (98까지). 돌려주는 글은 출산 기록 뒤에 붙인다
 function taeBoost(s, c) {
   const x = s.preg && TAEGYO_BY[s.preg.tae]; if (!x || !c) return '';
   // 부모 평균보다 낮게 물려받았어도 평균에서 시작해 +8~15 (태교한 티가 나게)
   const PR = (c.parents || []).map(id => s.people[id]).filter(Boolean);
   for (const k of x.tal) { const avg = PR.length ? PR.reduce((n, p) => n + (p.tal[k] || 45), 0) / PR.length : 45; c.tal[k] = Math.round(U.clamp(Math.max(c.tal[k], avg) + U.int(8, 15), 3, 98)); }
+  if (!pregMe(s)) return ''; // v217: 배우자가 한 태교는 기록에 적지 않는다 (재능만 오른다)
   return ` 태교 덕분인지 ${x.tal.map(k => TALENT_BY[k].n).join(' · ')}${josa(TALENT_BY[x.tal[x.tal.length - 1]].n, '이가').slice(TALENT_BY[x.tal[x.tal.length - 1]].n.length)} 남다르다.`;
 }
 // v214: 임신 소식 — 결혼한 뒤 아이가 생기면(계획했든 아니든) 먼저 이 창이 뜨고, 아홉 달 뒤에 태어난다 (baby, late). 그동안 s.preg
@@ -63,10 +63,10 @@ const PREG_M = 9;
 E({
   id: 'preg_news', cat: '가족', title: '아이가 생겼다', keepPop: true,
   cond: s => { const sp = partner(s); return isSpouse(sp) && canConceive(s, sp) && !s.preg && !hasQ(s, 'baby') && !hasQ(s, 'oops_birth'); },
-  init(s, d) { s.preg = { left: PREG_M, me: myGender(s) === '여' }; d.tae = taeSpouseTxt(s); queueEv(s, 'baby', PREG_M, { late: true }, true); },
+  init(s, d) { s.preg = { left: PREG_M, me: myGender(s) === '여' }; taeSpouse(s); queueEv(s, 'baby', PREG_M, { late: true }, true); },
   text: (s, d) => { const sp = partner(s), my = myGender(s) === '여', nth = kids(s).length ? ` ${kids(s).length + 1}번째 아이다.` : '';
     return (my ? `요즘 몸이 이상해서 테스트기를 사 봤다. 선명한 두 줄이 떴다.` : `${sp ? josa(sp.name, '이가') : '아내가'} 할 말이 있다며 테스트기를 내밀었다. 선명한 두 줄이 떠 있었다.`)
-      + `\n\n${d.oops ? '피임을 했는데도 ' : ''}아이가 생겼다.${nth} ${ymLater(s, PREG_M)}에 태어난다.` + (my ? '\n\n아이가 태어날 때까지 직업 활동은 쉰다. 연습과 생활은 그대로 할 수 있다.' : d.tae ? '\n\n' + d.tae : ''); },
+      + `\n\n${d.oops ? '피임을 했는데도 ' : ''}아이가 생겼다.${nth} ${ymLater(s, PREG_M)}에 태어난다.` + (my ? '\n\n아이가 태어날 때까지 직업 활동은 쉰다. 연습과 생활은 그대로 할 수 있다.' : ''); },
   ch: (s, d) => [{ t: '확인', f: s => { if (pregMe(s)) { queueEv(s, 'taegyo', 0, {}, true); qFront(s, ['taegyo']); } return `아이가 생겼다. ${ymLater(s, s.preg ? s.preg.left : PREG_M)}에 태어난다.` + fx(s, { stress: d.oops ? 4 : -4 }); } }],
 });
 // 아이가 생겼다: 성별을 알려 주고 이름을 직접 짓는다 (성은 아빠 쪽으로 정해져 있다). late: 혼전 임신 뒤 결혼해서 몇 달 뒤 태어난 아이

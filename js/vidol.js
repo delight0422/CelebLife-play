@@ -3,7 +3,7 @@
 // 버츄얼 아이돌 기획사(AGENCIES kind 'vtuber', 이름은 인생마다 CO_POOL에서 바뀐다)에 들어가는 회사 소속 버튜버
 // 오디션 합격 → 데뷔 준비(회사가 아바타를 만들고 방송 연습, 같은 기수 동기 4명이 다 모일 때까지) → 동기들과 함께 데뷔 (새 아바타로 다시 태어나는 '환생')
 // 데뷔 뒤에는 인터넷 방송이 중심: 개인 방송 · 동기·선배와 합방 · 노래(커버·오리지널) · 3D 데뷔·라이브 · 굿즈 · 후원·멤버십
-// 회사가 정하는 일(3D 데뷔·오리지널 곡·기념 방송·3D 라이브·연말 평가)은 알림으로 온다. 내가 골라서 하는 방송(커버곡·내구 방송)은 🎭 활동 지원
+// 회사가 정하는 일(3D 데뷔·오리지널 곡·기념 방송·3D 라이브·연말 평가)은 알림으로 온다. 내가 골라서 하는 방송(커버곡·켠왕)은 🎭 활동 지원
 // 개인세 버튜버는 지금처럼 스트리머 직업(mode 'vt')에 있다. 회사를 나와 개인세가 되면 다시 환생해 스트리머 직업으로 돌아간다
 
 const VI_TIERS = ['신인 버츄얼 아이돌', '주목받는 버츄얼 아이돌', '인기 버츄얼 아이돌', '간판 버츄얼 아이돌', '톱 버츄얼 아이돌', '버츄얼 아이돌 스타', '전설의 버츄얼 아이돌'];
@@ -161,13 +161,13 @@ E({
     return { log: '' };
   },
 });
-// 실시간 창 (12-3): 라이브 방송 플랫폼. sub: 방송 종류 (debut 데뷔 방송 · d3 3D 공개 · anniv 기념 방송 · concert 3D 라이브 · endure 내구 방송 · grad 졸업 방송)
+// 실시간 창 (12-3): 라이브 방송 플랫폼. sub: 방송 종류 (debut 데뷔 방송 · d3 3D 공개 · anniv 기념 방송 · concert 3D 라이브 · endure 켠왕 · grad 졸업 방송)
 // 방송 실력(viAppeal)이 채팅 분위기를 정한다. 동기 · 선배가 방송에 들어오기도 한다
 function viLive(s, t, sub, o) {
   o = o || {};
   if (typeof liveStage !== 'function') return null;
   const ap = viAppeal(s, t), nick = (t.sn && t.sn.nick) || t.ch;
-  const T = { debut: `【데뷔】 처음 뵙겠습니다, ${t.ch}입니다!`, d3: `【3D 공개】 ${t.ch}, 움직입니다`, anniv: `【${o.y || 1}주년】 기념 방송`, concert: `【3D LIVE】 ${t.ch} 콘서트`, endure: '【내구】 24시간 방송', grad: `【졸업】 ${t.ch}의 마지막 방송`, collab: `【합방】 ${t.ch} × ${o.co || ''}` };
+  const T = { debut: `【데뷔】 처음 뵙겠습니다, ${t.ch}입니다!`, d3: `【3D 공개】 ${t.ch}, 움직입니다`, anniv: `【${o.y || 1}주년】 기념 방송`, concert: `【3D LIVE】 ${t.ch} 콘서트`, endure: '【켠왕】 깰 때까지 안 끕니다', grad: `【졸업】 ${t.ch}의 마지막 방송`, collab: `【합방】 ${t.ch} × ${o.co || ''}` };
   return liveStage({ k: 'stream', place: PF.live.n, t: T[sub], g: t.ch, cn: nick, mem: [[t.ch, '']], mi: 0, key: o.key !== false, sc: o.sc != null ? o.sc : U.clamp(50 + (ap - 55) * 1.5, 0, 100), z: { sk: (ap - 55) / 12 },
     x: { sx: liveSx([me(s)]), sub, subs: t.subs, nick, co: o.co || '', cosx: o.coSx || '', mgr: true, mates: viMates(s, t).concat(viSeniors(s, t)).slice(0, 4).map(viName), d3: sub === 'd3' || sub === 'concert' || !!t.d3 } });
 }
@@ -287,18 +287,18 @@ ACT_APPLY.push({
   },
 });
 ACT_APPLY.push({
-  id: 'vi_endure', cat: 'video', n: '내구 방송 (24시간)', ic: '⏰',
+  id: 'vi_endure', cat: 'video', n: '켠왕 (24시간)', ic: '⏰',
   show: s => viOn(s),
-  h: s => '하루 종일 방송한다 · 구독자와 후원이 크게 들어오지만 몹시 지친다 · 6개월에 한 번',
+  h: s => '게임 하나를 깰 때까지 하루 종일 방송한다 · 구독자와 후원이 크게 들어오지만 몹시 지친다 · 6개월에 한 번',
   ok: s => !viActWhy(s, 'viEndure'),
   why: s => viActWhy(s, 'viEndure'),
   run: s => {
     const t = viT(s); s.cd.viEndure = s.t + 6;
     const gain = Math.round(t.subs * U.fl(0.02, 0.05) + 200), inc = Math.round(t.subs * U.fl(50, 120) * (1 - t.cut));
     t.subs += gain; earn(s, inc, '방송 후원·멤버십', 'vidol'); addStress(s, 12);
-    const first = !t.endN; t.endN = (t.endN || 0) + 1; // 첫 내구 방송만 '중요할 때'
+    const first = !t.endN; t.endN = (t.endN || 0) + 1; // 첫 켠왕만 '중요할 때'
     const sp = viLive(s, t, 'endure', { sc: 62, key: first });
-    return showResult(s, '내구 방송', `「${t.ch}」 24시간 내구 방송을 했다. 끝날 때쯤엔 목소리가 다 쉬었다.`, `24시간 내구 방송. 구독자 ${sgnFans(gain)}, 후원 ${fmtWon(inc)}.`, sp, streamBoxes(sp, { don: inc, gain, more: [['😵', '스트레스', '+12']] }));
+    return showResult(s, '켠왕', `「${t.ch}」 24시간 켠왕을 했다. 끝날 때쯤엔 목소리가 다 쉬었다.`, `24시간 켠왕. 구독자 ${sgnFans(gain)}, 후원 ${fmtWon(inc)}.`, sp, streamBoxes(sp, { don: inc, gain, more: [['😵', '스트레스', '+12']] }));
   },
 });
 
