@@ -564,7 +564,7 @@ function jobFacts(s, id) {
   if (gf != null) F.push(['그룹 팬', fmtFans(gf)]);
   const jf = Math.round((s.jf || {})[id] || 0);
   if (POP_JOBS.includes(id) || jf > 0) F.push([gf != null ? '개인 팬' : '모은 팬', fmtFans(jf)]); // v219: 그룹이 없는 일은 '이 일로 모은 팬'
-  if (POP_JOBS.includes(id)) F.push(['인기', popTxt(jpop(s, id), s)]);
+  if (POP_JOBS.includes(id)) F.push(['대중 호감도', popTxt(jpop(s, id), s)]);
   const cl = contractLine(s, id);
   if (cl) F.push(['계약', cl.replace('계약 ', '')]);
   return F;
@@ -1569,7 +1569,7 @@ function popTxt(v, s) { return s && popUnknown(s) ? '아직 알려지지 않음'
 function jobPopHTML(s) {
   const L = POP_JOBS.filter(id => CAREERS[id] && s.tracks[id] && s.tracks[id].st !== 'none');
   if (!L.length) return '';
-  return `<div class="sec-h">⭐ 인기</div>` + mastBars(L.map(id => ({ n: jobEarnName(id), tag: trackOn(s, id) ? '' : '예전', down: true, v: popUnknown(s) ? 0 : jpop(s, id), txt: popTxt(jpop(s, id), s) })), 'pop', 'wide');
+  return `<div class="sec-h">⭐ 대중 호감도</div>` + mastBars(L.map(id => ({ n: jobEarnName(id), tag: trackOn(s, id) ? '' : '예전', down: true, v: popUnknown(s) ? 0 : jpop(s, id), txt: popTxt(jpop(s, id), s) })), 'pop', 'wide');
 }
 function jobEarnName(j) { return EARN_EXTRA[j] || (CAREERS[j] ? `${jobIc(j)} ${jobName(j)}` : j); }
 function jobEarnHTML(s) {
@@ -2106,7 +2106,7 @@ function panelJob() {
   // 실력은 '내 실력' 한 줄만: 직업 정보에 '내 실력'이 없으면 그 일과 가장 가까운 특기를 '내 실력'으로 넣는다
   if (!ci.some(r => Array.isArray(r) && r[0] === '내 실력')) { const cs = careerSkill(s, id); if (cs) info.push(['내 실력', cs]); }
   // 개인 팬 = 이 일로 모은 팬 (v149): 직업마다 따로 센다. 합친 팬 수는 상태 박스에 있다
-  if (POP_JOBS.includes(id)) info.unshift(['인기', popTxt(jpop(s, id), s)]);
+  if (POP_JOBS.includes(id)) info.unshift(['대중 호감도', popTxt(jpop(s, id), s)]);
   info.unshift([jobGroupFans(s, id) != null ? '개인 팬' : '이 일로 모은 팬', fmtFans(Math.round((s.jf || {})[id] || 0))]);
   const cl = contractLine(s, id); if (cl) { const m = c.cLeft(s, t); info.push(['계약 기간', `${cl.replace('계약 ', '')} (${Math.max(0, m)}개월 남음)`]); }
   // 회사 대표는 회사가 곧 소속: 내 실력 · 돈 줄 말고는 모두 회사 탭

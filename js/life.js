@@ -40,10 +40,10 @@ function ownHouse(s) { return s.home.mode === 'alone' && s.home.type === 'own'; 
 // 매달 돈이 드는 관리 (켜고 끌 수 있다). c: 월 비용(만 원)
 const SUBS = {
   pt: { n: '개인 PT 트레이너', c: 80, d: '외모가 조금씩 오른다 · 관리하는 동안 외모가 조금씩 좋아지고, 그만두면 천천히 돌아간다', looks: true },
-  skin: { n: '피부과 정기 관리', c: 40, d: '외모가 조금씩 좋아지고, 활동 중이면 하는 일의 인기도 조금씩 오른다 · 관리하는 동안 외모가 조금씩 좋아지고, 그만두면 천천히 돌아간다', looks: true },
+  skin: { n: '피부과 정기 관리', c: 40, d: '외모가 조금씩 좋아지고, 활동 중이면 하는 일의 대중 호감도도 조금씩 오른다 · 관리하는 동안 외모가 조금씩 좋아지고, 그만두면 천천히 돌아간다', looks: true },
   counsel: { n: '심리 상담', c: 30, d: '스트레스가 빨리 풀린다', lvs: true },
   // 아티스트(무대·화면에 서는 일)만: 개인 매니저 / 스태프(뒤에서 만드는 일)만: 업무 어시스턴트
-  manager: { n: '개인 매니저 고용', c: 300, d: '스트레스가 덜 쌓이고 하는 일의 인기가 조금씩 오른다', min: 19, side: 'artist' },
+  manager: { n: '개인 매니저 고용', c: 300, d: '스트레스가 덜 쌓이고 하는 일의 대중 호감도가 조금씩 오른다', min: 19, side: 'artist' },
   assist: { n: '업무 어시스턴트 고용', c: 200, d: '스트레스가 덜 쌓인다 · 자료 정리·일정 관리를 맡긴다', min: 19, side: 'staff' },
   // 자녀 교육비: 아이가 생긴 뒤에 보인다. 4~18세 아이마다 따로 정한다 (s.kidEdu). 아이의 특기가 빨리 는다 (familyMonth)
   kidedu: { n: '자녀 교육비 (과외·코칭)', c: 50, d: '아이의 잘하는 특기 세 개가 빨리 는다', kids: true },
@@ -199,8 +199,10 @@ function houseNote(s) { const h = s.home; return (h.loan ? '대출을 뺀 금액
 function homeBase(s) { const a = age(s), poor = s.wealth <= 3; return (a < 23 ? (poor ? 50 : 25) : a < 27 ? (poor ? 60 : 40) : (poor ? 80 : 60)) + (s.flags.homeFeeUp ? 30 : 0); }
 // v225: 스물두 살까지는 버는 돈이 없는 달에 기본 생활비를 내지 않는다 (수입 없는 대학생이 본가에 살기만 해도 다달이 빚이 쌓이던 것)
 // 저작권료는 생활비보다 뒤에 들어와서, 지난달에 번 돈(lastMon.ent)도 함께 본다
-function homeFee(s) { const inc = (s.mon.ent || 0) + (s.mon.job || 0), none = inc <= 0 && !((s.lastMon || {}).ent > 0); return (age(s) < 23 && none ? 0 : homeBase(s) * 1e4) + Math.min(100e4, Math.round(inc * 0.15 / 1e4) * 1e4); }
-function homeFeeNote(s) { return age(s) < 23 ? ' · 22세까지는 버는 돈이 없는 달엔 내지 않는다' : ''; }
+// v226: 집안 형편이 어려운 집(10단계 중 1~3)은 봐주지 않는다. 버는 돈이 없는 달에도 기본 생활비를 낸다
+function homeFree(s) { return age(s) < 23 && !(s.wealth <= 3); }
+function homeFee(s) { const inc = (s.mon.ent || 0) + (s.mon.job || 0), none = inc <= 0 && !((s.lastMon || {}).ent > 0); return (homeFree(s) && none ? 0 : homeBase(s) * 1e4) + Math.min(100e4, Math.round(inc * 0.15 / 1e4) * 1e4); }
+function homeFeeNote(s) { return homeFree(s) ? ' · 22세까지는 버는 돈이 없는 달엔 내지 않는다' : ''; }
 function housingMonth(s) {
   const h = s.home, r = REGION_BY[s.region];
   // 결혼했는데 원룸에 살면 둘이 살 집으로 옮긴다 (events.js home_wed)

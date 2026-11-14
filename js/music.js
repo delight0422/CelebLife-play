@@ -560,13 +560,16 @@ function idolAgeAdj(a) { return a <= 13 ? 5 : a <= 16 ? 3 : a <= 19 ? 0 : a <= 2
 // 아이돌 재능 (v99, 8-5): 외모 · 스타성 · 리듬감은 강함, 음감 · 목소리 · 운동신경 · 표현력(무대 표정)은 보통 (0~100)
 function idolTal(p) { const t = p.tal; return (t.looks + t.star + t.rhythm + (t.music + t.voice + t.athletic + t.express) * 0.5) / 5; }
 // 오디션 점수: 회사 크기와 상관없이 어릴수록 재능(가능성)을, 나이가 들수록 지금 실력(특기)을 본다
-// 재능은 특기 점수와 같은 눈금으로 바꾼다 (재능 45 → 20점, 55 → 35점, 65 → 50점)
-function idolTalPts(p) { return 20 + (idolTal(p) - 45) * 1.5; }
+// 재능은 특기 점수와 같은 눈금으로 바꾼다 (재능 45 → 20점, 55 → 32점, 65 → 44점)
+// v226: 아이돌 오디션도 솔로 연습생 오디션(SOLO_AUD_K · SOLO_AUD_B)과 같은 기준으로 잡았다 — 재능 1에 1.5점 → 1.2점, 회사가 클수록 문턱이 더 높다 (소형 그대로 · 중형 +3 · 대형 +3.5)
+//   넉넉한 집에서 어릴 때부터 명문 학원을 다닌 재능 있는 지원자가 16~18세에 대형 기획사에 붙을 가능성이 70%쯤 (예전 75~95%)
+const IDOL_AUD_K = 1.2, IDOL_AUD_B = [0, 3, 3.5];
+function idolTalPts(p) { return 20 + (idolTal(p) - 45) * IDOL_AUD_K; }
 function idolTalW(a) { return a <= 12 ? 0.75 : a <= 14 ? 0.6 : a <= 16 ? 0.45 : a <= 18 ? 0.3 : a <= 20 ? 0.15 : 0; }
 function idolAudScore(s) { const w = idolTalW(age(s)); return idolScore(s) * (1 - w) + idolTalPts(me(s)) * w; }
 // 오디션 합격률: 문턱 -2, 나이 보너스는 절반만
 // v207: 회사 특징 (CO_FOCUS.music) — 그 회사가 특화한 능력치를 크게 본다
-function idolAudP(s, ag) { return audP(coFocus(s, 'music', ag.con, idolAudScore(s)) + idolAgeAdj(age(s)) * 0.5 + pm(s, 'audition', 0), ag.thr - 2); }
+function idolAudP(s, ag) { return audP(coFocus(s, 'music', ag.con, idolAudScore(s)) + idolAgeAdj(age(s)) * 0.5 + pm(s, 'audition', 0), ag.thr - 2 + IDOL_AUD_B[U.clamp(ag.tier, 1, 3) - 1]); }
 // 연습생 월말평가는 특기만 본다. 대신 어린 연습생은 방출·계약 만료를 잘 당하지 않는다 (idolYouth)
 const IDOL_EVAL_OFF = [0, 6, 3, 3];
 // 어린 연습생 보호: 1이면 보통, 0이면 방출되지 않는다
@@ -2289,12 +2292,12 @@ function soloBlock(s) {
 // v223: 솔로는 혼자 노래(랩 · 춤)로 서는 자리라 외모를 덜 본다. 실력 점수의 외모 보정은 절반만, 재능도 목소리 · 음감 · 스타성을 앞에 둔다
 function soloTrScore(s, type) { const lk = talB(me(s).tal.looks, false); return (soloScore(s, type) - lk) / 0.85 + lk * 0.5; }
 function soloTal(p) { const t = p.tal; return (t.voice + t.music + t.star + (t.looks + t.rhythm + t.express + t.athletic) * 0.5) / 5; }
-// v225 솔로 연습생 오디션 밸런스: 넉넉한 집에서 어릴 때부터 명문 학원을 다닌 재능 있는 지원자가 대형 기획사에 붙을 가능성이 절반쯤 되게 맞췄다 (예전엔 60~90%)
+// v225 솔로 연습생 오디션 밸런스: 넉넉한 집에서 어릴 때부터 명문 학원을 다닌 재능 있는 지원자가 대형 기획사에 붙을 가능성이 절반쯤 되게 맞췄다 (예전엔 60~90%) · v226: 70%쯤으로 올렸다 (대형 문턱 +9 → +4)
 //   ① 재능 점수의 기울기를 낮췄다 (재능 1에 1.5점 → 1.2점: 재능 68이면 54점 → 48점)
 //   ② 퍼포먼스형은 춤 재능(리듬감 · 운동신경 · 스타성)으로 본다 (예전엔 유형과 상관없이 목소리 · 음감 위주라 노래 재능만 좋아도 퍼포먼스형이 잘 붙었다)
-//   ③ 회사가 클수록 문턱이 더 높다 (소형 그대로 · 중형 +4 · 대형 +9)
+//   ③ 회사가 클수록 문턱이 더 높다 (소형 그대로 · 중형 · 대형 +4. v225에는 대형 +9)
 //   ④ 그 유형의 주특기(보컬 · 랩 · 댄스)가 너무 낮으면 깎인다 (소형 15 · 중형 20 · 대형 25레벨에 모자란 만큼 × 0.5점)
-const SOLO_AUD_K = 1.2, SOLO_AUD_B = [0, 4, 9];
+const SOLO_AUD_K = 1.2, SOLO_AUD_B = [0, 4, 4];
 function soloTalT(p, type) { const t = p.tal; return type === 'perf' ? (t.rhythm + t.athletic + t.star + (t.looks + t.express + t.music + t.voice) * 0.5) / 5 : soloTal(p); }
 function soloTrAudScore(s, type) { const w = idolTalW(age(s)); return soloTrScore(s, type) * (1 - w) + (20 + (soloTalT(me(s), type) - 45) * SOLO_AUD_K) * w; }
 function soloAudGate(s, ag, type) { return Math.max(0, 10 + ag.tier * 5 - lv(me(s), type === 'perf' ? 'dance' : type)) * 0.5; }

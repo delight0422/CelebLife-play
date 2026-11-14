@@ -144,12 +144,12 @@ function soloExtraMonth(s, t) {
 }
 function soloRelCan(t) { return !!t && !t.alb && t.nextRel > 0 && t.nextRel < 90; }
 function soloRelPush(t) { if (soloRelCan(t)) t.nextRel++; }
-function soloFxLine(d) { return [d.gain > 0 ? `${MK_N[d.mk || 'kr']} 팬 +${fmtFans(d.gain)}` : '', d.pop > 0.3 ? '인기 ↑' : d.pop < -0.3 ? '인기 ↓' : '', d.roy >= 1e4 ? `매달 들어올 음원 수익 약 ${fmtWon(d.roy)}` : ''].filter(Boolean).join(' · '); }
+function soloFxLine(d) { return [d.gain > 0 ? `${MK_N[d.mk || 'kr']} 팬 +${fmtFans(d.gain)}` : '', d.pop > 0.3 ? '대중 호감도 ↑' : d.pop < -0.3 ? '대중 호감도 ↓' : '', d.roy >= 1e4 ? `매달 들어올 음원 수익 약 ${fmtWon(d.roy)}` : ''].filter(Boolean).join(' · '); }
 INBOX.solo_ost = {
   ic: '🎬',
   text: (s, m) => `${m.d.big ? '기대작으로 꼽히는 ' : ''}${m.d.genre} 드라마 「${m.d.drama}」의 OST를 불러 달라는 제안이다. 가창료 ${fmtWon(soloShare(s.tracks.solo, m.d.fee))}.\n\n드라마가 잘되면 OST도 같이 뜬다.`,
   ch: (s, m) => [
-    { t: '부른다', ok: s => soloOn(s) && !s.army && !s.hiatus, h: '두 달 뒤 드라마와 함께 공개된다 · 곡이 잘되면 팬과 인기가 오른다' + (soloRelCan(s.tracks.solo) ? ' · 다음 신곡이 한 달 늦어진다' : ''), f: s => { const t = s.tracks.solo, pay = soloShare(t, m.d.fee); soloRelPush(t); earn(s, pay, 'OST 가창료', 'solo'); useSkill(s, me(s), 'vocal', 2); queueEv(s, 'solo_ostres', 2, { drama: m.d.drama, genre: m.d.genre, big: m.d.big, pay, title: songTitle(), sg: t.st === 'signed' }, true); return `드라마 「${m.d.drama}」 OST를 녹음했다. 두 달 뒤 드라마와 함께 공개된다.` + fx(s, { stress: 2 }); } },
+    { t: '부른다', ok: s => soloOn(s) && !s.army && !s.hiatus, h: '두 달 뒤 드라마와 함께 공개된다 · 곡이 잘되면 팬과 대중 호감도가 오른다' + (soloRelCan(s.tracks.solo) ? ' · 다음 신곡이 한 달 늦어진다' : ''), f: s => { const t = s.tracks.solo, pay = soloShare(t, m.d.fee); soloRelPush(t); earn(s, pay, 'OST 가창료', 'solo'); useSkill(s, me(s), 'vocal', 2); queueEv(s, 'solo_ostres', 2, { drama: m.d.drama, genre: m.d.genre, big: m.d.big, pay, title: songTitle(), sg: t.st === 'signed' }, true); return `드라마 「${m.d.drama}」 OST를 녹음했다. 두 달 뒤 드라마와 함께 공개된다.` + fx(s, { stress: 2 }); } },
     { t: '거절한다', f: () => 'OST 제안을 거절했다.' },
   ],
 };
@@ -180,7 +180,7 @@ INBOX.solo_feat = {
     const n = npcBy(s, m.d.id);
     if (!n) return [{ t: '확인', f: () => '제안은 없던 일이 됐다.' }];
     return [
-      { t: '참여한다', ok: s => soloOn(s) && !s.army && !s.hiatus, h: '다음 달에 곡이 나온다 · 곡이 잘되면 팬과 인기가 오른다' + (soloRelCan(s.tracks.solo) ? ' · 다음 신곡이 한 달 늦어진다' : ''), f: s => { const t = s.tracks.solo, pay = soloShare(t, m.d.fee); soloRelPush(t); earn(s, pay, '피처링 참여료', 'solo'); npcRel(s, n, 12); useSkill(s, me(s), soloVoice(t, me(s)), 1.5); queueEv(s, 'solo_featres', 1, { id: n.id, nn: n.n, pay, title: songTitle(), sg: t.st === 'signed' }, true); return `${n.n}의 신곡 피처링을 녹음했다. 다음 달에 나온다.` + fx(s, { stress: 2 }); } },
+      { t: '참여한다', ok: s => soloOn(s) && !s.army && !s.hiatus, h: '다음 달에 곡이 나온다 · 곡이 잘되면 팬과 대중 호감도가 오른다' + (soloRelCan(s.tracks.solo) ? ' · 다음 신곡이 한 달 늦어진다' : ''), f: s => { const t = s.tracks.solo, pay = soloShare(t, m.d.fee); soloRelPush(t); earn(s, pay, '피처링 참여료', 'solo'); npcRel(s, n, 12); useSkill(s, me(s), soloVoice(t, me(s)), 1.5); queueEv(s, 'solo_featres', 1, { id: n.id, nn: n.n, pay, title: songTitle(), sg: t.st === 'signed' }, true); return `${n.n}의 신곡 피처링을 녹음했다. 다음 달에 나온다.` + fx(s, { stress: 2 }); } },
       { t: '정중히 거절한다', f: s => { npcRel(s, n, n.ps === 'amb' ? -6 : -2); return `${n.n}의 피처링 제안을 정중히 거절했다.`; } },
     ];
   },

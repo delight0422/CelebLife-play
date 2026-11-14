@@ -217,6 +217,7 @@ function careerSkill(s, id) {
 }
 // v219: 인기가 오르내린 만큼은 화살표로만 (숫자는 보여 주지 않는다)
 function popArrow(d) { return d >= 5 ? '↑↑' : d > 0 ? '↑' : d <= -5 ? '↓↓' : '↓'; }
+// v226: 화면 이름은 '대중 호감도' (코드에서는 그대로 pop · jpop)
 // v225: 인기(그 직업으로서 대중이 나를 얼마나 좋게 보는지, 처음 50)의 단계 글. 아직 대중이 나를 모르면(popUnknown) 단계 대신 '아직 알려지지 않음'
 function popWord(v) { return v >= 80 ? '사랑받는 중' : v >= 62 ? '좋게 보는 편' : v >= 42 ? '무난함' : v >= 25 ? '시선이 곱지 않음' : '미움받는 중'; }
 function popUnknown(s) { return (s.fame || 0) < 8 && totalFans(s) < 1000; }
@@ -265,8 +266,8 @@ function fx(s, o) {
     const v = o[k];
     if (!v) continue;
     if (k === 'sk') { for (const x in v) { const t = bumpSkill(s, x, v[x]); if (t) parts.push(t); } }
-    else if (k === 'pop') { const L = popJobsOn(s); if (L.length) { const d = Math.round(jpopAll(s, v)); if (d) parts.push('인기 ' + popArrow(d)); } }
-    else if (k === 'jp') { for (const id in v) { const d = Math.round(jpopAdd(s, id, v[id])); if (d) parts.push(`${jobName(id)} 인기 ${popArrow(d)}`); } }
+    else if (k === 'pop') { const L = popJobsOn(s); if (L.length) { const d = Math.round(jpopAll(s, v)); if (d) parts.push('대중 호감도 ' + popArrow(d)); } }
+    else if (k === 'jp') { for (const id in v) { const d = Math.round(jpopAdd(s, id, v[id])); if (d) parts.push(`${jobName(id)} 대중 호감도 ${popArrow(d)}`); } }
     else if (k === 'fame') { const b = s.fame || 0; addFame(s, v); const d = Math.round(s.fame) - Math.round(b); if (d) parts.push('인지도 ' + sgn(d)); }
     else if (k === 'stress' || k === 'rep') {
       let vv = v;
@@ -756,7 +757,7 @@ function evAvail(s, ev) {
 function evJobN(id) { return id === 'player' ? '연주가' : CAREERS[id].n; }
 function evalSnap(s) {
   const o = { 평판: s.rep, 인지도: s.fame || 0 };
-  for (const id in (s.jpop || {})) if (CAREERS[id]) o[`${evJobN(id)} 인기`] = s.jpop[id];
+  for (const id in (s.jpop || {})) if (CAREERS[id]) o[`${evJobN(id)} 대중 호감도`] = s.jpop[id];
   for (const id of CAREER_IDS) { const t = s.tracks[id]; if (CAREERS[id] && trackOn(s, id) && typeof t.rep === 'number') o[`${evJobN(id)} 평가`] = t.rep; }
   return o;
 }
@@ -1817,6 +1818,14 @@ function migrate(s) {
     if (b && b.b && typeof b.b.tw !== 'number') b.b.tw = Math.min(60, b.months || 0);
     if (i && i.g && typeof i.g.tw !== 'number') i.g.tw = Math.min(60, i.months || 0); }
   applyCoNames(s);
+  // v226: '인기'의 화면 이름이 '대중 호감도'로 바뀌었다. 지난 기록 · 결산 줄에 남은 '○○ 인기 +2' · '인기 ↑' 표기도 옮긴다
+  if (!s.popRen) {
+    const ren = A => { if (Array.isArray(A)) for (const x of A) if (Array.isArray(x) && typeof x[0] === 'string') x[0] = x[0].replace(/ 인기$/, ' 대중 호감도'); };
+    const txt = (o, k) => { if (typeof o[k] === 'string' && o[k].includes('인기 ')) o[k] = o[k].replace(/인기 (?=[↑↓])/g, '대중 호감도 '); };
+    for (const L of s.log || []) if (L) { ren(L.dv); txt(L, 'x'); txt(L, 'sub'); }
+    for (const r of s.led || []) if (r) { ren(r.dv); txt(r, 'x'); }
+    s.popRen = 1;
+  }
   return s;
 }
 // ───── 경력: 예전에 했던 일을 기간과 함께 남긴다 ─────
