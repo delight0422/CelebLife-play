@@ -716,12 +716,12 @@ const SYS_ACTS = {
 };
 // v215: 태교 — 임신을 알게 되면 하나를 고른다. 내가 임신했으면 태어날 때까지 일정 한 칸이 '태교'로 고정된다. 고른 태교 쪽 재능 둘을 아이가 더 타고난다
 const TAEGYO = [
-  { id: 'music', ic: '🎵', n: '음악 태교', h: '좋은 음악을 매일 들려준다', tal: ['music', 'rhythm'] },
-  { id: 'book', ic: '📖', n: '독서 태교', h: '책을 소리 내어 읽어 준다', tal: ['intel', 'verbal'] },
-  { id: 'art', ic: '🎨', n: '미술 태교', h: '그림을 그리고 좋은 그림을 보러 다닌다', tal: ['aesth', 'creative'] },
-  { id: 'talk', ic: '💬', n: '태담 태교', h: '아이에게 매일 말을 걸고 많이 웃는다', tal: ['express', 'humor'] },
-  { id: 'walk', ic: '🚶', n: '산책 · 요가 태교', h: '가볍게 걷고 몸을 푼다', tal: ['athletic', 'grit'] },
-  { id: 'craft', ic: '🧶', n: '손뜨개 태교', h: '배냇저고리와 인형을 손수 만든다', tal: ['hands', 'insight'] },
+  { id: 'music', ic: '🎵', n: '음악', h: '좋은 음악을 매일 들려준다', tal: ['music', 'rhythm'] },
+  { id: 'book', ic: '📖', n: '독서', h: '책을 소리 내어 읽어 준다', tal: ['intel', 'verbal'] },
+  { id: 'art', ic: '🎨', n: '미술', h: '그림을 그리고 좋은 그림을 보러 다닌다', tal: ['aesth', 'creative'] },
+  { id: 'talk', ic: '💬', n: '태담', h: '아이에게 매일 말을 걸고 많이 웃는다', tal: ['express', 'humor'] },
+  { id: 'walk', ic: '🚶', n: '산책 · 요가', h: '가볍게 걷고 몸을 푼다', tal: ['athletic', 'grit'] },
+  { id: 'craft', ic: '🧶', n: '손뜨개', h: '배냇저고리와 인형을 손수 만든다', tal: ['hands', 'insight'] },
 ];
 const TAEGYO_BY = Object.fromEntries(TAEGYO.map(x => [x.id, x]));
 // 임신 중에는 몸을 크게 쓰는 특기 연습을 못 한다

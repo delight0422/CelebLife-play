@@ -603,10 +603,9 @@ button.ap-tog { width: 100%; background: none; border: 0; padding: 0; color: inh
 .turn-jump { display: flex; flex-direction: column; gap: 4px; }
 /* v185: 1년 후 버튼을 빼고 1달 후 하나가 진행 버튼 높이를 다 채운다 */
 .turn-jump .btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 4px 14px; font-size: var(--fs-3); font-weight: 700; border-radius: 12px; white-space: nowrap; }
-.turn-jump kbd { padding: 0 5px; font-size: 11px; }
-kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 6px; background: rgba(255, 255, 255, .22); border: 1px solid rgba(255, 255, 255, .35); }
+/* v216: 단축키는 키보드 키 모양 (네모난 자판 · 아래쪽이 두꺼운 테두리 · 고정폭 글자). 예전 둥근 알약 모양은 알림 숫자처럼 보였다 */
+kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace; font-size: 11px; font-weight: 700; line-height: 16px; min-width: 20px; padding: 0 5px; text-align: center; border-radius: 4px; color: #3b3355; background: linear-gradient(#ffffff, #ebe7f6); border: 1px solid #a99fca; border-bottom-width: 3px; box-shadow: 0 1px 1px rgba(30, 20, 60, .18); }
 .turn-go.waiting { background: var(--pink); box-shadow: 0 4px 14px rgba(255, 92, 154, .35); }
-.btn:not(.primary) kbd { background: var(--violet-soft); border-color: var(--line); color: var(--ink2); }
 /* 넘어가는 동안: 화면 전체가 어두워지고 가운데에 날짜 */
 .turn-dim { background: rgba(24, 14, 44, .58); z-index: 60; }
 .turn-card { max-width: 600px; }
@@ -663,12 +662,6 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .res-x s.was { color: var(--muted); } .res-x b.now { color: var(--mint); }
 .res-chip { display: inline-block; font-size: var(--fs-2); font-weight: 700; color: var(--ink2); background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 0 var(--sp-2); margin: 2px 2px 0; line-height: 1.7; }
 .res-new { display: inline-block; font-size: var(--fs-2); font-weight: 800; color: #fff; background: var(--mint); border-radius: 999px; padding: 1px var(--sp-3); margin: 2px 2px 0; line-height: 1.7; }
-/* 창 안에서 누른 일의 결과: 창 아래에 붙은 띠 */
-.p-res { position: sticky; bottom: calc(var(--sp-4) * -1); margin: var(--sp-4) calc(var(--sp-4) * -1) calc(var(--sp-4) * -1); padding: var(--sp-3) 44px var(--sp-4) var(--sp-4); background: var(--card); border-top: 2px solid var(--violet); box-shadow: 0 -8px 18px rgba(30, 10, 80, .08); z-index: 3; }
-.p-res-h { font-size: var(--fs-2); font-weight: 800; color: var(--violet); margin-bottom: var(--sp-2); }
-.p-res .res-i { font-size: var(--fs-3); padding: var(--sp-2) var(--sp-3); }
-.p-res .res-i + .res-i { margin-top: var(--sp-2); }
-.p-res-x0 { position: absolute; top: 8px; right: 12px; border: none; background: none; font-size: var(--fs-4); cursor: pointer; color: var(--muted); }
 /* 직업 지원: 고른 직업의 목록은 그 탭이 있는 줄 바로 아래, 칸 왼쪽 끝부터 */
 .ap-drop { flex: 0 0 100%; min-width: 0; margin: 2px 0 var(--sp-1); }
 .ap-drop > .ap-list:first-child { margin-top: 0; }
@@ -680,7 +673,6 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .fix-h { font-size: var(--fs-2); color: var(--ink2); margin-top: var(--sp-1); }
 .fix-n { font-size: var(--fs-2); font-weight: 800; color: #a86d00; margin-top: var(--sp-1); }
 @media (max-width: 760px) {
-  .p-res { bottom: -14px; margin: var(--sp-4) calc(var(--sp-4) * -1) calc(var(--sp-4) * -1); padding: var(--sp-3) 40px var(--sp-4) var(--sp-4); }
 }
 /* v89: 기록 아래 작게 덧붙이는 말 (정산이 빚 갚는 데 들어갔을 때 남은 비용 등) */
 .ts-sub, .res-sub { display: block; font-size: var(--fs-2); color: var(--muted); margin-top: 2px; line-height: 1.5; }
@@ -1515,7 +1507,6 @@ kbd { font: inherit; font-size: 11px; font-weight: 700; padding: 1px 6px; border
 .mcard.go-card .m-foot { border-top-color: #3a3150; }
 .mcard.go-card .m-stats { color: #a99fc4; }
 .mcard.go-card .choices .btn.primary { background: linear-gradient(90deg, #f5b942, #f08a3c); border-color: #f5b942; color: #1d1405; font-weight: 800; font-size: var(--fs-4, 17px); padding: 10px 28px; }
-.mcard.go-card .choices .btn.primary kbd { background: rgba(0, 0, 0, .15); color: #1d1405; }
 @keyframes goIn { 0% { transform: scale(.86) translateY(14px); opacity: 0; } 100% { transform: none; opacity: 1; } }
 .go-wrap { position: relative; padding-top: 4px; }
 .go-slate { height: 26px; border-radius: 6px 6px 0 0; background: #111; position: relative; overflow: hidden; margin: 0 0 14px; }

@@ -51,7 +51,7 @@ const IDOL_WAYS = [
 function idolWayN(t, w) { return typeof w.n === 'function' ? w.n(t) : w.n; }
 function idolWayOn(t, w) { return w.f ? !!t[w.f] : (t.ways || []).includes(w.id); }
 function idolWayHas(t, id) { return (t.ways || []).includes(id); }
-function idolWayCnt(s, t) { return IDOL_WAYS.filter(w => w.show(s, t) && idolWayOn(t, w)).length; }
+function idolWayCnt(s, t) { return IDOL_WAYS.filter(w => idolWayOn(t, w)).length; }
 function idolWaySet(s, t, w, v) {
   const nm = idolWayN(t, w);
   if (w.f) t[w.f] = v; else { t.ways = (t.ways || []).filter(x => x !== w.id); if (v) t.ways.push(w.id); }
@@ -63,8 +63,8 @@ function idolPicks(s, t) {
   const n = idolWayCnt(s, t);
   // v159: '한 번 하는 일'(외부 레슨 · 게릴라 공연)은 뺐다 (사용자 결정: 직업 창에는 켜 두는 일만. 한 번 하는 일이 필요하면 활동 지원으로)
   return IDOL_WAYS.map((w, i) => {
-    const can = w.show(s, t), on = can && idolWayOn(t, w), room = !w.sk || has(me(s), w.sk) || skRoom(s, w.sk);
-    return { sw: true, on, sec: i === 0 ? `매달 꾸준히 한다 · ${IDOL_WAY_MAX}가지까지 (지금 ${n}가지)` : '', t: `${w.ic} ${idolWayN(t, w)}`, tag: on ? '켜 둠' : '', h: w.h(s, t), btn: on ? '끄기' : '켜기', ok: on || (can && n < IDOL_WAY_MAX && room), why: !can ? w.no(s, t) : !room ? `특기가 ${SKILL_CAP}개라 ${SKILLS[w.sk].n} 특기를 새로 배울 수 없다` : `${IDOL_WAY_MAX}가지까지만 켜 둘 수 있다 · 하나를 먼저 끈다`, run: s => idolWaySet(s, t, w, !on) };
+    const can = w.show(s, t), on = idolWayOn(t, w), room = !w.sk || has(me(s), w.sk) || skRoom(s, w.sk);
+    return { sw: true, on, sec: i === 0 ? `매달 꾸준히 한다 · ${IDOL_WAY_MAX}가지까지 (지금 ${n}가지)` : '', t: `${w.ic} ${idolWayN(t, w)}`, tag: on ? (can ? '켜 둠' : `켜 둠 · 쉬는 중 (${w.no(s, t)})`) : '', h: w.h(s, t), btn: on ? '끄기' : '켜기', ok: on || (can && n < IDOL_WAY_MAX && room), why: !can ? w.no(s, t) : !room ? `특기가 ${SKILL_CAP}개라 ${SKILLS[w.sk].n} 특기를 새로 배울 수 없다` : `${IDOL_WAY_MAX}가지까지만 켜 둘 수 있다 · 하나를 먼저 끈다`, run: s => idolWaySet(s, t, w, !on) };
   });
 }
 CAREERS.idol.picks = (s, t) => idolPicks(s, t);

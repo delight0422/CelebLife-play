@@ -1014,7 +1014,7 @@ E({
         const x = marryNow(s, 1000e4, `서둘러 ${josa(p.name, '과와')} 결혼했다. 작은 결혼식을 올렸다.`);
         queueEv(s, 'oops_birth', 7, {}, true);
         s.preg = { left: 7, me: myGender(s) === '여' };
-        queueEv(s, 'taegyo', 0, {}, true);
+        let tae = ''; if (pregMe(s)) queueEv(s, 'taegyo', 0, {}, true); else tae = ' ' + taeSpouseTxt(s); // v216: 배우자가 임신했으면 태교는 배우자가 정한다
         // 이름이 알려진 사람이면 '속도위반 결혼' 기사가 난다. 아이돌·버튜버는 팬이 많이 떠난다
         let news = '';
         if (d.fame) {
@@ -1022,7 +1022,7 @@ E({
           const loss = {}; for (const m of MK) loss['f' + m] = -Math.round(s.fans[m] * frac);
           news = `\n\n'속도위반 결혼' 기사가 났다. ${dl === 'hard' ? '팬 커뮤니티가 크게 술렁였다.' : dl === 'mid' ? '놀랐다는 반응과 축하가 섞였다.' : '축하한다는 댓글이 대부분이었다.'}` + fx(s, Object.assign({ pop: dl === 'soft' ? 2 : -Math.round(frac * 30), fame: 3 }, loss));
         }
-        return x + news;
+        return x + tae + news;
       } },
       { t: '결혼하지 않는다', f: s => {
         breakUp(s, p, '');

@@ -359,7 +359,7 @@ function lifeActs(s) {
     // 일정 칸을 늘리는 장비: 단계 없이 들여놓기·처분하기만 있다
     if (x.slot) {
       if (l) A.push({ sec: 'equip', emo: x.ic, lv: 0.5, t: x.n, tag: '이용 중', price: '일정 한 칸 더', eff: `유지비 월 ${x.up}만 원`, note: x.d, ok: true, btn: '처분하기', danger: true, confirm: `${josa(x.n, '을를')} 처분할까요?\n일정 칸이 하나 줄고, 들인 돈은 돌려받지 못해요.`, run: s => { s.equip[id] = 0; refreshSlots(s); return `${josa(x.n, '을를')} 처분했다. 일정 칸이 하나 줄었다.`; } });
-      else if (a >= x.min) A.push({ sec: 'equip', emo: x.ic, t: x.n, price: `설치 ${fmtWon(x.c * 1e4)}`, eff: '일정 한 칸 더', note: `${x.d} · 유지비 월 ${x.up}만 원`, ok: !eqBuyWhy(s) && a >= x.min && s.money >= x.c * 1e4, why: eqBuyWhy(s) || (a < x.min ? `${x.min}세부터` : '돈이 모자라다'), btn: '들여놓기', run: s => { addMoney(s, -x.c * 1e4, x.n); s.equip[id] = 1; refreshSlots(s); return `${josa(x.n, '을를')} 들여놓았다. 이제 한 달에 일정을 하나 더 할 수 있다.`; } });
+      else if (a >= x.min) A.push({ sec: 'equip', emo: x.ic, t: x.n, price: `설치 ${fmtWon(x.c * 1e4)}`, eff: '일정 한 칸 더', note: `${x.d} · 유지비 월 ${x.up}만 원`, ok: !eqBuyWhy(s) && a >= x.min && s.money >= x.c * 1e4, why: eqBuyWhy(s) || (a < x.min ? `${x.min}세부터` : '돈이 모자라다'), btn: '들여놓기', run: s => { addMoney(s, -x.c * 1e4, x.n); s.equip[id] = 1; const n0 = s.slots.length; refreshSlots(s); return `${josa(x.n, '을를')} 들여놓았다. 이동 시간이 줄어 일정이 ${n0}칸 → ${s.slots.length}칸으로 늘었다.`; } });
       continue;
     }
     // 내가 배운 특기이거나, 같이 사는 자녀가 배운 특기면 보인다

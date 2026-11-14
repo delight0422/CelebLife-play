@@ -399,7 +399,7 @@ function markInboxRead(s) { let ch = false; for (const m of s.inbox) if (!m.read
 function lockWhy(s, lock) {
   if (lock === 'army') return s.army ? `군 복무 중 · 전역까지 ${s.army.left}개월` : '전역';
   if (lock === 'sick') return s.ill ? `${s.ill.n} · ${s.ill.left}개월 쉰다` : '몸을 회복하는 중';
-  if (lock === 'taegyo') { const x = s.preg && TAEGYO_BY[s.preg.tae]; return `${x ? x.n : '태교'}${s.preg ? ` · ${s.preg.left > 0 ? `${s.preg.left}개월 뒤 출산` : '곧 출산'}` : ''}`; }
+  if (lock === 'taegyo') { const x = s.preg && TAEGYO_BY[s.preg.tae]; return `${x ? `${josa(x.n, '으로')} 태교 중` : '태교'}${s.preg ? ` · ${s.preg.left > 0 ? `${s.preg.left}개월 뒤 출산` : '곧 출산'}` : ''}`; }
   if (lock === 'kidteach') { const k = s.kidTeach && s.people[s.kidTeach.id]; return k ? `${k.name}에게 ${josa(SKILLS[s.kidTeach.sk].n, '을를')} 가르치는 중 · ${s.kidTeach.left}개월 남음` : '아이를 가르치는 중'; }
   if (lock === 'proj') { const w = s.projects.find(x => x.slot), W = w && WORK_TYPES[w.type]; return W && W.status ? W.status(s, w) : '맡은 작품'; }
   if (lock && lock[0] === '+') return jobName(lock.slice(3));
@@ -1082,9 +1082,7 @@ function resShow(o) {
   $('#mcard').scrollTop = 0;
 }
 function resOk() { const o = UI.res; UI.res = null; if (o && o.next) o.next(); }
-// 창(직업 지원 · 메시지함 · 생활 등) 안에서 누른 일의 결과: 창 아래쪽에 붙은 띠로 보여 준다. 창을 닫거나 다른 창을 열면 사라진다
-function pResHTML() { return UI.pRes && UI.pRes.length ? `<div class="p-res"><button class="p-res-x0" data-presx>✕</button><div class="p-res-h">✔ 방금 한 일</div>${resItems(UI.pRes)}</div>` : ''; }
-// 창 안에서 누른 일 다음: 고를 일이 생겼으면 결과를 사건 창에서 먼저 보여 주고(다음 ▶) 그 사건으로, 아니면 창 아래 띠에
+// 창 안에서 누른 일 다음: 고를 일이 생겼으면 결과를 사건 창에서 먼저 보여 주고(다음 ▶) 그 사건으로, 아니면 아래쪽 토스트로 (v216)
 function actDone(L0, title, onPend) {
   // 누른 일로 생긴 사건 중 고를 게 없는 것(방송 결과 등)은 창 없이 처리해서 결과에 같이 보여 준다
   const M = CH_END; CH_END = undefined;
@@ -1101,7 +1099,8 @@ function actDone(L0, title, onPend) {
     if (other.length) resShow({ cat: '방금 한 것과 따로', title: '그사이 생긴 일', L: other, next: showEvent }); else showEvent();
     return;
   }
-  if (UI.overlay) { UI.pRes = L.length ? L : null; renderPanel(); }
+  // v216: 창 아래에 붙던 '방금 한 일' 띠 대신 아래쪽 토스트로 (창은 그대로 둔다)
+  if (UI.overlay) { if (L.length) ctoastShow({ title: title || '방금 한 일', L, all: true }); renderPanel(); }
   render();
 }
 // 이어 할 자녀 카드: 재능 수치와 특기를 바로 보여 준다
@@ -1200,8 +1199,8 @@ function showEnding(preview) {
 
 // ───── 패널 ─────
 // v194: 인간관계 창은 다시 열어도 저번에 펼치고 접은 그대로 (UI.pplOpen을 지우지 않는다). 스크롤만 맨 위로 (top0)
-function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people' && S.pplSeenT !== S.t) { S.pplSeenT = S.t; renderPeopleCard(); } UI.overlay = kind; UI.pRes = null; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
-function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.apjFrom = null; UI.skFrom = null; UI.pickNew = null; UI.skDrop = false; UI.pRes = null; UI.pickSlot = null; if (S) render(); }
+function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people' && S.pplSeenT !== S.t) { S.pplSeenT = S.t; renderPeopleCard(); } UI.overlay = kind; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
+function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.apjFrom = null; UI.skFrom = null; UI.pickNew = null; UI.skDrop = false; UI.pickSlot = null; if (S) render(); }
 // 행동 버튼 한 줄. 버튼이 누를 일은 UI.acts(창) 또는 UI.lacts(오른쪽 생활 카드)에 모아 둔다
 function actRow(a) {
   const reg = UI.rowReg || UI.acts, at = UI.rowReg ? 'lact' : 'act';
@@ -1231,7 +1230,6 @@ function renderPanel() {
   const P = { lifelog: panelLifelog, soon: panelSoon, job: panelJob, lifesec: panelLifeSec, money: panelMoney, inbox: panelInbox, trk: panelTrk, kid: panelKid, applyjob: panelApplyJob, applyact: panelApplyAct, pastecode: panelPasteCode, profile: panelProfile, me: panelProfile, family: panelFamily, love: panelLove, career: panelCareer, people: panelPeople, life: panelLife, menu: panelMenu, hall: panelHall, help: panelHelp, pick: panelPick };
   if (P[k]) h += P[k]();
   else if (typeof window['panel_' + k] === 'function') h += window['panel_' + k]();
-  h += pResHTML();
   $('#pcard').classList.toggle('wide', k === 'company' || k === 'group'); // 회사 창은 넓게 (v131)
   $('#pcard').classList.toggle('p-small', k === 'menu' || k === 'pastecode'); // v205: 메뉴 · 세이브 코드 창은 작게 그대로
   $('#panel').classList.toggle('top', panelTop(k));
@@ -2808,7 +2806,6 @@ document.addEventListener('click', e => {
   if (t.dataset.npc) return npcOp(t.dataset.npc, t.dataset.op);
   if (t.dataset.meet) { if (meetWhy(S, t.dataset.meet)) return; meetStart(S, t.dataset.meet); save(S); if (S.pending) { closePanel(); showEvent(); stopLoop(); } return; }
   if (t.dataset.msg) { const m0 = S.inbox.find(x => x.id === t.dataset.msg), L0 = S.log[S.log.length - 1], r = answerMsg(S, t.dataset.msg, +t.dataset.mi); if (r) { addLog(S, r, 'career'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, m0 ? m0.title : '메시지 답장'); return; }
-  if (t.dataset.presx != null) { UI.pRes = null; renderPanel(); return; }
   if (t.dataset.heir) { const ns = continueAs(S, t.dataset.heir); S = ns; save(S); closeAll(); UI.speed = 1; UI.lastSpeed = 1; showGame(); toast(`${me(S).name}의 인생이 시작됐어요`); return; }
   if (t.dataset.pick != null) { UI.pickSlot = +t.dataset.pick; UI.pickQ = ''; openPanel('pick'); return; }
   if (t.dataset.pickact) { const sl = S.slots[UI.pickSlot]; if (t.dataset.pickact.startsWith('c_')) return; sl.act = t.dataset.pickact; sl.lesson = false; delete sl.dflt; save(S); closePanel(); return; }

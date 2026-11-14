@@ -1000,7 +1000,7 @@ function refreshSlots(s) {
   const n = slotCount(s), n0 = s.slots.length;
   while (s.slots.length < n) s.slots.push({ act: defaultAct(s, s.slots.length), lesson: false, payer: 'family', lock: null, dflt: true });
   // 일정 칸이 늘면(13세 · 19세 · 전용 밴) 알림 창 (v89). 일곱 살에 처음 생길 때는 '이제 일정을 정할 수 있어요' 창이 따로 뜬다
-  if (n0 > 0 && s.slots.length > n0) queueEv(s, 'slot_up', 0, { a: n0, b: s.slots.length, van: n0 >= 3 });
+  if (n0 > 0 && n0 < 3 && s.slots.length > n0) queueEv(s, 'slot_up', 0, { a: n0, b: s.slots.length }); // v216: 전용 밴으로 는 칸은 창 없이 (들여놓은 결과 토스트가 알려 준다)
   // 밴을 처분하면 늘어난 칸을 뺀다 (맨 뒤 칸부터)
   while (s.slots.length > n && n >= 3) s.slots.pop();
 }
@@ -1575,8 +1575,12 @@ function migrate(s) {
   delete s.varPrem; delete s.varAwN;
   if (s.trendTV) ytTrendCheck(s, false);
   delete s.fameMin; // v213: 물려받은 인지도 바닥은 없앴다
-  // v215: 이미 임신 중인 세이브는 태교를 고르는 창부터
-  if (s.preg && !s.preg.tae && typeof hasQ === 'function' && !hasQ(s, 'taegyo')) queueEv(s, 'taegyo', 0, {}, true);
+  // v215: 이미 임신 중인 세이브는 태교를 고르는 창부터 · v216: 배우자가 임신했으면 배우자가 정한다
+  if (s.preg && !s.preg.tae) { if (!pregMe(s)) { if (typeof taeSpouse === 'function') taeSpouse(s); } else if (typeof hasQ === 'function' && !hasQ(s, 'taegyo')) queueEv(s, 'taegyo', 0, {}, true); }
+  if (s.queue) s.queue = s.queue.filter(q => q.id !== 'taegyo' || pregMe(s));
+  if (s.pending && s.pending.id === 'taegyo' && !pregMe(s)) s.pending = null;
+  // v216: 대표의 할 일(운영 · 가르치기 · 영업 중 하나)이 자동 활동 + 선택 활동으로. 고르던 가르치기 · 영업은 선택 활동으로 옮긴다
+  if (s.jobDo && s.jobDo.agency) { const k = s.jobDo.agency, ta = s.tracks && s.tracks.agency; if (ta && (k === 'teach' || k === 'sales') && !(ta.ways || []).length) ta.ways = [k]; delete s.jobDo.agency; }
   // v212: 이미 자녀로 이어받은 세이브 — 부모에게서 넘어온 지인 정리 (부모님 지인은 셋까지, 나보다 열두 살 넘게 많은 '후배'는 부모의 후배였으니 모르는 사이로)
   if ((s.gen || 1) > 1 && !s.pkFix) {
     s.pkFix = 1; const my = me(s);
