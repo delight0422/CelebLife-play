@@ -206,6 +206,17 @@ const SONG_K = ['안녕, 여름', '우리가 별이라면', '오늘은 맑음', 
   '별빛 정거장', '우리 다시 만나면', '잠들기 전에', '내일 또 만나', '다시 봄', '기차를 타고', '너와 나의 궤도', '열아홉의 여름',
   '하늘색 운동화', '레몬 사탕', '달빛 아래서', '편의점 앞에서', '마지막 버스', '옥상 위의 밤', '너를 그리는 시간', '일요일 오후',
   '한낮의 꿈', '끝나지 않은 노래', '바다로 간 편지', '오렌지빛 거리', '별자리 지도', '어제보다 오늘', '꿈의 조각'];
+// v219: 컨셉별 곡 제목 낱말 (game.js songTitle(c)). K 통째 제목 · kA + kB 우리말 짝 · eA + eB 영어 짝
+const SONG_C = {
+  청량: { kA: ['푸른', '한여름', '투명한', '시원한', '반짝이는', '맑은', '초록빛', '눈부신'], kB: ['파도', '소다', '바람', '여름', '하늘', '바다', '소나기', '자전거'], eA: ['Blue', 'Summer', 'Sunny', 'Fresh', 'Minty', 'Ocean', 'Sparkling', 'Breezy'], eB: ['Wave', 'Soda', 'Breeze', 'Splash', 'Holiday', 'Sky', 'Bloom', 'Ride'] },
+  강렬: { kA: ['붉은', '검은', '거친', '뜨거운', '날 선', '멈추지 않는', '깨어난', '불타는'], kB: ['불꽃', '질주', '심장', '폭풍', '그림자', '선전포고', '사냥', '밤'], eA: ['Red', 'Black', 'Wild', 'Burning', 'Savage', 'Crimson', 'Fearless', 'Electric'], eB: ['Fire', 'Thunder', 'Rush', 'Venom', 'Riot', 'Storm', 'Blade', 'Kingdom'] },
+  큐티: { kA: ['말랑한', '달콤한', '두근두근', '분홍빛', '작은', '콩닥콩닥', '폭신한', '반짝'], kB: ['젤리', '솜사탕', '윙크', '딸기', '리본', '하트', '비밀', '고백'], eA: ['Sugar', 'Cherry', 'Lovely', 'Candy', 'Pink', 'Jelly', 'Sweet', 'Bunny'], eB: ['Pop', 'Heart', 'Kiss', 'Wink', 'Cake', 'Crush', 'Ribbon', 'Bubble'] },
+  몽환: { kA: ['보랏빛', '아득한', '잠든', '희미한', '깊은', '새벽의', '안개 낀', '끝없는'], kB: ['꿈', '달', '숲', '안개', '미로', '별자리', '호수', '잔상'], eA: ['Velvet', 'Lunar', 'Hazy', 'Violet', 'Silent', 'Dreamy', 'Misty', 'Midnight'], eB: ['Dream', 'Moon', 'Mirage', 'Garden', 'Haze', 'Lullaby', 'Nebula', 'Mirror'] },
+  힙합: { K: ['증명', '내 방식대로', '밑바닥에서', '새벽 세 시', '거리의 이름', '한 방', '꼭대기에서', '멈추지 마'], kA: ['거리의', '진짜', '삐딱한', '밤새운', '겁 없는', '우리 동네', '거친', '한밤의'], kB: ['리듬', '걸음', '이름', '한마디', '기록', '자리', '목소리', '박자'], eA: ['Real', 'Gold', 'Street', 'Big', 'No', 'Top', 'Loud', 'Heavy'], eB: ['Flex', 'Chain', 'Rules', 'Money', 'Mode', 'Boss', 'Talk', 'Bounce'] },
+  레트로: { kA: ['그때 그', '오래된', '빛바랜', '돌아온', '토요일 밤의', '낡은', '추억의', '네온'], kB: ['라디오', '롤러장', '카세트', '극장', '디스코', '거리', '편지', '사진'], eA: ['Retro', 'Disco', 'Neon', 'Vintage', 'Saturday', 'Classic', 'Funky', 'Golden'], eB: ['Night', 'Fever', 'Radio', 'Tape', 'Boogie', 'Groove', 'Drive', 'Days'] },
+  하이틴: { kA: ['열일곱의', '교실 뒤', '방과 후', '첫', '우리들의', '졸업식 날의', '체육복 입은', '쉬는 시간의'], kB: ['고백', '낙서', '여름방학', '옥상', '비밀', '떡볶이', '이어폰', '자전거'], eA: ['Teen', 'School', 'First', 'Prom', 'Locker', 'Friday', 'Young', 'After'], eB: ['Crush', 'Diary', 'Bell', 'Night', 'Love', 'Letter', 'Summer', 'Forever'] },
+  성숙: { kA: ['늦은', '식어 버린', '마지막', '붉은', '깊은', '취한', '위험한', '돌아선'], kB: ['밤', '와인', '향기', '입술', '거짓말', '춤', '이별', '그림자'], eA: ['Midnight', 'Velvet', 'Bitter', 'Scarlet', 'Slow', 'Deep', 'Smoky', 'Last'], eB: ['Wine', 'Perfume', 'Tango', 'Desire', 'Lipstick', 'Affair', 'Silk', 'Blues'] },
+};
 const SONG_EA = ['Blue', 'Golden', 'Midnight', 'Sugar', 'Velvet', 'Silver', 'Neon', 'Cherry', 'Lucky', 'Paper', 'Cosmic', 'Honey',
   'Crystal', 'Electric', 'Wild', 'Sweet', 'Lazy', 'Pink', 'Crimson', 'Purple', 'Starry', 'Rainy', 'Sunday', 'Secret', 'Endless', 'Little',
   'Brand New', 'Shining', 'Falling', 'Runaway', 'Sunny', 'Lunar', 'Solar', 'Rocket', 'Candy', 'Diamond', 'Magic', 'Dizzy', 'Moonlight', 'Fizzy', 'Mellow', 'Ocean'];

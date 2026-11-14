@@ -69,6 +69,8 @@ function inUni(s) { const u = s.edu && s.edu.uni; return !!u && s.t >= (u.st || 
 function per(s) { return PERSONA_BY[s.persona]; }
 function pm(s, k, def = 1) { const v = per(s).mods[k]; return v == null ? def : v; }
 function totalFans(s) { return s.fans.kr + s.fans.jp + s.fans.us; }
+// v219: 한 번이라도 일(연습생 포함)을 가져 본 적이 있는가 — 업계 소식은 그 뒤부터 들린다
+function everWorked(s) { return Object.keys(s.tracks || {}).some(id => { const t = s.tracks[id]; return !!t && !!t.st && t.st !== 'none'; }); }
 function trackOn(s, id) { const t = s.tracks[id]; return !!t && t.st !== 'none' && t.st !== 'ended'; }
 function anyTrackActive(s) { return CAREER_IDS.some(id => CAREERS[id] && trackOn(s, id)); }
 function isDorm(s) { return CAREER_IDS.some(id => CAREERS[id] && CAREERS[id].dorm && CAREERS[id].dorm(s, s.tracks[id])); }
@@ -213,6 +215,8 @@ function careerSkill(s, id) {
   if (!k) return '';
   return has(me(s), k) ? `${SKILLS[k].n} ${lvi(me(s), k)}레벨` : '';
 }
+// v219: 인기가 오르내린 만큼은 화살표로만 (숫자는 보여 주지 않는다)
+function popArrow(d) { return d >= 5 ? '↑↑' : d > 0 ? '↑' : d <= -5 ? '↓↓' : '↓'; }
 function popWord(v) { return v >= 80 ? '국민 호감' : v >= 62 ? '호감' : v >= 42 ? '보통' : v >= 25 ? '비호감' : '안티 많음'; }
 function repWord(v) { return v >= 80 ? '모두가 칭찬' : v >= 62 ? '좋은 사람' : v >= 42 ? '무난' : v >= 25 ? '뒷말 있음' : '적이 많음'; }
 function wealthWord(w) { return w <= 1 ? '가장 가난한' : w <= 3 ? '형편이 빠듯한' : w <= 6 ? '평범한' : w <= 8 ? '형편이 넉넉한' : '아주 부유한'; }
@@ -245,8 +249,8 @@ function fx(s, o) {
     const v = o[k];
     if (!v) continue;
     if (k === 'sk') { for (const x in v) { const t = bumpSkill(s, x, v[x]); if (t) parts.push(t); } }
-    else if (k === 'pop') { const L = popJobsOn(s); if (L.length) { const d = Math.round(jpopAll(s, v)); if (d) parts.push('인기 ' + sgn(d)); } }
-    else if (k === 'jp') { for (const id in v) { const d = Math.round(jpopAdd(s, id, v[id])); if (d) parts.push(`${jobName(id)} 인기 ${sgn(d)}`); } }
+    else if (k === 'pop') { const L = popJobsOn(s); if (L.length) { const d = Math.round(jpopAll(s, v)); if (d) parts.push('인기 ' + popArrow(d)); } }
+    else if (k === 'jp') { for (const id in v) { const d = Math.round(jpopAdd(s, id, v[id])); if (d) parts.push(`${jobName(id)} 인기 ${popArrow(d)}`); } }
     else if (k === 'fame') { const b = s.fame || 0; addFame(s, v); const d = Math.round(s.fame) - Math.round(b); if (d) parts.push('인지도 ' + sgn(d)); }
     else if (k === 'stress' || k === 'rep') {
       let vv = v;
@@ -436,7 +440,12 @@ function songPair(A, B) { let a, b, t; for (let i = 0; i < 50; i++) { a = U.pick
 // 뒤에 붙는 숫자는 그룹 인원수와 같고, 앞에 띄어쓰기나 _를 둔다 (STARFALL 5 · STARFALL_5). size 0 = 인원을 아직 모름(숫자 안 붙임), 안 주면 인원이 화면에 안 나오는 다른 회사 그룹이라 4~9명 중 하나
 function groupNameRaw(size = U.int(4, 9)) { const b = U.pick(GROUP_NAMES), x = U.pick(GROUP_SUFFIX.filter(x => !(x === 'N' && !size) && !(x === 'S' && /[SXZHYI]$/.test(b)) && !(x === 'X' && /[SX]$/.test(b)))); return b + (x === 'N' ? U.pick([' ', '_']) + size : x); }
 function songTitleEn() { return freshName(() => songPair(SONG_EA, SONG_EB)); }
-function songTitle() { return freshName(() => U.chance(0.15) ? U.pick(SONG_K) : U.chance(0.47) ? songPair(SONG_A, SONG_B) : songPair(SONG_EA, SONG_EB)); }
+// v219: 컨셉(c)을 알면 그 컨셉에 어울리는 낱말로 짓는다 (data.js SONG_C). 열에 한두 번은 예전처럼 아무 제목
+function songTitle(c) {
+  const T = c && typeof SONG_C !== 'undefined' ? SONG_C[c] : null;
+  if (T && U.chance(0.95)) return freshName(() => T.K && U.chance(0.12) ? U.pick(T.K) : U.chance(0.5) ? songPair(T.kA, T.kB) : songPair(T.eA, T.eB));
+  return freshName(() => U.chance(0.15) ? U.pick(SONG_K) : U.chance(0.47) ? songPair(SONG_A, SONG_B) : songPair(SONG_EA, SONG_EB));
+}
 // 채널 · 버튜버 이름 (10-5)
 function hasBatchim(w) { const c = w.charCodeAt(w.length - 1); return c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 > 0; }
 // 스트리머 별명: '이'는 받침 있는 말 뒤에만(별이 · 달이), 앞말 끝 글자와 같은 글자는 안 붙인다(토끼토)
@@ -529,7 +538,7 @@ function coBust(s) {
     (s.coNames = s.coNames || {})[x.k] = nn; (s.coMod = s.coMod || {})[x.k] = plan != null ? { con, plan } : { con };
     x.set(nn); x.o.con = con; if (plan != null) x.o.plan = plan;
     if (id && s.mcnCo && s.mcnCo[id]) delete s.mcnCo[id];
-    addLog(s, dance ? `🏚️ 댄스팀 「${old}」${jo(old, '이가')} 해체했다. 새 댄스팀 「${nn}」(${con})${jo(nn, '이가')} 생겼다.` : `🏚️ ${kn} 「${old}」${jo(old, '이가')} 문을 닫았다. 그 자리에 ${TIER_N[x.o.tier]} ${kn} 「${nn}」(${con})${jo(nn, '이가')} 새로 생겼다.`, 'news');
+    if (everWorked(s)) addLog(s, dance ? `🏚️ 댄스팀 「${old}」${jo(old, '이가')} 해체했다. 새 댄스팀 「${nn}」(${con})${jo(nn, '이가')} 생겼다.` : `🏚️ ${kn} 「${old}」${jo(old, '이가')} 문을 닫았다. 그 자리에 ${TIER_N[x.o.tier]} ${kn} 「${nn}」(${con})${jo(nn, '이가')} 새로 생겼다.`, 'news');
     if (aff.length) queueEv(s, 'co_closed', 0, { old, kn, dance, lines });
     return x.k;
   }
@@ -607,8 +616,9 @@ const fGenre = (...gs) => (s, p, x) => Math.max(...gs.map(g => aniMGet(s, WB[x.i
 const fPrac = s => Math.max(0, ...Object.keys(PF_DEPTS).map(d => pfDeptSk(s, d)));
 const CO_FOCUS = {
   music: {
-    '글로벌 기획': (s, p) => fLang(p), '퍼포먼스 명가': fSk('dance'), '청량 컨셉': (s, p) => p.tal.looks, '보컬 그룹': fSk('vocal'), '감성 발라드': fSk('vocal'),
-    '걸크러시': (s, p) => fAvg(lv(p, 'rap'), lv(p, 'dance')), '밴드 사운드': (s, p) => fInst(p), '신인 발굴': (s, p) => fTal(p, ['music', 'rhythm', 'voice', 'looks']),
+    // v219: 재능 · 외국어를 보는 특징은 실력 점수(b)에 더하고 빼는 값으로 (예전엔 재능 70 · 외국어 50이 실력 30과 그대로 섞여 실력이 낮을수록 크게 유리했다)
+    '글로벌 기획': (s, p, x, b) => b + (Math.max(lv(p, 'en'), lv(p, 'jp')) - 15) * 0.5, '퍼포먼스 명가': fSk('dance'), '청량 컨셉': (s, p, x, b) => b + (p.tal.looks - 50) * 0.6, '보컬 그룹': fSk('vocal'), '감성 발라드': fSk('vocal'),
+    '걸크러시': (s, p) => fAvg(lv(p, 'rap'), lv(p, 'dance')), '밴드 사운드': (s, p) => fInst(p), '신인 발굴': (s, p, x, b) => b + (fTal(p, ['music', 'rhythm', 'voice', 'looks']) - 50) * 0.6,
     '자체 제작': (s, p) => Math.max(lv(p, 'compose'), lv(p, 'lyric')), '힙합': fSk('rap'), '애니송': fSk('vocal'), '팝 솔로': fSk('vocal'),
   },
   vtuber: {
@@ -648,7 +658,7 @@ const CO_FOCUS = {
   // 마케팅팀 채용: 해외 쪽 회사는 외국어
   mk: Object.fromEntries(['글로벌 기획', '해외 진출', '해외 컬렉션', '해외 번역', '해외 투어', '외화 더빙', '해외 합작'].map(c => [c, (s, p) => fLang(p)])),
 };
-function coFocus(s, kind, con, base, x) { const f = (CO_FOCUS[kind] || {})[con]; return f ? base * (1 - CO_FOCUS_W) + f(s, me(s), x || {}) * CO_FOCUS_W : base; }
+function coFocus(s, kind, con, base, x) { const f = (CO_FOCUS[kind] || {})[con]; return f ? base * (1 - CO_FOCUS_W) + f(s, me(s), x || {}, base) * CO_FOCUS_W : base; }
 // 트레이너 채용: 그 회사가 특화한 분야의 트레이너를 더 뽑는다 (맞으면 +6, 다른 분야면 -2)
 const CO_TR_FOCUS = { '퍼포먼스 명가': 'dance', '보컬 그룹': 'vocal', '감성 발라드': 'vocal', '애니송': 'vocal', '팝 솔로': 'vocal', '힙합': 'rap', '걸크러시': 'rap', '3D 라이브': 'dance', '음악 중심': 'vocal', '노래 방송': 'vocal', '노래·음악': 'vocal', '힐링·잡담': 'variety', '버라이어티': 'variety', '아이돌형': 'variety', '밴드 사운드': 'inst' };
 function coTrFocusB(ag, k) { const f = ag && CO_TR_FOCUS[ag.con]; if (!f) return 0; return (f === 'inst' ? ['guitar', 'bass', 'piano', 'keyboard', 'drum'].includes(k) : f === k) ? 6 : -2; }
@@ -1117,6 +1127,13 @@ function lesOK(p, k, lvl = 1) { return !!SKILLS[k].les && lv(p, k) < LES_LV[lvl]
 // 고정 일정 (턴제 실험 6차): 군 복무 · 치료 · 회사 연습시간 · 촬영 · 작품 · 아이 가르치기 · 직업 활동이 위 칸부터 들어간다
 // 내가 넣어 둔 일정은 덮어쓰지 않고 아래로 밀린다. 칸 밖으로 밀려난 일정(s.slotOver)은 고정 일정이 끝나면 다시 올라온다
 // 빈 칸은 기본 일정(어릴 때 놀기 · 성인 쉬기, dflt)으로 채운다. 기본 일정은 밀려난 일정보다 뒤에 선다 (밀려난 일정이 먼저 돌아온다)
+// v219: 칸의 할 일을 바꿨다가 돌아와도 학원 설정(다니기 · 일반/명문)이 그대로 남는다 (연습마다 기억: s.lesMem)
+function lesKeep(s, sl) { if (sl && sl.act && sl.act.startsWith('p_')) (s.lesMem = s.lesMem || {})[sl.act] = { on: !!sl.lesson, lv: lesLv(sl) }; }
+function lesBack(s, sl) {
+  const m = (s.lesMem || {})[sl.act], k = sl.act && sl.act.startsWith('p_') ? sl.act.slice(2) : '';
+  sl.lesson = !!(m && m.on && k && SKILLS[k] && SKILLS[k].les && lesOK(me(s), k, 2));
+  if (m && m.lv === 2) sl.lesLv = 2; else delete sl.lesLv;
+}
 function slotMine(sl) { const e = { act: sl.act, lesson: !!sl.lesson, payer: sl.payer || 'family' }; if (sl.lesLv) e.lesLv = sl.lesLv; if (sl.dflt) e.dflt = true; return e; }
 function applyLocks(s) {
   const n = s.slots.length, L = wantedLocks(s).slice(0, n), room = n - L.length;

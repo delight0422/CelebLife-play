@@ -24,7 +24,9 @@ function kidToAdult(s, n) { return age(s) < 19 && pAge(s, n) >= 19; }
 function adultToKid(s, n) { return age(s) >= 19 && pAge(s, n) < 19; }
 function confessP(s, n) { if (!likes(n, myGender(s)) || kidToAdult(s, n) || adultToKid(s, n)) return 0; return U.clamp(U.sig((n.aff - 62) / 8) * (0.7 + me(s).tal.looks / 150) * (0.85 + s.rep / 400), 0.02, 0.95); }
 // 고백 버튼에 붙는 말: 나를 연애 상대로 보지 않는 사람이면 확률 대신 그렇게 보인다고만 쓴다
-function confessWord(s, n, long) { return kidToAdult(s, n) || adultToKid(s, n) ? `${long ? '받아 줄 ' : ''}가능성 0%` : likes(n, myGender(s)) ? `${long ? '받아 줄 ' : ''}가능성 ${fmtPct(confessP(s, n))}` : '나를 연애 상대로 보지 않는 것 같다'; }
+// v219: 무대 · 방송에 얼굴을 내미는 일을 하거나 연습생이면 고백 버튼에 위험을 알린다
+function loveRiskH(s) { return (typeof showbizOn === 'function' && showbizOn(s)) || (s.tracks.idol && s.tracks.idol.st === 'trainee') ? ' · ⚠ 사귀다 알려지면 열애설이 날 수 있다' : ''; }
+function confessWord(s, n, long) { return (kidToAdult(s, n) || adultToKid(s, n) ? `${long ? '받아 줄 ' : ''}가능성 0%` : likes(n, myGender(s)) ? `${long ? '받아 줄 ' : ''}가능성 ${fmtPct(confessP(s, n))}` : '나를 연애 상대로 보지 않는 것 같다') + (long && confessP(s, n) > 0 ? loveRiskH(s) : ''); }
 function confess(s, n) {
   if (U.chance(confessP(s, n))) {
     n.rel = '연인'; n.dateT = s.t; s.partner = n.id; aff(n, 10);
@@ -148,7 +150,7 @@ E({
   cond: s => age(s) >= 3 && age(s) <= 9,
   text: () => '엄마와 마트에 갔다가 아동복 브랜드 관계자에게 명함을 받았다. 아역 모델을 해 보지 않겠냐고 한다.',
   ch: s => [
-    { t: '해 본다', h: '촬영비 150만 원', f: s => { s.flags.childModel = true; earn(s, 150e4, '아역 모델'); milestone(s, `${age(s)}세에 아동복 모델을 했다.`); return '아동복 카탈로그 모델을 했다. 카메라 앞에서 포즈 잡는 법을 배웠다.' + fx(s, { fkr: 300 }); } },
+    { t: '해 본다', h: '촬영비 150만 원', f: s => { s.flags.childModel = true; earn(s, 150e4, '아역 모델'); milestone(s, `${age(s)}세에 아동복 모델을 했다.`); return '아동복 카탈로그 모델을 했다. 촬영비 150만 원을 받았다.' + fx(s, { fkr: 300 }); } },
     { t: '아직 어리니까 안 한다', f: () => '아직 어리다며 거절했다.' },
   ],
 });
@@ -378,7 +380,7 @@ E({
     const p = fits ? U.clamp(0.3 + me(s).tal.looks / 200 + me(s).tal.humor / 300, 0.1, 0.8) : 0;
     const mk = (rel, a) => makePerson(s, { g: d.g, name: d.name, trait: d.trait, look: d.look, orient: d.orient, age: age(s), rel, aff: a, met: '학창 시절 첫사랑' });
     return [
-      { t: '고백한다', h: `받아 줄 가능성 ${pct(p)}`, f: s => { if (U.chance(p)) { const n = mk('연인', 70); n.dateT = s.t; s.partner = n.id; milestone(s, `${age(s)}세에 첫사랑 ${josa(d.name, '과와')} 사귀었다.`); return `${d.name}에게 고백했다. 사귀게 됐다!` + fx(s, { stress: -10 }); } mk('친구', 20); return `${d.name}에게 고백했다가 거절당했다.`; } },
+      { t: '고백한다', h: `받아 줄 가능성 ${pct(p)}${p > 0 ? loveRiskH(s) : ''}`, f: s => { if (U.chance(p)) { const n = mk('연인', 70); n.dateT = s.t; s.partner = n.id; milestone(s, `${age(s)}세에 첫사랑 ${josa(d.name, '과와')} 사귀었다.`); return `${d.name}에게 고백했다. 사귀게 됐다!` + fx(s, { stress: -10 }); } mk('친구', 20); return `${d.name}에게 고백했다가 거절당했다.`; } },
       { t: '마음에 묻어 둔다', f: s => { mk('친구', 40); return '마음은 일기장에만 적어 두었다.' + fx(s, { sk: { lyric: 1 } }); } },
     ];
   },
@@ -421,8 +423,9 @@ E({
   },
 });
 E({
-  id: 'first_job', once: true, p: 0.06, cat: '학창 시절', title: '첫 아르바이트',
-  cond: s => age(s) >= 16 && age(s) <= 18,
+  // v219: 방학 달(1 · 7 · 8월)에만, 이미 직업(연습생은 빼고)이 있으면 나오지 않는다
+  id: 'first_job', once: true, p: 0.15, cat: '학창 시절', title: '첫 아르바이트',
+  cond: s => age(s) >= 16 && age(s) <= 18 && [0, 6, 7].includes(calM(s)) && !CAREER_IDS.some(id => trackOn(s, id) && !(id === 'idol' && s.tracks.idol.st === 'trainee')),
   text: () => '방학이다. 편의점 야간 알바 자리가 났다.',
   ch: () => [
     { t: '해 본다', f: s => { earn(s, 90e4, '아르바이트'); return '방학 동안 편의점에서 일했다. 처음으로 내 힘으로 돈을 벌었다.' + fx(s, { stress: 4 }); } },

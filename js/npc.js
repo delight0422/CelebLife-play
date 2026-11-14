@@ -7,9 +7,9 @@
 // 기록: { id, f: 분야, n: 이름, g: 성별(팀은 ''), by: 태어난 해(팀은 결성한 해), sk: 실력, pop: 인기 0~100, ps: 성격, ph: 시기, pt: 그 시기가 된 달, ag: 소속,
 //         fol: 관심 인물, kn: 내가 아는 인물, r: 나와의 사이 -100~100, rk: 'rival' · 'pal' · 'dongi', nt: 마지막으로 소식에 나온 달 }
 const NPC_F = {
-  idolg: { n: '아이돌 그룹', ic: '💫', trk: ['idol'], cnt: 12, team: true, rel: ['새 미니 앨범으로 컴백했다', '정규 앨범을 냈다', '새 싱글로 돌아왔다'], hit: '음악방송 1위를 했다', clash: '컴백했다' },
-  solo: { n: '솔로 가수', ic: '🎤', trk: ['solo'], cnt: 10, rel: ['신곡을 냈다', '새 앨범을 냈다'], hit: '신곡이 차트 상위권에 올랐다', clash: '신곡을 냈다' },
-  band: { n: '밴드', ic: '🎸', trk: ['band', 'player'], cnt: 9, team: true, rel: ['새 앨범을 냈다', '단독 공연을 열었다', '페스티벌 무대에 섰다'], hit: '공연이 전석 매진됐다', clash: '새 앨범을 냈다' },
+  idolg: { n: '아이돌 그룹', ic: '💫', trk: ['idol'], cnt: 12, team: true, rel: ['새 미니 앨범으로 컴백했다', '정규 앨범을 냈다', '새 싱글로 돌아왔다'], hit: '음악방송 1위를 했다', clash: '컴백했다', pre: '컴백한다', mine: '우리 앨범', rq: 'idol_cbres' },
+  solo: { n: '솔로 가수', ic: '🎤', trk: ['solo'], cnt: 10, rel: ['신곡을 냈다', '새 앨범을 냈다'], hit: '신곡이 차트 상위권에 올랐다', clash: '신곡을 냈다', pre: '신곡을 낸다', mine: '내 신곡', rq: 'solo_relres' },
+  band: { n: '밴드', ic: '🎸', trk: ['band', 'player'], cnt: 9, team: true, rel: ['새 앨범을 냈다', '단독 공연을 열었다', '페스티벌 무대에 섰다'], hit: '공연이 전석 매진됐다', clash: '새 앨범을 냈다', pre: '새 앨범을 낸다', mine: '우리 새 곡', rq: 'band_relres' },
   actor: { n: '배우', ic: '🎬', trk: ['actor'], cnt: 12, rel: ['새 드라마에 캐스팅됐다', '새 영화 촬영에 들어갔다', '새 작품으로 돌아왔다'], hit: '출연작이 크게 흥행했다', clash: '같은 시기에 작품이 공개됐다' },
   variety: { n: '예능인', ic: '😆', trk: ['variety'], cnt: 9, rel: ['새 예능의 고정 출연자가 됐다', '새 프로그램 MC를 맡았다'], hit: '맡은 프로그램이 화제가 됐다', clash: '같은 시간대 프로그램에 나온다' },
   vtuber: { n: '버튜버', ic: '🖥️', trk: ['vidol', 'youtube'], cnt: 10, rel: ['기념 방송을 했다', '새 의상을 공개했다', '3D 라이브를 했다'], hit: '방송 클립이 크게 퍼졌다', clash: '같은 시간에 큰 방송을 잡았다' },
@@ -92,6 +92,7 @@ function npcMonth(s) {
   // 분야마다 인원을 채운다 (신인 데뷔)
   for (const f of NPC_FIDS) if (npcList(s, f).length < NPC_F[f].cnt && U.chance(0.3)) npcMake(s, f, true);
   npcDebutMates(s);
+  npcClashTick(s);
   npcApproach(s);
 }
 function npcOut(s, n, line) {
@@ -101,8 +102,15 @@ function npcOut(s, n, line) {
 }
 // ───── 나와의 사이 ─────
 // 내가 지금 활동하는 분야 (아이돌 · 기획사 밴드 연습생은 데뷔한 뒤부터)
+// v219: 솔로 가수 · 밴드 · 연주가도 첫 곡(앨범 · 세션)을 낸 뒤부터, 버츄얼 아이돌은 데뷔한 뒤부터 (계약만 하고 곡이 없을 때 '데뷔 동기' 소식이 나왔다)
+function npcDebuted(s, id) {
+  const t = s.tracks[id];
+  if (id === 'idol' || id === 'vidol') return t.st === 'active';
+  if (id === 'solo' || id === 'band' || id === 'player') return (t.rel || 0) > 0 || (t.sessions || 0) > 0;
+  return true;
+}
 function npcMyFields(s) {
-  return NPC_FIDS.filter(f => NPC_F[f].trk.some(id => trackOn(s, id) && !(id === 'idol' && s.tracks.idol.st !== 'active')));
+  return NPC_FIDS.filter(f => NPC_F[f].trk.some(id => trackOn(s, id) && npcDebuted(s, id)));
 }
 function npcKnow(n) { n.kn = 1; }
 function npcFollow(n, on) { n.fol = on ? 1 : 0; if (on) n.kn = 1; }
@@ -146,15 +154,38 @@ function npcApproach(s) {
         : n.ps === 'trb' ? U.wpick(['diss', 'collab', 'clash'], x => ({ diss: 2, collab: 1, clash: 1 })[x])
           : U.wpick(['collab', 'cheer', 'clash'], x => ({ collab: 2, cheer: 1, clash: 2 })[x]);
   npcKnow(n);
+  // v219: 곡으로 맞붙는 분야(아이돌 · 솔로 · 밴드)는 내 곡이 나오기 한 달 전에 창이 뜬다 (npcClashTick). 지금은 맞붙을 상대만 정해 둔다
+  if (k === 'clash' && npcRq(s, n.f)) { if (!s.npc.cl) s.npc.cw = { id: n.id, t: s.t }; return; }
   if (k === 'collab') { if (!s.inbox.some(m => m.kind === 'npc_collab')) sendMsg(s, 'npc_collab', { from: n.n, title: npcCollabN(n.f) + ' 제안', months: 4, d: { id: n.id } }); }
   else queueEv(s, 'npc_' + k, 0, { id: n.id });
+}
+// 곡 성적 사건으로 맞붙는 분야인가: 그 분야의 곡을 내는 일(아이돌 · 솔로 가수 · 밴드)을 하고 있을 때만 (연주가만 하면 예전처럼 바로 겨룬다)
+function npcRq(s, f) { const F = NPC_F[f]; return F.rq && trackOn(s, F.trk[0]) ? F.rq : ''; }
+// 맞붙을 상대가 정해져 있고 내 곡이 다음 달에 나오면 창을 띄운다. 1년 반이 지나도록 곡이 안 나오면 없던 일
+function npcClashTick(s) {
+  if (s.npc.cl && (s.t - s.npc.cl.t > 6 || !npcBy(s, s.npc.cl.id))) s.npc.cl = null; // 겨루기로 했는데 반년이 지나도록 곡이 안 나왔으면 없던 일
+  const w = s.npc.cw; if (!w) return;
+  const n = npcBy(s, w.id);
+  if (!n || n.ph === 'rest' || s.t - w.t > 18 || !npcMyFields(s).includes(n.f)) { s.npc.cw = null; return; }
+  if (s.army || s.hiatus || pregMe(s) || s.ill || s.npc.cl || hasQ(s, 'npc_clash')) return;
+  // 곡 성적 창이 다음 달(회사 소속)이거나 이번 달(예약한 다음 달에 바로 나오는 인디 · 자작곡: 곡 성적 창보다 먼저 뜨게 맨 앞에 세운다)
+  const rq = npcRq(s, n.f), soon = s.queue.find(q => q.id === rq && (q.at === s.t + 1 || q.at === s.t));
+  if (!rq || !soon) return;
+  s.npc.cw = null; npcKnow(n);
+  if (queueEv(s, 'npc_clash', 0, { id: n.id, pre: soon.at === s.t ? 2 : 1 }) && soon.at === s.t) s.queue.unshift(s.queue.pop());
+}
+// 내 곡 성적이 나온 달: 정면으로 겨루기로 했으면 맞대결 결과 창이 이어서 뜬다 (music.js 성적 사건들이 부른다)
+function npcClashDue(s, f, sc, title) {
+  const c = s.npc && s.npc.cl; if (!c || c.f !== f) return;
+  s.npc.cl = null;
+  if (s.t - c.t <= 6) queueEv(s, 'npc_clashres', 0, { id: c.id, sc, title }, true);
 }
 function npcCollabN(f) { return f === 'vtuber' ? '합동 방송' : f === 'idolg' || f === 'solo' || f === 'band' ? '합동 무대' : f === 'actor' || f === 'voice' ? '동반 출연' : f === 'variety' ? '동반 출연' : f === 'model' ? '합동 화보' : '합작'; }
 // 같이 일해서 느는 팬: 상대 인기가 높을수록. 크지 않게
 function npcFanGain(s, n) { return Math.round((150 + Math.pow(n.pop, 2) * 3) * U.fl(0.6, 1.2) * (typeof popSpeed === 'function' ? popSpeed(s) : 1)); }
 INBOX.npc_collab = {
   ic: '🤝',
-  text: (s, m) => { const n = npcBy(s, m.d.id); return n ? `${NPC_F[n.f].n} ${n.n}${n.ag && n.ag !== '소속 없음' ? ` (${n.ag})` : ''} 쪽에서 ${npcCollabN(n.f)}${josa(npcCollabN(n.f), '을를').slice(npcCollabN(n.f).length)} 같이 하자는 연락이 왔다.\n\n요즘 ${NPC_PH[n.ph]}인 ${NPC_PS[n.ps]}이다. 나와는 ${npcRelWord(n)}.` : '연락을 준 사람이 그사이 업계를 떠났다.'; },
+  text: (s, m) => { const n = npcBy(s, m.d.id); return n ? `${NPC_F[n.f].n} ${n.n}${n.ag && n.ag !== '소속 없음' ? ` (${n.ag})` : ''} 쪽에서 ${npcCollabN(n.f)}${josa(npcCollabN(n.f), '을를').slice(npcCollabN(n.f).length)} 같이 하자는 연락이 왔다.\n\n나와의 관계: ${npcRelWord(n)}` : '연락을 준 사람이 그사이 업계를 떠났다.'; },
   ch: (s, m) => {
     const n = npcBy(s, m.d.id);
     if (!n) return [{ t: '확인', f: () => '제안은 없던 일이 됐다.' }];
@@ -194,17 +225,32 @@ E({
 });
 // 같은 시기 경쟁
 E({
-  id: 'npc_clash', cat: '업계', title: '같은 시기에 맞붙었다', tag: 'career', cond: s => npcOn(s),
+  id: 'npc_clash', cat: '업계', title: '같은 시기에 맞붙는다', tag: 'career', cond: s => npcOn(s),
   init(s, d) { if (!npcBy(s, d.id)) d.skip = true; },
-  text: (s, d) => { const n = npcBy(s, d.id); return `${NPC_F[n.f].n} ${josa(n.n, '이가')} 나와 ${NPC_F[n.f].clash}. 사람들이 둘을 나란히 놓고 이야기한다.\n\n상대는 요즘 ${NPC_PH[n.ph]}이다.`; },
+  text: (s, d) => { const n = npcBy(s, d.id), F = NPC_F[n.f]; return d.pre ? `${F.n} ${josa(n.n, '이가')} ${d.pre === 2 ? '이번 달' : '다음 달'}, ${josa(F.mine, '과와')} 같은 시기에 ${F.pre}. 벌써부터 둘을 나란히 놓고 이야기한다.\n\n상대는 요즘 ${NPC_PH[n.ph]}이다.` : `${F.n} ${josa(n.n, '이가')} 나와 ${F.clash}. 사람들이 둘을 나란히 놓고 이야기한다.\n\n상대는 요즘 ${NPC_PH[n.ph]}이다.`; },
   ch: (s, d) => {
     const n = npcBy(s, d.id);
-    return [
+    // v219: 곡으로 맞붙을 때는 결과가 바로 나오지 않는다. 내 곡 성적이 나온 뒤에 맞대결 결과 창이 뜬다 (npc_clashres)
+    const pre = d.pre ? [{ t: '정면으로 겨룬다', h: '결과는 곡이 나온 뒤에 · 이기면 팬이 늘고, 어느 쪽이든 라이벌이 된다', f: s => { npcRel(s, n, -12, 'rival'); s.npc.cl = { id: n.id, f: n.f, t: s.t }; return `${n.n}${josa(n.n, '과와').slice(n.n.length)}의 맞대결을 피하지 않기로 했다. 결과는 곡이 나온 뒤에 알 수 있다.` + fx(s, { stress: 3 }); } }] : null;
+    return (pre || [
       { t: '정면으로 겨룬다', h: '이기면 팬이 늘고, 어느 쪽이든 라이벌이 된다', f: s => { const win = U.chance(U.clamp(0.5 + ((s.fame || 0) - n.pop) / 80, 0.15, 0.85)); npcRel(s, n, -12, 'rival'); if (win) n.pop = U.clamp(n.pop - 1, 1, 99); return win ? `${n.n}${josa(n.n, '과와').slice(n.n.length)}의 맞대결에서 내가 더 주목받았다.` + fx(s, { fkr: npcFanGain(s, n), fame: 1, stress: 4 }) : `${n.n}${josa(n.n, '과와').slice(n.n.length)}의 맞대결에서 밀렸다. 다음엔 이기고 싶다.` + fx(s, { stress: 6 }); } },
+    ]).concat([
       { t: '신경 쓰지 않는다', f: s => { npcKnow(n); return `${n.n}${josa(n.n, '과와').slice(n.n.length)} 비교되는 걸 신경 쓰지 않고 내 일을 했다.` + fx(s, { stress: 1 }); } },
       { t: '먼저 응원을 보낸다', f: s => { npcRel(s, n, n.ps === 'amb' ? 4 : 12); return `${n.n}에게 먼저 응원을 보냈다. ${n.ps === 'amb' ? '답은 짧았다.' : '고맙다는 답이 왔다.'}` + fx(s, { rep: 1 }); } },
-    ];
+    ]);
   },
+});
+// v219: 맞대결 결과 — 내 곡 성적(d.sc)과 상대의 이번 곡(인기가 높을수록 세다)을 견준다. 내 곡 성적 창 다음에 뜬다
+E({
+  id: 'npc_clashres', cat: '업계', title: '맞대결 결과', tag: 'career', cond: s => npcOn(s),
+  init(s, d) {
+    const n = npcBy(s, d.id); if (!n) { d.skip = true; return; }
+    d.win = d.sc >= U.clamp(42 + n.pop * 0.42 + U.normal(0, 6), 20, 98);
+    d.x = (d.win ? fx(s, { fkr: npcFanGain(s, n), fame: 1 }) : fx(s, { stress: 6 })).trim().replace(/^\(|\)$/g, '');
+    if (d.win) n.pop = U.clamp(n.pop - 1, 1, 99);
+  },
+  text: (s, d) => { const n = npcBy(s, d.id), w = `${NPC_F[n.f].n} ${n.n}${josa(n.n, '과와').slice(n.n.length)}`; return (d.win ? `같은 시기에 나온 ${w}의 맞대결에서 ${josa(`「${d.title}」`, '이가')} 더 주목받았다. 차트에서도, 화제에서도 내가 앞섰다.` : `같은 시기에 나온 ${w}의 맞대결에서 ${josa(`「${d.title}」`, '이가')} 밀렸다. 사람들의 이야기는 상대 쪽으로 쏠렸다.`) + (d.x ? `\n\n${d.x}` : ''); },
+  ch: (s, d) => [{ t: '확인', f: s => { const n = npcBy(s, d.id), nm = n ? `${n.n}${josa(n.n, '과와').slice(n.n.length)}의 ` : ''; return d.win ? `${nm}맞대결에서 내가 더 주목받았다.` : `${nm}맞대결에서 밀렸다. 다음엔 이기고 싶다.`; } }],
 });
 // 무대 창의 1위 발표에 같이 서는 팀: 실제 업계 인물 이름을 쓰고, 본 인물로 남긴다
 function npcStageRival(s, not) {

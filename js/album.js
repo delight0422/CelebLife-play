@@ -59,19 +59,19 @@ function albSong(s, x, kind, used) {
   const q0 = U.clamp(L * 0.6 + (m - 30) / 6 + U.normal(0, 7) + 4 + (kind === 'name' ? 2 : kind === 'camp' ? 1 : 0), 5, 90), qc = 40 + x.tier * 10 + x.rep / 8;
   const q = Math.round(q0 > qc ? qc + (q0 - qc) * 0.3 : q0);
   const price = Math.round((100 + L * L * 1.2 + m * 2) * (1 + Math.log10(1 + (c.fame || 0)) / 12) * (kind === 'name' ? 1.2 : 1) * ALB_PRICE_M[x.tier] / 10) * 10 * 1e4;
-  return { cid: c.id, q, c: cn, m, price, title: songTitle(), src: kind };
+  return { cid: c.id, q, c: cn, m, price, title: songTitle(cn), src: kind };
 }
 // 사내 프로듀서가 쓴 곡 (v155): 회사 사람이라 아껴 둔 곡 없이 제 실력대로, 고른 컨셉 가운데 자기가 가장 잘 아는 컨셉으로 쓴다
 function albInSong(s, x, P) {
   const cm = coCm(P), c = x.cs.slice().sort((a, b) => cm[b] - cm[a])[0];
-  return { cid: P.id, q: Math.round(U.clamp(lv(P, 'compose') * 0.6 + (cm[c] - 30) / 6 + U.normal(0, 7) + 4, 5, 90)), c, m: cm[c], price: 0, title: songTitle(), src: 'in' };
+  return { cid: P.id, q: Math.round(U.clamp(lv(P, 'compose') * 0.6 + (cm[c] - 30) / 6 + U.normal(0, 7) + 4, 5, 90)), c, m: cm[c], price: 0, title: songTitle(c), src: 'in' };
 }
 // ② 모인 데모곡 전부
 function albDemos(s, x) {
   const used = [], out = [], p = me(s);
   for (const z of ALB_SRC) {
     if (!x.src.includes(z.k)) continue;
-    if (z.k === 'me') { if (!has(p, 'compose')) continue; const c = x.cs.slice().sort((a, b) => cmGet(s, b) - cmGet(s, a))[0]; out.push({ mine: true, q: Math.round(U.clamp(lv(p, 'compose') * 0.9 + U.normal(0, 5) + cmBonus(s, c), 5, 95)), c, m: cmGet(s, c), price: 0, title: songTitle(), src: 'me' }); continue; }
+    if (z.k === 'me') { if (!has(p, 'compose')) continue; const c = x.cs.slice().sort((a, b) => cmGet(s, b) - cmGet(s, a))[0]; out.push({ mine: true, q: Math.round(U.clamp(lv(p, 'compose') * 0.9 + U.normal(0, 5) + cmBonus(s, c), 5, 95)), c, m: cmGet(s, c), price: 0, title: songTitle(c), src: 'me' }); continue; }
     if (z.k === 'in') { for (const P of x.inh || []) out.push(albInSong(s, x, P)); continue; }
     if (z.k === 'mem') { for (const w of albWriters(x)) out.push({ cid: w.id, q: Math.round(U.clamp(lv(w, 'compose') * 0.85 + U.normal(0, 7), 5, 90)), c: U.pick(x.cs), m: null, price: 0, title: songTitle(), src: 'mem' }); continue; }
     const n = Math.max(1, albSrcCnt(x, z, x.cs.length) + (z.k === 'open' ? U.int(-1, 1) : 0));
@@ -201,7 +201,22 @@ function albMyDemo(s, x) {
   const p = me(s), c = x.cs.slice().sort((a, b) => cmGet(s, b) - cmGet(s, a))[0];
   const q = Math.round(U.clamp(lv(p, 'compose') * 0.9 + U.normal(0, 5) + cmBonus(s, c), 5, 95));
   useSkill(s, p, 'compose', 1.5); cmGain(s, c, 6);
-  return { cid: s.me, me: true, q, c, m: cmGet(s, c), price: 0, title: songTitle(), src: 'self' };
+  return { cid: s.me, me: true, q, c, m: cmGet(s, c), price: 0, title: songTitle(c), src: 'self' };
+}
+// v219: 타이틀곡은 기획한 컨셉의 곡으로 한다 (예전엔 점수만 높으면 다른 컨셉 데모가 타이틀이 됐다: 회의에서 '강렬'로 정했는데 '청량' 타이틀)
+// 고른 곡 가운데 기획 컨셉 곡을 맨 앞으로. 없으면 다섯 곡 → 모인 곡에서 가장 좋은 기획 컨셉 곡을 데려오고, 그래도 없으면 가장 좋은 곡을 그 컨셉으로 다시 편곡한다
+function albTitleFit(x, picks, five, demos) {
+  const fit = d => x.cs.includes(d.c);
+  if (!picks.length || !x.cs.length || fit(picks[0])) return;
+  let i = picks.findIndex(fit);
+  if (i < 0) {
+    const best = L => L.filter(d => fit(d) && !picks.includes(d)).sort((a, b) => b.q - a.q)[0];
+    const d = best(five) || best(demos);
+    if (!d) { picks[0].c = x.cs[0]; picks[0].title = songTitle(x.cs[0]); return; } // 제목도 그 컨셉으로 다시 짓는다
+    let j = picks.length - 1; while (j > 0 && (picks[j].me || picks[j].mine)) j--;
+    picks[j] = d; i = j;
+  }
+  picks.unshift(picks.splice(i, 1)[0]);
 }
 function albNpc(s, o) {
   const src = ['open'];
@@ -220,6 +235,7 @@ function albNpc(s, o) {
   // ④ 선정: 정하는 사람의 귀로 듣고, 정한 컨셉 · 가수에게 맞는 곡을 고른다
   const sd = albEarOf(o.boss);
   const picks = sc.five.map(d => ({ d, v: d.q + U.normal(0, sd) + (x.cs.includes(d.c) ? 10 : 0) + (d.fav || 0) - (o.ok && !o.ok(d.c) ? 30 : 0) })).sort((a, b) => b.v - a.v).slice(0, ALB_PICK).map(z => z.d);
+  albTitleFit(x, picks, sc.five, demos);
   const ti = picks[0], pol = albPolish(s, x, U.chance(o.out != null ? o.out : [0, 0, 0.4, 0.8][o.tier] || 0));
   // 가사: 내 작사 실력이 맡을 사람보다 좋으면 타이틀곡, 조금 모자라면 수록곡 하나
   let lyr = null;

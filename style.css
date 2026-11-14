@@ -1685,8 +1685,11 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .ct-x { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border: 0; border-radius: 999px; background: var(--card2); color: var(--ink2); font-size: 14px; cursor: pointer; }
 .ct-x:hover { background: var(--violet-soft); color: var(--violet); }
 @keyframes ctIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
-.ct-on .overlay:not(.rt-ov):not(.live-ov) { padding-bottom: calc(var(--ct-h, 0px) + 22px); }
-.ct-on .overlay:not(.rt-ov):not(.live-ov) > .mcard { max-height: calc(100vh - var(--ct-h, 0px) - 60px); }
+/* v219: 창을 위로 비켜 세우는 것은 휴대폰 폭에서만 (넓은 화면에서는 토스트가 오른쪽 아래에 작게 떠서 창을 건드리지 않는다) */
+@media (max-width: 760px) {
+  .ct-on .overlay:not(.rt-ov):not(.live-ov) { padding-bottom: calc(var(--ct-h, 0px) + 22px); }
+  .ct-on .overlay:not(.rt-ov):not(.live-ov) > .mcard { max-height: calc(100vh - var(--ct-h, 0px) - 60px); }
+}
 /* v202: 요약 창 두 장 (특별한 일 · 결산표) */
 .ts-tabs { margin: 0 0 var(--sp-2); }
 .tsr { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: var(--sp-3); }
@@ -1866,3 +1869,39 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .en-col1 .heirs { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); text-align: left; }
 /* v214: 프로필 박스 상태 줄 (임신) */
 .pf-st { margin-top: var(--sp-1); font-size: var(--fs-2); font-weight: 700; color: #b03a7a; }
+
+/* ───── v219 ───── */
+/* 고른 결과 토스트: 오른쪽 아래에 작게. 창을 밀어 올리지 않는다 (창 맨 아래 선택지가 가려지고 버튼 자리가 움직이던 문제). 휴대폰 폭에서는 예전처럼 아래 가운데 */
+@media (min-width: 761px) {
+  .ctoast { left: auto; right: 14px; bottom: 14px; transform: none; width: min(320px, calc(100vw - 24px)); gap: 6px; }
+  .ct-i { padding: 9px 34px 9px 12px; border-radius: 14px; border-left-width: 6px; max-height: 30vh; box-shadow: 0 8px 22px rgba(30, 10, 80, .26); }
+  .ct-h { font-size: var(--fs-1); }
+  .ct-pick { font-size: var(--fs-1); margin: 2px 0 4px; }
+  .ct-l { font-size: var(--fs-3); line-height: 1.5; padding: 2px 0; }
+  .ct-x { top: 6px; right: 6px; width: 24px; height: 24px; font-size: 12px; }
+}
+/* 직업 활동 박스: 결과를 기다리는 지원 (누르는 줄이 아니다) */
+.trk.wait { cursor: default; }
+.ap-note { margin: 0 0 var(--sp-2); }
+/* 화면 폭별 배치
+   넓은 화면(1151px~): 세 줄 그대로
+   중간 화면(761~1150px, 작은 노트북 · 태블릿): 일정이 맨 위에 가로로 한 줄, 그 아래 두 줄 (왼쪽 프로필 · 재정 · 직업 / 오른쪽 인간관계 · 메시지함 · 생활 · 회사). 화면 전체가 스크롤된다
+   좁은 화면(~760px, 휴대폰): 한 줄로 쌓는다
+   (예전 '좁은 화면' 규칙은 UI 개편 때 세 줄 규칙에 덮여 듣지 않았다: 폭 1024에서 세 줄이 그대로 눌려 버튼 글자가 잘렸다) */
+@media (max-width: 1150px) {
+  #game-screen { height: auto; min-height: 100vh; }
+  #cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
+  #sched-col { grid-column: 1 / -1; order: -1; overflow: visible; }
+  .col-l, .col-m { overflow: visible; }
+  #slots-card { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: var(--sp-2); align-items: start; }
+  #slots-card > .card-h, #slots-card > .hint, #slots-card > .slot-over, #slots-card > .empty { grid-column: 1 / -1; }
+  #slots-card > .slot { margin-bottom: 0; }
+  #slots-card > .slot-over { margin-top: 0; }
+}
+/* 중간 화면에서는 생활 카드가 바로 보이므로 위쪽 '생활' 버튼은 휴대폰 폭에서만 */
+@media (min-width: 761px) { .mob-only { display: none !important; } }
+@media (max-width: 760px) {
+  #cols { grid-template-columns: minmax(0, 1fr); }
+  .hub-btns { flex-wrap: wrap; }
+  .hub-btns .hub-bn { flex: 1 1 40%; }
+}
