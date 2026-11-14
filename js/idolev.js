@@ -124,20 +124,33 @@ function soloDemand(s, t) { return totalFans(s) * 0.035 * (0.6 + jpop(s, 'solo')
 // 먼저 낸 대관비 돌려받기 (내 회사 소속이면 회사 돈으로)
 function soloLiveBack(s, d) { if (!d.cost) return; const co = ownCo(s, 'solo'); if (co) coIn(co, d.cost, '단독 공연 대관비 환불', ownCoF(s, 'solo')); else addMoney(s, d.cost, '단독 공연 대관비 환불'); d.back = d.cost; d.cost = 0; }
 function soloHeatW(h) { return h >= 82 ? '공연장이 터질 듯했다' : h >= 67 ? '분위기가 뜨거웠다' : h >= 52 ? '무난하게 즐겼다' : '분위기가 좀처럼 달아오르지 않았다'; }
+// v230: 피처링을 청해 오는 가수 — 나보다 인기 있는 가수는 내 대중 호감도가 높아야 연락해 온다
+//   내 인지도보다 얼마나 높은 가수까지 오는가(featUp): 호감도 35 아래 +4 · 50 +8 · 70 +18 · 85부터 +28 (예전에는 호감도와 상관없이 늘 +28). 가까운 동료 · 데뷔 동기는 10 더 (그래도 npcNear의 +28까지)
+function featUp(s) { return 4 + 24 * Math.pow(U.clamp((jpop(s, 'solo') - 35) / 50, 0, 1), 1.5); }
+function featFrom(s) { const f = s.fame || 0, up = featUp(s); return npcNear(s, 'solo').concat(npcNear(s, 'band')).filter(n => n.rk !== 'rival' && n.pop - f <= up + (n.rk === 'pal' || n.rk === 'dongi' ? 10 : 0)); }
+// v230: 드라마 OST는 드라마 쪽에서 곡(드라마 장르 → 곡 분위기)을 먼저 정하고 부를 사람을 찾는다. 그 분위기의 숙련도가 높을수록 나에게 올 가능성이 크다
+//   ostFitM: 숙련도 0이면 0.85배 · 12면 1.2배 · 25면 1.8배 · 35면 2.4배 · 44부터 3배 (갈수록 가파르게). 숙련도가 흔한 만큼(1위 20 · 2위 10 · 3위 5)이면 평균 1배쯤이라 전체 제안 수는 예전과 비슷하다
+function ostConcept(genre) { const G = typeof OST_G !== 'undefined' ? OST_G[genre] : null; return U.pick(G ? G.c : TRENDS); }
+function ostFitM(s, c) { return U.clamp(0.85 + 0.35 * Math.pow(cmGet(s, c) / 12, 1.4), 0.85, 3); }
 function soloExtraMonth(s, t) {
   if (!soloOn(s) || t.withGroup || !t.rel || s.army || s.hiatus || s.ill || pregMe(s) || !jobN(s, 'solo')) return;
   const p = me(s), fans = totalFans(s), fame = s.fame || 0, X = t.xcd = t.xcd || {};
   // v221: OST · 피처링은 신곡을 준비하지 않을 때만 온다 (다음 곡까지 날짜를 세는 동안). 받으면 다음 신곡이 한 달 밀린다 (soloRelPush)
   const free = !t.alb && t.nextRel > 1 && t.nextRel < 90 && !musRelQ(s, 'solo');
   // OST: 노래하는 가수(래퍼형은 빼고), 보컬 35레벨 · 팬 5천 명부터. 이름이 알려질수록, 그리고 OST를 많이 부르고 잘될수록 자주 (쉬는 간격도 10개월 → 4개월까지 짧아진다)
-  if (free && t.type !== 'rap' && lv(p, 'vocal') >= 35 && fans >= 5000 && !(X.ost > s.t) && !s.inbox.some(m => m.kind === 'solo_ost') && !hasQ(s, 'solo_ostres') && U.chance((0.02 + Math.min(0.03, fame / 2000) + Math.min(0.06, (t.ostN || 0) * 0.005 + (t.ostHit || 0) * 0.012)) * offerPopM(s, 'solo'))) {
-    const genre = s.trendTV && U.chance(0.4) ? s.trendTV.drama : U.pick(DRAMA_TRENDS), drama = dramaTitle(genre), big = U.chance(U.clamp(0.1 + fame / 150, 0.1, 0.6));
-    X.ost = s.t + Math.max(4, 10 - (t.ostN || 0) - (t.ostHit || 0));
-    sendMsg(s, 'solo_ost', { from: `드라마 「${drama}」 제작진`, title: 'OST 가창 제안', months: 3, d: { drama, genre, big, fee: Math.round((100 + lv(p, 'vocal') * 4 + fame * 10) * (big ? 1.8 : 1)) * 1e4 } });
+  // v230: 드라마와 곡 분위기(c)가 먼저 정해지고, 그 곡을 부를 사람으로 내가 뽑히는지는 그 분위기의 숙련도에 달렸다 (ostFitM)
+  if (free && t.type !== 'rap' && lv(p, 'vocal') >= 35 && fans >= 5000 && !(X.ost > s.t) && !s.inbox.some(m => m.kind === 'solo_ost') && !hasQ(s, 'solo_ostres')) {
+    const genre = s.trendTV && U.chance(0.4) ? s.trendTV.drama : U.pick(DRAMA_TRENDS), c = ostConcept(genre);
+    if (U.chance((0.02 + Math.min(0.03, fame / 2000) + Math.min(0.06, (t.ostN || 0) * 0.005 + (t.ostHit || 0) * 0.012)) * offerPopM(s, 'solo') * ostFitM(s, c))) {
+      const drama = dramaTitle(genre), big = U.chance(U.clamp(0.1 + fame / 150, 0.1, 0.6));
+      X.ost = s.t + Math.max(4, 10 - (t.ostN || 0) - (t.ostHit || 0));
+      sendMsg(s, 'solo_ost', { from: `드라마 「${drama}」 제작진`, title: 'OST 가창 제안', months: 3, d: { drama, genre, c, big, fee: Math.round((100 + lv(p, 'vocal') * 4 + fame * 10) * (big ? 1.8 : 1)) * 1e4 } });
+    }
   }
   // 피처링: 팬 3천 명부터. 내 인지도와 비슷한 급의 솔로 가수 · 밴드에서 온다 (아이돌 그룹에서는 오지 않는다). 아는 사이면, 그리고 피처링을 많이 하고 잘될수록 자주
+  // v230: 나보다 인기 있는 가수는 내 대중 호감도가 높아야 온다 (featFrom)
   if (free && fans >= 3000 && !(X.feat > s.t) && !s.inbox.some(m => m.kind === 'solo_feat') && !hasQ(s, 'solo_featres') && typeof npcNear === 'function' && npcOn(s) && U.chance((0.025 + Math.min(0.05, (t.featN || 0) * 0.004 + (t.featHit || 0) * 0.01)) * offerPopM(s, 'solo'))) {
-    const L = npcNear(s, 'solo').concat(npcNear(s, 'band')).filter(n => n.rk !== 'rival');
+    const L = featFrom(s);
     if (L.length) { const n = U.wpick(L, x => 1 + (x.kn ? 2 : 0) + (x.rk ? 3 : 0)); X.feat = s.t + Math.max(4, 8 - (t.featN || 0) - (t.featHit || 0)); npcKnow(n); sendMsg(s, 'solo_feat', { from: n.n, title: '피처링 제안', months: 3, d: { id: n.id, fee: Math.round(50 + lv(p, soloVoice(t, p)) * 2 + fame * 5) * 1e4 } }); }
   }
   // 단독 공연: 발표곡 3곡 · 팬 2만 명부터, 2년에 한 번
@@ -148,9 +161,10 @@ function soloRelPush(t) { if (soloRelCan(t)) t.nextRel++; }
 function soloFxLine(d) { return [d.gain > 0 ? `${MK_N[d.mk || 'kr']} 팬 +${fmtFans(d.gain)}` : '', d.pop > 0.3 ? '대중 호감도 ↑' : d.pop < -0.3 ? '대중 호감도 ↓' : '', d.roy >= 1e4 ? `매달 들어올 음원 수익 약 ${fmtWon(d.roy)}` : ''].filter(Boolean).join(' · '); }
 INBOX.solo_ost = {
   ic: '🎬',
-  text: (s, m) => `${m.d.big ? '기대작으로 꼽히는 ' : ''}${m.d.genre} 드라마 「${m.d.drama}」의 OST를 불러 달라는 제안이다. 가창료 ${fmtWon(soloShare(s.tracks.solo, m.d.fee))}.\n\n드라마가 잘되면 OST도 같이 뜬다.`,
+  // v230: 곡 분위기를 알려 준다. 그 분위기 숙련도가 20을 넘으면 그래서 연락이 왔다는 말도
+  text: (s, m) => `${m.d.big ? '기대작으로 꼽히는 ' : ''}${m.d.genre} 드라마 「${m.d.drama}」의 OST를 불러 달라는 제안이다.${m.d.c ? ` '${m.d.c}' 분위기의 곡${cmGet(s, m.d.c) >= 20 ? '이고, 이런 곡을 잘 부르는 가수를 찾다가 나에게 연락했다고 한다' : '이다'}.` : ''} 가창료 ${fmtWon(soloShare(s.tracks.solo, m.d.fee))}.\n\n드라마가 잘되면 OST도 같이 뜬다.`,
   ch: (s, m) => [
-    { t: '부른다', ok: s => soloOn(s) && !s.army && !s.hiatus, h: '두 달 뒤 드라마와 함께 공개된다 · 곡이 잘되면 팬과 대중 호감도가 오른다' + (soloRelCan(s.tracks.solo) ? ' · 다음 신곡이 한 달 늦어진다' : ''), f: s => { const t = s.tracks.solo, pay = soloShare(t, m.d.fee); soloRelPush(t); earn(s, pay, 'OST 가창료', 'solo'); useSkill(s, me(s), 'vocal', 2); queueEv(s, 'solo_ostres', 2, { drama: m.d.drama, genre: m.d.genre, big: m.d.big, pay, title: songTitle(), sg: t.st === 'signed' }, true); return `드라마 「${m.d.drama}」 OST를 녹음했다. 두 달 뒤 드라마와 함께 공개된다.` + fx(s, { stress: 2 }); } },
+    { t: '부른다', ok: s => soloOn(s) && !s.army && !s.hiatus, h: '두 달 뒤 드라마와 함께 공개된다 · 곡이 잘되면 팬과 대중 호감도가 오른다' + (soloRelCan(s.tracks.solo) ? ' · 다음 신곡이 한 달 늦어진다' : ''), f: s => { const t = s.tracks.solo, pay = soloShare(t, m.d.fee); soloRelPush(t); earn(s, pay, 'OST 가창료', 'solo'); useSkill(s, me(s), 'vocal', 2); queueEv(s, 'solo_ostres', 2, { drama: m.d.drama, genre: m.d.genre, big: m.d.big, pay, title: ostTitle(m.d.genre, m.d.c), sg: t.st === 'signed' }, true); return `드라마 「${m.d.drama}」 OST를 녹음했다. 두 달 뒤 드라마와 함께 공개된다.` + fx(s, { stress: 2 }); } },
     { t: '거절한다', f: () => 'OST 제안을 거절했다.' },
   ],
 };

@@ -1489,7 +1489,8 @@ function brandCats(s) { return (s.brands || []).map(x => BRAND_BY[x.id].cat); }
 E({
   id: 'brand_offer_gen', cat: '제안', title: '광고 제안',
   p: s => brandReach(s) && age(s) >= 14 && (s.stigma || 0) < 30 && !s.hiatus ? (0.02 + brandReach(s) * 0.012 + (trackOn(s, 'model') ? 0.03 : 0) + (mcnOf(s) ? mcnTierT(s, s.tracks.youtube) * 0.01 : 0)) * offerPopM(s) : 0, // v228: 대중 호감도가 낮으면 광고가 드물다
-  cond: s => !s.inbox.some(m => m.kind === 'brand_offer') && !s.army && s.rep >= 30,
+  // v230: 평판 36부터 온다 (예전 30). 평판이 35 아래거나 대중 호감도가 25 아래면 광고가 끊길 수 있어서(brand_scandal), 받자마자 끊기는 일이 없게 (호감도 26부터)
+  cond: s => !s.inbox.some(m => m.kind === 'brand_offer') && !s.army && s.rep >= 36 && jpopAvg(s) >= 26,
   init(s, d) {
     const reach = brandReach(s), have = brandCats(s);
     const pool = BRANDS.filter(b => b.v <= reach && !have.includes(b.cat));

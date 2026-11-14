@@ -469,6 +469,8 @@ function songTitle(c) {
   if (T && U.chance(c === '강렬' || c === '힙합' ? 1 : 0.95)) return songFresh(() => T.K && U.chance(0.12) ? U.pick(T.K) : U.chance(0.5) ? songPair(T.kA, T.kB) : songPair(T.eA, T.eB));
   return songFresh(() => U.chance(0.15) ? U.pick(SONG_K) : U.chance(0.47) ? songPair(SONG_A, SONG_B) : songPair(SONG_EA, SONG_EB));
 }
+// v230: 드라마 OST 제목 — 드라마 장르에 맞는 낱말로 짓는다 (data.js OST_G). x가 있는 장르(로맨스 · 스릴러 · 액션 · 판타지 · 학원물)는 가끔 그 곡 분위기(c)의 낱말로
+function ostTitle(genre, c) { const G = typeof OST_G !== 'undefined' ? OST_G[genre] : null; if (!G) return songTitle(c); if (c && G.x && U.chance(G.x)) return songTitle(c); return songFresh(() => songPair(G.a, G.b)); }
 // 채널 · 버튜버 이름 (10-5)
 function hasBatchim(w) { const c = w.charCodeAt(w.length - 1); return c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 > 0; }
 // 스트리머 별명: '이'는 받침 있는 말 뒤에만(별이 · 달이), 앞말 끝 글자와 같은 글자는 안 붙인다(토끼토)
@@ -1595,6 +1597,8 @@ function pfRename(o) {
   return o;
 }
 function migrate(s) {
+  // v230: 같은 회사와 재계약해 활동 개월이 0으로 돌아갔던 솔로 가수 (예전 저장) — 그 전 활동(4년 넘음)을 돌려줘서 신곡 회의에서 다시 의견을 낼 수 있게
+  { const t = s.tracks && s.tracks.solo; if (t && t.st === 'signed' && t.sayM == null) t.sayM = (s.log || []).some(l => l.e === 'solo_contract' && l.t >= s.t - (t.months || 0) - 1 && /재계약했다/.test(l.x || '')) ? 48 : 0; }
   NAME_S = s; // v228: 저장을 불러온 직후(첫 달이 지나기 전)에도 제목이 겹치는지 · 계절에 맞는지 볼 수 있게 (예전엔 한 달이 지나야 기억했다)
   // v153: 컴백 회의 · 타이틀곡 고르기 창이 기획 창으로 바뀌었다 (줄 서 있던 것 · 떠 있던 것을 옮긴다)
   for (const q of (s.queue || []).concat(s.pending ? [s.pending] : [])) if (q.id === 'co_cb' || q.id === 'co_song') { q.id = 'co_plan'; q.d = { gid: q.d && q.d.gid, debut: !!(q.d && q.d.debut) }; }

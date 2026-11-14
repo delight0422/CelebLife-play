@@ -994,7 +994,7 @@ function formEnter() {
 }
 function afterChoice() {
   $('#modal').classList.add('hidden');
-  // v229: 다음 사건 창이 기다리고 있으면 성과 토스트를 띄우지 않고 모아 둔다. 마지막 창을 넘겼을 때 카드만 내린 어두운 화면 가운데에 한꺼번에 띄우고, 다 뜨면(또는 눌러서 넘기면) 이어 간다 (v176)
+  // v229: 다음 사건 창이 기다리고 있으면 성과 토스트를 띄우지 않고 모아 둔다. 마지막 창을 넘겼을 때 카드만 내린 어두운 화면 가운데에 한꺼번에 띄우고, 다 뜨면(또는 남은 줄 없이 눌러서 닫으면 · Esc) 이어 간다 (v176 · v230)
   const L = rtHold(S) ? null : rtTake(S);
   render();
   if (UI.ptoast) { toast(UI.ptoast, 'pt'); UI.ptoast = null; }
@@ -2314,6 +2314,12 @@ const CM_TONE = {
   '나오자마자 팬들이 여기저기 퍼 날랐다': ['나오자마자 여기저기 다 퍼짐', '타임라인이 이 노래로 도배됨 ㅋㅋ'],
   '노래 실력이 확실하다': ['노래는 진짜 잘함', '라이브 들어 보면 실력 확실함'],
   '노래가 곡을 다 못 받쳐 준다': ['곡은 좋은데 노래가 못 받쳐 주는 듯', '노래가 곡을 못 따라감'],
+  '노래는 좋은데 무대가 심심하다': ['노래는 좋은데 무대가 좀 심심함', '노래만 듣고 무대는 안 보게 됨'],
+  '춤이 노래를 못 따라간다': ['춤이 노래를 못 따라감', '노래는 되는데 춤이 아쉬움'],
+  '랩은 좋은데 무대가 심심하다': ['랩은 좋은데 무대가 좀 심심함', '랩만 듣고 무대는 안 보게 됨'],
+  '무대 위 몸짓이 어색하다': ['무대에서 몸짓이 좀 어색함', '무대 매너는 더 다듬어야 할 듯'],
+  '춤은 좋은데 라이브가 불안하다': ['춤은 좋은데 라이브가 불안함', '춤만 보고 노래는 안 듣게 됨'],
+  '라이브가 춤을 못 따라간다': ['라이브가 춤을 못 따라감', '춤은 되는데 라이브가 아쉬움'],
   '노래가 귀에 쏙 들어온다': ['노래 귀에 쏙쏙 들어옴', '한 번 듣고 바로 저장함'],
   '눈에 확 들어오는 멤버가 없다': ['눈에 확 들어오는 멤버가 없음', '누가 누군지 모르겠음'],
   '눈에 확 띄는 멤버가 없다': ['딱 눈에 띄는 멤버가 없음', '멤버 구분이 잘 안 됨'],
@@ -2446,7 +2452,9 @@ function newsEvHTML(s, d, N) {
 }
 // ───── 성과 토스트 (v172 · v176): 큰 알림이 한 줄씩 차례로 쌓였다가 몇 초 뒤 사라진다 ─────
 // v176 · v229: 줄 서 있는 창 가운데 마지막 창을 넘기면 카드만 내리고 어두운 배경(창이 떠 있을 때와 같은 밝기)은 그대로 둔 채, 화면 한가운데에 띄운다.
-//   마지막 알림이 사라지면 어두운 화면도 걷히고 다음 일(패널 열기 · 진행 등, done)로 이어 간다. 화면을 누르거나 스페이스바 · 엔터 · Esc로 바로 넘길 수 있다
+//   마지막 알림이 사라지면 어두운 화면도 걷히고 다음 일(패널 열기 · 진행 등, done)로 이어 간다
+// v230: 화면을 누르거나 스페이스바 · 엔터를 누르면 지금 떠 있는 줄만 넘어가고 남은 줄이 바로 이어서 뜬다 (rtSkip). 남은 줄이 없을 때 누르면 닫힌다. Esc는 남은 줄까지 한꺼번에 닫는다 (rtClose)
+//   띄울 줄은 UI.rtQ에 줄 세워 두고 rtPump가 하나씩 꺼내 띄운다 (예전에는 줄마다 시간을 미리 걸어 두어서, 넘기면 남은 줄을 못 봤다)
 // 한꺼번에 RT_MAX개까지만 보이고, 넘치면 오래된 것부터 먼저 사라진다
 const RT_GAP = 700, RT_STAY = 6500, RT_MAX = () => window.innerWidth <= 760 ? 4 : 6;
 function rtKey(L) { UI.rtMap = UI.rtMap || {}; const k = UI.rtN = (UI.rtN || 0) + 1; UI.rtMap[k] = L; delete UI.rtMap[k - 200]; return k; }
@@ -2465,29 +2473,46 @@ function resToast(L, add, done, all) {
     document.body.appendChild(ov);
   }
   const box = $('#rtoast');
-  if (!add || !UI.rtT || !rtOn()) { (UI.rtT || []).forEach(clearTimeout); UI.rtT = []; box.innerHTML = ''; UI.rtEnd = 0; UI.rtCnt = 0; UI.rt0 = Date.now(); }
+  if (!add || !UI.rtT || !rtOn()) { (UI.rtT || []).forEach(clearTimeout); clearTimeout(UI.rtP); clearTimeout(UI.rtFin); UI.rtT = []; UI.rtQ = []; UI.rtP = 0; UI.rtFast = 0; box.innerHTML = ''; UI.rtCnt = 0; UI.rt0 = Date.now(); }
   if (done) (UI.rtDone = UI.rtDone || []).push(done);
   ov.classList.remove('hidden');
   // 상자 높이를 미리 잡아 둔다: 알림이 하나씩 늘어나도 위치가 흔들리지 않게 (한가운데 기준)
   const n = Math.min(UI.rtCnt += L.length, RT_MAX()); box.style.minHeight = `calc(${n} * var(--rt-h) + ${n - 1} * 10px)`;
-  const t0 = Math.max(0, (UI.rtEnd || 0) - Date.now()); UI.rtEnd = Date.now() + t0 + L.length * RT_GAP;
-  L.forEach(([ic, x, tn], i) => UI.rtT.push(setTimeout(() => {
-    const live = [...box.children].filter(c => !c.classList.contains('out'));
-    live.slice(0, Math.max(0, live.length - RT_MAX() + 1)).forEach(rtOut);
-    const e = document.createElement('div'); e.className = 'rt-i' + (tn ? ' ' + tn : ''); e.innerHTML = `<i>${ic}</i><span>${U.esc(x)}</span>`; box.appendChild(e);
-    UI.rtT.push(setTimeout(() => rtOut(e), RT_STAY));
-  }, t0 + 300 + i * RT_GAP)));
-  // 마지막 알림이 사라지면 어두운 화면을 걷는다
-  clearTimeout(UI.rtFin); UI.rtFin = setTimeout(rtFinish, UI.rtEnd - Date.now() - RT_GAP + 300 + RT_STAY + 450);
+  (UI.rtQ = UI.rtQ || []).push(...L);
+  if (!UI.rtP) rtPump(300);
+}
+// 줄 하나를 띄운다 (넘치면 오래된 줄부터 내린다)
+function rtShow1() {
+  const box = $('#rtoast'), x = (UI.rtQ || []).shift(); if (!x) return;
+  const live = [...box.children].filter(c => !c.classList.contains('out'));
+  live.slice(0, Math.max(0, live.length - RT_MAX() + 1)).forEach(rtOut);
+  const e = document.createElement('div'); e.className = 'rt-i' + (x[2] ? ' ' + x[2] : ''); e.innerHTML = `<i>${x[0]}</i><span>${U.esc(x[1])}</span>`; box.appendChild(e);
+  UI.rtT.push(setTimeout(() => rtOut(e), RT_STAY));
+}
+// 다음 줄까지 기다릴 시간: 보통은 RT_GAP. 눌러서 넘긴 뒤에는 한 화면(RT_MAX줄)을 빠르게 채우고, 그 줄들을 읽을 만큼 쉰 뒤 이어 간다
+function rtGap() { if (UI.rtFast > 0) return --UI.rtFast ? 110 : RT_GAP * RT_MAX(); return RT_GAP; }
+// wait 뒤에 다음 줄을 띄우고 이어 간다. 띄울 줄이 없으면 마지막 알림이 사라질 때 어두운 화면을 걷는다
+function rtPump(wait) {
+  clearTimeout(UI.rtP); clearTimeout(UI.rtFin);
+  if (!UI.rtQ || !UI.rtQ.length) { UI.rtP = 0; UI.rtFast = 0; UI.rtFin = setTimeout(rtFinish, RT_STAY + 450); return; }
+  UI.rtP = setTimeout(() => { rtShow1(); rtPump(rtGap()); }, wait);
 }
 function rtFinish() {
-  clearTimeout(UI.rtFin); (UI.rtT || []).forEach(clearTimeout); UI.rtT = [];
+  clearTimeout(UI.rtFin); clearTimeout(UI.rtP); (UI.rtT || []).forEach(clearTimeout); UI.rtT = []; UI.rtQ = []; UI.rtP = 0; UI.rtFast = 0;
   const ov = $('#rtov'); if (ov) { ov.classList.add('hidden'); $('#rtoast').innerHTML = ''; }
   const D = UI.rtDone || []; UI.rtDone = [];
   D.forEach(f => { try { f(); } catch (e) { console.error('토스트 다음 일 오류', e); } });
 }
 // 눌러서 넘기기: 막 뜬 참(0.6초 안)에 누른 것은 결과 창을 넘기던 손이 한 번 더 누른 것으로 보고 넘기지 않는다
-function rtSkip() { if (Date.now() - (UI.rt0 || 0) > 600) rtFinish(); }
+// v230: 띄울 줄이 남았으면 지금 떠 있는 줄만 치우고 다음 줄들을 바로 띄운다 (한 화면씩). 남은 줄이 없으면 닫는다. 한 화면이 다 채워지기 전에 또 누른 것은 한 번으로 본다 (채운 줄을 읽기도 전에 넘어가지 않게)
+function rtSkip() {
+  const now = Date.now(); if (now - (UI.rt0 || 0) <= 600 || now - (UI.rtS || 0) <= 110 * (RT_MAX() - 1) + 150) return;
+  if (!UI.rtQ || !UI.rtQ.length) { rtFinish(); return; }
+  UI.rtS = now; [...$('#rtoast').children].forEach(e => e.remove());
+  UI.rtFast = RT_MAX(); rtShow1(); rtPump(rtGap());
+}
+// 남은 줄까지 한꺼번에 닫기 (Esc)
+function rtClose() { if (Date.now() - (UI.rt0 || 0) > 600) rtFinish(); }
 function billKey(b) { UI.billMap = UI.billMap || {}; const k = UI.billN = (UI.billN || 0) + 1; UI.billMap[k] = b; delete UI.billMap[k - 400]; return k; }
 function billBtnHTML(b) { return `<button class="bill-bn" data-bill="${billKey(b)}">🧾 정산서<span class="bb-t">${U.esc(b.t || '')}</span></button>`; }
 function billHTML(b) {
@@ -2935,8 +2960,8 @@ document.addEventListener('click', e => {
   }
 });
 document.addEventListener('keydown', e => {
-  // 성과 토스트가 떠 있으면 (v176): 스페이스바 · 엔터 · Esc = 넘기기. 다른 키는 막는다 (뒤의 진행 버튼이 눌리지 않게)
-  if (rtOn()) { if (['Space', 'Enter', 'NumpadEnter', 'Escape'].includes(e.code)) { e.preventDefault(); if (!e.repeat) rtSkip(); } return; }
+  // 성과 토스트가 떠 있으면 (v176): 스페이스바 · 엔터 = 떠 있는 줄만 넘기기 (v230), Esc = 모두 닫기. 다른 키는 막는다 (뒤의 진행 버튼이 눌리지 않게)
+  if (rtOn()) { if (['Space', 'Enter', 'NumpadEnter', 'Escape'].includes(e.code)) { e.preventDefault(); if (!e.repeat) (e.code === 'Escape' ? rtClose() : rtSkip()); } return; }
   if (e.key === 'Escape' || e.code === 'Escape') { if (escClose()) e.preventDefault(); return; }
   // 실시간 창이 떠 있으면 스페이스바 · 엔터 = 결과 바로 보기 (뒤의 창보다 먼저)
   if (liveOn() && (e.code === 'Space' || e.key === 'Enter')) { e.preventDefault(); if (!e.repeat) liveClose(); return; }

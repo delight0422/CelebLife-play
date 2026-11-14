@@ -2483,7 +2483,10 @@ E({
     if (d.peak && (!t.bestPeak || d.peak < t.bestPeak)) t.bestPeak = d.peak;
     // 발매 결과 카드 (v118 UI C1): 내 노래 · 랩 · 무대, 곡, 팬, 유행, 컨셉 궁합, 홍보
     const sp = soloScore(s, t.type), ty = t.type === 'rap' ? 'rap' : t.type === 'perf' ? 'perf' : 'vocal';
-    const F = [{ z: (sp - 45) / 18, g: { vocal: ['목소리가 곡을 꽉 채운다', '노래 실력이 확실하다'], rap: ['랩이 귀에 꽂힌다', '플로우가 살아 있다'], perf: ['퍼포먼스가 눈을 못 떼게 한다', '무대 장악력이 대단하다'] }[ty], b: { vocal: ['노래가 곡을 다 못 받쳐 준다'], rap: ['랩이 조금 어설프다'], perf: ['무대가 아직 덜 여물었다'] }[ty] },
+    // v230: 아쉬운 말은 실제로 약한 쪽을 짚는다. 대표 특기(보컬형 노래 · 래퍼형 랩 · 퍼포먼스형 춤)는 쓸 만한데(45레벨부터) 둘째 특기(춤 · 퍼포먼스형은 노래나 랩)가 10레벨 넘게 처지면 둘째 쪽을 말한다 (예전에는 늘 대표 특기를 탓했다)
+    const mLv = lv(p, ty === 'perf' ? 'dance' : ty), sLv = ty === 'perf' ? Math.max(lv(p, 'vocal'), lv(p, 'rap')) : lv(p, 'dance'), subWeak = mLv >= 45 && sLv < mLv - 10;
+    const F = [{ z: (sp - 45) / 18, g: { vocal: ['목소리가 곡을 꽉 채운다', '노래 실력이 확실하다'], rap: ['랩이 귀에 꽂힌다', '플로우가 살아 있다'], perf: ['퍼포먼스가 눈을 못 떼게 한다', '무대 장악력이 대단하다'] }[ty],
+      b: (subWeak ? { vocal: ['노래는 좋은데 무대가 심심하다', '춤이 노래를 못 따라간다'], rap: ['랩은 좋은데 무대가 심심하다', '무대 위 몸짓이 어색하다'], perf: ['춤은 좋은데 라이브가 불안하다', '라이브가 춤을 못 따라간다'] } : { vocal: ['노래가 곡을 다 못 받쳐 준다'], rap: ['랩이 조금 어설프다'], perf: ['무대가 아직 덜 여물었다'] })[ty] },
       RX.q(d.q), RX.fans(totalFans(s), d.gain), RX.trend(!!d.tr, d.ht), RX.cf(cScoreB(cf)), RX.promo(signed ? t.tier : 0)];
     d.card = songCardMake({ dance: t.type !== 'rap', t: d.title, by: actName(s, 'solo'), peak: d.peak, wins: d.wins, fans: [['내 팬', d.gain]], pay: gross > 0 ? d.sale : null, bill: d.bill }, F, sc, t);
     if (d.mk) d.card.mk = d.mk;
@@ -2522,7 +2525,7 @@ E({
     // 45세부터는 회사가 재계약을 망설인다 (한 살마다 받아 줄 가능성이 준다)
     const p = age(s) < 45 ? 1 : Math.max(0.15, 1 - (age(s) - 44) * 0.15);
     return [
-      { t: `${josa(t.agN, '과와')} 재계약`, h: `회사 몫 ${Math.round(d.stayCut * 100)}%로 낮춰 준다 · 4년${p < 1 ? ` · 회사가 받아 줄 가능성 ${fmtPct(p)}` : ''}`, f: s => { if (!U.chance(p)) { t.hist.push(`${t.agN} (재계약 불발)`); t.st = 'indie'; t.ag = null; t.agN = ''; t.cut = 0; t.tier = 0; t.debt = 0; t.nextRel = 3; return '회사가 재계약을 거절했다. 이제 인디로 활동한다.' + fx(s, { stress: 6 }); } t.months = 0; t.contract = 48; t.cut = d.stayCut; return `${josa(t.agN, '과와')} 재계약했다.`; } },
+      { t: `${josa(t.agN, '과와')} 재계약`, h: `회사 몫 ${Math.round(d.stayCut * 100)}%로 낮춰 준다 · 4년${p < 1 ? ` · 회사가 받아 줄 가능성 ${fmtPct(p)}` : ''}`, f: s => { if (!U.chance(p)) { t.hist.push(`${t.agN} (재계약 불발)`); t.st = 'indie'; t.ag = null; t.agN = ''; t.cut = 0; t.tier = 0; t.debt = 0; t.nextRel = 3; return '회사가 재계약을 거절했다. 이제 인디로 활동한다.' + fx(s, { stress: 6 }); } t.sayM = (t.sayM || 0) + (t.months || 0); t.months = 0; t.contract = 48; t.cut = d.stayCut; return `${josa(t.agN, '과와')} 재계약했다.`; } },
       { t: '회사를 나와 인디로 활동한다', f: s => { t.hist.push(`${t.agN} (계약 만료)`); t.st = 'indie'; t.ag = null; t.agN = ''; t.cut = 0; t.tier = 0; t.debt = 0; t.nextRel = 3; s.cd.agOffer = s.t + 2; return '회사를 나와 혼자 음악을 하기로 했다.'; } },
     ];
   },
@@ -2775,7 +2778,8 @@ function musAlbMonth(s, k) {
   }
   queueEv(s, a && a.five ? k + '_sel' : t.st === 'signed' ? k + '_meet' : k + '_plan', 0, {});
 }
-function musSay(s, k) { return musFans(s, k) >= 3e5 || (s.tracks[k].months || 0) >= 48; }
+// v230: 솔로는 같은 회사와 재계약하면 계약 개월(months)이 0으로 돌아가므로, 그 전까지 활동한 달을 sayM에 모아 함께 센다 (예전엔 재계약하면 회의에서 빠졌다). 밴드의 months는 활동 개월이라 그대로
+function musSay(s, k) { const t = s.tracks[k]; return musFans(s, k) >= 3e5 || (t.months || 0) + (t.sayM || 0) >= 48; }
 // 그 컨셉이 무대에 서는 사람들에게 어울리는 정도 (곡 점수에 더해지는 만큼. 힙합은 랩 실력으로 본다: 랩 30레벨이 0)
 function cFitV(s, P, c) { const R = cFit(s, c, P, stageYrs(s)); return R.rap != null ? (R.rap - 30) / 5 : cScoreB(R); }
 function musFitV(s, k, c) { return cFitV(s, musPpl(s, k), c); }
