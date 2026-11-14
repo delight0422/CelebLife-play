@@ -17,6 +17,9 @@ function stageLv(s, k) { const p = me(s); return (has(p, k) ? lv(p, k) : 0) + (t
 // 또래 기준만큼 하면 65% 안팎, 5레벨 차이마다 크게 달라진다. off가 클수록 어려운 곳
 function schoolP(s, lvl, off = 0, lo = 0.05) { return U.clamp(U.sig((lvl - peerLv(s) - off + 3) / 5), lo, 0.95); }
 
+// v220: 중 · 고등학생이 일정 칸을 전부 연습 · 일로 채우면(놀기 · 쉬기 칸이 하나도 없으면) 학교에서 생기는 일(좋아하는 사람 · 축제)이 드물어진다
+function kidBusy(s) { return age(s) < 19 && schoolYear(s) >= 7 && !s.edu.graduated && s.slots.length > 0 && !s.slots.some(sl => ['play', 'rest', 'sick', 'taegyo'].includes(sl.act)); }
+function kidFreeM(s) { return kidBusy(s) ? 0.3 : 1; }
 // ── 연애 공통 ──
 // 미성년자와 성인 사이의 고백은 받아 주지 않는다 (가능성 0%)
 function kidToAdult(s, n) { return age(s) < 19 && pAge(s, n) >= 19; }
@@ -358,7 +361,8 @@ E({
   id: 'club', fixed: true, once: true, cat: '고등학교', title: '동아리 고르기',
   cond: s => schoolYear(s) >= 10 && !s.edu.graduated && (schoolYear(s) > 10 || calM(s) >= 3),
   text: () => '고등학교 동아리 신청 기간이다. 어디에 들어갈까?\n\n동아리에서 하는 특기는 졸업할 때까지 더 빨리 는다.',
-  init(s, d) { d.o = fitPick(s, CLUBS.filter(x => skOpen(s, x[1])), 5); },
+  // v220: 예술고 실용음악과에는 합창부 대신 밴드부 (보컬)이 있다 (다른 학교는 합창부만)
+  init(s, d) { const mus = s.edu.hs === '예술고 실용음악과'; d.o = fitPick(s, CLUBS.map(x => mus && x[1] === 'vocal' ? ['밴드부 (보컬)', 'vocal'] : x).filter(x => skOpen(s, x[1])), 5); },
   ch: (s, d) => d.o.map(([t, k]) => ({ t, h: has(me(s), k) ? `${skN(k)} 연습이 더 빨리 는다` : gainH(s, k), f: s => { s.edu.club = k; return `${t.replace(/ \(.*\)/, '')}에 들어갔다.` + learnMe(s, k) + fx(s, { sk: { [k]: 1 } }); } })).concat([{ t: '귀가부', h: '집에 일찍 와서 공부한다 · 학업이 오른다', f: s => { s.flags.homeClub = true; return '동아리는 들지 않았다. 집에 일찍 와서 공부하는 시간이 늘었다.' + fx(s, { sk: { study: 3 } }); } }]),
 });
 E({
@@ -371,7 +375,7 @@ E({
   ],
 });
 E({
-  id: 'first_love', once: true, p: 0.04, cat: '학창 시절', title: '좋아하는 사람',
+  id: 'first_love', once: true, p: s => 0.04 * kidFreeM(s), cat: '학창 시절', title: '좋아하는 사람',
   cond: s => age(s) >= 14 && age(s) <= 18 && !partner(s),
   init(s, d) { const g0 = myGender(s); d.g = g0 === '여' ? '남' : '여'; d.name = genName(d.g); d.trait = U.pick(TRAITS).id; d.look = U.pick(d.g === '여' ? LOOKS_F : LOOKS_M); d.orient = 's'; },
   text: (s, d) => `같은 반 ${d.name}(${d.g === '여' ? '여자' : '남자'})${josa(d.name, '이가').slice(d.name.length)} 자꾸 눈에 들어온다. ${traitLine(d.trait)}`,
@@ -386,7 +390,7 @@ E({
   },
 });
 E({
-  id: 'festival', cd: 12, p: 0.05, cat: '학교', title: '학교 축제',
+  id: 'festival', cd: 12, p: s => 0.05 * kidFreeM(s), cat: '학교', title: '학교 축제',
   cond: s => (schoolYear(s) >= 7 && !s.edu.graduated) || inUni(s),
   init(s, d) { const un = [['노래로 무대에 선다', 'vocal'], ['춤으로 무대에 선다', 'dance'], ['연극 무대에 선다', 'acting'], ['밴드 공연에 낀다', 'guitar'], ['사회를 본다', 'variety'], ['랩 무대를 한다', 'rap']].filter(x => !has(me(s), x[1]) && skOpen(s, x[1])); d.nw = un.length && learnedSkills(me(s)).length < 8 && U.chance(0.15) ? fitPick(s, un, 1)[0] : null; },
   text: () => '학교 축제가 다가온다. 무대에 설 사람을 찾는다.',

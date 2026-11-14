@@ -42,7 +42,9 @@ function bar(v, max = 100, cls = '') { return `<div class="bar ${cls}"><i style=
 const TURN_MS = 230;
 // 일정 칸이 생기기 전(초등학교 입학 전)에는 최대 24개월까지 넘어가다 특별한 일(일상이 아닌 기록)이 생기면 멈춘다 (v121: 예전엔 7세까지 제한 없이)
 // 초등학교에 들어가 일정을 정할 수 있게 되면 그 달에 멈추고, 그 뒤로는 최대 6개월
-function turnMax(s) { return slotCount(s) ? 6 : 24; }
+// v220: 중학교에 들어가기 전(초등학교 6학년까지)에는 일곱 살 전처럼 빨리 넘어간다 — 특별한 일이 있거나 일정 칸이 늘 때만 멈춘다
+function turnKid(s) { return schoolYear(s) < 7; }
+function turnMax(s) { return turnKid(s) ? 24 : 6; }
 function turnKidSpecial(s, T) { const i = T.last ? s.log.lastIndexOf(T.last) + 1 : 0; return s.log.slice(i).some(x => x.k !== 'flavor'); }
 // 예전 실시간 흐름을 부르던 자리(startLoop · kickLoop)는 그대로 두고 아무것도 하지 않는다
 function startLoop() { }
@@ -56,7 +58,7 @@ function turnGo(max) {
   if (UI.overlay) closePanel();
   const p = me(s);
   // 요약에는 이번에 넘어간 동안 생긴 일만 넣는다 (창에서 고른 결과 · 버튼으로 한 일은 이미 아는 일이라 넣지 않는다)
-  UI.turn = { max, kid: !slotCount(s), n: 0, last: s.log[s.log.length - 1] || null, t0: s.t, inbox: new Set(s.inbox.map(m => m.id)), money: s.money, fans: totalFans(s), stress: Math.round(s.stress), g0: growSnap(s), why: '', co: trackOn(s, 'agency') ? s.tracks.agency.money : null, inc: (MONEY_TAP = {}), acc0: ledSnapA(s), gf0: ledGF(s) };
+  UI.turn = { max, kid: turnKid(s) && max > 1, sl0: slotCount(s), n: 0, last: s.log[s.log.length - 1] || null, t0: s.t, inbox: new Set(s.inbox.map(m => m.id)), money: s.money, fans: totalFans(s), stress: Math.round(s.stress), g0: growSnap(s), why: '', co: trackOn(s, 'agency') ? s.tracks.agency.money : null, inc: (MONEY_TAP = {}), acc0: ledSnapA(s), gf0: ledGF(s) };
   $('#tcard').innerHTML = turnRunHTML(s); $('#tcard').classList.add('run'); // v205: 진행 중 화면은 작게 그대로
   $('#turn').classList.remove('hidden');
   UI.timer = setTimeout(turnStep, TURN_MS);
@@ -69,7 +71,7 @@ function turnStep() {
   T.n++;
   save(s); render();
   // v196: 경고(s.warnT, 그만둘까 고민하는 연습생)가 생긴 달에도 멈춘다
-  T.why = s.ended ? 'end' : s.pending ? 'ev' : s.inbox.some(m => !T.inbox.has(m.id)) ? 'msg' : s.warnT === s.t ? 'warn' : T.n >= T.max ? 'max' : T.kid && (slotCount(s) || turnKidSpecial(s, T)) ? 'sp' : '';
+  T.why = s.ended ? 'end' : s.pending ? 'ev' : s.inbox.some(m => !T.inbox.has(m.id)) ? 'msg' : s.warnT === s.t ? 'warn' : T.n >= T.max ? 'max' : T.kid && (slotCount(s) !== T.sl0 || !turnKid(s) || turnKidSpecial(s, T)) ? 'sp' : '';
   $('#tcard').innerHTML = T.why ? turnSumHTML(s, T) : turnRunHTML(s); $('#tcard').classList.toggle('run', !T.why);
   if (!T.why) UI.timer = setTimeout(turnStep, TURN_MS);
 }
@@ -450,6 +452,7 @@ function renderSchedule() {
     }
     h += `</div>`;
   });
+  if (typeof kidBusy === 'function' && kidBusy(s)) h += `<div class="slot-over">🎒 놀 틈이 없다<br><span class="hint">놀기 · 쉬기 칸이 하나도 없으면 학교에서 생기는 일(축제 · 좋아하는 사람)이 드물어진다</span></div>`;
   // 고정 일정에 밀려 칸 밖으로 나간 일정 (고정 일정이 끝나면 다시 올라온다)
   const over = (s.slotOver || []).filter(e => !e.dflt);
   if (over.length) h += `<div class="slot-over">⤵ 밀려난 일정: ${over.map(e => U.esc(actInfo(e.act).n)).join(' · ')}<br><span class="hint">칸이 늘거나 고정 일정이 끝나면 다시 올라온다</span></div>`;
@@ -1057,6 +1060,7 @@ function logTone(x) {
 // v219: 수치가 바뀐 결과('[팬 +300]')와 결과를 기다리게 된 지원은 잘됐다 · 안됐다 낱말이 없어도 토스트로 알린다
 const TONE_SHOW = /\([^()]*(?:[+\-]\d|[↑↓])[^()]*\)|결과는 [^.]{0,14}(?:나온다|알 수 있다)/;
 function ctoastShow(o) {
+  if (S && S.ended) { CT_Q = []; return; } // v220: 인생이 끝난 뒤에는 토스트를 띄우지 않고, 모아 둔 것도 버린다
   // v214: o.all — 결과가 정해져 있지 않던 선택(확률을 굴린 선택)은 잘됐다 · 안됐다 낱말이 없는 줄도 띄운다 (일상 줄은 빼고)
   const L = (o.L || []).map(x => [x, logTone(x)]).filter(([x, tn]) => tn || (x.k !== 'flavor' && TONE_SHOW.test(String(x.x || '')) && !TONE_SKIP.test(String(x.x))) || (o.all && x.k !== 'flavor' && String(x.x || '').trim() && !TONE_SKIP.test(String(x.x))));
   if (!L.length) return; // v209: 잘됐다 · 안됐다가 없는 결과는 토스트를 띄우지 않는다
@@ -1085,6 +1089,7 @@ function ctWatch() {
   if (CT_TM) return;
   CT_TM = setInterval(() => {
     const box = $('#ctoast'), live = box ? [...box.children].filter(c => !c.classList.contains('out')) : [];
+    if (S && S.ended) CT_Q = [];
     if (ctBlocked()) { const young = live.filter(e => e._o && Date.now() - e._t < 2500).map(e => e._o); live.forEach(ctOut); if (young.length) CT_Q = young.concat(CT_Q); }
     else if (CT_Q.length) { const Q = CT_Q.slice(-4); CT_Q = []; for (const o of Q) ctoastShow(Object.assign({}, o, { now: 1 })); }
     if (!CT_Q.length && !(box && box.children.length)) { clearInterval(CT_TM); CT_TM = null; }

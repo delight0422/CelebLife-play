@@ -2260,7 +2260,7 @@ E({
     return SOLO_TYPES.filter(([type]) => soloTypeOK(s, type)).map(([type, , n]) => { const k = type === 'perf' ? 'dance' : type;
       const pp = ag ? soloAudP(s, ag, type) : 0;
       return { t: n, h: `${SKILLS[k].n} ${lvi(p, k)}레벨` + (type === 'perf' ? ` · ${SKILLS[perfVoice(p)].n} ${lvi(p, perfVoice(p))}레벨` : '') + (ag ? ` · 합격 가능성 ${fmtPct(pp)}` : ''), f: s => {
-        if (d.indie) { const old = s.tracks.solo; s.tracks.solo = { st: 'indie', type, months: 0, rel: old.rel || 0, nextRel: 3, bestPeak: old.bestPeak || null, yearBest: 0, mkt: 'kr', cut: 0, tier: 0, sn: old.sn, hist: old.hist || [] }; milestone(s, `${age(s)}세에 인디 ${soloTypeN(type)}${josa(soloTypeN(type), '으로').slice(soloTypeN(type).length)} 활동을 시작했다.`); return `인디 ${soloTypeN(type)}${josa(soloTypeN(type), '으로').slice(soloTypeN(type).length)} 활동을 시작했다. 일정에 '가수 활동'을 넣어야 공연을 한다.`; }
+        if (d.indie) { const old = s.tracks.solo; s.tracks.solo = { st: 'indie', type, months: 0, rel: old.rel || 0, nextRel: 3, bestPeak: old.bestPeak || null, yearBest: 0, mkt: 'kr', cut: 0, tier: 0, sn: old.sn, hist: old.hist || [], liveT: old.liveT, liveN: old.liveN, ostMs: old.ostMs, xcd: old.xcd }; milestone(s, `${age(s)}세에 인디 ${soloTypeN(type)}${josa(soloTypeN(type), '으로').slice(soloTypeN(type).length)} 활동을 시작했다.`); return `인디 ${soloTypeN(type)}${josa(soloTypeN(type), '으로').slice(soloTypeN(type).length)} 활동을 시작했다. 일정에 '가수 활동'을 넣어야 공연을 한다.`; }
         s.cd['saud_' + d.ag] = s.t + 12; queueEv(s, 'solo_aud', 1, { ag: d.ag, p: pp, type }); return `${ag.n} 솔로 오디션을 ${josa(type === 'rap' ? '랩' : type === 'perf' ? '퍼포먼스' : '노래', '으로')} 봤다. 결과는 다음 달에 나온다.`;
       } };
     }).concat([{ t: '그만둔다', f: () => '다음에 하기로 했다.' }]);
@@ -2269,7 +2269,7 @@ E({
 function startSoloSigned(s, agId, o = {}) {
   const ag = AG[agId], old = s.tracks.solo;
   const type = o.type || old.type || bestSoloType(s);
-  s.tracks.solo = { st: 'signed', type, ag: agId, agN: ag.n, tier: ag.tier, cut: o.cut || ag.cut, mkt: ag.mkt, months: 0, contract: o.months || 60, rel: old.rel || 0, nextRel: 2, bestPeak: old.bestPeak || null, yearBest: 0, sn: old.sn || s.tracks.idol.sn, hist: old.hist || [], withGroup: !!o.withGroup };
+  s.tracks.solo = { st: 'signed', type, ag: agId, agN: ag.n, tier: ag.tier, cut: o.cut || ag.cut, mkt: ag.mkt, months: 0, contract: o.months || 60, rel: old.rel || 0, nextRel: 2, bestPeak: old.bestPeak || null, yearBest: 0, sn: old.sn || s.tracks.idol.sn, hist: old.hist || [], withGroup: !!o.withGroup, liveT: old.liveT, liveN: old.liveN, ostMs: old.ostMs, xcd: old.xcd };
   milestone(s, `${age(s)}세에 ${josa(ag.n, '과와')} 솔로 ${soloTypeN(type)} 계약을 했다.`);
   askStageName(s, 'solo', ag.n);
   return `${josa(ag.n, '과와')} 솔로 ${soloTypeN(type)} 계약을 했다. (${yrs(o.months || 60)} · 회사 몫 ${pctN(s.tracks.solo.cut)})`;
@@ -2317,13 +2317,14 @@ CAREERS.solo = {
   },
   actions(s, t) {
     if (t.st === 'indie') return [{ t: '가수 활동 그만두기', ok: true, danger: true, confirm: '정말 가수 활동을 그만둘까요?', run: s => { t.st = 'ended'; t.endNote = `인디 ${soloTypeN(t.type)} 활동 종료`; t.hist.push(t.endNote); return '가수 활동을 그만뒀다.'; } }];
-    if (t.st === 'signed' && !t.withGroup) { const pen = Math.max(1000e4, (t.contract - t.months) * 100e4 * t.tier); return songSubActs(s, t).concat([{ t: '회사와 계약 해지', h: `계약이 ${Math.max(0, t.contract - t.months)}개월 남았다 · 위약금 ${fmtWon(pen)} · 해지하면 인디 가수로 활동한다`, ok: true, danger: true, confirm: `${josa(t.agN, '과와')}의 계약을 해지할까요? 위약금 ${fmtWon(pen)}을 물어야 해요.`, run: s => { s.debt += pen; const n = t.agN; t.hist.push(`${n} (계약 해지)`); t.st = 'indie'; t.ag = null; t.agN = ''; t.cut = 0; t.tier = 0; t.nextRel = 3; s.cd.agOffer = s.t + 12; return `${josa(n, '과와')}의 솔로 계약을 해지했다. 이제 인디로 활동한다.` + fx(s, { rep: -5 }); } }]); }
+    if (t.st === 'signed' && !t.withGroup) { const pen = Math.max(1000e4, (t.contract - t.months) * 100e4 * t.tier); return [{ t: '회사와 계약 해지', h: `계약이 ${Math.max(0, t.contract - t.months)}개월 남았다 · 위약금 ${fmtWon(pen)} · 해지하면 인디 가수로 활동한다`, ok: true, danger: true, confirm: `${josa(t.agN, '과와')}의 계약을 해지할까요? 위약금 ${fmtWon(pen)}을 물어야 해요.`, run: s => { s.debt += pen; const n = t.agN; t.hist.push(`${n} (계약 해지)`); t.st = 'indie'; t.ag = null; t.agN = ''; t.cut = 0; t.tier = 0; t.nextRel = 3; t.subSong = t.subLyr = false; s.cd.agOffer = s.t + 12; return `${josa(n, '과와')}의 솔로 계약을 해지했다. 이제 인디로 활동한다.` + fx(s, { rep: -5 }); } }]; }
     return t.st === 'signed' ? songSubActs(s, t) : [];
   },
   monthly(s, t) {
     if (t.st !== 'indie' && t.st !== 'signed') return;
     t.months++;
     if (typeof soloWaysMonth === 'function') soloWaysMonth(s, t);
+    if (typeof soloExtraMonth === 'function') soloExtraMonth(s, t); // v220: OST · 피처링 · 단독 공연
     if (calM(s) === 11) musicAwards(s, t, actName(s, 'solo'), musicRookie(s, t.rel > 0), 'solo');
     if (t.withGroup && s.tracks.idol.st !== 'active') t.withGroup = false;
     // 45세가 넘으면 인기가 꾸준히 떨어진다 (한 살 많을수록 더)
@@ -2570,7 +2571,7 @@ JOB_APPLY.push({
 E({
   id: 'player_pick', cat: '연주가', title: '어떤 악기로 활동할까?', tag: 'career',
   text: () => '연주가로 무대에 서 보자. 어떤 악기로 활동할까?',
-  ch: s => INSTS.filter(k => lv(me(s), k) >= 15).map(k => ({ t: `${SKILLS[k].n} (${lvi(me(s), k)}레벨)`, f: s => { const old = s.tracks.player; s.tracks.player = { st: 'active', inst: k, months: 0, rel: old.rel || 0, nextRel: U.int(6, 9), rep: old.rep || 5, sessions: old.sessions || 0, bestPeak: old.bestPeak || null, yearBest: 0, sn: old.sn, hist: old.hist || [] }; milestone(s, `${age(s)}세에 ${SKILLS[k].n} 연주가로 활동을 시작했다.`); return `${SKILLS[k].n} 연주가로 활동을 시작했다. 일정에 '연주 활동'을 넣어야 공연을 한다.`; } })).concat([{ t: '그만둔다', f: () => '다음에 하기로 했다.' }]),
+  ch: s => INSTS.filter(k => lv(me(s), k) >= 15).map(k => ({ t: `${SKILLS[k].n} (${lvi(me(s), k)}레벨)`, f: s => { const old = s.tracks.player; s.tracks.player = { st: 'active', inst: k, months: 0, rel: old.rel || 0, nextRel: U.int(6, 9), rep: old.rep || 5, sessions: old.sessions || 0, bestPeak: old.bestPeak || null, yearBest: 0, sn: old.sn, hist: old.hist || [], liveT: old.liveT, liveN: old.liveN, ostMs: old.ostMs, xcd: old.xcd }; milestone(s, `${age(s)}세에 ${SKILLS[k].n} 연주가로 활동을 시작했다.`); return `${SKILLS[k].n} 연주가로 활동을 시작했다. 일정에 '연주 활동'을 넣어야 공연을 한다.`; } })).concat([{ t: '그만둔다', f: () => '다음에 하기로 했다.' }]),
 });
 CAREERS.player = {
   n: '솔로 뮤지션 (연주가)', ic: '🎹',
