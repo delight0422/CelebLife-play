@@ -301,7 +301,7 @@ function coFName(t, f) { return f === t.main ? t.name : (t.f[f] && t.f[f].name) 
 E({
   id: 'co_new', cat: '창업', tag: 'career',
   title: (s, d) => d.sub ? '자회사 세우기 · 분야 고르기' : '회사 차리기 · 분야 고르기',
-  text: (s, d) => d.sub ? `${coGrpName(coT(s))} 아래에 어떤 자회사를 세울까? 모회사가 ${fmtWon(CO_ADD_COST)}을 출자해 세운다 (자회사 자본금이 된다). 처음 평판은 그룹 등급을 따른다 (지금 ${Math.round(coSubRep(coT(s)))}).\n\n모회사 자본금 ${fmtWon(coM(coT(s)))}`
+  text: (s, d) => d.sub ? `${coGrpName(coT(s))} 아래에 어떤 자회사를 세울까? 모회사가 ${fmtWon(CO_ADD_COST)}을 출자해 세운다 (자회사 자본금이 된다). 처음 평판은 그룹 등급을 따른다.\n\n모회사 자본금 ${fmtWon(coM(coT(s)))}`
     : `어떤 회사를 차릴까? 분야마다 하는 일이 다르다. 자본금은 내 돈에서 넣는다 (어디에 차리느냐에 따라 ${fmtWon(CO_SEED)}부터).\n\n내 돈 ${fmtWon(s.money)}`,
   ch: (s, d) => (d.sub ? coSubLeft(coT(s)) : Object.keys(CO_FIELDS)).map(f => ({ fid: f, t: `${CO_FIELDS[f].ic} ${CO_FIELDS[f].n}`, h: CO_FIELDS[f].what, f: s => { fireEvent(s, 'co_found', { f, sub: !!d.sub }); return ''; } }))
     .concat([{ t: '다음에 한다', f: () => '' }]),
@@ -380,7 +380,7 @@ E({
     if (!(cap >= CO_LOC[loc].cap)) return { err: `${REGION_BY[loc].n}에 차리려면 자본금이 ${fmtWon(CO_LOC[loc].cap)}부터예요` };
     if (cap > s.money) return { err: `내 돈이 모자라요 (지금 ${fmtWon(s.money)})` };
     const old = s.tracks.agency || {};
-    const t = s.tracks.agency = { st: 'active', name, main: d.f, loc, founded: calY(s), months: 0, money: 0, inv: 0, out: 0, f: { [d.f]: { rep: 10, tier: 1, money: 0, since: s.t, cap: 0, re: 0, L: {}, Y: {} } }, tr: [], groups: [], staff: [], crs: [], vw: [], vdone: [], aw: [], adone: [], past: [], eq: 0, audCd: {}, gen: {}, L: {}, lastL: {}, Y: {}, lastY: {}, peakF: 0, rankMax: 0, awN: 0, hist: (old.hist || []).concat(old.name ? [coHistLine(old)] : []) };
+    const t = s.tracks.agency = { st: 'active', name, main: d.f, loc, founded: calY(s), months: 0, money: 0, inv: 0, out: 0, f: { [d.f]: { rep: coExp(s, d.f) ? 10 : 5, tier: 1, money: 0, since: s.t, cap: 0, re: 0, L: {}, Y: {} } }, tr: [], groups: [], staff: [], crs: [], vw: [], vdone: [], aw: [], adone: [], past: [], eq: 0, audCd: {}, gen: {}, L: {}, lastL: {}, Y: {}, lastY: {}, peakF: 0, rankMax: 0, awN: 0, hist: (old.hist || []).concat(old.name ? [coHistLine(old)] : []) };
     coDeposit(s, t, cap); t.f[d.f].cap = cap;
     // 설립 등기 등록면허세 (v169): 자본금의 0.48%, 서울 · 경기 · 인천이면 3배
     const regTax = coOut(t, Math.round(cap * coRegRate(s, t, d.f) / 1e4) * 1e4, '등록면허세', d.f);
@@ -2019,9 +2019,12 @@ function coViYear(s, t) {
 // 자회사 세우기: 어느 분야든 중형이 되면, 그룹 자본금으로 다른 분야의 자회사를 세운다 (새 자회사는 소형부터, 이름은 따로)
 // 새 자회사 (v169): 모회사가 5억을 출자하고, 처음 평판은 그룹 등급을 따른다 (그룹 이름값은 따로 두지 않는다, 사용자 결정)
 const CO_SUB_REP = [10, 10, 14, 18, 24, 30, 36];
+// v213: 그 분야에서 일해 본 적(연습생 포함)이 없으면 새 회사의 시작 평판이 절반이다. 화면에는 따로 알리지 않는다
+const CO_EXP = { music: ['idol', 'band', 'solo', 'player', 'composer', 'lyricist', 'producer', 'anr', 'trainer', 'dancer', 'marketer'], vidol: ['vidol', 'youtube', 'editor'], mcn: ['youtube', 'vidol', 'editor'], video: ['actor', 'director', 'writer', 'acttrainer', 'variety', 'editor', 'model'], anime: ['animator', 'adir', 'voice', 'webtoon', 'webnovel', 'illust'] };
+function coExp(s, f) { const done = new Set((s.careerLog || []).map(c => c.id).concat(Object.keys(s.carOn || {}))); return (CO_EXP[f] || []).some(id => done.has(id) || (s.tracks[id] && s.tracks[id].st && s.tracks[id].st !== 'none')); }
 function coSubRep(t) { return CO_SUB_REP[Math.max(coRank(t), t.rankMax || 0)] || 10; }
 function coAddSub(s, t, f, name) {
-  const rep = coSubRep(t);
+  const rep = Math.round(coSubRep(t) * (coExp(s, f) ? 1 : 0.5));
   t.f[f] = { rep, tier: coTierOfRep(rep, 1), name, money: 0, since: s.t, cap: 0, re: 0, L: {}, Y: {} };
   coInvest(s, t, f, CO_ADD_COST);
   (s.usedNames = s.usedNames || []).push(name);

@@ -248,8 +248,8 @@ function continueAs(s, kidId) {
   ns.persona = pickPersona(kid);
   ns.health = U.wpick(HEALTHS, h => h.w).id;
   ns.stress = 5; ns.rep = 60; ns.fame = 0; ns.buzz = 0; ns.jpop = {};
-  // v212: 유명한 부모의 아이는 태어날 때부터 알려져 있다 (부모 인지도의 80~95%에서 시작, 60%는 바닥으로 남는다)
-  { const pf = Math.max(s.fame || 0, s.fameMin || 0); if (pf >= 10) { ns.fame = Math.round(pf * U.fl(0.8, 0.95)); ns.fameMin = Math.round(pf * 0.6); } }
+  // v213: 유명한 부모의 아이는 부모 인지도의 60%에서 시작한다. 바닥은 없다 (활동을 안 하면 다른 사람처럼 천천히 잊힌다)
+  ns.fame = Math.round((s.fame || 0) * 0.6);
   for (const id of CAREER_IDS) ns.tracks[id] = { st: 'none' };
   ns.trend = s.trend; ns.trendTV = s.trendTV;
   // 같은 세상이 이어지니 회사 이름도 그대로 (v115: 예전엔 빠져서 다시 불러오면 처음 이름으로 돌아갔다)

@@ -966,7 +966,8 @@ function marryNow(s, wedding = 2000e4, why) {
   // 기획사 숙소에 살다 결혼하면 숙소를 나와 신혼집으로 간다 (숙소를 나올 때 묻는 창은 다시 띄우지 않는다)
   if (s.home.mode === 'parents' && !isDorm(s) && !s.army) { moveTo(s, s.region, 'monthly', 'm'); mv = ` ${wasDorm ? '기획사 숙소' : '본가'}에서 나와 ${s.place}에 신혼집(${homeName('monthly', 'm')})을 구했다.`; if (wasDorm) s.dormWas = false; }
   else if (s.home.mode === 'alone' && homeSize(s.home) === 's' && !isDorm(s) && !s.army) queueEv(s, 'home_wed', 0);
-  return (why || `${josa(p.name, '과와')} 결혼했다!`) + (sv > 0 ? ` 두 사람의 재산을 합쳤다. (${josa(p.name, '이가')} 모아 둔 돈 ${fmtWon(sv)})` : '') + mv + fx(s, { money: -wedding, stress: -12 });
+  let tm = ''; { const it = s.tracks.idol; if (it && it.st === 'trainee' && it.team) { it.team = false; it.prep = 0; tm = ` 결혼 소식을 들은 ${it.agN}에서 나를 데뷔조에서 뺐다.`; } }
+  return (why || `${josa(p.name, '과와')} 결혼했다!`) + tm + (sv > 0 ? ` 두 사람의 재산을 합쳤다. (${josa(p.name, '이가')} 모아 둔 돈 ${fmtWon(sv)})` : '') + mv + fx(s, { money: -wedding, stress: -12 });
 }
 // 결혼하면 원룸(작은 집)에서 살 수 없다: 같은 동네의 둘이 살 집(투룸·아파트)으로 옮긴다. 월세 투룸은 돈이 모자라도 고를 수 있다 (빚이 된다)
 E({
@@ -1012,6 +1013,7 @@ E({
       { t: '결혼한다', h: '결혼식 1,000만 원 · 결혼하면 두 사람의 재산을 합친다 · 아이는 일곱 달쯤 뒤에 태어난다', f: s => {
         const x = marryNow(s, 1000e4, `서둘러 ${josa(p.name, '과와')} 결혼했다. 작은 결혼식을 올렸다.`);
         queueEv(s, 'oops_birth', 7, {}, true);
+        if (myGender(s) === '여') s.preg = { left: 7 };
         // 이름이 알려진 사람이면 '속도위반 결혼' 기사가 난다. 아이돌·버튜버는 팬이 많이 떠난다
         let news = '';
         if (d.fame) {
@@ -1026,7 +1028,8 @@ E({
         s.flags.oopsLeft = { id: p.id, t: s.t };
         // 아이는 상대가 키운다. 나는 매달 양육비를 보낸다 (자녀로 남는다)
         queueEv(s, 'oops_birth', 7, { ex: p.id }, true);
-        const x = `${josa(p.name, '과와')} 헤어졌다. 아이는 ${josa(p.name, '이가')} 혼자 낳아 키우겠다고 했다.`;
+        if (myGender(s) === '여') s.preg = { left: 7 };
+        const x = myGender(s) === '여' ? `${josa(p.name, '과와')} 헤어졌다. 아이는 낳은 뒤 ${josa(p.name, '이가')} 데려가 키우기로 했다.` : `${josa(p.name, '과와')} 헤어졌다. 아이는 ${josa(p.name, '이가')} 혼자 낳아 키우겠다고 했다.`;
         if (d.fame && !s.scandal) { startScandal(s, 'oops', 'real'); return x; }
         return x + fx(s, { rep: -8, stress: 10 });
       } },
@@ -1045,7 +1048,7 @@ E({
     if (ex) { c.withEx = ex.id; aff(c, -35); }
     milestone(s, `${age(s)}세에 ${c.g === '여' ? '딸' : '아들'} ${josa(c.name, '이가')} 태어났다.`);
   },
-  text: (s, d) => { const c = s.people[d.id], ex = d.ex && s.people[d.ex]; return ex ? `${josa(ex.name, '이가')} ${c.g === '여' ? '딸' : '아들'}을 낳았다는 소식을 들었다. 이름은 ${c.name}. 매달 양육비를 보내기로 했다.` : `${c.g === '여' ? '딸' : '아들'}이 태어났다. 이름은 ${c.name}.`; },
+  text: (s, d) => { const c = s.people[d.id], ex = d.ex && s.people[d.ex]; return ex ? (myGender(s) === '여' ? `${c.g === '여' ? '딸' : '아들'}을 낳았다. 이름은 ${c.name}. 약속대로 ${josa(ex.name, '이가')} 데려가 키우고, 나는 매달 양육비를 보내기로 했다.` : `${josa(ex.name, '이가')} ${c.g === '여' ? '딸' : '아들'}을 낳았다는 소식을 들었다. 이름은 ${c.name}. 매달 양육비를 보내기로 했다.`) : `${c.g === '여' ? '딸' : '아들'}이 태어났다. 이름은 ${c.name}.`; },
   kid: (s, d) => d.id,
   ch: (s, d) => [{ t: '확인', f: s => { const c = s.people[d.id]; if (!d.ex) fireEvent(s, 'baby_heir', { id: c.id }); return d.ex ? `${c.name}의 양육비를 보내기 시작했다.` : `${c.g === '여' ? '딸' : '아들'} ${josa(c.name, '이가')} 태어났다.` + fx(s, { stress: -6 }); } }],
 });

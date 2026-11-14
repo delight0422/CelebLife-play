@@ -195,8 +195,9 @@ function gateApplies() {
   for (const a of JOB_APPLY.concat(ACT_APPLY)) {
     const ok = a.ok, why = a.why, job = JOB_APPLY.includes(a), ex = jaTags(a.id);
     const jb = s => job ? (a.trk ? jobBlock(s, a.trk, ex) : '') : aaBlock(s, a);
-    a.ok = s => !s.hiatus && !jb(s) && (!ok || ok(s));
-    a.why = s => s.hiatus ? `자숙 중이다 (${s.hiatus.left}개월 남음)` : jb(s) || (why ? why(s) : '');
+    const pg = s => !!s.preg && (a.trk ? pregBlock(s, a.trk) : !job);
+    a.ok = s => !s.hiatus && !pg(s) && !jb(s) && (!ok || ok(s));
+    a.why = s => s.hiatus ? `자숙 중이다 (${s.hiatus.left}개월 남음)` : pg(s) ? `임신 중이다 (${s.preg.left}개월 뒤 출산)` : jb(s) || (why ? why(s) : '');
   }
 }
 // 지금부터 m개월 뒤가 몇 년 몇 월인지
@@ -679,7 +680,6 @@ function fameBase(s) {
   return 100;
 }
 // v212: 회사 대표는 인기 · 팬이 줄어도 인지도가 내려가지 않고, 회사가 크고 평판이 좋을수록 높은 곳까지 천천히 계속 오른다 (대표로 이름이 알려진다)
-//   유명한 부모에게서 이어받은 인지도(s.fameMin)는 바닥으로 남는다 ('누구의 자녀')
 const FAME_CO = [0, 20, 45, 75];
 function fameCo(s) { if (typeof coOn !== 'function' || !coOn(s)) return -1; const t = coT(s); let v = 0; for (const f in t.f || {}) v = Math.max(v, (FAME_CO[t.f[f].tier] || 0) + (t.f[f].rep || 0) * 0.2); return U.clamp(v, 0, 100); }
 function fameMonth(s) {
@@ -687,7 +687,7 @@ function fameMonth(s) {
   const tg = U.clamp(fameBase(s) + s.buzz, 0, 100), f = s.fame || 0, co = fameCo(s);
   let n = f + (tg - f) * (tg > f ? 0.3 : co >= 0 ? 0 : 0.03);
   if (co >= 0) n += co > n ? Math.max(0.05, (co - n) * 0.02) : 0.05; // 회사 크기만큼은 빨리, 그 위로도 아주 조금씩 계속
-  s.fame = U.clamp(Math.max(n, s.fameMin || 0), 0, 100);
+  s.fame = U.clamp(n, 0, 100);
 }
 function addFame(s, v) { if (!v) return 0; const b = s.fame || 0; s.fame = U.clamp(b + v, 0, 100); s.buzz = U.clamp((s.buzz || 0) + v, 0, 40); return s.fame - b; }
 function fameWord(v) { return v >= 85 ? '모르는 사람 없음' : v >= 65 ? '유명함' : v >= 45 ? '꽤 알려짐' : v >= 25 ? '조금 알려짐' : v >= 8 ? '아는 사람만 앎' : '무명'; }
@@ -1069,13 +1069,15 @@ function jobIdleMonth(s) {
     if (t.jobIdle === 2) addLog(s, `${c.n} 일을 손 놓고 있다는 말이 돈다. 평가가 떨어지기 시작했다.`, 'career');
   }
 }
+// v213: 임신 중(s.preg, 내가 임신했을 때)에는 무대 · 방송 · 촬영처럼 아티스트 쪽 직업 활동과 지원을 쉰다. 작곡 · 글 · 회사 일 등은 그대로
+function pregBlock(s, trk) { if (!s.preg) return false; const c = CAREER_PLAN.find(x => x.id === trk); return !!c && c.g === 'artist'; }
 function actOK(s, id) {
   const a = actInfo(id);
   if (a.sys) return false;
   // 특기 연습은 일정 칸이 생기면(초등학교 입학) 바로 (v121: 예전엔 만 7세부터라 생일이 늦으면 입학하고도 몇 달 연습을 못 했다)
   if (a.skill) return has(me(s), a.skill) && slotCount(s) > 0;
   // 자숙 중에는 직업 활동을 못 한다
-  if (a.trk) { const c = CAREERS[a.trk]; return trackOn(s, a.trk) && !s.hiatus && !(c.slotOK && !c.slotOK(s, s.tracks[a.trk])); }
+  if (a.trk) { const c = CAREERS[a.trk]; return trackOn(s, a.trk) && !s.hiatus && !pregBlock(s, a.trk) && !(c.slotOK && !c.slotOK(s, s.tracks[a.trk])); }
   return age(s) >= (a.min || 0);
 }
 function availableActs(s) {
@@ -1086,7 +1088,7 @@ function wantedLocks(s) {
   if (s.army) return s.slots.map(() => 'army');
   if (s.ill && s.ill.all) return s.slots.map(() => 'sick');
   const L = [];
-  for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && c.locks && trackOn(s, id)) L.push(...c.locks(s, s.tracks[id])); }
+  for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && c.locks && trackOn(s, id) && !pregBlock(s, id)) L.push(...c.locks(s, s.tracks[id])); }
   if (s.projects.some(w => w.slot)) L.push('proj');
   if (s.kidTeach) L.push('kidteach');
   if (s.ill && s.ill.rest) L.push('sick');
@@ -1462,9 +1464,9 @@ function newLife() {
   const jobs = s.wealth <= 3 ? JOBS_LOW : s.wealth <= 7 ? JOBS_MID : JOBS_HIGH;
   const momAge = U.int(26, 38);
   const single = U.chance(0.1);
-  const m = makePerson(s, { g: '여', age: momAge, rel: '엄마', aff: 80, job: U.pick(jobs), orient: 's' });
+  const m = makePerson(s, { g: '여', age: momAge, rel: '엄마', aff: 80, job: jobPick(jobs, momAge), orient: 's' });
   s.family.mom = m.id; giveHobbies(s, m);
-  if (!single) { const d = makePerson(s, { g: '남', age: momAge + U.int(-2, 5), rel: '아빠', aff: 80, job: U.pick(jobs.filter(j => j !== '전업주부')), orient: 's' }); s.family.dad = d.id; giveHobbies(s, d); }
+  if (!single) { const dadAge = momAge + U.int(-2, 5), d = makePerson(s, { g: '남', age: dadAge, rel: '아빠', aff: 80, job: jobPick(jobs.filter(j => j !== '전업주부'), dadAge), orient: 's' }); s.family.dad = d.id; giveHobbies(s, d); }
   s.family.single = single;
   s.olderSib = U.wpick([0, 1, 2], x => [45, 40, 15][x]);
   s.youngerSib = 0;
@@ -1556,6 +1558,7 @@ function migrate(s) {
   if (s.varPrem) { s.awPrem = Object.assign({}, s.awPrem, { variety: ((s.awPrem || {}).variety || 0) + s.varPrem }); s.awN = Object.assign({}, s.awN, { variety: s.varAwN || 1 }); }
   delete s.varPrem; delete s.varAwN;
   if (s.trendTV) ytTrendCheck(s, false);
+  delete s.fameMin; // v213: 물려받은 인지도 바닥은 없앴다
   // v212: 이미 자녀로 이어받은 세이브 — 부모에게서 넘어온 지인 정리 (부모님 지인은 셋까지, 나보다 열두 살 넘게 많은 '후배'는 부모의 후배였으니 모르는 사이로)
   if ((s.gen || 1) > 1 && !s.pkFix) {
     s.pkFix = 1; const my = me(s);

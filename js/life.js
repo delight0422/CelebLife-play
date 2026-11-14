@@ -458,7 +458,8 @@ function sibLoanMonth(s) {
   }
 }
 // ───── 형제자매: 태어날 때 위로 형제가 있으면 사람으로 만든다 (동생은 태어날 때 만든다) ─────
-function sibJob(s, a) { return a < 7 ? '아이' : a < 19 ? '학생' : a < 23 && U.chance(0.5) ? '대학생' : U.pick(s.wealth <= 3 ? JOBS_LOW : s.wealth <= 7 ? JOBS_MID : JOBS_HIGH); }
+// v213: 나이에 맞는 직업만 (스무 살 교수가 나오던 것). 잘사는 집 형제는 그 직업을 가질 나이가 될 때까지 대학생 · 대학원생
+function sibJob(s, a) { if (a < 7) return '아이'; if (a < 19) return '학생'; if (a < 23 && U.chance(0.5)) return '대학생'; return jobPick(s.wealth <= 3 ? JOBS_LOW : s.wealth <= 7 ? JOBS_MID : JOBS_HIGH, a, a < 24 ? '대학생' : a < 28 ? '대학원생' : '회사원'); }
 function makeSib(s, a, g) {
   // 형제자매는 나와 성이 같다
   const sg = g || (U.chance(0.5) ? '여' : '남');
@@ -468,5 +469,5 @@ function makeSib(s, a, g) {
 }
 // 해마다: 형제자매의 직업이 나이에 맞게 바뀐다
 function sibYear(s) {
-  for (const n of sibs(s)) { const a = pAge(s, n); if ((n.job === '아이' && a >= 7) || (n.job === '학생' && a >= 19) || (n.job === '대학생' && a >= 24)) n.job = sibJob(s, a); }
+  for (const n of sibs(s)) { const a = pAge(s, n); if ((n.job === '아이' && a >= 7) || (n.job === '학생' && a >= 19) || (n.job === '대학생' && a >= 24) || (n.job === '대학원생' && a >= 28) || (JOB_MIN_AGE[n.job] || 0) > a) n.job = sibJob(s, a); }
 }

@@ -193,6 +193,7 @@ function lateMonth(s) {
   const id = U.pick(L), t = s.tracks[id], at = LATE_AT[id];
   if (typeof t.rep === 'number') t.rep = Math.max(0, t.rep - 1.5); else jpopAdd(s, id, -0.8);
   // v164: 지각이 반복될수록 주변 평판이 크게 떨어지고, 같이 일하는 사람들(멤버 · 동료 · 동기 · 선배)과도 사이가 멀어진다 (2년 안의 지각 횟수로)
+  { const p = me(s); if (p.tal.grit < 50) p.tal.grit = Math.min(50, p.tal.grit + 1); } // v213: 늦을 때마다 성실성 +1 (50이면 더는 안 늦는다)
   s.lateH = (s.lateH || []).filter(x => x > s.t - 24).concat(s.t);
   const n = s.lateH.length, rd = [1, 3, 5, 7, 9][Math.min(n, 5) - 1];
   s.rep = U.clamp((s.rep || 0) - rd, 0, 100);
@@ -372,6 +373,7 @@ E({
 });
 // 매달: 자숙 기간이 줄고 꼬리표가 옅어진다 (game.js tick에서 부른다)
 function scandalMonth(s) {
+  if (s.preg) { s.preg.left--; if (s.preg.left <= 0) s.preg = null; } // v213: 임신 기간
   if (s.hiatus) { s.hiatus.left--; if (s.hiatus.left <= 0) { queueEv(s, 'hiatus_end', 0, { n: s.hiatus.n }, true); s.hiatus = null; } }
   if (s.stigma > 0) s.stigma = Math.max(0, s.stigma - 1.5);
 }

@@ -20,7 +20,7 @@ function projMonth(s, k, t) {
   // 활동 두 달 동안은 원래 일과 겹쳐 조금 더 지친다
   if (P) { if (P.rel && s.t <= P.rel + 2) addStress(s, 2); if (P.rel && s.t > P.rel + 2) { t.proj = null; addLog(s, `프로젝트 그룹 「${P.name}」 활동이 끝났다. 멤버들이 원래 자리로 돌아갔다.`, 'career'); } return; }
   const ag = AG[t.ag];
-  if (!ag || s.army || s.hiatus || hasQ(s, 'proj_call') || hasQ(s, 'proj_res')) return;
+  if (!ag || s.army || s.hiatus || s.preg || hasQ(s, 'proj_call') || hasQ(s, 'proj_res')) return;
   if ((t.projT != null ? t.projT : -99) > s.t - 24 || t.months < 12) return;
   if (k === 'idol' ? t.promo > 0 || t.alb || t.nextCb < 2 : t.alb || t.nextRel < 3) return;
   // 솔로는 그룹 멤버보다 덜 뽑힌다

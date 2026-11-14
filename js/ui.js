@@ -306,7 +306,7 @@ function showTitle() {
   if (sv && !sv.ended) $('#continue-info').textContent = `(${sv.people[sv.me].name} · ${age(sv)}세)`;
   show('title-screen');
 }
-function closeAll() { ['#modal', '#panel', '#confirm', '#turn'].forEach(id => $(id).classList.add('hidden'));  UI.overlay = null; UI.turn = null; clearTimeout(UI.timer); }
+function closeAll() { ['#modal', '#panel', '#confirm', '#turn'].forEach(id => $(id).classList.add('hidden'));  UI.overlay = null; UI.turn = null; UI.pickNew = null; UI.skFrom = null; clearTimeout(UI.timer); }
 
 // ───── 태어나기 ─────
 function showBirth() { S = newLife(); renderBirth(); show('birth-screen'); }
@@ -592,6 +592,7 @@ function renderJobsCard() {
   // 논란 창을 아직 안 봤으면 직업 활동 칸에 미리 띄우지 않는다 (v129)
   if (s.scandal && (s.scandal.resp || s.scandal.seen)) row('scandal', `🔥 ${U.esc(SC[s.scandal.id].n)}`, s.scandal.resp ? '여론을 지켜보는 중' : '대응을 기다리는 중');
   if (s.hiatus) row('hiatus', '🤐 자숙', `${s.hiatus.left}개월 남음 (${ymLater(s, s.hiatus.left)})`);
+  if (s.preg) row('preg', '🤰 임신', `${s.preg.left}개월 뒤 출산 (${ymLater(s, s.preg.left)}) · 연예계 활동은 쉰다`);
   if (rows.length) h += `<div class="trks">${rows.join('')}</div>`;
   if (!any && !rows.length) {
     // v212: 구직활동 안내는 처음으로 지원할 수 있는 곳이 생긴 뒤부터 (그 전에는 눌러도 빈 창이다)
@@ -789,7 +790,7 @@ function skIc(k) { const c = SKILL_CATS.find(c => c.id === SKILLS[k].cat); retur
 // 재능 및 특기 창 (UI 개편 시안): 재능 탭 · 특기 탭
 function panel_skills() {
   const p = me(S), cnt = capCount(p), tab = UI.skTab === 'sk' ? 'sk' : 'tal';
-  return `<h2>🎯 재능 및 특기</h2><div class="ap-row pf-tabs">${[['tal', '✨ 재능', ''], ['sk', '🎯 특기', `<span class="sk-cnt${cnt >= SKILL_CAP ? ' full' : ''}">${cnt}/${SKILL_CAP}</span>`]].map(([t, n, x]) => `<button class="ap-tab ${tab === t ? 'on' : ''}" data-tstab="${t}">${n}${x ? ' ' + x : ''}</button>`).join('')}</div>`
+  return `${UI.skFrom === 'applyjob' ? '<button class="btn sm ghost back-btn" data-skback>← 구직활동</button>' : ''}<h2>🎯 재능 및 특기</h2><div class="ap-row pf-tabs">${[['tal', '✨ 재능', ''], ['sk', '🎯 특기', `<span class="sk-cnt${cnt >= SKILL_CAP ? ' full' : ''}">${cnt}/${SKILL_CAP}</span>`]].map(([t, n, x]) => `<button class="ap-tab ${tab === t ? 'on' : ''}" data-tstab="${t}">${n}${x ? ' ' + x : ''}</button>`).join('')}</div>`
     + (tab === 'tal' ? pfTalTab(p) : skillsTabHTML());
 }
 function skillsTabHTML() {
@@ -1019,9 +1020,9 @@ function resAfter(pre, i) {
 // 화면 아래쪽 가운데에 크게. 한동안(글이 길수록 오래, 6~16초) 남고, 마우스를 올리면 멈춘다. ✕로 닫는다
 // 떠 있는 동안 창(사건 · 결과 · 요약)은 토스트 위쪽으로 비켜 선다 (body.ct-on, --ct-h). 한꺼번에 3개까지, 넘치면 오래된 것부터
 // v209: 결과 한 줄이 잘된 일(1)인지 · 안된 일(-1)인지 · 둘 다 아닌지(0). 0인 줄은 토스트로 띄우지 않는다 (멤버를 정했다 · 출자했다 같은 것)
-const TONE_B = /떨어졌|불합격|탈락|거절|실패|혹평|손해|망했|해체|떠났|그만뒀|그만두었|잃었|식었|아쉬|실수(?! 없)|지쳐|논란|모자라|못 했|못했|빚을 내|빚 \d|폐업|문을 닫|쫓겨|불발|무산|하락|지쳤|다쳤|줄었|낮아졌|내려갔|싸늘|외면|비판|악플|헤어졌|이혼|💔|⚠️/;
+const TONE_B = /그런 쪽으로 볼 수 없다|결혼은 생각하지 않는다|자리를 피했|떨어졌|불합격|탈락|거절|실패|혹평|손해|망했|해체|떠났|그만뒀|그만두었|잃었|식었|아쉬|실수(?! 없)|지쳐|논란|모자라|못 했|못했|빚을 내|빚 \d|폐업|문을 닫|쫓겨|불발|무산|하락|지쳤|다쳤|줄었|낮아졌|내려갔|싸늘|외면|비판|악플|헤어졌|이혼|💔|⚠️/;
 const TONE_BS = /떨어졌|불합격|탈락|거절|실패|혹평|손해|망했|해체|폐업|문을 닫|무산|불발|하지 못|못했|못 했|지쳐/;
-const TONE_G = /합격|뽑혔|발탁|성공|(?:^|[^0-9])1위|🏆|상을 받|돌파|매진|호평|대박|흥행|올랐|늘었|데뷔했|데뷔한다|데뷔하게 됐|데뷔가 확정|데뷔를 확정|데뷔 무대|화제가 됐|화제가 되|화제를 모|화제였|캐스팅됐|캐스팅되었|캐스팅이 확정|계약했|재계약을 하고|선정|칭찬|반응이 좋|터졌|인기를|이겼|우승|입상|승진|벌었|받아 줬|손잡았|제작을 시작했|\[새 특기|높아졌|좋아했|뜨거웠|박수|환호|등급 ↑/;
+const TONE_G = /같은 마음이었|사귀게 됐|오늘부터 1일|결혼했다|합격|뽑혔|발탁|성공|(?:^|[^0-9])1위|🏆|상을 받|돌파|매진|호평|대박|흥행|올랐|늘었|데뷔했|데뷔한다|데뷔하게 됐|데뷔가 확정|데뷔를 확정|데뷔 무대|화제가 됐|화제가 되|화제를 모|화제였|캐스팅됐|캐스팅되었|캐스팅이 확정|계약했|재계약을 하고|선정|칭찬|반응이 좋|터졌|인기를|이겼|우승|입상|승진|벌었|받아 줬|손잡았|제작을 시작했|\[새 특기|높아졌|좋아했|뜨거웠|박수|환호|등급 ↑/;
 // 내가 고른 거절 · 그만둠(주어가 없는 문장: '입사 제안을 거절했다', '고백을 정중히 거절했다', '애니메이터 일을 그만뒀다')은 빼고 본다
 //   남이 거절한 것('김도윤은 주연 제안을 거절했다')은 주어가 있어 그대로 실패
 const TONE_N = /(?:제안|고백|부탁|요청|초대|섭외|의뢰|권유)[을를]\s*(?:정중히\s*|결국\s*)?거절했다|(?:일|활동|연재|방송|수업|아르바이트|알바)[을를]\s*그만(?:뒀|두었)다/;
@@ -1190,7 +1191,7 @@ function showEnding(preview) {
 // ───── 패널 ─────
 // v194: 인간관계 창은 다시 열어도 저번에 펼치고 접은 그대로 (UI.pplOpen을 지우지 않는다). 스크롤만 맨 위로 (top0)
 function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people' && S.pplSeenT !== S.t) { S.pplSeenT = S.t; renderPeopleCard(); } UI.overlay = kind; UI.pRes = null; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
-function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.apjFrom = null; UI.skDrop = false; UI.pRes = null; UI.pickSlot = null; if (S) render(); }
+function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.apjFrom = null; UI.skFrom = null; UI.pickNew = null; UI.skDrop = false; UI.pRes = null; UI.pickSlot = null; if (S) render(); }
 // 행동 버튼 한 줄. 버튼이 누를 일은 UI.acts(창) 또는 UI.lacts(오른쪽 생활 카드)에 모아 둔다
 function actRow(a) {
   const reg = UI.rowReg || UI.acts, at = UI.rowReg ? 'lact' : 'act';
@@ -1311,7 +1312,7 @@ function apSorted(s, L) {
 function panelApplyJob() {
   // v206: 지금 지원할 수 없는 곳은 보이지 않는다 (조건은 백과사전에). 숫자는 (지금 지원 가능 / 전체)
   const s = S, list = jobApplies(s), view = UI.apForce || UI.apView || 'co';
-  let h = `${UI.apjFrom ? '<button class="btn sm ghost back-btn" data-dictback>← 백과사전</button>' : ''}<h2>📝 구직활동</h2><div class="ap-row pf-tabs">${[['co', '🏢 회사별'], ['job', '💼 직업별']].map(([k, n]) => `<button class="ap-tab ${view === k ? 'on' : ''}" data-apview="${k}">${n}</button>`).join('')}</div>`
+  let h = `${UI.apjFrom ? '<button class="btn sm ghost back-btn" data-dictback>← 백과사전</button>' : ''}<h2>📝 구직활동 <button type="button" class="btn sm ghost ren-btn" data-tstab="tal" data-skfrom="applyjob">🎯 재능/특기 보기</button></h2><div class="ap-row pf-tabs">${[['co', '🏢 회사별'], ['job', '💼 직업별']].map(([k, n]) => `<button class="ap-tab ${view === k ? 'on' : ''}" data-apview="${k}">${n}</button>`).join('')}</div>`
     + `<p class="p-intro">${view === 'co' ? '회사 종류를 누르면 회사가 나오고, 회사를 누르면 그 회사에 지원할 수 있는 자리가 나온다. 회사 없이 혼자 시작하는 일은 맨 위 \'무소속\'에 분야별로 있다.' : '분야를 누르면 직업이 나오고, 직업을 누르면 그 바로 아래에 지원할 수 있는 곳이 나온다. 직업 옆 숫자는 지금 바로 지원할 수 있는 곳의 수다.'}<br>지금 지원할 수 있는 곳만 보인다. 괄호 안은 (지금 지원 가능 / 전체). 직업은 ${JOB_CAP}개까지 같이 할 수 있다.</p>`;
   UI.apjOpen = UI.apjOpen || {};
   if (!list.some(a => a.ok(s))) return h + `<div class="empty">지금 지원할 수 있는 곳이 없다. 직업마다 조건은 📚 백과사전에서 볼 수 있다.</div>`;
@@ -1646,6 +1647,7 @@ function panelTrk() {
     const sc = s.scandal, T = SC[sc.id];
     return `<h2>🔥 ${U.esc(T.n)}</h2>` + infoTable([['시작', `${ymLater(s, sc.t - s.t)}`], ['사람들이 하는 말', scText(T.claim, s)], ['실제로는', T.know[sc.truth]], ['내 대응', sc.resp ? { apo: (T.lab || {}).apo || '사과문', deny: (T.lab || {}).deny || '해명', prove: '증거로 반박', sue: '법적 대응', quiet: '침묵', hiatus: '자숙' }[sc.resp] : '아직 고르지 않았다']]);
   }
+  if (key === 'preg' && s.preg) return `<h2>🤰 임신</h2>` + infoTable([['출산', `${ymLater(s, s.preg.left)} (${s.preg.left}개월 남음)`], ['그동안', '무대 · 방송 · 촬영 같은 연예계 활동과 지원을 쉰다. 작곡 · 글 · 회사 일처럼 무대에 서지 않는 일은 그대로 한다']]);
   if (key === 'hiatus' && s.hiatus) return `<h2>🤐 자숙</h2>` + infoTable([['까닭', s.hiatus.n], ['끝나는 때', `${ymLater(s, s.hiatus.left)} (${s.hiatus.left}개월 남음)`], ['그동안', '직업 활동과 지원을 할 수 없다']]);
   if (key === 'brands') {
     const B = s.brands || [];
@@ -2083,7 +2085,7 @@ function panelJob() {
   let h = back + `<h2>${jobIc(id)} ${U.esc(jobName(id))}</h2>`;
   if (JOB_FIELD[id]) h += trendRowHTML(s, JOB_FIELD[id]);
   if (c.status) h += `<p class="p-intro">${U.esc(careerStatus(s, id))}</p>`;
-  h += `<div class="ap-row pf-tabs">${tabs.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-jobtab="${k}">${n}</button>`).join('')}</div>`;
+  h += `<div class="ap-row pf-tabs">${tabs.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-jobtab="${k}">${n}${k === 'act' && tab !== 'act' && jobDot(s, id) ? '<i class="rdot in"></i>' : ''}</button>`).join('')}</div>`;
   if (tab === 'act') return h + jobActTab(s, id);
   if (tab === 'npc') return h + jobNpcTab(s, id);
   if (tab === 'grp') return h + infoTable(grp);
@@ -2143,6 +2145,17 @@ function jobTaskHTML(s, id) {
 // 골라서 한 일은 직업마다 언제 했는지 적어 둔다. 고를 수 있는 일이 있는데 석 달 넘게 하나도 안 했으면 그 직업 배너에 레드닷 (v118 UI B4)
 function pickWrap(id, a) { if (!a.run) return a; const r = a.run; return Object.assign({}, a, { run: s => { (s.pickT = s.pickT || {})[id] = s.t; return r(s); } }); }
 // v159 켜 두는 일(sw): 하나도 안 켜 뒀을 때, 또는 고를 수 있는 것이 바뀌었을 때(새로 켤 수 있게 됨 · 막힘 · 이름이 바뀜)만 레드닷. 직업 창을 열면 본 것으로 친다
+// v213: 직업 배너의 빨간 점과 같은 조건 (직업 창 '행동' 탭 머리에도 띄운다)
+function jobDot(s, id) { const c = CAREERS[id]; return !!c && !!c.act && ((!!jobSlots(s, id) && !jobTask(s, id)) || pickDue(s, id)); }
+// 선택 활동 줄: 새로 할 수 있게 된 것(켜 두는 일)과 석 달 넘게 안 해서 점이 뜬 것(한 번 하는 일)에 점. 창을 닫을 때까지 남는다 (UI.pickNew)
+function pickNewMark(s, id, P) {
+  const N = UI.pickNew = UI.pickNew || {}, M = N[id] = N[id] || {}, old = (s.pickSig || {})[id], W = P.filter(a => a.sw), on = !!jobN(s, id);
+  if (old != null) { const O = new Set(old.split('|').map(x => x.replace(/:[01]$/, ''))); for (const a of P) if (a.sw && a.ok && !O.has(`${a.t}:1`)) M[a.t] = 1; }
+  for (const a of W) if (a.on) delete M[a.t];
+  if (W.length) (s.pickSig = s.pickSig || {})[id] = pickSig(P);
+  const none = W.length > 0 && !W.some(a => a.on), last = (s.pickT || {})[id], due3 = last == null || s.t - last >= 3;
+  return a => on && a.ok && (a.sw ? !a.on && (none || M[a.t]) : due3) ? { emo: '<i class="rdot in"></i>' + (a.emo ? ' ' + a.emo : '') } : {};
+}
 function pickSig(P) { return P.filter(a => a.sw).map(a => `${a.t}:${a.ok ? 1 : 0}:${a.on ? 1 : 0}`).join('|'); }
 function pickDue(s, id) {
   const c = CAREERS[id]; if (!c.picks || !jobN(s, id)) return false;
@@ -2160,8 +2173,8 @@ function pickDue(s, id) {
 // sec: 그 줄 위에 붙이는 작은 안내 (v157 아이돌: '켜 두면 매달 꾸준히 한다')
 function jobPicksHTML(s, id, on) {
   const c = CAREERS[id], P = c.picks ? c.picks(s, s.tracks[id]) : [];
-  if (P.some(a => a.sw)) (s.pickSig = s.pickSig || {})[id] = pickSig(P);
-  return P.length ? `<div class="sec-h">🖐️ 선택 활동</div>` + P.map(a => (a.sec ? `<div class="lnote">${U.esc(a.sec)}</div>` : '') + actRow(Object.assign({}, pickWrap(id, a), on ? {} : { ok: false, why: '일정에 이 일을 넣어야 할 수 있다' }))).join('') : '';
+  const nw = pickNewMark(s, id, P);
+  return P.length ? `<div class="sec-h">🖐️ 선택 활동</div>` + P.map(a => (a.sec ? `<div class="lnote">${U.esc(a.sec)}</div>` : '') + actRow(Object.assign({}, pickWrap(id, a), nw(a), on ? {} : { ok: false, why: '일정에 이 일을 넣어야 할 수 있다' }))).join('') : '';
 }
 // 직업 활동 두 갈래 (7-4단계부터): 칸만 넣어 두면 자동으로 하는 일 + 칸을 넣은 채로 골라서 하는 일 (c.picks)
 function jobAutoHTML(s, id, n) {
@@ -2170,8 +2183,8 @@ function jobAutoHTML(s, id, n) {
   const x = n ? (c.autoList ? c.autoList(s, t) : []).find(x => x.tag !== false) : null;
   let h = x ? actNowRow(x) : ACT_NONE;
   const P = c.picks ? c.picks(s, t) : [];
-  if (P.some(a => a.sw)) (s.pickSig = s.pickSig || {})[id] = pickSig(P);
-  if (P.length) h += `<div class="sec-h">🖐️ 선택 활동</div>` + P.map(a => (a.sec ? `<div class="lnote">${U.esc(a.sec)}</div>` : '') + actRow(Object.assign({}, pickWrap(id, a), n ? {} : { ok: false, why: '일정에 빈 칸이 없다' }))).join('');
+  const nw = pickNewMark(s, id, P);
+  if (P.length) h += `<div class="sec-h">🖐️ 선택 활동</div>` + P.map(a => (a.sec ? `<div class="lnote">${U.esc(a.sec)}</div>` : '') + actRow(Object.assign({}, pickWrap(id, a), nw(a), n ? {} : { ok: false, why: '일정에 빈 칸이 없다' }))).join('');
   return h;
 }
 // 프로필의 걸어온 길 탭: 인생 기록 전체 (v89). 받은 상은 작품 탭 아래에
@@ -2824,8 +2837,9 @@ document.addEventListener('click', e => {
   if (t.dataset.pgrp) { UI.pplOpen[t.dataset.pgrp] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.apg) { const c = t.dataset.aptab, g = t.dataset.apg; UI.apTab[c] = UI.apTab[c] === g ? null : g; renderPanel(); return; }
   if (t.dataset.trk) { UI.trk = t.dataset.trk; openPanel('trk'); return; }
-  if (t.dataset.myprof != null) { UI.skTab = 'tal'; if (UI.overlay) { UI.overlay = 'skills'; renderPanel(); } else openPanel('skills'); return; }
-  if (t.dataset.tstab) { UI.skTab = t.dataset.tstab; if (UI.overlay) { UI.overlay = 'skills'; renderPanel(); } else openPanel('skills'); return; }
+  if (t.dataset.myprof != null) { UI.skTab = 'tal'; UI.skFrom = null; if (UI.overlay) { UI.overlay = 'skills'; renderPanel(); } else openPanel('skills'); return; }
+  if (t.dataset.skback != null) { UI.skFrom = null; UI.overlay = 'applyjob'; renderPanel(); return; }
+  if (t.dataset.tstab) { UI.skTab = t.dataset.tstab; UI.skFrom = t.dataset.skfrom || (UI.overlay === 'skills' ? UI.skFrom : null); if (UI.overlay) { UI.overlay = 'skills'; renderPanel(); } else openPanel('skills'); return; }
   if (t.dataset.kid) { UI.kid = t.dataset.kid; if (UI.overlay) { UI.overlay = 'kid'; renderPanel(); } else openPanel('kid'); return; }
 });
 document.addEventListener('input', e => { if (e.target.id === 'tbl-q') evTblFilter(e.target.value); if (e.target.id === 'pick-q') { UI.pickQ = e.target.value; renderPanel(); } if (e.target.dataset && e.target.dataset.won != null) wonEq(e.target); });

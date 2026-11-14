@@ -377,7 +377,7 @@ E({
 // 작품 홍보 예능: 공개를 앞둔 작품의 배우들이 함께 예능에 나간다. 재밌게 나오면 작품 성적이 조금 오른다
 E({
   id: 'promo_show', cat: '예능 섭외', title: '작품 홍보 출연', tag: 'career',
-  cond: s => trackOn(s, 'actor') && !s.hiatus,
+  cond: s => trackOn(s, 'actor') && !s.hiatus && !s.preg,
   init(s, d) {
     const t = s.tracks.actor, w = (t.wait || []).find(x => x.id === d.id);
     if (!w) { d.skip = true; return; }

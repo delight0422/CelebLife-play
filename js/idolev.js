@@ -45,7 +45,7 @@ const IDOL_WAYS = [
   { id: 'lyr', ic: '✍️', n: '가사 쓰기', f: 'subLyr', show: (s, t) => t.st === 'active' && has(me(s), 'lyric'), no: (s, t) => t.st !== 'active' ? '데뷔한 뒤에 할 수 있다' : '작사 특기가 있어야 한다', h: s => has(me(s), 'lyric') ? `실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡 · 작사 ${lvi(me(s), 'lyric')}레벨` : '실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡' },
   { id: 'act', ic: '🎭', n: '연기 연습', sk: 'acting', show: () => true, h: (s, t) => `연기 ↑ · 스트레스 조금 ↑${t.st === 'active' ? ' · 연기가 늘면 웹드라마 제안이 온다' : ''}` },
   { id: 'fan', ic: '💬', n: '팬 소통', show: (s, t) => t.st === 'active', no: () => '데뷔한 뒤에 할 수 있다', h: () => '라이브 방송 · 메시지 · 내 팬 ↑ · 그룹 팬 조금 ↑ · 스트레스 조금 ↑ · 가끔 말실수' },
-  { id: 'mate', ic: '🤝', n: t => t.st === 'active' ? '멤버 챙기기' : '동기 챙기기', show: (s, t) => t.st === 'active' || idMates(s, t).length > 0, no: () => '같이 지내는 동기가 없다', h: (s, t) => `${t.st === 'active' ? '멤버 사이 ↑ · 팀워크 ↑' : '동기 사이 ↑'} · 스트레스 ↓ · 밥값` },
+  { id: 'mate', ic: '🤝', n: t => t.st === 'active' ? '멤버 챙기기' : '동기 챙기기', show: (s, t) => t.st === 'active' || idMates(s, t).length > 0, no: () => '같이 지내는 동기가 없다', h: (s, t) => { const n = (t.st === 'active' ? idMem(s, t) : idMates(s, t)).length; return `💸 켜 두면 매달 밥값 ${fmtWon(5e4 * (n + 1))}이 나간다 (한 사람에 5만 원) · ${t.st === 'active' ? '멤버 사이 ↑ · 팀워크 ↑' : '동기 사이 ↑'} · 스트레스 ↓`; } },
   { id: 'var', ic: '😆', n: '예능 감 익히기', sk: 'variety', show: () => true, h: (s, t) => `예능 ↑ · 스트레스 조금 ↑${t.st === 'active' ? ' · 개인 예능 섭외가 더 자주 온다' : ''}` },
 ];
 function idolWayN(t, w) { return typeof w.n === 'function' ? w.n(t) : w.n; }

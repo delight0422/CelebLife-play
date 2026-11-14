@@ -219,7 +219,7 @@ E({
   id: 'musical_res', cat: '활동 지원', title: '뮤지컬 오디션 결과', tag: 'career',
   init(s, d) { d.pass = U.chance(d.p); },
   text: (s, d) => d.pass ? `「${d.title}」 ${MUSICAL_ROLES.find(r => r.id === d.r).n} 오디션에 붙었다!` : `「${d.title}」 오디션에 떨어졌다.`,
-  ch: (s, d) => d.pass ? [{ t: '연습에 들어간다', f: s => startMusical(s, d.r, d.title, d.co) }] : [{ t: '다음에 다시', f: s => '다음 기회를 노리기로 했다.' + fx(s, { stress: 3 * pm(s, 'loseStress') }) }],
+  ch: (s, d) => d.pass ? [{ t: '연습에 들어간다', f: s => startMusical(s, d.r, d.title, d.co) }] : [{ t: '다음에 다시', f: s => `뮤지컬 「${d.title}」 오디션에 떨어졌다. 다음 기회를 노리기로 했다.` + fx(s, { stress: 3 * pm(s, 'loseStress') }) }],
 });
 function startMusical(s, roleId, title, co) {
   const r = MUSICAL_ROLES.find(x => x.id === roleId);

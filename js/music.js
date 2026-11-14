@@ -720,7 +720,7 @@ function idolTraineeMonth(s, t) {
     t.rank = Math.round(t.rks.reduce((a, x) => a + x, 0) / t.rks.length);
     addRes(s, `${t.agN} 월말평가 3개월 평균 ${t.rank}위 (${t.pool}명 중).`);
     // 데뷔조 마지막 한 자리를 놓쳤으면(v157) 다음 데뷔조 1순위
-    if (!t.team && t.months >= 9 && (t.kind === 'band' || age(s) >= 15) && (t.rank <= Math.max(6, t.pool * 0.35) || t.seatLost) && U.chance((t.seatLost ? 0.9 : 0.45) * idolTeamMul(s, t)) && !hasQ(s, 'idol_team')) queueEv(s, 'idol_team', 0);
+    if (!t.team && t.months >= 9 && (t.kind === 'band' || age(s) >= 15) && (t.rank <= Math.max(6, t.pool * 0.35) || t.seatLost) && !married(s) && U.chance((t.seatLost ? 0.9 : 0.45) * idolTeamMul(s, t)) && !hasQ(s, 'idol_team')) queueEv(s, 'idol_team', 0);
   }
   if (t.team) {
     t.prep++;
@@ -1201,7 +1201,7 @@ E({
 });
 E({
   id: 'idol_team', cat: '연습생', title: '데뷔조 발탁', tag: 'career', keepPop: true, // v123: 요약에만 남기지 않고 창으로
-  cond: s => s.tracks.idol.st === 'trainee',
+  cond: s => s.tracks.idol.st === 'trainee' && !married(s),
   text: s => { const t = s.tracks.idol; return `${t.agN}에서 새 ${t.kind === 'band' ? '밴드' : '그룹'} 데뷔조를 꾸린다. 최근 평가 ${t.rank}위로 이름이 올랐다.\n\n이제 반년쯤 데뷔 준비에 들어간다. 준비 중에도 평가가 밀리면 빠질 수 있다.`; },
   ch: () => [{ t: '열심히 하겠습니다', f: s => { const t = s.tracks.idol; t.team = true; t.prep = 0; t.seatLost = false; t.seatQ = false; return '데뷔조에 들어갔다!' + fx(s, { stress: -4 }); } }],
 });
@@ -1223,8 +1223,8 @@ E({
   id: 'idol_renew', cat: '연습생', title: '연습생 계약 만료', tag: 'career',
   cond: s => s.tracks.idol.st === 'trainee' && !s.tracks.idol.team,
   // 어린 연습생은 순위가 낮아도 회사가 더 지켜본다 (17세 미만은 늘 연장, 17~18세는 하위 15%만 내보낸다)
-  init(s, d) { const t = s.tracks.idol, a = age(s), line = a < 17 ? 1 : a < 19 ? 0.85 : 0.6; d.keep = t.rank <= t.pool * line && a < 24 && t.fails < 3; d.young = d.keep && t.rank > t.pool * 0.6; },
-  text: (s, d) => { const t = s.tracks.idol; return `${t.agN} 연습생 계약 기간이 끝났다. (들어온 지 ${yrsMo(t.months)}) 최근 평가 ${t.rank}위(${t.pool}명 중).\n\n` + (d.keep ? (d.young ? '순위는 아쉽지만 아직 어리니 회사는 1년 더 지켜보기로 했다.' : '회사는 1년 더 지켜보기로 했다.') : '회사는 계약을 연장하지 않기로 했다. 다른 회사 오디션은 다시 볼 수 있다.'); },
+  init(s, d) { const t = s.tracks.idol, a = age(s), line = a < 17 ? 1 : a < 19 ? 0.85 : 0.6; d.wed = married(s); d.keep = !d.wed && t.rank <= t.pool * line && a < 24 && t.fails < 3; d.young = d.keep && t.rank > t.pool * 0.6; },
+  text: (s, d) => { const t = s.tracks.idol; return `${t.agN} 연습생 계약 기간이 끝났다. (들어온 지 ${yrsMo(t.months)}) 최근 평가 ${t.rank}위(${t.pool}명 중).\n\n` + (d.keep ? (d.young ? '순위는 아쉽지만 아직 어리니 회사는 1년 더 지켜보기로 했다.' : '회사는 1년 더 지켜보기로 했다.') : d.wed ? '회사는 결혼한 연습생과는 계약을 잇지 않는다고 했다.' : '회사는 계약을 연장하지 않기로 했다. 다른 회사 오디션은 다시 볼 수 있다.'); },
   ch: (s, d) => d.keep ? [{ t: '1년 더 해 본다', f: s => { s.tracks.idol.cEnd += 12; return '연습생 계약이 1년 연장됐다.' + fx(s, { stress: 4 }); } }] : [{ t: '짐을 싼다', f: s => releaseTrainee(s, '계약 기간 안에 데뷔하지 못했다. ') }],
 });
 // 데뷔조에서 빠지거나 데뷔 자체가 무산되는 경우
@@ -1240,7 +1240,7 @@ const SURV_SHOWS = ['별의 계단', '데뷔 카운트다운', '라스트 스테
 E({
   id: 'idol_surv', cat: '연습생', title: '서바이벌 프로그램 출연', tag: 'career',
   init(s, d) { d.show = U.pick(SURV_SHOWS); },
-  cond: s => s.tracks.idol.st === 'trainee',
+  cond: s => s.tracks.idol.st === 'trainee' && !married(s),
   text: (s, d) => `${s.tracks.idol.agN}에서 데뷔 서바이벌 「${d.show}」에 연습생 몇 명을 내보내기로 했다. 명단에 내 이름이 있다.\n\n최종 7위 안에 들면 바로 데뷔한다. 떨어져도 얼굴은 알릴 수 있지만, 순위가 낮으면 상처도 크다. 결과는 석 달 뒤.`,
   ch: (s, d) => [{ t: '준비한다', f: s => { queueEv(s, 'idol_survres', 3, { show: d.show }); return `회사 결정으로 데뷔 서바이벌 프로그램 「${d.show}」에 나가게 됐다. 최종 7위 안에 들면 바로 데뷔한다. 결과는 석 달 뒤.` + fx(s, { stress: 8 }); } }],
 });
