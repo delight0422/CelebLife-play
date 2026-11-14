@@ -556,7 +556,7 @@ E({
 E({
   id: 'teach_ask', cd: 18, p: 0.015, cat: '배움', title: '가르쳐 줄 수 있어?', autoK: 'flavor',
   cond: s => age(s) >= 14 && skAsk(s, 'edu') && learnedSkills(me(s)).some(k => k !== 'edu' && lv(me(s), k) >= 20),
-  init(s, d) { const ks = learnedSkills(me(s)).filter(k => k !== 'edu' && lv(me(s), k) >= 20); d.k = U.pick(ks); d.who = U.pick(['동생', '후배', '친구 동생', '옆집 아이']); },
+  init(s, d) { const ks = learnedSkills(me(s)).filter(k => k !== 'edu' && lv(me(s), k) >= 20); d.k = U.pick(ks); d.who = U.pick(['동생', '후배', '친구 동생'].concat(isDorm(s) ? [] : ['옆집 아이'])); }, // v228: 숙소에 살 때는 '옆집 아이'가 나오지 않는다
   text: (s, d) => `${josa(d.who, '이가')} ${josa(skN(d.k), '을를')} 좀 가르쳐 달라고 한다.`,
   ch: (s, d) => [
     { t: '가르쳐 준다', f: s => { const tag = learnMe(s, 'edu'); useSkill(s, me(s), d.k, 0.3); return `${d.who}에게 ${josa(skN(d.k), '을를')} 가르쳐 줬다. 가르치는 것도 생각보다 재밌다.${tag}`; } },
@@ -587,6 +587,8 @@ E({
   p: s => s.home.mode === 'parents' && !isDorm(s) && !s.army && age(s) >= 26 && parentsAlive(s).length ? (s.flags.homeWarned ? 0.06 : 0.015 + (age(s) - 26) * 0.01) : 0,
   text: s => {
     const who = parentsAlive(s).length > 1 ? '부모님' : parentsAlive(s)[0].rel;
+    // v228: 형편이 빠듯한 집은 자식 앞날을 걱정해서 말을 꺼낸다 (집에 보태는 돈이 아쉬워도 붙잡지 않는다)
+    if (s.wealth <= 3) return s.flags.homeWarned ? `${josa(who, '이가')} 이번에는 단호하시다. "우리 걱정은 그만하고, 다음 달까지는 네 방을 구하렴."` : `저녁을 먹다가 ${josa(who, '이가')} 조심스럽게 말을 꺼내셨다. "네가 보태 주는 건 고맙지만, 언제까지 우리만 보고 살 수는 없잖니. 이제 네 살림을 차려야지."`;
     return s.flags.homeWarned ? `${josa(who, '이가')} 이번에는 단호하시다. 다음 달까지 방을 구해서 나가라고 하신다.` : `저녁을 먹다가 ${josa(who, '이가')} 조심스럽게 말을 꺼내셨다. "너도 이제 나가서 살 때가 되지 않았니?"`;
   },
   ch(s) {
@@ -596,7 +598,7 @@ E({
       { t: `${s.place}에서 월세 원룸을 구한다`, h: `보증금 ${HOUSE[s.region].dep}만 원 · 월세·생활비 월 ${r.rent}만 원 · 돈이 모자라면 빚이 된다`, f: go(s.region, '짐을 싸서 본가를 나왔다.') },
     ];
     if (!inSeoul) o.push({ t: '이참에 서울로 올라간다', h: `보증금 ${HOUSE.seoul.dep}만 원 · 월세·생활비 월 ${REGION_BY.seoul.rent}만 원 · 기획사와 방송국이 가깝다`, f: go('seoul', '이참에 서울로 올라왔다.') });
-    if (!s.flags.homeWarned) o.push({ t: '생활비를 더 내고 조금만 더 있겠다고 한다', h: '앞으로 생활비 월 30만 원 더 · 다음에 또 말이 나오면 그때는 나가야 한다', f: s => { s.flags.homeWarned = true; s.flags.homeFeeUp = true; return '생활비를 더 내기로 하고 조금만 더 있기로 했다. 집 안 공기가 조금 어색해졌다.' + fx(s, { stress: 5 }); } });
+    if (!s.flags.homeWarned) o.push({ t: s.wealth <= 3 ? '집에 더 보태면서 조금만 더 있겠다고 한다' : '생활비를 더 내고 조금만 더 있겠다고 한다', h: '앞으로 생활비 월 30만 원 더 · 다음에 또 말이 나오면 그때는 나가야 한다', f: s => { s.flags.homeWarned = true; s.flags.homeFeeUp = true; return (s.wealth <= 3 ? '집에 더 보태기로 하고 조금만 더 있기로 했다. 부모님은 미안해하면서도 더 말리지 않으셨다.' : '생활비를 더 내기로 하고 조금만 더 있기로 했다. 집 안 공기가 조금 어색해졌다.') + fx(s, { stress: 5 }); } });
     return o;
   },
 });
@@ -626,7 +628,7 @@ E({
     const o = [], hm = s.home, own = hm.mode === 'alone', hn = own ? homeNow(s) : null;
     if (own && (!needApt(s) || inApt(s))) o.push({ t: `원래 내 집으로 간다 (${hn.n})`, h: hn.d, f: () => `숙소를 나와 ${josa(hn.n, '으로')} 돌아갔다.` });
     // 결혼했으면 본가로 돌아가지 않고 둘이 살 집을 구한다
-    if (!isSpouse(partner(s))) o.push({ t: '본가로 내려간다', ok: () => canHome, h: canHome ? `${s.birthPlace || '본가'} · 생활비 월 ${homeBase(s)}만 원과 번 돈의 15% 보태기${homeFeeNote(s)}` : (parentsAlive(s).length ? '부모님이 다시 들어오는 건 반대하신다' : '돌아갈 본가가 없다'), f: s => { moveHomeParents(s); s.done.leave_home = s.done.leave_home || 1; return '숙소를 나와 본가로 돌아갔다.'; } }); // v224: 여기서 본가를 골랐으면 열아홉 살의 '어디서 살까?'를 또 묻지 않는다
+    if (!isSpouse(partner(s))) o.push({ t: '본가로 돌아간다', ok: () => canHome, h: canHome ? `${s.birthPlace || '본가'} · 생활비 월 ${homeBase(s)}만 원과 번 돈의 15% 보태기${homeFeeNote(s)}` : (parentsAlive(s).length ? '부모님이 다시 들어오는 건 반대하신다' : '돌아갈 본가가 없다'), f: s => { moveHomeParents(s); s.done.leave_home = s.done.leave_home || 1; return '숙소를 나와 본가로 돌아갔다.'; } }); // v224: 여기서 본가를 골랐으면 열아홉 살의 '어디서 살까?'를 또 묻지 않는다
     // 결혼했으면 원룸 대신 투룸
     const sz = needApt(s) ? 'l' : isSpouse(partner(s)) ? 'm' : 's', mn = homeName('monthly', sz);
     if (!(own && hm.type === 'monthly')) o.push({ t: `${s.place}에서 ${josa(mn, '을를')} 구한다`, h: `보증금 ${fmtWon(homeNeed(s.region, 'monthly', sz))} · 월세·생활비 월 ${homeMonthly(s.region, 'monthly', sz)}만 원 · 돈이 모자라면 빚이 된다`, f: s => { const x = moveTo(s, s.region, 'monthly', sz); milestone(s, `${age(s)}세에 숙소를 나와 ${s.place}에서 자취를 시작했다.`); return x; } });

@@ -2006,7 +2006,7 @@ CAREERS.band = {
     musAlbMonth(s, 'band'); // v154: 인디는 새 곡 기획 창, 회사 소속은 새 곡 회의
     if (t.st === 'indie' && t.b.f >= 3000 && U.chance(0.04)) maybeScout(s, 'band');
     // 페스티벌 섭외 (v117 밸런스 C2): 페스티벌마다 열리는 달이 정해져 있고, 섭외는 2~4달 전에 온다. 답장 기한은 페스티벌 한 달 전
-    if (t.b.f >= 1500 && t.festY !== calY(s) && U.chance(0.15) && !s.inbox.some(m => m.kind === 'band_fest') && !hasQ(s, 'band_fest_play')) {
+    if (t.b.f >= 1500 && t.festY !== calY(s) && U.chance(0.15 * offerPopM(s, 'band')) && !s.inbox.some(m => m.kind === 'band_fest') && !hasQ(s, 'band_fest_play')) {
       const c = BAND_FESTS.filter(x => x.m - calM(s) >= 2 && x.m - calM(s) <= 4 && t.b.f >= x.minF);
       if (c.length) { const x = U.pick(c); t.festY = calY(s); sendMsg(s, 'band_fest', { from: x.n, title: `${x.m + 1}월 페스티벌 섭외`, months: x.m - calM(s) - 1, d: { festM: x.m, mult: x.mult, fee: Math.round((100 + t.b.f / 50) * (0.5 + 0.5 * x.mult)) * 1e4 } }); }
     }
@@ -2467,7 +2467,7 @@ E({
     // v167: 솔로도 아이돌처럼 음악방송에 나가 1위를 한다 (팬이 적으면 1위 횟수가 적다). 유행을 바꾸는 조건도 아이돌과 같다
     const ck = chartRank(s, sc, totalFans(s)); d.peak = ck.peak; d.cn = ck.cn; d.wins = showWins(sc, totalFans(s)); d.ht = hitTrend(s, d.c, d.peak, d.wins);
     jpopWork(s, 'solo', sc);
-    d.gain = Math.round(fanGain(s, sc, mk, signed ? 1.1 : 0.7) * myRoom(s, mk));
+    d.gain = Math.round(fanGain(s, sc, mk, signed ? 1.1 : 0.7, 58) * myRoom(s, mk)); // v228: 솔로 신곡은 50점대 후반부터 팬이 는다 (예전엔 팬이 5만이면 57점, 30만이면 63점부터)
     s.fans[mk] = Math.max(0, s.fans[mk] + d.gain);
     if (mk === 'kr') s.fans.jp += Math.round(Math.max(0, d.gain) * 0.03);
     d.roy = addCatalog(s, d.title, t.type === 'rap' ? '랩' : '가창', sc, signed ? 0.6 : 1.0, 'solo') + (d.self ? addCatalog(s, d.title, '작곡', sc, 0.8, 'solo') : 0) + (d.lyr ? addCatalog(s, d.title, '작사', sc, 0.35, 'solo') : 0);

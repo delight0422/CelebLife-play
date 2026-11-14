@@ -435,7 +435,9 @@ function renderSchedule() {
     h += `<div class="slot-top" ${fj ? `data-job="${fj}"` : locked ? '' : `data-pick="${i}"`}><span class="ic">${a.ic || '❔'}</span><span class="nm">${U.esc(a.n)}${sub ? `<br><span class="hint">${U.esc(sub)}</span>` : ''}</span>${fj ? '<span class="chev">›</span>' : locked ? '' : '<span class="chev">▾</span>'}</div>`;
     // 피아노·키보드를 둘 다 배웠으면 연습할 때 다른 쪽도 절반만큼 는다 (작은 화살표)
     const tw = a.skill && SKILL_TWIN[a.skill], eff = a.eff && tw && has(p, tw) ? a.eff.slice(0, 1).concat([[SKILLS[tw].n, '<small class="arr-s">↑</small>', 1]], a.eff.slice(1)) : a.eff;
-    if (eff) h += `<div class="chips">${eff.map(([n, v, good]) => `<span class="chip ${good ? '' : 'bad'}">${n} ${v}</span>`).join('')}</div>`;
+    // v228: 숨은 한계 가까이 간 특기는 '↑' 대신 '더 이상 잘 오르지 않는다'
+    const eff2 = eff && a.skill && skCapNear(p, a.skill) ? [['더 이상 잘 오르지 않는다', '', 0]].concat(eff.slice(1)) : eff;
+    if (eff2) h += `<div class="chips">${eff2.map(([n, v, good]) => `<span class="chip ${good ? '' : 'bad'}">${v ? `${n} ${v}` : n}</span>`).join('')}</div>`;
     if (!locked && a.les && !lesOK(p, a.skill, 2)) h += `<div class="les"><span class="hint">학원에서 배울 수준을 넘어섰다. 이제는 혼자 연습한다.</span></div>`;
     else if (!locked && a.les) {
       // 일반 학원 수준을 넘어서면 명문 학원만 다닐 수 있다
@@ -1298,7 +1300,7 @@ function panelPick() {
   const order = Object.keys(groups).sort((x, y) => (x === '직업 활동' ? -1 : y === '직업 활동' ? 1 : x === '생활' ? 1 : y === '생활' ? -1 : 0));
   for (const g of order) {
     h += `<div class="sec-h">${g}</div>`;
-    for (const { id, a, desc } of groups[g]) h += `<button class="pick ${sl.act === id ? 'on' : ''}" data-pickact="${id}"><span class="ic">${a.ic}</span><span><div class="t">${U.esc(a.n)}</div><div class="h">${U.esc(desc)}${a.eff ? ' · ' + a.eff.map(([n, v]) => `${n} ${v}`).join(', ') : ''}</div></span></button>`;
+    for (const { id, a, desc } of groups[g]) h += `<button class="pick ${sl.act === id ? 'on' : ''}" data-pickact="${id}"><span class="ic">${a.ic}</span><span><div class="t">${U.esc(a.n)}</div><div class="h">${U.esc(desc)}${a.eff ? ' · ' + (a.skill && skCapNear(p, a.skill) ? [['더 이상 잘 오르지 않는다', '']].concat(a.eff.slice(1)) : a.eff).map(([n, v]) => v ? `${n} ${v}` : n).join(', ') : ''}</div></span></button>`;
   }
   if (!order.length) h += `<div class="empty">찾는 활동이 없다.</div>`;
   if (!learnedSkills(p).length) h += `<p class="hint">아직 배운 특기가 없어서 연습할 수 있는 게 없다. 특기는 살면서 만나는 선택지로 처음 배운다.</p>`;
@@ -2375,7 +2377,7 @@ const CM_TONE = {
   '합이 조금 어긋난다': ['합이 좀 어긋남', '합이 아직 덜 맞는 듯'],
   '합이 착착 맞는다': ['합이 착착 맞음', '합 좋음'],
   '합주가 귀에 착 붙는다': ['합주가 귀에 착 붙음', '밴드 사운드 좋음'],
-  '홍보가 제대로 됐다': ['홍보 제대로 함', '요즘 어딜 가나 이 노래 나옴'],
+  '홍보가 제대로 됐다': ['홍보 제대로 함', '홍보 열심히 하더라', '광고 많이 보이더라', '요즘 어딜 가나 이 노래 나옴'], // v228: '어딜 가나'는 넷에 한 번만
   '후렴이 하루 종일 맴돈다': ['후렴이 하루 종일 맴돎', '후렴 중독됨 ㅋㅋ'],
 };
 // 모르는 말: 끝의 '~다'를 커뮤니티 말투 끝(~음 · ~함 · ~임)으로 바꾼다

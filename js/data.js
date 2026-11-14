@@ -227,7 +227,7 @@ const SONG_BAN = ['푸른 밤', '비밀의 정원', '마지막 편지', '마지�
   'Blue Moon', 'Sugar Rush', 'Purple Rain', 'Secret Garden', 'Secret Love', 'Endless Love', 'Electric Love', 'Cosmic Love', 'Neon Moon', 'Neon Lights',
   'Midnight Sky', 'Midnight Rain', 'Midnight Run', 'Wild Heart', 'Wild Flower', 'Sweet Melody', 'Sweet Escape', 'Sweet Dream', 'Sweet Love', 'Runaway Love',
   'Moonlight Drive', 'Honey Moon', 'Candy Crush', 'Diamond Heart', 'Rocket Love', 'Pink Moon', 'Paper Moon', 'Starry Night', 'Rainy Days', 'Golden Hours',
-  'Lunar Moon', 'Sunday Days', 'Falling Love'];
+  'Lunar Moon', 'Sunday Days', 'Falling Love', '불타는 불꽃', '취한 와인'];
 // 드라마·영화 제목 (10-3, v109): 장르마다 낱말 묶음과 틀이 따로 있다. a 꾸미는 말, n 장르 낱말, p 틀({a} {n} {m}: m은 n과 다른 낱말), k 통째로 지은 제목,
 // b · l 장소 · 일 쪽 꾸미는 말과 낱말 ({b} {l}, 의학물 · 법정물 · 학원물 · 휴먼 코미디만. 이때 a · n은 사람 쪽)
 // 최근에 쓴 제목은 다시 나오지 않게 한다 (dramaTitle). 실제로 유명한 작품과 같은 제목은 DRAMA_BAN으로 막는다

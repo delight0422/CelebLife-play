@@ -456,12 +456,18 @@ function songPair(A, B) { let a, b, t; for (let i = 0; i < 50; i++) { a = U.pick
 // 그룹 이름 + 뒤 글자: JUKEBOXS · MYTHOSS · FIREFLYS · HI-FIS처럼 읽기 어려운 짝은 빼고 고른다
 // 뒤에 붙는 숫자는 그룹 인원수와 같고, 앞에 띄어쓰기나 _를 둔다 (STARFALL 5 · STARFALL_5). size 0 = 인원을 아직 모름(숫자 안 붙임), 안 주면 인원이 화면에 안 나오는 다른 회사 그룹이라 4~9명 중 하나
 function groupNameRaw(size = U.int(4, 9)) { const b = U.pick(GROUP_NAMES), x = U.pick(GROUP_SUFFIX.filter(x => !(x === 'N' && !size) && !(x === 'S' && /[SXZHYI]$/.test(b)) && !(x === 'X' && /[SX]$/.test(b)))); return b + (x === 'N' ? U.pick([' ', '_']) + size : x); }
-function songTitleEn() { return freshName(() => songPair(SONG_EA, SONG_EB)); }
+// v228: 곡 제목 다듬기 — ① 나올 때 계절과 어긋나는 제목(한겨울에 나오는 '여름' 곡 · 한여름의 '겨울' 곡)을 피한다 (곡은 지은 지 석 달 안에 나온다)
+//   ② 내 지난 곡과 뒷말이 같은 제목(Vintage Drive 다음에 Golden Drive)을 피한다 ③ '강렬' · '힙합'은 늘 그 컨셉 낱말로 짓는다 (잔잔한 제목이 섞이지 않게)
+function songSeasonOff(n) { const s = NAME_S; if (!s || s.birthMonth == null) return false; const M = [0, 1, 2, 3].map(i => (calM(s) + i) % 12); return (/여름|Summer/.test(n) && M.some(m => m === 11 || m <= 1)) || (/겨울|눈송이|Winter/.test(n) && M.some(m => m >= 5 && m <= 7)); }
+function songWordUsed(n) { const s = NAME_S, i = n.lastIndexOf(' '); if (!s || i < 0) return false; const w = n.slice(i + 1); return (s.works || []).filter(x => /싱글|앨범|OST|피처링|곡$/.test(x.type || '')).slice(-14).some(x => typeof x.title === 'string' && x.title !== n && x.title.includes(' ') && x.title.slice(x.title.lastIndexOf(' ') + 1) === w); }
+// 마흔 번 안에 못 찾으면 계절 · 뒷말은 접고, 이미 쓴 제목만 아닌 것으로 (예전 freshName과 같게)
+function songFresh(gen) { let n, alt = null; for (let i = 0; i < 40; i++) { n = gen(); if (nameTaken(n)) continue; if (!songSeasonOff(n) && !songWordUsed(n)) return n; alt = alt || n; } return alt || n; }
+function songTitleEn() { return songFresh(() => songPair(SONG_EA, SONG_EB)); }
 // v219: 컨셉(c)을 알면 그 컨셉에 어울리는 낱말로 짓는다 (data.js SONG_C). 열에 한두 번은 예전처럼 아무 제목
 function songTitle(c) {
   const T = c && typeof SONG_C !== 'undefined' ? SONG_C[c] : null;
-  if (T && U.chance(0.95)) return freshName(() => T.K && U.chance(0.12) ? U.pick(T.K) : U.chance(0.5) ? songPair(T.kA, T.kB) : songPair(T.eA, T.eB));
-  return freshName(() => U.chance(0.15) ? U.pick(SONG_K) : U.chance(0.47) ? songPair(SONG_A, SONG_B) : songPair(SONG_EA, SONG_EB));
+  if (T && U.chance(c === '강렬' || c === '힙합' ? 1 : 0.95)) return songFresh(() => T.K && U.chance(0.12) ? U.pick(T.K) : U.chance(0.5) ? songPair(T.kA, T.kB) : songPair(T.eA, T.eB));
+  return songFresh(() => U.chance(0.15) ? U.pick(SONG_K) : U.chance(0.47) ? songPair(SONG_A, SONG_B) : songPair(SONG_EA, SONG_EB));
 }
 // 채널 · 버튜버 이름 (10-5)
 function hasBatchim(w) { const c = w.charCodeAt(w.length - 1); return c >= 0xAC00 && c <= 0xD7A3 && (c - 0xAC00) % 28 > 0; }
@@ -691,10 +697,13 @@ function tvShowTitle(genre) { const W = SHOW_WORDS[genre] || SHOW_WORDS[U.pick(S
 const FANCAP = { kr: 2.5e7, jp: 3e7, us: 6e7 };
 // 스타성은 아티스트로 활동할 때 팬이 느는 속도에 영향을 준다 (외모는 얼굴이 보이는 일의 점수에 바로 들어간다: visB)
 function popSpeed(s) { return 0.4 + me(s).tal.star / 70; }
-function fanGain(s, sc, mk = 'kr', mult = 1) {
+// v228 soft: 이 점수부터는 팬이 아무리 많아도 팬이 줄지 않는다 (솔로 신곡은 58). 팬이 많을수록 올라가던 기준선을 soft에서 멈추고, 그 위로는 조금씩(예전 기울기의 0.2배) 는다. 0이면 예전 그대로
+//   soft보다 10점 넘게 낮은 곡은 예전만큼 잃는다. 그 사이 10점은 예전 값에서 0까지 곧게 잇는다 (망한 곡의 손실까지 줄이지는 않는다)
+function fanGain(s, sc, mk = 'kr', mult = 1, soft = 0) {
   sc = U.clamp(sc, 0, 100);
-  const cur = s.fans[mk], cap = FANCAP[mk];
-  const raw = Math.pow(10, sc / 18) * mult * popSpeed(s) + cur * ((sc - (45 + Math.log10(1 + cur) * 4)) / 300);
+  const cur = s.fans[mk], cap = FANCAP[mk], thr = 45 + Math.log10(1 + cur) * 4, T = soft ? Math.min(thr, soft) : thr;
+  const k = sc >= T ? Math.max((sc - thr) / 300, soft ? (sc - T) / 300 * 0.2 : 0) : soft && T < thr && sc > T - 10 ? (sc - T) * (thr - T + 10) / 3000 : (sc - thr) / 300;
+  const raw = Math.pow(10, sc / 18) * mult * popSpeed(s) + cur * k;
   return Math.round(raw > 0 ? raw * Math.max(0, 1 - cur / cap) : raw);
 }
 function fanWord(n) { return n < 1000 ? '무명' : n < 1e4 ? '아는 사람만 아는' : n < 1e5 ? '떠오르는' : n < 1e6 ? '인기 있는' : n < 5e6 ? '톱스타' : '국민 스타'; }
@@ -732,6 +741,9 @@ function jpopAll(s, v) { let sum = 0; const L = popJobsOn(s); for (const id of L
 // 작품(앨범·싱글·각본 등) 성적이 그 직업의 인기를 바꾼다: 점수 85면 +2.5, 40이면 −1.25
 function jpopWork(s, id, sc) { return jpopAdd(s, id, (sc - 55) / 12); }
 function jpopAvg(s) { const L = popJobsOn(s); return L.length ? L.reduce((a, id) => a + jpop(s, id), 0) / L.length : 50; }
+// v228: 대중 호감도가 높을수록 밖에서 오는 제안(광고 · OST · 피처링 · 배역 · 예능 고정 · 뮤지컬 · 페스티벌)이 잦다. 보통(50)이면 그대로, 낮으면 가파르게 줄고(30이면 절반 아래) 높으면 는다(70부터 1.6배)
+//   id: 그 직업의 호감도로 본다 (그 일을 하고 있을 때). 없으면 지금 하는 일 전체의 평균
+function offerPopM(s, id) { const v = id && trackOn(s, id) ? jpop(s, id) : jpopAvg(s); return U.clamp(Math.pow(v / 50, 1.5), 0.2, 1.6); }
 // 하는 일의 인기는 매달 조금씩 보통(50)으로 돌아간다
 function jpopMonth(s) { for (const id of popJobsOn(s)) { const v = jpop(s, id); s.jpop = s.jpop || {}; s.jpop[id] = v + (50 - v) * 0.008; } }
 
@@ -1552,6 +1564,7 @@ function newLife() {
 function myName(s) { return me(s).name; }
 function myGender(s) { return me(s).g; }
 function startLife(s) {
+  NAME_S = s; // v228: 첫 달이 지나기 전에도 이번 인생을 기억한다
   const r = REGION_BY[s.region], p = me(s);
   addLog(s, `${s.birthYear}년 ${s.birthMonth + 1}월, ${s.place}의 ${wealthWord(s.wealth)} 집에서 ${p.g === '여' ? '딸' : '아들'}로 태어났다. 이름은 ${p.name}.`, 'birth');
   const sib = s.olderSib ? `위로 ${p.g === '여' ? '언니·오빠' : '형·누나'}가 ${s.olderSib}명 있다. ` : '';
@@ -1582,6 +1595,7 @@ function pfRename(o) {
   return o;
 }
 function migrate(s) {
+  NAME_S = s; // v228: 저장을 불러온 직후(첫 달이 지나기 전)에도 제목이 겹치는지 · 계절에 맞는지 볼 수 있게 (예전엔 한 달이 지나야 기억했다)
   // v153: 컴백 회의 · 타이틀곡 고르기 창이 기획 창으로 바뀌었다 (줄 서 있던 것 · 떠 있던 것을 옮긴다)
   for (const q of (s.queue || []).concat(s.pending ? [s.pending] : [])) if (q.id === 'co_cb' || q.id === 'co_song') { q.id = 'co_plan'; q.d = { gid: q.d && q.d.gid, debut: !!(q.d && q.d.debut) }; }
   if (!s.pfRen) { pfRename(s); s.pfRen = 1; }

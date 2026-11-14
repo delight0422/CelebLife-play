@@ -92,7 +92,7 @@ function liveBeats(sp) {
   if (mv === 2) hl.push([`${mine}!!!`, 'call'], [`${mine} 사랑해!!`, 'big']); else if (mv === 1) hl.push([`${mine}!`, 'call']);
   if (z('cf') >= 0.5) hl.push(['컨셉 찰떡!!', 'big']); else if (z('cf') <= -0.5) hl.push(['수군수군…', 'bad']);
   if (z('star') >= 0.6) hl.push(['비주얼 뭐야!!', 'big']);
-  if (!hl.length) hl.push(['짝짝짝', 'soft']);
+  if (!hl.length) hl.push([sp.sc < 52 ? '짝… 짝…' : '짝짝짝', 'soft']); // v228: 결과가 아쉬운 무대는 박수도 힘이 없다
   B.push({ cap: grp ? '댄스 브레이크' : '하이라이트', glow: 0.75, L: hl });
   // 6. 엔딩: 점수
   const sc = sp.sc, end = sc >= 80 ? [['앙코르!! 앙코르!!', 'call'], [pk(LV_BIG), 'big'], [pk(LV_BIG), 'big']] : sc >= 65 ? [['짝짝짝짝짝!!', 'big'], ['수고했어!!', 'big']] : sc >= 52 ? [['짝짝짝', 'soft'], ['고생했어!', 'soft']] : [['짝짝…', 'soft']];

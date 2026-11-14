@@ -275,7 +275,7 @@ INBOX.musical_offer = {
 };
 E({
   id: 'musical_offer_gen', cd: 18, cat: '제안', title: '뮤지컬 제안',
-  p: s => (s.flags.musicalGood || 0) > 0 || totalFans(s) >= 20000 ? 0.04 : 0,
+  p: s => (s.flags.musicalGood || 0) > 0 || totalFans(s) >= 20000 ? 0.04 * offerPopM(s) : 0,
   // 해낼 수 있는 배역이 하나라도 있어야 제안이 온다 (노래·연기가 앙상블 기준에 못 미치면 오지 않는다)
   cond: s => age(s) >= 16 && !busyWith(s, 'musical') && !s.inbox.some(m => m.kind === 'musical_offer') && MUSICAL_ROLES.some(r => roleOK(s, r)),
   init(s, d) {

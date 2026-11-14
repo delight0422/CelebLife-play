@@ -190,7 +190,7 @@ CAREERS.actor = {
     const chance = stigmaMul(s) * (0.1 + ACT_POW[t.tier] * 0.03 + (t.via !== 'indie' ? 0.05 : 0) + Math.min(0.12, Math.log10(1 + totalFans(s)) / 45)) * access(s) * (n ? 1 : 0.45) * (0.8 + s.rep / 250) * (0.75 + jpop(s, 'actor') / 200);
     if (!hasQ(s, 'actor_offer') && U.chance(chance)) queueEv(s, 'actor_offer', 0);
     // 이름이 알려지면 제작사가 오디션 없이 배역을 제안한다 (메시지함)
-    if (t.tier >= 3 && !s.inbox.some(m => m.kind === 'cast_offer') && U.chance((0.02 + ACT_POW[t.tier] * 0.01) * stigmaMul(s))) { const pj = genProjects(s, t.tier, 1)[0]; pj.ri = Math.max(pj.ri, t.tier >= 4 ? 2 : 1); sendMsg(s, 'cast_offer', { from: pj.co, title: `${PJ_TYPES[pj.tk].n} ${ROLE_N[pj.ri]} 제안`, months: 3, d: { pj } }); }
+    if (t.tier >= 3 && !s.inbox.some(m => m.kind === 'cast_offer') && U.chance((0.02 + ACT_POW[t.tier] * 0.01) * stigmaMul(s) * offerPopM(s, 'actor'))) { const pj = genProjects(s, t.tier, 1)[0]; pj.ri = Math.max(pj.ri, t.tier >= 4 ? 2 : 1); sendMsg(s, 'cast_offer', { from: pj.co, title: `${PJ_TYPES[pj.tk].n} ${ROLE_N[pj.ri]} 제안`, months: 3, d: { pj } }); }
   },
 };
 // 배우 소속사 오디션 (직업 지원). v207: 회사 특징 (CO_FOCUS.actor)
@@ -757,7 +757,7 @@ INBOX.var_fixed = {
 };
 E({
   id: 'var_fixed_gen', cd: 12, cat: '제안', title: '예능 고정 제안',
-  p: s => (s.flags.varGood || 0) >= 2 && !trackOn(s, 'variety') ? 0.05 : 0,
+  p: s => (s.flags.varGood || 0) >= 2 && !trackOn(s, 'variety') ? 0.05 * offerPopM(s) : 0,
   cond: s => !s.inbox.some(m => m.kind === 'var_fixed') && !s.army,
   init(s, d) { const sh = genShow(s, 0, true); sendMsg(s, 'var_fixed', { from: sh.bc, title: '예능 고정 멤버 제안', months: 4, d: { sh } }); s.flags.varGood = 0; d.skip = true; },
 });
@@ -1488,7 +1488,7 @@ function brandCats(s) { return (s.brands || []).map(x => BRAND_BY[x.id].cat); }
 // 이름이 알려지면 브랜드가 광고 모델을 제안한다 (이미지가 맞을수록 자주)
 E({
   id: 'brand_offer_gen', cat: '제안', title: '광고 제안',
-  p: s => brandReach(s) && age(s) >= 14 && (s.stigma || 0) < 30 && !s.hiatus ? 0.02 + brandReach(s) * 0.012 + (trackOn(s, 'model') ? 0.03 : 0) + (mcnOf(s) ? mcnTierT(s, s.tracks.youtube) * 0.01 : 0) : 0,
+  p: s => brandReach(s) && age(s) >= 14 && (s.stigma || 0) < 30 && !s.hiatus ? (0.02 + brandReach(s) * 0.012 + (trackOn(s, 'model') ? 0.03 : 0) + (mcnOf(s) ? mcnTierT(s, s.tracks.youtube) * 0.01 : 0)) * offerPopM(s) : 0, // v228: 대중 호감도가 낮으면 광고가 드물다
   cond: s => !s.inbox.some(m => m.kind === 'brand_offer') && !s.army && s.rep >= 30,
   init(s, d) {
     const reach = brandReach(s), have = brandCats(s);

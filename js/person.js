@@ -150,6 +150,8 @@ function ageMult(s, p, k) {
   if (sk.lang) return a < 13 ? 1.2 : a < 25 ? 1.05 : a < 40 ? 0.9 : 0.7;
   return a < 10 ? 0.8 : a < 50 ? 1 : 0.8;
 }
+// v228: 숨은 한계(포텐)의 90%를 넘으면 연습해도 아주 느리게 는다 (평소의 8% 아래). 일정 칸에 '더 이상 잘 오르지 않는다'로 알려 준다 (ui.js)
+function skCapNear(p, k) { const sk = p && p.sk && p.sk[k]; return !!sk && sk.lv >= 8 && sk.lv >= sk.pot * 0.9; }
 // 연습. base: 기본 양(혼자 연습 1), mult: 학원이면 1.7 등. 돌려주는 값: 오른 양
 function practice(s, p, k, base = 1, mult = 1) {
   if (!has(p, k)) return 0;
