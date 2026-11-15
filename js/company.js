@@ -1297,7 +1297,7 @@ E({
   html: (s, d) => coMeetHTML(s, d, 'co_plan'),
   text: (s, d) => { const g = coGroup(s, d.gid), j = coAnrLead(s); return coMeetText(s, g, d.debut) + `\n\n컨셉과 곡을 모을 곳을 정하자. 여러 개를 같이 고를 수 있고, 고른 만큼 돈이 든다. 모인 곡은 ${j ? `A&R 팀장 ${josa(j.name, '이가')} 다섯 곡으로 추려 오고,` : '내가 전부 들어 보고,'} 한 달 뒤에 실을 곡을 정한다.`; },
   // v165: 그룹마다 지난번 기획 설정(컨셉 · 곡을 모을 곳)을 그대로 체크해 둔다 (g.lastPlan)
-  form: (s, d) => { const g = coGroup(s, d.gid), x = coAlbX(s, g); x.last = g.lastPlan; return albPlanForm(s, x, c => coFitWord(s, g, c)); },
+  form: (s, d) => { const g = coGroup(s, d.gid), x = coAlbX(s, g); x.last = g.lastPlan; return albPlanForm(s, x, c => coFitWord(s, g, c) + cTireH(g, c)); },
   sum: (s, d, v) => { const g = coGroup(s, d.gid), x = coAlbX(s, g), r = albPlanRead(s, x, v), n = ALB_SRC.filter(z => r.src.includes(z.k)).reduce((a, z) => a + albSrcCnt(x, z, r.cs.length), 0); return `컨셉 ${r.cs.length}개 · 데모곡 ${n}곡쯤 · 드는 돈 ${fmtWon(albPlanCost(x, r.cs, r.src))} · 자본금 ${fmtWon(coM(coT(s), 'music'))}`; },
   cancel: (s, d) => { const g = coGroup(s, d.gid); return g ? coLater(s, g) : ''; },
   cancelT: (s, d) => { const g = coGroup(s, d.gid); return g && coCbManual(s, coT(s), g) ? '나중에 한다' : d.debut ? '데뷔를 미룬다' : '컴백을 미룬다'; },
@@ -1418,7 +1418,7 @@ E({
 function coFitV(s, g, c) { const w = coFitWord(s, g, c); return w === '잘 어울린다' ? 12 : w === '안 어울린다' ? -25 : w === '나이에 안 맞는다' ? -80 : 0; }
 function coProdPlan(s, g, P) {
   const t = coT(s), x = coAlbX(s, g), cm = coCm(P);
-  const R = TRENDS.map(c => ({ c, v: cm[c] * 0.4 + coFitV(s, g, c) + (c === g.sig ? 15 : 0) + (c === s.trend ? 10 : 0) + U.normal(0, 6) })).sort((a, b) => b.v - a.v);
+  const R = TRENDS.map(c => ({ c, v: cm[c] * 0.4 + coFitV(s, g, c) + (c === g.sig ? 15 : 0) + (c === s.trend ? 10 : 0) - (cRunN(g, c) >= C_TIRE_N ? 40 : 0) + U.normal(0, 6) })).sort((a, b) => b.v - a.v);
   let cs = [R[0].c], src = ['open'].concat(albWriters(x).length ? ['mem'] : [], x.inh.length ? ['in'] : []);
   const cost = k => ALB_SRC.find(z => z.k === k).cost[x.tier], spare = () => coM(t, 'music') - x.prod - albPlanCost(x, cs, src);
   if (R[1].v > R[0].v - 6 && spare() > albPlanFee(x) * 15) cs.push(R[1].c);
@@ -1510,7 +1510,8 @@ function coAlbum(s, g, o) {
   const P = coP(s, g.members), cf = cFit(s, o.c, P, yrs);
   if (cf.rap != null && band) { const bv = P.find(x => x.co && x.co.part === 'vocal'); cf.rap = bv ? lv(bv, 'rap') : 0; }
   const ceoB = coCeo(t, 'music') ? 0 : Math.min(CO_CEOB_MAX, g.ceoB || 0); g.ceoB = 0; // v216: 대표가 제작을 챙긴 만큼
-  const sc = songScore(s, { perf: cPerf(coPower(s, g), cf), q: o.q, fans: coGFans(g), tier: 0, trend: o.c === s.trend, bonus: ceoB + (band ? tier * 4 : IDOL_TIER_B[tier]) + (g.star - 50) * 0.12 + (o.c === g.sig ? 3 : 0) + Math.min(g.cbCount, 6) * 0.6 + g.mo - tired + rookie + cScoreB(cf) });
+  const tire = cTireB(g, o.c); cTireLog(s, g, o.c, `「${g.name}」: `); cRunAdd(g, o.c); // v235: 같은 분위기가 다섯 번째부터 크게 깎인다 (music.js)
+  const sc = songScore(s, { perf: cPerf(coPower(s, g), cf), q: o.q, fans: coGFans(g), tier: 0, trend: o.c === s.trend, bonus: ceoB + (band ? tier * 4 : IDOL_TIER_B[tier]) + (g.star - 50) * 0.12 + (o.c === g.sig ? 3 : 0) + Math.min(g.cbCount, 6) * 0.6 + g.mo - tired + rookie + cScoreB(cf) + tire });
   g.mo = g.mo * 0.6 + U.normal(0, 4.5);
   const peak = chartFromScore(sc);
   const gain = { kr: fanGainRaw(sc, g.f.kr, 0.4 + tier * 0.1, starCap(g.star, 'kr')), jp: 0, us: 0 };
@@ -1527,7 +1528,7 @@ function coAlbum(s, g, o) {
   const rev = albums * 14000 + Math.pow(Math.max(0, sc - 45), 2) * 10e4 + (peak ? (101 - peak) * 300e4 : 0);
   coIn(t, rev, '앨범·음원', 'music');
   const debt0 = g.debt, pay = coSettle(s, t, g, rev), rec = debt0 - g.debt;
-  const card = coAlbumCard(s, t, g, o, { sc, peak, wins, gs: gain.kr + gain.jp + gain.us, rev, pay, rec, cfB: cScoreB(cf), tired, ht, ceoB });
+  const card = coAlbumCard(s, t, g, o, { sc, peak, wins, gs: gain.kr + gain.jp + gain.us, rev, pay, rec, cfB: cScoreB(cf), tired, tire, ht, ceoB });
   if (ht) hitTrendGo(s, o.c, o.title, `우리 회사 ${g.name}`);
   if (o.mine) { addCatalog(s, o.title, '작곡', sc, 0.7, 'agency'); cmGain(s, o.c, 4); useSkill(s, p, 'compose', 2); addWork(s, { type: '작곡', title: o.title, by: g.name, sc, note: chartText(peak) }); }
   for (const tt of o.sub || []) addCatalog(s, tt, '작곡', sc, 0.25, 'agency');
@@ -1555,7 +1556,8 @@ function coAlbumCard(s, t, g, o, r) {
   const pw = coPower(s, g);
   const F = [g.kind === 'band' ? { z: (pw - 48) / 18, g: ['연주가 탄탄하다', '합주가 귀에 착 붙는다'], b: ['연주가 아직 덜 여물었다', '라이브가 조금 불안하다'] } : { z: (pw - 45) / 18, g: ['퍼포먼스가 눈을 못 떼게 한다', '라이브가 안정적이다'], b: ['라이브가 조금 불안하다', '무대가 아직 덜 여물었다'] },
     RX.q(o.q), RX.fans(coGFans(g), r.gs), RX.trend(o.c === s.trend, r.ht), RX.cf(r.cfB), RX.promo(t.f.music.tier), { z: (g.star - 50) / 25, g: ['멤버들 얼굴이 화면을 꽉 채운다'], b: ['눈에 확 띄는 멤버가 없다'] }];
-  if (r.tired > 1) F.push({ z: -r.tired / 4, g: ['오래 봐도 질리지 않는다'], b: ['비슷한 컨셉이 이어져 조금 익숙하다'] });
+  if (r.tired > 1) F.push({ z: -r.tired / 4, g: ['오래 봐도 질리지 않는다'], b: ['데뷔한 지 오래돼 새로움이 덜하다'] }); // v235: 데뷔 뒤 햇수 이야기라 글을 바꿨다
+  if (r.tire) F.push(cTireF(r.tire)); // v235: 같은 분위기가 다섯 번째부터 (music.js)
   if (o.c === g.sig) F.push({ z: 0.5, g: ['역시 이 그룹다운 컨셉이다'], b: ['늘 하던 컨셉이라 뻔하다'] });
   if (r.ceoB >= 1) F.push({ z: r.ceoB / 3, g: ['구석구석 공들인 티가 난다', '앨범 만듦새가 꼼꼼하다'], b: ['만듦새가 조금 거칠다'] });
   const mem = Math.round(r.rev * (1 - g.cut)), rows = [['앨범 · 음원 매출', Math.round(r.rev)], [`멤버 몫 (${Math.round((1 - g.cut) * 100)}%)`, -mem]];

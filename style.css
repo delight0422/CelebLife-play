@@ -1673,23 +1673,26 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .pf-bn.comm:hover { box-shadow: inset 0 0 0 1px var(--pf-comm); }
 .pbn:hover, .pbn-in:hover { border-color: var(--violet); box-shadow: inset 0 0 0 1px var(--violet), 0 4px 12px rgba(80, 50, 160, .16); }
 
-/* v202: 고른 결과 토스트 — 화면 아래쪽 가운데, 다음 창이 떠도 한동안 남는다. 떠 있는 동안 창은 위로 비켜 선다 */
-.ctoast { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 96; width: min(620px, calc(100vw - 24px)); display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-.ct-i { pointer-events: auto; position: relative; background: var(--card); color: var(--ink); border: 2px solid var(--violet); border-left-width: 7px; border-radius: 16px; padding: 12px 44px 12px 16px; box-shadow: 0 14px 36px rgba(30, 10, 80, .32); max-height: 34vh; overflow-y: auto; animation: ctIn .3s ease-out; transition: opacity .35s, transform .35s; }
+/* v202: 고른 결과 토스트 — 화면 아래쪽 가운데, 다음 창이 떠도 한동안 남는다. 떠 있는 동안 창은 위로 비켜 선다 (휴대폰 폭)
+   v235: 늘 아래 가운데에 가로로 길게 (글 길이만큼 넓어진다). 글은 가운데 정렬, 한 문장은 한 줄 (.ct-s). 스페이스바 · 엔터 · 눌러서 넘긴다 */
+.ctoast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 96; width: max-content; min-width: min(380px, calc(100vw - 24px)); max-width: calc(100vw - 24px); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
+.ct-i { pointer-events: auto; position: relative; box-sizing: border-box; min-width: min(380px, 100%); max-width: 100%; text-align: center; background: var(--card); color: var(--ink); border: 2px solid var(--violet); border-left-width: 7px; border-radius: 16px; padding: 12px 46px; box-shadow: 0 14px 36px rgba(30, 10, 80, .32); max-height: 34vh; overflow-y: auto; cursor: pointer; animation: ctIn .3s ease-out; transition: opacity .35s, transform .35s; }
 .ct-i.out { opacity: 0; transform: translateY(14px); }
 .ct-h { font-size: var(--fs-2); font-weight: 800; color: var(--muted); margin-bottom: 2px; }
 .ct-pick { display: inline-block; font-size: var(--fs-2); font-weight: 800; color: var(--violet); background: var(--violet-soft); border-radius: 999px; padding: 1px 10px; margin: 2px 0 6px; }
-.ct-l { font-size: var(--fs-4); line-height: 1.55; font-weight: 600; padding: 3px 0; }
+.ct-l { font-size: 17px; line-height: 1.6; font-weight: 600; padding: 3px 0; }
 .ct-l + .ct-l { border-top: 1px dashed var(--line); }
 .ct-l.flavor { font-size: var(--fs-3); color: var(--muted); font-weight: 500; }
+.ct-s { display: inline-block; max-width: 100%; }
 .ct-x { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border: 0; border-radius: 999px; background: var(--card2); color: var(--ink2); font-size: 14px; cursor: pointer; }
 .ct-x:hover { background: var(--violet-soft); color: var(--violet); }
+.ct-k { display: none; margin-top: 4px; font-size: var(--fs-1); color: var(--muted); }
+.ct-k kbd { font: inherit; font-weight: 700; border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; background: var(--card2); }
+.ctoast .ct-i:last-child .ct-k { display: block; }
 @keyframes ctIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
-/* v219: 창을 위로 비켜 세우는 것은 휴대폰 폭에서만 (넓은 화면에서는 토스트가 오른쪽 아래에 작게 떠서 창을 건드리지 않는다) */
-@media (max-width: 760px) {
-  .ct-on .overlay:not(.rt-ov):not(.live-ov) { padding-bottom: calc(var(--ct-h, 0px) + 22px); }
-  .ct-on .overlay:not(.rt-ov):not(.live-ov) > .mcard { max-height: calc(100vh - var(--ct-h, 0px) - 60px); }
-}
+/* v235: 토스트가 떠 있는 동안 창(패널 · 요약)은 화면 폭과 상관없이 위로 비켜 선다 (v219에는 휴대폰 폭에서만. 이제 넓은 화면에서도 아래 가운데에 떠서 창 아래쪽 버튼을 가린다) */
+.ct-on .overlay:not(.rt-ov):not(.live-ov) { padding-bottom: calc(var(--ct-h, 0px) + 22px); }
+.ct-on .overlay:not(.rt-ov):not(.live-ov) > .mcard { max-height: calc(100vh - var(--ct-h, 0px) - 60px); }
 /* v202: 요약 창 두 장 (특별한 일 · 결산표) */
 .ts-tabs { margin: 0 0 var(--sp-2); }
 .tsr { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-bottom: var(--sp-3); }
@@ -1871,25 +1874,7 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .pf-st { margin-top: var(--sp-1); font-size: var(--fs-2); font-weight: 700; color: #b03a7a; }
 
 /* ───── v219 ───── */
-/* 고른 결과 토스트: 오른쪽 아래에 작게. 창을 밀어 올리지 않는다 (창 맨 아래 선택지가 가려지고 버튼 자리가 움직이던 문제). 휴대폰 폭에서는 예전처럼 아래 가운데 */
-@media (min-width: 761px) {
-  .ctoast { left: auto; right: 14px; bottom: 14px; transform: none; width: min(320px, calc(100vw - 24px)); gap: 6px; }
-  .ct-i { padding: 9px 34px 9px 12px; border-radius: 14px; border-left-width: 6px; max-height: 30vh; box-shadow: 0 8px 22px rgba(30, 10, 80, .26); }
-  .ct-h { font-size: var(--fs-1); }
-  .ct-pick { font-size: var(--fs-1); margin: 2px 0 4px; }
-  .ct-l { font-size: var(--fs-3); line-height: 1.5; padding: 2px 0; }
-  .ct-x { top: 6px; right: 6px; width: 24px; height: 24px; font-size: 12px; }
-}
-/* v234: 창이 하나도 안 떠 있을 때는 한가운데에 크게 (.mid). 스페이스바 · 엔터 · 눌러서 넘긴다. 패널 · 요약 창이 떠 있으면 위의 예전 자리 */
-.ctoast.mid { left: 50%; right: auto; top: 50%; bottom: auto; transform: translate(-50%, -50%); width: min(600px, calc(100vw - 24px)); gap: 10px; max-height: 94vh; }
-.ctoast.mid .ct-i { padding: 16px 48px 16px 20px; border-radius: 18px; border-left-width: 8px; max-height: 30vh; box-shadow: 0 18px 48px rgba(30, 10, 80, .38); cursor: pointer; }
-.ctoast.mid .ct-h { font-size: var(--fs-3); }
-.ctoast.mid .ct-pick { font-size: var(--fs-2); margin: 3px 0 7px; }
-.ctoast.mid .ct-l { font-size: 18px; line-height: 1.6; padding: 4px 0; }
-.ctoast.mid .ct-x { top: 10px; right: 10px; width: 28px; height: 28px; font-size: 14px; }
-.ct-k { display: none; margin-top: 6px; font-size: var(--fs-1); color: var(--muted); text-align: right; }
-.ct-k kbd { font: inherit; font-weight: 700; border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; background: var(--card2); }
-.ctoast.mid .ct-i:last-child .ct-k { display: block; }
+/* (v219의 '오른쪽 아래에 작게' · v234의 '한가운데에 크게'는 v235에 없앴다: 늘 아래 가운데. 위의 .ctoast) */
 /* 직업 활동 박스: 결과를 기다리는 지원 (누르는 줄이 아니다) */
 .trk.wait { cursor: default; }
 .ap-note { margin: 0 0 var(--sp-2); }

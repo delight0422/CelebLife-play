@@ -259,16 +259,18 @@ E({
     d.net = signed ? d.pay : Math.round(rev - (d.cost != null ? d.cost : V.cost));
     if (d.pay > 0) earn(s, d.pay, '단독 공연', 'solo');
     d.mk = mk; d.gain = Math.round(Math.max(0, d.sold * (d.heat - 50) / 40) * myRoom(s, mk)); s.fans[mk] += d.gain;
-    d.pop = jpopAdd(s, 'solo', d.heat >= 82 ? U.fl(3, 5) : d.heat >= 67 ? U.fl(1.5, 3) : d.heat >= 52 ? 0.8 : d.fill < 0.5 ? -2 : -0.5);
+    // v235: 객석을 절반도 못 채우면 열기와 상관없이 대중 호감도가 크게 떨어지고(-3~-5), 스트레스가 크게 오른다 (보통 +8 → +22)
+    d.empty = d.fill < 0.5;
+    d.pop = jpopAdd(s, 'solo', d.empty ? -U.fl(3, 5) : d.heat >= 82 ? U.fl(3, 5) : d.heat >= 67 ? U.fl(1.5, 3) : d.heat >= 52 ? 0.8 : -0.5);
     t.liveN = (t.liveN || 0) + 1; t.liveT = s.t + SOLO_LIVE_GAP;
-    practice(s, p, soloMain(t), 2, 1); addStress(s, 8);
+    practice(s, p, soloMain(t), 2, 1); addStress(s, d.empty ? 22 : 8);
     addWork(s, { type: '단독 공연', title: V.n, by: actName(s, 'solo'), sc: d.heat, pay: d.pay || 0, note: `관객 ${d.sold.toLocaleString()}명 · ${soloHeatW(d.heat)}` });
     if (t.liveN === 1) milestone(s, `${age(s)}세에 ${V.n}에서 첫 단독 공연을 열었다.`);
     const z = (perf - 45) / 18;
     d.live = liveStage({ k: 'solo', c: s.trend, mic: 1, key: true, place: V.n, ph: SOLO_VENUE.indexOf(V) <= 1 ? 'soloclub' : SOLO_VENUE.indexOf(V) <= 3 ? 'solohall' : 'concert', t: '단독 공연', g: actName(s, 'solo'), cn: actCall(s, 'solo'), mem: [[actCall(s, 'solo'), '']], mi: 0, z: { perf: z, me: z, q: (d.heat - 57) / 20, fans: d.fill * 2 - 1, star: (p.tal.star - 50) / 25 }, sc: d.heat, wins: 0, cand: 0, debut: false }); // v228: 후렴 반응(q)은 공연 열기를 따라간다 (예전엔 값이 없어 열기가 낮아도 늘 '좋다!'였다)
   },
-  text: (s, d) => { const t = s.tracks.solo, fl = [d.net > 0 ? `공연 수익 +${fmtWon(d.net)}` : d.net < 0 ? `공연 적자 ${fmtWon(-d.net)}` : '', soloFxLine(d)].filter(Boolean).join(' · '); return `${d.vn} 단독 공연을 마쳤다. 관객 ${d.sold.toLocaleString()}명${d.fill >= 0.98 ? ' · 매진' : ` (${d.seat.toLocaleString()}석 가운데 ${Math.round(d.fill * 100)}%)`}. ${soloHeatW(d.heat)}.${fl ? `\n\n${fl}` : ''}`; },
-  ch: (s, d) => [{ t: '확인', f: () => `${d.vn}에서 단독 공연을 했다. 관객 ${d.sold.toLocaleString()}명, ${soloHeatW(d.heat)}.` }],
+  text: (s, d) => { const t = s.tracks.solo, fl = [d.net > 0 ? `공연 수익 +${fmtWon(d.net)}` : d.net < 0 ? `공연 적자 ${fmtWon(-d.net)}` : '', soloFxLine(d)].filter(Boolean).join(' · '); return `${d.vn} 단독 공연을 마쳤다. 관객 ${d.sold.toLocaleString()}명${d.fill >= 0.98 ? ' · 매진' : ` (${d.seat.toLocaleString()}석 가운데 ${Math.round(d.fill * 100)}%)`}. ${soloHeatW(d.heat)}.${d.empty ? '\n\n객석이 절반도 차지 않았다. 빈자리가 자꾸 눈에 밟힌다.' : ''}${fl || d.empty ? `\n\n${[fl, d.empty ? '스트레스 ↑↑' : ''].filter(Boolean).join(' · ')}` : ''}`; },
+  ch: (s, d) => [{ t: '확인', f: () => `${d.vn}에서 단독 공연을 했다. 관객 ${d.sold.toLocaleString()}명, ${soloHeatW(d.heat)}.${d.empty ? ' 객석이 절반도 차지 않아 마음이 무겁다.' : ''}` }],
 });
 
 // 매달: 켜 둔 일 · 고정 예능 · 매니저 · 트레이너 특훈 (연습생 · 데뷔 뒤 모두)

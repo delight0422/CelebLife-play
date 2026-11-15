@@ -71,26 +71,28 @@ function careLooksMonth(s) {
 // 한 번 들여놓는 장비 (설치비 + 매달 유지비). k: 상승률이 오르는 특기 (그 특기를 배워야 보인다)
 // 단계: 1단계 +25%, 업그레이드할 때마다 효과 2배(+50%, +100%), 업그레이드 값과 유지비는 단계마다 3배
 // ic (v165): 장비 창에서 이름 앞에 붙이는 그림 글자
+// v235: 같은 계열끼리 값 · 유지비를 비슷하게 맞췄다 (예전에는 댄스 연습실 유지비 60이 보컬 부스 10의 여섯 배였다). 덜 쓰이는 특기 쪽만 조금 싸다
+//   무대(보컬 · 랩 / 댄스 / 작곡 · 작사) 800 · 10, 악기 500 · 6 │ 연기 · 예능 250 · 5 │ 창작(영상 / 그림 / 글) 250 · 4, 게임 200 · 3 │ 일(교육 / 사업) 200 · 4, 스카우트 150 · 3 │ 공부 · 외국어 100 · 3
 const EQUIP = {
   acting: { ic: '🎬', n: '셀프테이프 촬영·연기 연습 세트', c: 250, up: 5, k: ['acting'], d: '카메라·조명·전신 거울. 연기 연습' },
   booth: { ic: '🎙️', n: '집 방음 보컬 부스', c: 800, up: 10, k: ['vocal', 'rap'], d: '보컬·랩 연습' },
-  studio: { ic: '🎧', n: '홈 레코딩 작업실', c: 1500, up: 20, k: ['compose', 'lyric'], d: '작곡·작사 연습' },
-  room: { ic: '🎸', n: '합주실 장기 대여', c: 200, up: 40, k: ['guitar', 'bass', 'piano', 'keyboard', 'drum'], d: '악기 연습', out: true },
-  dance: { ic: '💃', n: '댄스 연습실 장기 대여', c: 300, up: 60, k: ['dance'], d: '댄스 연습', out: true },
-  gaming: { ic: '🎮', n: '게이밍 장비 세트', c: 400, up: 5, k: ['game'], d: '게임 연습' },
-  editpc: { ic: '🖥️', n: '영상 작업용 PC', c: 350, up: 3, k: ['edit', 'direct'], d: '영상 편집·연출 연습' },
-  tablet: { ic: '🎨', n: '드로잉 태블릿', c: 150, up: 2, k: ['art'], d: '그림 연습' },
+  studio: { ic: '🎧', n: '홈 레코딩 작업실', c: 800, up: 10, k: ['compose', 'lyric'], d: '작곡·작사 연습' },
+  room: { ic: '🎸', n: '합주실 장기 대여', c: 500, up: 6, k: ['guitar', 'bass', 'piano', 'keyboard', 'drum'], d: '악기 연습', out: true },
+  dance: { ic: '💃', n: '댄스 연습실 장기 대여', c: 800, up: 10, k: ['dance'], d: '댄스 연습', out: true },
+  gaming: { ic: '🎮', n: '게이밍 장비 세트', c: 200, up: 3, k: ['game'], d: '게임 연습' },
+  editpc: { ic: '🖥️', n: '영상 작업용 PC', c: 250, up: 4, k: ['edit', 'direct'], d: '영상 편집·연출 연습' },
+  tablet: { ic: '🎨', n: '드로잉 태블릿', c: 250, up: 4, k: ['art'], d: '그림 연습' },
   teachkit: { ic: '📹', n: '강의 녹화 장비·교재 세트', c: 200, up: 4, k: ['edu'], d: '카메라·마이크·교재. 교육 연습' },
-  scoutmon: { ic: '📺', n: '오디션 영상 분석 모니터', c: 300, up: 4, k: ['scout'], d: '여러 화면에 영상을 띄워 비교한다. 스카우트 연습' },
-  writing: { ic: '✍️', n: '집필 작업실', c: 250, up: 8, k: ['script'], d: '조용한 작업 공간, 집필용 노트북과 작법 프로그램. 작문 연습' },
-  talk: { ic: '🗣️', n: '토크·MC 연습 세트', c: 150, up: 3, k: ['variety'], d: '카메라·마이크·프롬프터. 예능 연습' },
+  scoutmon: { ic: '📺', n: '오디션 영상 분석 모니터', c: 150, up: 3, k: ['scout'], d: '여러 화면에 영상을 띄워 비교한다. 스카우트 연습' },
+  writing: { ic: '✍️', n: '집필 작업실', c: 250, up: 4, k: ['script'], d: '조용한 작업 공간, 집필용 노트북과 작법 프로그램. 작문 연습' },
+  talk: { ic: '🗣️', n: '토크·MC 연습 세트', c: 250, up: 5, k: ['variety'], d: '카메라·마이크·프롬프터. 예능 연습' },
   lang: { ic: '🌐', n: '어학 인강 이용권·전자사전', c: 100, up: 3, k: ['jp', 'en'], d: '원어민 화상 수업과 인강. 일본어·영어 연습', out: true },
-  desk: { ic: '📚', n: '공부방 꾸미기', c: 80, up: 2, k: ['study'], d: '책상·조명·인강 이용권. 학업 연습' },
+  desk: { ic: '📚', n: '공부방 꾸미기', c: 100, up: 3, k: ['study'], d: '책상·조명·인강 이용권. 학업 연습' },
   bizkit: { ic: '📊', n: '경영 분석 프로그램·경제지 구독', c: 200, up: 4, k: ['biz'], d: '재무 분석 프로그램과 경제지 · 경영 강의 이용권. 사업 연습' },
 };
 // 전용 밴과 운전기사: 이동 시간이 줄어 일정 칸이 하나 늘어난다. 단계가 없고, 값은 가장 비싼 장비를 처음부터 끝 단계까지 올리는 값보다 비싸다
 const VAN_ID = 'van';
-EQUIP[VAN_ID] = { ic: '🚐', n: '전용 밴과 운전기사', slot: true, k: [], up: 300, min: 19, d: '넓은 승합차와 전담 운전기사. 이동하며 쉬고 준비할 수 있다', c: Math.ceil(Math.max(...Object.values(EQUIP).map(x => x.c * (1 + 3 + 9))) * 1.08 / 1000) * 1000 };
+EQUIP[VAN_ID] = { ic: '🚐', n: '전용 밴과 운전기사', slot: true, k: [], up: 300, min: 19, d: '넓은 승합차와 전담 운전기사. 이동하며 쉬고 준비할 수 있다', c: 22000 }; // v235: 장비 값을 고치면서 밴 값이 같이 바뀌지 않게 예전 값(2억 2,000만 원)으로 못 박았다 (예전 식: 가장 비싼 장비를 끝까지 올리는 값 × 1.08)
 function vanOn(s) { return !!eqLv(s, VAN_ID) && age(s) >= 19; }
 // rest: 쉬어야 하는 달 (0이면 바로 일상), risk: 부작용 확률 (0이면 없음)
 const SURGERY = {
@@ -138,7 +140,7 @@ function eqBuyWhy(s) { return s.home.mode === 'alone' ? '' : '독립한 뒤에 �
 // 본가에 사는 동안: 한 특기를 여섯 달 넘게 일정에 넣으면, 부모님이 그 특기 쪽 장비를 가끔 사 주신다 (집안 형편에 따라 확률 · 값이 다르다)
 // s.eqRun: 특기마다 일정에 연달아 넣은 달 수, s.eqPar: 부모님이 지원해 주신 장비(본가에 사는 동안 유지비도 부모님이 낸다), s.eqGift: 한 번 지원해 주신 장비
 function parEqP(w) { return w <= 3 ? 0.04 : w <= 6 ? 0.1 : 0.18; }
-function parEqMax(w) { return w <= 3 ? 200 : w <= 6 ? 500 : 2000; }
+function parEqMax(w) { return w <= 3 ? 500 : w <= 6 ? 800 : 2000; } // v235: 장비 값을 계열별로 맞추면서 한도도 같이 (예전 200 · 500. 어려운 형편에서 합주실 500 · 보통 형편에서 댄스 연습실 800을 예전처럼 받을 수 있게)
 function parEquipMonth(s) {
   const run = s.eqRun = s.eqRun || {}, now = new Set(s.slots.filter(sl => sl.act && sl.act.startsWith('p_')).map(sl => sl.act.slice(2)));
   for (const k of Object.keys(run)) if (!now.has(k)) delete run[k];

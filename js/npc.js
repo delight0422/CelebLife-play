@@ -253,7 +253,7 @@ E({
 });
 // v219: 맞대결 결과 — 내 곡 성적(d.sc)과 상대의 이번 곡(인기가 높을수록 세다)을 견준다. 내 곡 성적 창 다음에 뜬다
 E({
-  id: 'npc_clashres', cat: '업계', title: '맞대결 결과', tag: 'career', cond: s => npcOn(s),
+  id: 'npc_clashres', cat: '업계', title: '맞대결 결과', tag: 'career', noRes: 'toast', cond: s => npcOn(s), // v235: 확인 하나뿐인 창이지만 얻은 것 · 잃은 것을 토스트로도 보여 준다
   init(s, d) {
     const n = npcBy(s, d.id); if (!n) { d.skip = true; return; }
     // v223: 내 곡의 화력을 상대 곡의 화력과 견준다 (상대가 요즘 낸 곡이 있으면 그 곡, 없으면 새로 잰다). 화력이 없는 예전 세이브는 예전 식
@@ -261,8 +261,8 @@ E({
     d.x = (d.win ? fx(s, { fkr: npcFanGain(s, n), fame: 1 }) : fx(s, { stress: 6 })).trim().replace(/^\(|\)$/g, '');
     if (d.win) n.pop = U.clamp(n.pop - 1, 1, 99);
   },
-  text: (s, d) => { const n = npcBy(s, d.id), w = `${NPC_F[n.f].n} ${n.n}${josa(n.n, '과와').slice(n.n.length)}`; return (d.win ? `같은 시기에 나온 ${w}의 맞대결에서 ${josa(`「${d.title}」`, '이가')} 더 주목받았다. 차트에서도, 화제에서도 내가 앞섰다.` : `같은 시기에 나온 ${w}의 맞대결에서 ${josa(`「${d.title}」`, '이가')} 밀렸다. 사람들의 이야기는 상대 쪽으로 쏠렸다.`) + (d.x ? `\n\n${d.x}` : ''); },
-  ch: (s, d) => [{ t: '확인', f: s => { const n = npcBy(s, d.id), nm = n ? `${n.n}${josa(n.n, '과와').slice(n.n.length)}의 ` : ''; return d.win ? `${nm}맞대결에서 내가 더 주목받았다.` : `${nm}맞대결에서 밀렸다. 다음엔 이기고 싶다.`; } }],
+  text: (s, d) => { const n = npcBy(s, d.id), w = `${NPC_F[n.f].n} ${n.n}${josa(n.n, '과와').slice(n.n.length)}`; return (d.win ? `같은 시기에 나온 ${w}의 맞대결에서 ${josa(`「${d.title}」`, '이가')} 더 주목받았다. 차트에서도, 화제에서도 내가 앞섰다.` : `같은 시기에 나온 ${w}의 맞대결에서 ${josa(`「${d.title}」`, '이가')} 밀렸다. 사람들의 이야기는 상대 쪽으로 쏠렸다.`) + (d.x ? `\n\n${d.win ? '이겨서 얻은 것: ' : ''}${d.x}` : ''); },
+  ch: (s, d) => [{ t: '확인', f: s => { const n = npcBy(s, d.id), nm = n ? `${n.n}${josa(n.n, '과와').slice(n.n.length)}의 ` : ''; return (d.win ? `${nm}맞대결에서 내가 더 주목받았다.` : `${nm}맞대결에서 밀렸다. 다음엔 이기고 싶다.`) + (d.x ? ` (${d.x})` : ''); } }],
 });
 // 무대 창의 1위 발표에 같이 서는 팀: 실제 업계 인물 이름을 쓰고, 본 인물로 남긴다
 function npcStageRival(s, not) {

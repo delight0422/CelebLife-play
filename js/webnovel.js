@@ -322,13 +322,13 @@ const WB_CP_THR = [0, 40, 48, 56];
 // v207: CP사마다 따로 투고한다 (회사 특징 CO_FOCUS.cp: 그 장르 숙련도 · 그림 · 외국어 등)
 // 투고: 공모전이 아니라 CP사에 원고(웹툰은 포트폴리오)를 보내 전속 계약을 맺자고 하는 것. 실력 · 작가 등급 · 지난 대표작 · 지금 연재작 독자 수를 본다
 function wbCpSc(s, id) { const t = s.tracks[id], on = trackOn(s, id); return wbScore(s, id) + WB_POW[t.tier || 0] * 3 + (t.best ? Math.log10(1 + t.best.peak / 1000) * 3 : 0) + (on && t.w ? Math.log10(1 + t.w.readers / 1000) * 2 : 0); }
-function wbCpP(s, id, ag) { if (typeof ag === 'number') ag = cpList().find(a => a.tier === ag); return audP(coFocus(s, 'cp', ag.con, wbCpSc(s, id), { id }), WB_CP_THR[ag.tier]); }
+function wbCpP(s, id, ag) { if (typeof ag === 'number') ag = cpList().find(a => a.tier === ag); return audP(coFocusT(s, 'cp', ag.con, wbCpSc(s, id), id, { id }), WB_CP_THR[ag.tier] + coCutT('cp', ag.con, id)); } // v235: 웹툰만 · 웹소설만 뽑는 CP사는 다른 쪽 지원자의 문턱이 높다 (game.js CO_FIT)
 for (const id of WB_IDS) for (const ag of cpList()) {
   const W = WB[id];
   JOB_APPLY.push({
     id: `${id}_cp_${ag.id}`, coKey: ag.id, pos: `${W.n.replace(/ 작가$/, '')} 투고`, trk: id, g: `${W.ic} ${W.n}`, get n() { return `${ag.n} 투고`; }, get tag() { return `${TIER_N[ag.tier]} · CP 몫 ${pctN(ag.cut)}`; },
     show: s => age(s) >= 16 && !(trackOn(s, id) && s.tracks[id].cp),
-    h: s => W.pro(s) ? `합격 가능성 ${fmtPct(wbCpP(s, id, ag))} · 결과는 다음 달` : W.proN,
+    h: s => W.pro(s) ? `합격 가능성 ${fmtPct(wbCpP(s, id, ag))}${coMisfit('cp', ag.con, id) ? ' · 이 회사가 잘 안 받는 분야' : ''} · 결과는 다음 달` : W.proN,
     ok: s => !s.army && W.pro(s) && !agencyContract(s) && !hasQ(s, 'wb_cp_res') && !(s.cd[`wbcp_${id}_${ag.id}`] > s.t),
     why: s => s.army ? '군 복무 중' : !W.pro(s) ? W.proN : agencyContract(s) ? contractWhy(s) : hasQ(s, 'wb_cp_res') ? '결과를 기다리는 중' : '얼마 전에 투고했다 (반년 뒤 다시)',
     run: s => { s.cd[`wbcp_${id}_${ag.id}`] = s.t + 6; queueEv(s, 'wb_cp_res', 1, { id, ag: ag.id, p: wbCpP(s, id, ag) }); return `CP사 ${ag.n}에 원고를 투고했다.`; },

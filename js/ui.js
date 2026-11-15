@@ -1046,7 +1046,8 @@ function resAfter(pre, i) {
 }
 // ───── 고른 결과 토스트 (v202) ─────
 // 화면 아래쪽 가운데에 크게. 한동안(글이 길수록 오래, 6~16초) 남고, 마우스를 올리면 멈춘다. ✕로 닫는다
-// v234: 창이 하나도 안 떠 있으면 한가운데에 크게 뜬다 (#ctoast.mid). 스페이스바 · 엔터 · 눌러서 넘긴다. 패널 · 요약 창이 떠 있을 때는 예전 자리 (그 창을 가리지 않게)
+// v235: 늘 화면 아래 가운데에 가로로 길게 뜬다 (패널 · 요약 창이 떠 있어도 같은 자리. v234에는 한가운데 · 패널이 떠 있으면 오른쪽 아래였는데, 패널을 닫으면 자리를 옮겨 다시 뜨는 것처럼 보였다)
+//   글은 가운데 정렬이고 한 문장이 두 줄로 나뉘지 않는다 (ctLine: 문장마다 한 덩어리. 화면보다 긴 문장만 나뉜다). 스페이스바 · 엔터 · 눌러서 넘기고 Esc로 닫는다 (패널 · 요약 창이 떠 있을 때는 눌러서만)
 // 떠 있는 동안 창(사건 · 결과 · 요약)은 토스트 위쪽으로 비켜 선다 (body.ct-on, --ct-h). 한꺼번에 3개까지, 넘치면 오래된 것부터
 // v209: 결과 한 줄이 잘된 일(1)인지 · 안된 일(-1)인지 · 둘 다 아닌지(0). 0인 줄은 토스트로 띄우지 않는다 (멤버를 정했다 · 출자했다 같은 것)
 const TONE_B = /받아들여지지 않았다|맞대결에서 밀렸다|그런 쪽으로 볼 수 없다|결혼은 생각하지 않는다|자리를 피했|떨어졌|불합격|탈락|거절|실패|혹평|손해|망했|해체|떠났|그만뒀|그만두었|잃었|식었|아쉬|실수(?! 없)|지쳐|논란|모자라|못 했|못했|빚을 내|빚 \d|폐업|문을 닫|쫓겨|불발|무산|하락|지쳤|다쳤|줄었|낮아졌|내려갔|싸늘|외면|비판|악플|헤어졌|이혼|💔|⚠️/;
@@ -1080,15 +1081,14 @@ function ctoastShow(o) {
   const nG = L.filter(([, tn]) => tn > 0).length, nB = L.filter(([, tn]) => tn < 0).length, tone = nB && !nG ? 'b' : nG && !nB ? 'g' : 'm';
   let box = $('#ctoast');
   if (!box) { box = document.createElement('div'); box.id = 'ctoast'; box.className = 'ctoast'; document.body.appendChild(box); }
-  box.classList.toggle('mid', ctMid());
   const e = document.createElement('div'), hd = [o.cat, o.title].filter(Boolean).filter((x, i, A) => A.indexOf(x) === i).join(' · ');
   e.className = 'ct-i ' + tone;
-  e.innerHTML = `<button type="button" class="ct-x" aria-label="닫기">✕</button><div class="ct-h">${tone === 'g' ? '✅ ' : tone === 'b' ? '❌ ' : ''}${U.esc(hd || '방금 한 일')}</div>${o.pick ? `<div class="ct-pick">✔ ${U.esc(o.pick)}</div>` : ''}<div class="ct-b">${L.map(([x, tn]) => `<div class="ct-l ${tn > 0 ? 'g' : tn < 0 ? 'b' : ''}">${resLine(x.x)}${x.sub ? `<span class="res-sub">${nl(x.sub)}</span>` : ''}</div>`).join('')}</div><div class="ct-k"><kbd>Space</kbd> 넘기기</div>`;
+  e.innerHTML = `<button type="button" class="ct-x" aria-label="닫기">✕</button><div class="ct-h">${tone === 'g' ? '✅ ' : tone === 'b' ? '❌ ' : ''}${U.esc(hd || '방금 한 일')}</div>${o.pick ? `<div class="ct-pick">✔ ${U.esc(o.pick)}</div>` : ''}<div class="ct-b">${L.map(([x, tn]) => `<div class="ct-l ${tn > 0 ? 'g' : tn < 0 ? 'b' : ''}">${ctLine(x.x)}${x.sub ? `<span class="res-sub">${nl(x.sub)}</span>` : ''}</div>`).join('')}</div><div class="ct-k"><kbd>Space</kbd> 넘기기</div>`;
   const len = L.map(([x]) => x).reduce((a, x) => a + String(x.x || '').replace(/<[^>]+>/g, '').length, 0), ms = Math.min(9000, 3200 + len * 28); // v219: 떠 있는 시간을 줄였다 (예전 6~16초 → 3~9초)
   let tm = null; const go = () => { clearTimeout(tm); tm = setTimeout(() => ctOut(e), ms); };
   e.addEventListener('mouseenter', () => clearTimeout(tm)); e.addEventListener('mouseleave', go);
   e.querySelector('.ct-x').addEventListener('click', ev => { ev.stopPropagation(); clearTimeout(tm); ctOut(e); });
-  e.addEventListener('click', () => { if (box.classList.contains('mid')) { clearTimeout(tm); ctOut(e); } });
+  e.addEventListener('click', () => { clearTimeout(tm); ctOut(e); });
   e._o = o; e._t = Date.now();
   box.appendChild(e);
   [...box.children].filter(c => !c.classList.contains('out')).slice(0, -4).forEach(ctOut);
@@ -1096,10 +1096,25 @@ function ctoastShow(o) {
 }
 // v219: 토스트를 가리는 창 (사건 · 결과 카드 · 실시간 · 확인 · 한가운데 성과 알림). 요약 창과 패널은 가리지 않는다
 let CT_Q = [], CT_TM = null;
-// v234: 한가운데에 띄울 때인가 (패널 · 요약 창이 안 떠 있을 때). ctMidOn: 한가운데에 떠 있는 토스트가 있는가. ctSkip: 떠 있는 것을 모두 넘긴다 (막 뜬 참 0.5초 안에 누른 것은 창을 넘기던 손이 한 번 더 누른 것으로 보고 넘기지 않는다)
-function ctMid() { return !['#panel', '#turn'].some(q => { const e = $(q); return !!e && !e.classList.contains('hidden'); }); }
+// v234 · v235: ctOn: 떠 있는 토스트가 있는가 (사건 창 등에 가려 있지 않을 때). ctSkip: 떠 있는 것을 모두 넘긴다 (막 뜬 참 0.5초 안에 누른 것은 창을 넘기던 손이 한 번 더 누른 것으로 보고 넘기지 않는다)
+// ctLine: 결과 글을 문장마다 한 덩어리(.ct-s)로 묶는다. 줄은 문장과 문장 사이, 문장과 괄호 값 사이에서만 바뀐다 ('1.5배'처럼 마침표 뒤에 빈칸이 없으면 나누지 않는다)
+//   짝을 이루는 표시 글자(\u0001…\u0002 · \u0003…\u0004 · \u0005 · \u0006…\u0007)와 ( ) · [ ] 안에서는 나누지 않는다 (색 · 꼬리표가 깨지지 않게)
+function ctLine(x) {
+  const t = String(x || ''), P = []; let d = 0, a = 0;
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if ('\u0001\u0003\u0005\u0006[('.includes(c)) d++;
+    else if ('\u0002\u0004\u0007])'.includes(c)) d = Math.max(0, d - 1);
+    else if (!d && '.!?'.includes(c)) {
+      let j = i + 1; while (j < t.length && '.!?"\'”’」』'.includes(t[j])) j++;
+      if (j >= t.length || /\s/.test(t[j])) { P.push(t.slice(a, j)); while (j < t.length && /\s/.test(t[j])) j++; a = j; i = j - 1; }
+    }
+  }
+  if (a < t.length) P.push(t.slice(a));
+  return (P.length ? P : [t]).map(p => `<span class="ct-s">${resLine(p.trim())}</span>`).join(' ');
+}
 function ctLive() { const b = $('#ctoast'); return b ? [...b.children].filter(c => !c.classList.contains('out')) : []; }
-function ctMidOn() { return !!S && !S.ended && !$('#game-screen').classList.contains('hidden') && ctMid() && !ctBlocked() && ctLive().length > 0; }
+function ctOn() { return !!S && !S.ended && !$('#game-screen').classList.contains('hidden') && !ctBlocked() && !['#panel', '#turn'].some(q => { const e = $(q); return !!e && !e.classList.contains('hidden'); }) && ctLive().length > 0; } // 패널 · 요약 창이 떠 있을 때는 키를 받지 않는다 (그 창의 Enter · Esc가 먼저. 토스트는 눌러서 닫는다)
 function ctSkip(now) { const L = ctLive(), t = Date.now(); if (!now && L.some(c => t - (c._t || 0) < 500)) return; L.forEach(ctOut); }
 function ctBlocked() { return ['#modal', '#pop', '#live', '#confirm'].some(q => { const e = $(q); return !!e && !e.classList.contains('hidden'); }) || !!document.querySelector('.rt-ov:not(.hidden)'); }
 // 0.25초마다 살핀다: 창이 뜨면 떠 있던 토스트를 내리고(뜬 지 2.5초가 안 된 것은 다시 모아 둔다), 창이 없으면 모아 둔 토스트를 한꺼번에 띄운다 (최근 4개)
@@ -1107,7 +1122,7 @@ function ctWatch() {
   if (CT_TM) return;
   CT_TM = setInterval(() => {
     const box = $('#ctoast'), live = box ? [...box.children].filter(c => !c.classList.contains('out')) : [];
-    if (S && S.ended) CT_Q = []; if (box && box.classList.contains('mid') !== ctMid()) { box.classList.toggle('mid', ctMid()); ctFit(); }
+    if (S && S.ended) CT_Q = [];
     if (ctBlocked()) { const young = live.filter(e => e._o && Date.now() - e._t < 2500).map(e => e._o); live.forEach(ctOut); if (young.length) CT_Q = young.concat(CT_Q); }
     else if (CT_Q.length) { const Q = CT_Q.slice(-4); CT_Q = []; for (const o of Q) ctoastShow(Object.assign({}, o, { now: 1 })); }
     if (!CT_Q.length && !(box && box.children.length)) { clearInterval(CT_TM); CT_TM = null; }
@@ -2368,6 +2383,10 @@ const CM_TONE = {
   '유행 따라가다 이 밴드 색이 흐려졌다': ['유행 따라가다 밴드 색 다 흐려진 듯', '이 밴드 원래 이런 느낌 아니었는데'],
   '늘 듣던 그 소리라 좀 지루하다': ['늘 듣던 소리라 좀 지루함', '또 그 소리네'],
   '비슷한 컨셉이 이어져 조금 익숙하다': ['비슷한 컨셉 계속해서 좀 익숙함', '저번이랑 비슷한 느낌임'],
+  '데뷔한 지 오래돼 새로움이 덜하다': ['오래 봐서 그런지 새롭지는 않음', '이제 좀 익숙함'],
+  '또 같은 분위기라 질린다': ['또 이 분위기임? 좀 질림', '맨날 똑같아서 질림'],
+  '이번에도 똑같은 느낌이다': ['이번에도 똑같은 느낌임', '지난 곡이랑 구분이 안 됨'],
+  '같은 분위기인데도 여전히 좋다': ['같은 분위기인데도 여전히 좋음', '이 분위기는 못 참지'],
   '비주얼 멤버한테 눈이 간다': ['비주얼 멤버한테 자꾸 눈이 감', '얼굴 천재 한 명 있음'],
   '빠지는 파트 없이 고르다': ['빠지는 파트 없이 고름', '다 잘함 구멍이 없음'],
   '서로 숨소리까지 맞춘 느낌이다': ['숨소리까지 맞춘 느낌임', '합 미쳤음'],
@@ -2970,8 +2989,8 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   // 성과 토스트가 떠 있으면 (v176): 스페이스바 · 엔터 = 떠 있는 줄만 넘기기 (v230), Esc = 모두 닫기. 다른 키는 막는다 (뒤의 진행 버튼이 눌리지 않게)
   if (rtOn()) { if (['Space', 'Enter', 'NumpadEnter', 'Escape'].includes(e.code)) { e.preventDefault(); if (!e.repeat) (e.code === 'Escape' ? rtClose() : rtSkip()); } return; }
-  // v234: 한가운데 뜬 고른 결과 토스트는 스페이스바 · 엔터로 넘긴다 (뒤의 진행 버튼이 같이 눌리지 않게 먼저 받는다). Esc는 바로 닫는다
-  if (['Space', 'Enter', 'NumpadEnter', 'Escape'].includes(e.code) && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) && ctMidOn()) { e.preventDefault(); if (!e.repeat) ctSkip(e.code === 'Escape'); return; }
+  // v234 · v235: 떠 있는 고른 결과 토스트는 스페이스바 · 엔터로 넘긴다 (뒤의 진행 버튼이 같이 눌리지 않게 먼저 받는다). Esc는 바로 닫는다
+  if (['Space', 'Enter', 'NumpadEnter', 'Escape'].includes(e.code) && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) && ctOn()) { e.preventDefault(); if (!e.repeat) ctSkip(e.code === 'Escape'); return; }
   if (e.key === 'Escape' || e.code === 'Escape') { if (escClose()) e.preventDefault(); return; }
   // 실시간 창이 떠 있으면 스페이스바 · 엔터 = 결과 바로 보기 (뒤의 창보다 먼저)
   if (liveOn() && (e.code === 'Space' || e.key === 'Enter')) { e.preventDefault(); if (!e.repeat) liveClose(); return; }

@@ -416,7 +416,9 @@ E({
     if (h >= 70) { R.ly = loyAdd(g, Math.min(12, (h - 60) / 2.5)); const up = 1 + (h >= 85 ? U.fl(0.03, 0.06) : U.fl(0.01, 0.03)); MK.forEach(m => { g.f[m] = Math.round(g.f[m] * up); }); R.repD = h >= 85 ? 2 : 1; }
     else if (h < 45) { const dn = Math.min(0.12, 0.01 + (45 - h) / 300); MK.forEach(m => { g.f[m] = Math.round(g.f[m] * (1 - dn)); }); R.repD = -1; }
     else R.repD = 0.3;
-    coVRepF(t, 'music', R.repD); R.fd = coGFans(g) - R.f0;
+    // v235: 객석을 절반도 못 채우면 대표인 나의 스트레스가 크게 오르고, 썰렁했다는 이야기가 퍼져 회사 평판이 떨어진다 (회사 그룹에는 대중 호감도 값이 따로 없어 회사 평판으로)
+    if (R.fill < 0.5) { R.empty = true; R.repD = Math.min(R.repD, 0) - 3; addStress(s, 15); R.notes = R.notes.filter(x => x !== '빈자리가 많았다.'); R.notes.unshift('객석이 절반도 차지 않았다. 썰렁했다는 이야기가 퍼져 회사 평판이 떨어졌다.'); }
+    coVRepF(t, 'music', R.repD); if (t.f.music) t.f.music.rep = Math.max(0, t.f.music.rep); R.fd = coGFans(g) - R.f0;
     if (!t.gcon) { t.gcon = true; milestone(s, `${age(s)}세에 우리 회사 「${g.name}」 첫 단독 콘서트를 ${V.n}에서 열었다.`); }
     // v208: 장면은 늘 만든다 (내가 기획했으면 실시간 창, 프로듀서가 맡았으면 기사의 '다시 보기')
     if (d.mode !== 'me') d.card = { lines: ccCmLines(h) };
@@ -439,6 +441,7 @@ E({
       `${r.nS}곡을 불렀고 토크 시간이 ${r.nT}번 있었다.${GP ? ` 셋리스트는 전담 프로듀서 ${josa(GP.name, '이가')} 짰다.` : ''}`,
       r.notes.filter(x => !/표가 다 팔렸다/.test(x)).join(' ')];
     const ts = [['🎤', `${V.n} · 관객 ${r.sold.toLocaleString()}명${full ? ' (매진)' : ''}`, full ? 'g' : ''], ['🔥', `열기 ${h} · ${ccHeatW(h)}`, h >= 70 ? 'g' : h < 45 ? 'b' : ''], ['💰', r.net >= 0 ? `수익 +${fmtWon(r.net)}` : `손해 ${fmtWon(-r.net)}`, r.net >= 0 ? 'g' : 'b']];
+    if (r.empty) ts.push(['😰', '객석을 절반도 못 채웠다 · 스트레스 ↑↑ · 회사 평판 ↓', 'b']);
     if (r.ly && g) ts.push(loyToast(r.ly, g));
     if (g && r.fd) ts.push([r.fd > 0 ? '💜' : '💔', `그룹 팬 ${sgnFans(r.fd)} → ${fmtFans(coGFans(g))}`, r.fd > 0 ? 'g' : 'b']);
     // wins: 댓글 분위기(좋았나)를 맞추는 값 (기사에 1위로 나오지는 않는다)
@@ -452,12 +455,13 @@ E({
     return `<div class="cc-res"><div class="cc-heat"><span class="cc-hl">🔥 열기</span><span class="cc-hbar"><i style="width:${r.heat}%"></i></span><b>${r.heat}</b></div><div class="cc-hw">${U.esc(ccHeatW(r.heat))}</div>`
       + infoTable([['공연장', `${V.n} · ${V.seat.toLocaleString()}석 × ${CC_SHOWS}회`], ['관객', `${r.sold.toLocaleString()}명 (${r.fill >= 0.995 ? '매진' : `${Math.round(r.fill * 100)}%`})`], ['입장료', fmtWon(r.price)]])
       + `<div class="sec-h">셋리스트</div><div class="cc-rset">${r.blocks.map(b => `<span class="cc-rb${lv3(b)}${b.hl ? ' hl' : ''}">${b.hl ? '★ ' : ''}${ic[b.k]} ${U.esc(b.k === 's' ? b.t : b.k === 't' ? `토크 · ${b.who}` : 'VCR')}</span>`).join('')}</div>`
-      + (r.notes.length ? `<div class="cc-notes">${r.notes.map(x => `<div>· ${U.esc(x)}</div>`).join('')}</div>` : '')
+      + (r.notes.length || r.empty ? `<div class="cc-notes">${r.notes.map(x => `<div>· ${U.esc(x)}</div>`).join('')}${r.empty ? '<div>· 스트레스 ↑↑ · 회사 평판 ↓</div>' : ''}</div>` : '')
       + billHTML({ t: '콘서트 정산', rows: ccRows(r) })
       + (d.sp && typeof liveBtnHTML === 'function' ? liveBtnHTML(d.sp, '콘서트 다시 보기') : '') + `</div>`;
   },
   toasts: (s, d) => {
     const r = d.r, g = coGroup(s, d.gid), T = [['🎤', `「${d.gn}」 단독 콘서트 결산`, 'h'], ['🔥', `열기 ${r.heat} · ${ccHeatW(r.heat)}`, r.heat >= 70 ? 'g' : r.heat < 45 ? 'b' : ''], ['💰', r.net >= 0 ? `수익 +${fmtWon(r.net)}` : `손해 ${fmtWon(-r.net)}`, r.net >= 0 ? 'g' : 'b']];
+    if (r.empty) T.push(['😰', '객석을 절반도 못 채웠다 · 스트레스 ↑↑ · 회사 평판 ↓', 'b']);
     if (r.ly) T.push(loyToast(r.ly, g));
     if (r.heat < 45 && g) T.push(['💔', `그룹 팬 ${sgnFans(r.fd)} → ${fmtFans(coGFans(g))}`, 'b']);
     else if (r.fd > 0 && g) T.push(['💜', `그룹 팬 ${sgnFans(r.fd)} → ${fmtFans(coGFans(g))}`, 'g']);

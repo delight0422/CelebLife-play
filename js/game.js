@@ -688,6 +688,18 @@ const CO_FOCUS = {
   mk: Object.fromEntries(['글로벌 기획', '해외 진출', '해외 컬렉션', '해외 번역', '해외 투어', '외화 더빙', '해외 합작'].map(c => [c, (s, p) => fLang(p)])),
 };
 function coFocus(s, kind, con, base, x) { const f = (CO_FOCUS[kind] || {})[con]; return f ? base * (1 - CO_FOCUS_W) + f(s, me(s), x || {}, base) * CO_FOCUS_W : base; }
+// v235 유형을 가려 뽑는 회사 (사용자 규칙 — 앞으로 만드는 회사 · 직업에도 똑같이 적용한다):
+//   회사 특징이 '어떤 유형을 주로 뽑는가'일 때, 그 유형이 아닌 지원자는 특징 점수를 섞지 않고 합격 문턱을 올린다 (그 유형을 잘 안 뽑으니 합격선이 높다).
+//   CO_FIT[종류][회사 특징] = 맞는 유형들. 유형: 아이돌 연습생 idol, 솔로 가수 vocal · rap · perf, 밴드 연습생 band, CP사 webtoon · webnovel.
+//   표에 없는 특징(재능 · 외국어 · 자작곡 등)과 유형이 없는 지원은 예전 그대로 coFocus. 아이돌 지원은 밴드를 주로 뽑는 회사에서만 안 맞는다. 새 회사 특징 · 새 유형을 만들면 이 표에 넣는다
+const CO_FIT = {
+  music: { '보컬 그룹': ['idol', 'vocal'], '보컬 명가': ['idol', 'vocal'], '감성 발라드': ['idol', 'vocal'], '애니송': ['idol', 'vocal'], '팝 솔로': ['vocal'], '힙합 명가': ['idol', 'rap'], '힙합': ['idol', 'rap'], '퍼포먼스 명가': ['idol', 'perf'], '걸크러시': ['idol', 'rap', 'perf'], '밴드 사운드': ['band'] },
+  cp: { '웹툰 스튜디오': ['webtoon'], '웹소설 전문': ['webnovel'] },
+};
+const CO_MISFIT = 10; // audP는 5점에 한 단계라 10점이면 합격 가능성 50% → 12%, 90% → 55%쯤. 재 본 것(17세 보컬형 · 대형 평균): 보컬 60 맞는 회사 76% · 안 맞는 회사 11%, 보컬 70 95% · 42%, 보컬 80 97% · 84%
+function coMisfit(kind, con, type) { const F = (CO_FIT[kind] || {})[con]; return !!F && !!type && !F.includes(type); }
+function coFocusT(s, kind, con, base, type, x) { return coMisfit(kind, con, type) ? base : coFocus(s, kind, con, base, x); }
+function coCutT(kind, con, type) { return coMisfit(kind, con, type) ? CO_MISFIT : 0; }
 // 트레이너 채용: 그 회사가 특화한 분야의 트레이너를 더 뽑는다 (맞으면 +6, 다른 분야면 -2)
 const CO_TR_FOCUS = { '퍼포먼스 명가': 'dance', '보컬 명가': 'vocal', '힙합 명가': 'rap', '보컬 그룹': 'vocal', '감성 발라드': 'vocal', '애니송': 'vocal', '팝 솔로': 'vocal', '힙합': 'rap', '걸크러시': 'rap', '3D 라이브': 'dance', '음악 중심': 'vocal', '노래 방송': 'vocal', '노래·음악': 'vocal', '힐링·잡담': 'variety', '버라이어티': 'variety', '아이돌형': 'variety', '밴드 사운드': 'inst' };
 function coTrFocusB(ag, k) { const f = ag && CO_TR_FOCUS[ag.con]; if (!f) return 0; return (f === 'inst' ? ['guitar', 'bass', 'piano', 'keyboard', 'drum'].includes(k) : f === k) ? 6 : -2; }
@@ -1310,8 +1322,11 @@ function onSchoolMonth(s) {
   }
   if (e.uni && e.uni.st != null && s.t === e.uni.st) addLog(s, `${e.uni.n}에 입학했다.`);
 }
+// v235: 일흔 전에도 드물게 돌아가신다 (한 해 0.08%부터, 마흔을 넘으면 한 살마다 0.02%p씩 더: 50세 0.28% · 65세 0.58%). 예전에는 일흔부터라 내가 성인이 되기 전에는 부모님을 잃을 일이 없었다
+//   다만 내가 성인이 되기 전에는 마지막 남은 한 분까지 일찍 떠나지는 않는다 (돌봐 줄 분이 한 분은 남는다)
 function onBirthday(s) {
-  for (const p of parentsAlive(s)) if (pAge(s, p) >= 70 && U.chance((pAge(s, p) - 68) * 0.02)) queueEv(s, 'parent_loss', 0, { id: p.id }, true);
+  let left = parentsAlive(s).length;
+  for (const p of parentsAlive(s)) { const a = pAge(s, p); if (a >= 70 ? U.chance((a - 68) * 0.02) : (age(s) >= 19 || left > 1) && U.chance(0.0008 + Math.max(0, a - 40) * 0.0002)) { left--; queueEv(s, 'parent_loss', 0, { id: p.id }, true); } }
 }
 // 라이브온 유행 (피드백 24): 버튜버냐 캠튜버냐. 3~5년에 한 번 바뀐다. 예전 세이브(채널 컨셉 유행)는 둘 중 하나로 바꾼다
 function ytTrendCheck(s, flip) {
