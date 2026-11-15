@@ -2287,14 +2287,18 @@ E({
 // ════════ 솔로 가수 (보컬형·래퍼형·퍼포먼스형) ════════
 // v94: 보컬형은 보컬(강함) · 댄스(보통), 래퍼형은 랩(강함) · 댄스(보통), 퍼포먼스형은 댄스(강함) · 노래 · 랩 중 잘하는 쪽(보통). 셋 다 외모(보통) — v234부터 보컬형 · 래퍼형은 주특기 하나만 (아래)
 // 0.85배: 오디션 · 신곡 점수 크기가 예전과 비슷하게
-// v234: 보컬형 · 래퍼형은 춤을 보지 않는다. 주특기 하나만 보는 대신 레벨이 낮을수록 더 깎이는 곡선 (soloOne. 곡선 모양은 v235에 바꿨다).
+// v234: 보컬형 · 래퍼형은 춤을 보지 않는다. 주특기 하나만 보는 대신 레벨이 낮을수록 더 깎이는 곡선 (soloOne. 곡선 모양은 v235에 바꿨다. v236부터 춤은 아주 작은 가산점으로만 본다: soloDanceB).
 //   예전 식에서 춤이 주특기의 0.6배였던 가수와 견주면(재 본 것) 솔로 점수가 50레벨 38 → 22 · 60레벨 45 → 32 · 70레벨 53 → 43 · 80레벨 60 → 55 · 90레벨 67 → 70. 85레벨쯤에서 같아진다 (0.7 · 0.85제곱도 재 봤는데 오디션 합격 가능성 차이가 작아 가장 깐깐한 쪽으로). 퍼포먼스형은 그대로 춤(강함) · 노래 · 랩 중 잘하는 쪽(보통). 오디션 · 연습생 평가 · 신곡 · 공연 · 매달 팬 모두 이 점수를 쓴다
 // v235: v234의 '레벨² ÷ 100'은 너무 깐깐했다 (17세 보컬 50레벨의 대형 합격 가능성 23% → 4%). 사용자 기준: 70레벨부터는 솔로 점수도 오디션도 예전보다 잘 나와야 한다
 //   soloOne = 예전에 춤이 주특기의 0.6배였던 가수의 점수(레벨 × 1.3 ÷ 1.5) × √(레벨 ÷ 65). 65레벨에서 예전과 같고, 그 아래는 낮고 그 위는 높다
 //   솔로 점수(예전 → 지금): 30레벨 23 → 16 · 40 31 → 24 · 50 38 → 33 · 60 45 → 44 · 70 53 → 55 · 80 60 → 66 · 90 67 → 79
 const SOLO_ONE = 0.5, SOLO_EVEN = 65;
 function soloOne(x) { x = Math.max(0, x); return x * (JS_ + JM_ * 0.6) / (JS_ + JM_) * Math.pow(x / SOLO_EVEN, SOLO_ONE); }
-function soloScore(s, type) { const p = me(s); return 0.85 * (type === 'perf' ? jobMix([[lv(p, 'dance'), JS_], [Math.max(lv(p, 'vocal'), lv(p, 'rap')), JM_]]) : soloOne(lv(p, type === 'rap' ? 'rap' : 'vocal'))) + talB(p.tal.looks, false); }
+// v236: 보컬형 · 래퍼형도 춤을 잘 추면 아주 작게 더 쳐 준다 (사용자: '춤 높은 보컬/래퍼는 아주 작게 가산점으로만'). 춤 레벨의 제곱이라 높을 때만 눈에 띈다
+//   솔로 점수에 더해지는 값(0.85배 뒤): 춤 30 → 0.3 · 50 → 0.7 · 70 → 1.5 · 90 → 2.4 · 100 → 3. 보컬 70 · 춤 70이면 53.5 → 55.0 (v233 59.5)
+const SOLO_DANCE_B = 3.5;
+function soloDanceB(p) { return SOLO_DANCE_B * Math.pow(Math.min(100, lv(p, 'dance')) / 100, 2); }
+function soloScore(s, type) { const p = me(s); return 0.85 * (type === 'perf' ? jobMix([[lv(p, 'dance'), JS_], [Math.max(lv(p, 'vocal'), lv(p, 'rap')), JM_]]) : soloOne(lv(p, type === 'rap' ? 'rap' : 'vocal')) + soloDanceB(p)) + talB(p.tal.looks, false); }
 // 솔로 가수 종류: [종류, 이름, 고를 때 이름]. 퍼포먼스형은 춤에 노래나 랩 하나가 있어야 한다
 const SOLO_TYPES = [['vocal', '보컬형', '보컬형 (노래)'], ['rap', '래퍼형', '래퍼형 (랩)'], ['perf', '퍼포먼스형', '퍼포먼스형 (춤과 노래·랩)']];
 function soloTypeOK(s, type) { const p = me(s); return type === 'perf' ? has(p, 'dance') && (has(p, 'vocal') || has(p, 'rap')) : has(p, type); }
@@ -2318,7 +2322,7 @@ function soloBlock(s) {
 // (v222부터 인디 가수가 볼 때만) v219: 솔로 계약은 곧바로 데뷔라 연습생 오디션보다 문턱이 높다 (예전 '회사 문턱 - 4' → 회사 문턱 + 소형 0 · 중형 2 · 대형 4. 곧 예전보다 4 · 6 · 8 높다)
 // v222: 기획사 솔로 오디션에 붙으면 솔로 연습생으로 들어간다 (예전엔 곧바로 데뷔). 합격 문턱은 아이돌 연습생 오디션과 같은 틀 — 어릴수록 재능을 더 보고, 실력은 솔로 유형 점수로 본다
 // v223: 솔로는 혼자 노래(랩 · 춤)로 서는 자리라 외모를 덜 본다. 실력 점수의 외모 보정은 절반만, 재능도 목소리 · 음감 · 스타성을 앞에 둔다
-// v235: 회사 특징과 솔로 유형 (game.js CO_FIT · coMisfit). 유형이 회사와 맞으면 예전처럼 특징을 섞는다 (보컬형 · 래퍼형은 춤을 안 보니 제 주특기 레벨을 섞는다).
+// v235: 회사 특징과 솔로 유형 (game.js CO_FIT · coMisfit). 유형이 회사와 맞으면 예전처럼 특징을 섞는다 (보컬형 · 래퍼형은 춤을 거의 안 보니(v236부터 아주 작은 가산점뿐) 제 주특기 레벨을 섞는다).
 //   안 맞으면(퍼포먼스 명가에 보컬형 · 보컬 명가에 래퍼형 등) 점수는 그대로 두고 오디션 문턱이 CO_MISFIT만큼 오른다 (soloAudP). 그 밖의 특징(재능 · 외국어 · 자작곡)은 예전 그대로
 function soloFocus(s, con, type, base) { if (coMisfit('music', con, type)) return base; if (type !== 'perf' && ((CO_FIT.music || {})[con] || []).includes(type)) return base * (1 - CO_FOCUS_W) + lv(me(s), type) * CO_FOCUS_W; return coFocus(s, 'music', con, base); }
 function soloTrScore(s, type) { const lk = talB(me(s).tal.looks, false); return (soloScore(s, type) - lk) / 0.85 + lk * 0.5; }
@@ -2396,7 +2400,7 @@ E({
 });
 CAREERS.solo = {
   n: '솔로 가수', ic: '🎙️',
-  desc: '혼자 무대에 서는 가수. 보컬형은 보컬, 래퍼형은 랩 실력 하나로 평가받는다. 춤은 보지 않는 대신 그 실력이 낮으면 더 낮게, 높으면 더 높게 쳐 준다. 퍼포먼스형은 춤이 가장 중요하고 다음이 노래·랩 중 잘하는 쪽이다. 셋 다 외모도 조금 본다. 인디로 시작하거나, 기획사 오디션에 붙어 솔로 연습생으로 들어간 뒤 데뷔한다.',
+  desc: '혼자 무대에 서는 가수. 보컬형은 보컬, 래퍼형은 랩 실력이 거의 전부다. 그 실력이 낮으면 더 낮게, 높으면 더 높게 쳐 주고, 춤을 잘 추면 아주 조금 더 쳐 준다. 퍼포먼스형은 춤이 가장 중요하고 다음이 노래·랩 중 잘하는 쪽이다. 셋 다 외모도 조금 본다. 인디로 시작하거나, 기획사 오디션에 붙어 솔로 연습생으로 들어간 뒤 데뷔한다.',
   act: { n: '가수 활동 (공연·녹음)', ic: '🎙️', g: '직업 활동', eff: [['노래·랩', '↑↑', 1], ['팬', '↑', 1], ['스트레스', '↑', 0]] },
   status(s, t) {
     if (t.st === 'ended' || t.st === 'none') return t.endNote || '';
@@ -2513,7 +2517,7 @@ E({
     // 발매 결과 카드 (v118 UI C1): 내 노래 · 랩 · 무대, 곡, 팬, 유행, 컨셉 궁합, 홍보
     const sp = soloScore(s, t.type), ty = t.type === 'rap' ? 'rap' : t.type === 'perf' ? 'perf' : 'vocal';
     // v230: 아쉬운 말은 실제로 약한 쪽을 짚는다. 퍼포먼스형은 춤이 쓸 만한데(45레벨부터) 노래나 랩이 10레벨 넘게 처지면 라이브를 말한다 (v234: 보컬형 · 래퍼형은 둘째 특기가 없어 늘 주특기를 말한다)
-    const mLv = lv(p, ty === 'perf' ? 'dance' : ty), sLv = Math.max(lv(p, 'vocal'), lv(p, 'rap')), subWeak = ty === 'perf' && mLv >= 45 && sLv < mLv - 10; // v234: 보컬형 · 래퍼형은 춤을 보지 않으니 춤을 탓하지 않는다
+    const mLv = lv(p, ty === 'perf' ? 'dance' : ty), sLv = Math.max(lv(p, 'vocal'), lv(p, 'rap')), subWeak = ty === 'perf' && mLv >= 45 && sLv < mLv - 10; // v234: 보컬형 · 래퍼형은 춤을 보지 않으니 춤을 탓하지 않는다 (v236부터 춤은 아주 작은 가산점뿐이라 여전히 탓하지 않는다)
     const F = [{ z: (sp - 45) / 18, g: { vocal: ['목소리가 곡을 꽉 채운다', '노래 실력이 확실하다'], rap: ['랩이 귀에 꽂힌다', '플로우가 살아 있다'], perf: ['퍼포먼스가 눈을 못 떼게 한다', '무대 장악력이 대단하다'] }[ty],
       b: subWeak ? ['춤은 좋은데 라이브가 불안하다', '라이브가 춤을 못 따라간다'] : { vocal: ['노래가 곡을 다 못 받쳐 준다'], rap: ['랩이 조금 어설프다'], perf: ['무대가 아직 덜 여물었다'] }[ty] },
       RX.q(d.q), RX.fans(totalFans(s), d.gain), RX.trend(!!d.tr, d.ht), RX.cf(cScoreB(cf)), RX.promo(signed ? t.tier : 0)];
