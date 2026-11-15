@@ -2388,7 +2388,9 @@ NEGO.solo = {
   what: d => `솔로 ${soloTypeN(d.type)} 전속 계약이다. 회사가 곡과 홍보, 제작비를 맡는다.`,
   block: s => agencyContract(s) ? contractWhy(s) : '',
   sign: (s, d) => { if (d.bonus) earn(s, d.bonus, '전속 계약금', 'solo'); return startSoloSigned(s, d.ag, { type: d.type, months: d.months, cut: d.cut }); },
-  refuse: (s, d) => `${d.agN}의 계약 제안을 거절했다.`,
+  // v238: 오디션 프로그램 뒤 여러 곳에서 연락이 왔으면(d.tvBack), 계약 이야기가 깨져도 남은 회사 중에서 다시 고른다 (tvAudBack)
+  refuse: (s, d) => { tvAudBack(s, d); return `${d.agN}의 계약 제안을 거절했다.`; },
+  lost: (s, d) => { tvAudBack(s, d); return `${d.agN}에서 계약 이야기를 없던 일로 하자고 했다.` + fx(s, { stress: 5 }); },
 };
 // 솔로 계약을 맺을 때 쓰는 협상 시작 (오디션 합격·오디션 프로그램·영입 제안)
 function soloNego(s, agId, type, lev, extra) { const ag = AG[agId]; return startNego(s, Object.assign({ kind: 'solo', ag: agId, agN: ag.n, type, months: 60 + coLongC(ag), cut: ag.cut, lev }, extra || {})); }
@@ -2593,7 +2595,7 @@ E({
     { t: '거절한다', f: () => '미국 진출 제안을 거절했다.' },
   ],
 });
-// 오디션 프로그램 (활동 지원): 노래로 겨루는 것과 랩으로 겨루는 것이 따로 있다
+// 오디션 프로그램 (직업이 없을 때 하는 지원 — game.js AA_OWN): 노래로 겨루는 것과 랩으로 겨루는 것이 따로 있다
 const TV_AUD = { vocal: ['별의 무대', '싱어 게이트', '보이스 로드', '노래의 탄생'], rap: ['라임 로드', '비트 위의 왕', '스트릿 마이크', '랩 그라운드'] };
 function tvAudWhy(s, k) {
   if (s.army) return '군 복무 중';
@@ -2617,6 +2619,51 @@ E({
   text: (s, d) => `오디션 프로그램 「${d.show}」 참가자를 모집한다. 무엇으로 나갈까?\n\n무대 매너(예능)와 외모도 본다.`,
   ch: (s, d) => [['vocal', '노래로 나간다'], ['rap', '랩으로 나간다']].filter(([k]) => has(me(s), k)).map(([k, n]) => ({ t: n, h: `${SKILLS[k].n} ${lvi(me(s), k)}레벨`, f: s => { s.cd.tvAud = s.t + 12; queueEv(s, 'tv_audres', 2, { show: d.show, type: k }); return `「${d.show}」에 ${josa(k === 'rap' ? '랩' : '노래', '으로')} 지원했다.` + fx(s, { stress: 5 }); } })).concat([{ t: '그만둔다', f: () => '이번엔 나가지 않기로 했다.' }]),
 });
+// v238: 결과가 좋을수록 더 많은 기획사가, 더 높은 등급에서 연락해 온다. 연락해 온 곳 중 하나를 골라 계약 이야기를 한다 (사용자 결정)
+//   등급 r: 첫 회 탈락 0 · 중간 탈락 1 · TOP 10 2 · TOP 3 3 · 우승 4
+//   몇 곳 (tvAudN): 첫 회 탈락 0 · 중간 탈락은 가끔(15%) 1곳 · TOP 10은 1~2곳 · TOP 3는 1~3곳(대개 2곳) · 우승은 2~3곳
+//   어느 회사 (tvAudW, 회사마다 뽑힐 무게): 대형 2·(r−2)³ → TOP 3 2 · 우승 16 / 중형 (r−1)² → TOP 10 1 · TOP 3 4 · 우승 9 / 소형 3÷r → 중간 탈락 3 · TOP 10 1.5 · TOP 3 1 · 우승 0.75
+//     등급이 오를수록 큰 회사 쪽 무게가 갈수록 가파르게 커진다 (일직선이 아니다 — 사용자 규칙)
+//   내 유형(보컬 · 래퍼)을 잘 안 뽑는 회사(game.js coMisfit)는 드물게만 연락한다: 연락 한 건마다 열에 한 번만 안 맞는 회사 중에서 뽑고, 나머지는 맞는 회사 중에서 뽑는다
+//     (처음에는 안 맞는 회사의 무게만 0.12배로 낮췄는데, 맞는 큰 회사가 두세 곳뿐이라 그 회사들이 뽑히고 나면 남은 자리를 안 맞는 회사가 차지했다 — 우승 연락의 20~30%)
+//   해외 회사 · 나를 내보낸 회사(agCut) · 직전 소속사(솔로 exAg)는 뺀다. 맞는 회사가 다 떨어지면 그 자리는 비운다
+//   업계 냉대(game.js coldOfferM)는 연락 하나하나에 곱한다 (가요계에서 갑자기 그만뒀으면 연락이 거의 사라진다)
+//   협상력: 우승 0.75 · TOP 3 0.5 · TOP 10 0.3 · 중간 탈락 0.2
+const TV_AUD_R = { '첫 회 탈락': 0, '중간 탈락': 1, 'TOP 10': 2, 'TOP 3': 3, '우승': 4 };
+const TV_AUD_LEV = [0, 0.2, 0.3, 0.5, 0.75], TV_AUD_MISFIT = 0.1;
+function tvAudN(r) { return r >= 4 ? (U.chance(0.6) ? 3 : 2) : r === 3 ? U.wpick([1, 2, 3], n => [0, 0.2, 0.55, 0.25][n]) : r === 2 ? (U.chance(0.3) ? 2 : 1) : r === 1 ? (U.chance(0.15) ? 1 : 0) : 0; }
+function tvAudW(r, tier) { return tier >= 3 ? 2 * Math.pow(Math.max(0, r - 2), 3) : tier === 2 ? Math.pow(Math.max(0, r - 1), 2) : r >= 1 ? 3 / r : 0; }
+function tvAudAgs(s, res, type) {
+  const r = TV_AUD_R[res] || 0, ex = (s.tracks.solo || {}).exAg, out = [];
+  let pool = musicAgencies().filter(a => a.mkt === 'kr' && a.id !== ex && !agCut(s, a.id)).map(a => ({ a, w: tvAudW(r, a.tier), mis: coMisfit('music', a.con, type) })).filter(x => x.w > 0);
+  for (let n = tvAudN(r); n > 0 && pool.length; n--) {
+    const mis = U.chance(TV_AUD_MISFIT);
+    let P = pool.filter(x => x.mis === mis);
+    if (!P.length && mis) P = pool.filter(x => !x.mis);
+    if (!P.length) continue;
+    const x = U.wpick(P, y => y.w); pool = pool.filter(y => y !== x);
+    if (U.chance(coldOfferM(s, 'solo'))) out.push(x.a);
+  }
+  return out.sort((a, b) => b.tier - a.tier).map(a => a.id);
+}
+// 연락해 온 회사들. 예전 세이브에 떠 있던 결과 창(d.ag 한 곳 · 우승과 TOP 3만)은 그 한 곳만
+function tvAudList(d) { return (d.ags || ((d.res === '우승' || d.res === 'TOP 3') && d.ag ? [d.ag] : [])).filter(id => AG[id]); }
+function tvAudOfferTxt(d, L) {
+  if (!L.length) return '';
+  return L.length === 1 ? `
+
+${AG[L[0]].n}(${TIER_N[AG[L[0]].tier]} 기획사)에서 솔로 ${soloTypeN(d.type)} 계약을 제안했다.` : `
+
+방송이 끝나자 여러 곳에서 연락이 왔다. ${L.length}곳 모두 솔로 ${soloTypeN(d.type)} 계약을 하자고 한다. 한 곳을 골라 계약 이야기를 해 볼 수 있다.`;
+}
+// 회사마다 '계약 이야기를 해 본다' + 맨 끝에 거절. pre: 고르기 전에 한 번 할 일 (상금 · 기록), okTxt · noTxt: 기록 글
+function tvAudCh(s, d, L, pre, okTxt, noTxt) {
+  const lev = TV_AUD_LEV[TV_AUD_R[d.res] || 0] || 0.2;
+  return L.map(id => ({ t: `${josa(`「${AG[id].n}」`, '과와')} 계약 이야기를 해 본다`, h: `${TIER_N[AG[id].tier]} 기획사 · ${AG[id].con}`, f: s => { if (pre) pre(s); soloNego(s, id, d.type, lev, { tvBack: { show: d.show, type: d.type, res: d.res, ags: L.filter(x => x !== id) } }); return okTxt; } }))
+    .concat([{ t: L.length > 1 ? '모두 거절한다' : '거절한다', f: s => { if (pre) pre(s); return noTxt; } }]);
+}
+// 계약 이야기가 깨지면(내가 거절 · 회사가 제안을 거둠) 연락해 온 다른 회사가 남아 있는 동안 다시 고른다 (NEGO.solo)
+function tvAudBack(s, d) { const b = d && d.tvBack; if (b && b.ags && b.ags.length) queueEv(s, 'tv_audpick', 0, { show: b.show, type: b.type, res: b.res, ags: b.ags }, true); }
 E({
   id: 'tv_audres', cat: '오디션 프로그램', title: '오디션 프로그램 결과', tag: 'career',
   init(s, d) {
@@ -2626,20 +2673,29 @@ E({
     d.fans = Math.round({ '우승': 250000, 'TOP 3': 120000, 'TOP 10': 40000, '중간 탈락': 6000, '첫 회 탈락': 400 }[d.res] * popSpeed(s));
     s.fans.kr += d.fans;
     useSkill(s, p, d.type, 3);
-    d.ag = U.pick(musicAgencies().filter(a => a.mkt === 'kr' && a.tier >= (d.res === '우승' ? 2 : 1))).id;
+    // 그사이 전속 계약을 했으면 연락이 오지 않는다
+    d.ags = artistContract(s) ? [] : tvAudAgs(s, d.res, d.type);
   },
-  text: (s, d) => `「${d.show}」 결과: ${d.res}.\n\n방송 덕분에 팬이 ${fmtFans(d.fans)} 늘었다.` + (d.res === '우승' || d.res === 'TOP 3' ? `\n\n${AG[d.ag].n}에서 솔로 ${soloTypeN(d.type)} 계약을 제안했다.` : ''),
+  text: (s, d) => `「${d.show}」 결과: ${d.res}.
+
+방송 덕분에 팬이 ${fmtFans(d.fans)} 늘었다.` + tvAudOfferTxt(d, tvAudList(d)),
   ch(s, d) {
-    const after = s => milestone(s, `${age(s)}세에 오디션 프로그램 「${d.show}」에서 ${d.res}${josa(d.res, '을를').slice(d.res.length)} 했다.`);
-    if ((d.res === '우승' || d.res === 'TOP 3') && !artistContract(s)) return [
-      { t: '계약 조건을 들어 본다', h: '정산 비율과 계약 기간을 협상할 수 있다', f: s => { after(s); if (d.res === '우승') earn(s, 1e8, '오디션 우승 상금'); soloNego(s, d.ag, d.type, d.res === '우승' ? 0.75 : 0.5); return `「${d.show}」 ${d.res}.`; } },
-      { t: '거절한다', f: s => { after(s); if (d.res === '우승') earn(s, 1e8, '오디션 우승 상금'); return `「${d.show}」 ${d.res}. 계약 제안은 거절했다.`; } },
-    ];
+    // 우승 상금은 무엇을 고르든 받는다
+    const after = s => { milestone(s, `${age(s)}세에 오디션 프로그램 「${d.show}」에서 ${d.res}${josa(d.res, '을를').slice(d.res.length)} 했다.`); if (d.res === '우승') earn(s, 1e8, '오디션 우승 상금'); };
+    const L = tvAudList(d);
+    if (L.length && !artistContract(s)) return tvAudCh(s, d, L, after, `「${d.show}」 ${d.res}.`, `「${d.show}」 ${d.res}. 계약 제안은 ${L.length > 1 ? '모두 ' : ''}거절했다.`);
     return [{ t: '확인', f: s => { after(s); return `「${d.show}」 ${d.res}.` + fx(s, { stress: d.fans >= 3e4 ? -6 : 5 }); } }];
   },
 });
+E({
+  id: 'tv_audpick', cat: '오디션 프로그램', title: '남은 계약 제안', tag: 'career',
+  cond: s => true,
+  init(s, d) { d.ags = (d.ags || []).filter(id => AG[id] && !agCut(s, id)); if (!d.ags.length || artistContract(s)) d.skip = true; },
+  text: (s, d) => `「${d.show}」 뒤에 연락해 온 곳이 아직 ${d.ags.length}곳 남아 있다. ${d.ags.length > 1 ? '한 곳을 골라' : '여기와'} 계약 이야기를 해 볼 수 있다.`,
+  ch: (s, d) => tvAudCh(s, d, d.ags, null, '', `남은 계약 제안은 ${d.ags.length > 1 ? '모두 ' : ''}거절했다.`),
+});
 
-// 가면을 쓰고 노래로만 겨루는 프로그램 (활동 지원). 이미 이름이 알려진 사람이 스스로 나간다
+// 가면을 쓰고 노래로만 겨루는 프로그램 (직업이 없을 때 · 솔로 가수 창의 지원 — game.js AA_OWN). 이미 이름이 알려진 사람이 스스로 나간다
 const MASK_SHOWS = ['얼굴 없는 무대', '가면 속 목소리', '목소리만 들려요', '가면 뒤의 가수', '정체를 밝혀라', '숨은 목소리 찾기'];
 const MASKS = ['해바라기', '고양이 집사', '달빛 토끼', '붉은 장미', '눈사람', '등대지기', '종이비행기', '꿀벌 기사', '구름 위 산책'];
 function maskWhy(s) {
@@ -2659,7 +2715,7 @@ ACT_APPLY.push({
   run: s => { const show = U.pick(MASK_SHOWS), mask = U.pick(MASKS); s.cd.mask = s.t + 12; queueEv(s, 'mask_res', 2, { show, mask }); useSkill(s, me(s), 'vocal', 1); return `「${show}」에 나가기로 했다. 가면은 '${mask}'.`; },
 });
 E({
-  id: 'mask_res', cat: '활동 지원', title: s => '가면을 벗는 순간', tag: 'career',
+  id: 'mask_res', cat: '지원', title: s => '가면을 벗는 순간', tag: 'career',
   init(s, d) {
     const p = me(s);
     const sc = lv(p, 'vocal') * 0.8 + lv(p, 'variety') * 0.1 + U.normal(0, 6);

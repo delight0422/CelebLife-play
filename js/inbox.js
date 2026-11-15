@@ -1,7 +1,7 @@
 'use strict';
-// 제안(제안 창)과 지원(직업 지원·활동 지원)
+// 제안(제안 창)과 지원(직업 지원 · 한 번 하는 지원)
 // 제안: 회사·제작사·브랜드·방송인이 나한테 먼저 보낸 것. v237: 메시지함을 없앴다 — 제안이 오면 그달에 바로 제안 창이 뜨고 그 자리에서 답한다
-// 지원: 내가 할 수 있는 곳을 전부 보여 준다. 직업 지원(이력서·기획사 오디션)과 활동 지원(뮤지컬·오디션 프로그램 등).
+// 지원: 내가 할 수 있는 곳을 전부 보여 준다. 직업 지원(이력서·기획사 오디션 — 구직활동 창)과 한 번 하는 지원(뮤지컬·오디션 프로그램 등 — v238: 직업 창 · 무직 창의 '지원' 탭. 예전 '활동 지원' 창).
 
 // ───── 제안 ─────
 // INBOX[kind] = { ic, text(s,m), ch(s,m) → [{ t, h, ok, f }], to(s,m) 받는 곳 (없으면 나) }
@@ -154,7 +154,7 @@ function walkTake(s, m, i, id) {
 
 // ───── 지원 ─────
 // 항목: { id, n, ic, h(s), ok(s), why(s), run(s) }
-// 직업 지원 항목은 trk(직업 id)로 분야(음악·방송·영상·회사)와 아티스트·스태프를 정하고, 활동 지원 항목은 cat으로 분야를 정한다
+// 직업 지원 항목(JOB_APPLY)은 trk(직업 id)로 분야(음악·방송·영상·회사)와 아티스트·스태프를 정한다. 한 번 하는 지원 항목(ACT_APPLY)은 주인(game.js AA_OWN)의 창 '지원' 탭에 보인다
 const JOB_APPLY = [];
 const ACT_APPLY = [];
 // v205: 사무직(A&R · 마케터 · 교수 · 강사)이 빠져 있어 구직활동에 안 보였다
@@ -163,8 +163,26 @@ function applyCatOf(a) { if (a.cat) return a.cat; const c = CAREER_PLAN.find(x =
 function applySideOf(a) { const c = CAREER_PLAN.find(x => x.id === a.trk); return c ? c.g : 'artist'; }
 function jobApplies(s) { return JOB_APPLY.filter(a => !a.show || a.show(s)); }
 function actApplies(s) { return ACT_APPLY.filter(a => !a.show || a.show(s)); }
+// v238: 주인이 own인 한 번 하는 지원 (own: 직업 id, 또는 직업이 없을 때의 'none' — game.js AA_OWN). 주인 창의 '지원' 탭 · '매달 알아서 지원'에 보인다
+function aaList(s, own) { return actApplies(s).filter(a => aaOwners(a).includes(own)); }
+// 빨간 점은 새로 지원할 수 있게 됐을 때만 (사용자 규칙): 처음 할 수 있게 됐거나, 못 하다가(결과 대기 · 쉬는 기간) 다시 할 수 있게 됐을 때. '지원' 탭을 열면 본 것으로 친다 (s.aaSeen)
+//   '매달 알아서 지원'을 켠 것에는 점을 달지 않는다. 예전 세이브는 지금 할 수 있는 것을 모두 본 것으로 친다
+function aaSeenInit(s) { s.aaSeen = {}; for (const a of actApplies(s)) if (applyOKNow(s, a)) s.aaSeen[a.id] = 1; }
+function aaFresh(s, own) { if (!s.aaSeen) aaSeenInit(s); return aaList(s, own).filter(a => !s.aaSeen[a.id] && !(s.actAuto || {})[a.id] && applyOKNow(s, a)); }
+function aaSeenMark(s, own) { if (!s.aaSeen) aaSeenInit(s); for (const a of aaList(s, own)) if (applyOKNow(s, a)) s.aaSeen[a.id] = 1; }
+// 매달: 본 뒤에 못 하게 된 것은 지운다 → 다시 할 수 있게 되면 점이 다시 뜬다
+function aaSeenMonth(s) {
+  if (!s.aaSeen) { aaSeenInit(s); return; }
+  for (const a of ACT_APPLY) { if (!s.aaSeen[a.id]) continue; let sh = true; try { sh = !a.show || !!a.show(s); } catch (e) { sh = false; } if (!sh || !applyOKNow(s, a)) delete s.aaSeen[a.id]; }
+}
+// 지원하러 갈 창: 하는 직업이 없으면 무직 창('none'), 있으면 그 항목(ids)의 주인인 직업 창
+function aaHome(s, ids) {
+  if (jobCount(s) === 0) return 'none';
+  for (const id of ids || []) { const a = ACT_APPLY.find(x => x.id === id), o = a && aaOwners(a).find(j => j !== 'none' && trackOn(s, j)); if (o) return o; }
+  return CAREER_IDS.find(id => CAREERS[id] && trackOn(s, id) && aaList(s, id).length) || 'none';
+}
 function busyWith(s, type) { return s.projects.some(w => w.type === type); }
-// 오디션·채용·활동 지원이 처음으로 지원 가능해지면 알려 준다 (한 곳마다 한 번만)
+// 오디션·채용·한 번 하는 지원이 처음으로 지원 가능해지면 알려 준다 (한 곳마다 한 번만)
 // 혼자 시작하는 일도 처음 할 수 있게 되면 알린다 (돈만 있으면 되는 버튜버 아바타·밴드 데모처럼 자주 바뀌는 것은 뺀다)
 const AP_NOTIFY = new Set(['band_make', 'band_join', 'solo_indie', 'player_start', 'composer_start', 'lyricist_start', 'producer_start', 'actor_music', 'actor_indie', 'variety_start', 'editor_free', 'model_free', 'director_short', 'writer_start', 'webtoon_free', 'webnovel_free', 'illust_start', 'prof_adj']);
 function isAudition(a) { return ACT_APPLY.includes(a) || /오디션|채용/.test(a.n) || AP_NOTIFY.has(a.id); }
@@ -172,6 +190,7 @@ function applyOKNow(s, a) { try { return !!a.ok(s); } catch (e) { return false; 
 // 예전 세이브: 이미 지원할 수 있는 곳은 알린 것으로 친다
 function applySeenInit(s) { s.apSeen = {}; for (const a of jobApplies(s).concat(actApplies(s))) if (isAudition(a) && applyOKNow(s, a)) s.apSeen[a.id] = 1; }
 function applyOpenMonth(s) {
+  aaSeenMonth(s);
   if (!s.apSeen) { applySeenInit(s); return; }
   if (s.army) return;
   const fresh = [];
@@ -209,7 +228,8 @@ E({
     const act = d.ids.some(id => ACT_APPLY.some(a => a.id === id)), job = d.ids.some(id => JOB_APPLY.some(a => a.id === id));
     const o = [];
     if (job) o.push({ t: '📝 구직활동 창 열기', f: s => { s.uiOpen = 'applyjob'; return ''; } });
-    if (act) o.push({ t: '🎭 활동 지원 창 열기', f: s => { s.uiOpen = 'applyact'; return ''; } });
+    // v238: 한 번 하는 지원은 그 항목의 주인 창(직업이 없으면 무직 창) '지원' 탭에서 한다 (ui.js afterChoiceGo가 연다)
+    if (act) o.push({ t: '📝 지원하러 가기', f: s => { s.uiOpen = `job:${aaHome(s, d.ids)}:apply`; return ''; } });
     o.push({ t: '확인', f: () => '' });
     return o;
   },
@@ -290,7 +310,7 @@ E({
   ch: () => [{ t: '확인', f: () => '' }],
 });
 
-// ════════ 뮤지컬 (활동 지원) ════════
+// ════════ 뮤지컬 (직업이 없을 때 · 배우 창의 지원 — game.js AA_OWN) ════════
 // 보컬과 연기가 각각 일정 레벨을 넘어야 지원할 수 있다. 인지도를 올리는 데 좋다
 const MUSICAL_ROLES = [
   { id: 'ens', n: '앙상블', vocal: 20, acting: 15, fee: 150, fame: 0.6, lines: '합창과 군무' },
@@ -321,13 +341,13 @@ ACT_APPLY.push({
 const MUSICAL_CO = ['극단 들꽃', '스테이지원', '일곱빛 컴퍼니', '하늘극장 제작소', '커튼콜 뮤지컬', '극단 물결', '오버추어 컴퍼니', '앙코르 프로덕션', '피날레 뮤지컬', '극단 등불',
   '무대공방 아리', '스포트라이트 컴퍼니', '극단 동틀녘', '아리아 씨어터', '백스테이지 컴퍼니', '앙상블 스테이지'];
 E({
-  id: 'musical_aud', cat: '활동 지원', title: '뮤지컬 오디션', tag: 'career',
+  id: 'musical_aud', cat: '지원', title: '뮤지컬 오디션', tag: 'career',
   init(s, d) { d.title = musicalTitle(); d.co = U.pick(MUSICAL_CO); },
   text: (s, d) => `${d.co}에서 새 뮤지컬 「${d.title}」 배우를 뽑는다. 어떤 역할에 지원할까?`,
   ch: (s, d) => MUSICAL_ROLES.map(r => ({ t: `${r.n} (${r.lines})`, ok: s => roleOK(s, r), h: roleOK(s, r) ? `붙을 가능성 ${fmtPct(musicalPass(s, r))}` : '노래와 연기 실력이 더 필요하다', f: s => { s.cd.musicalAud = s.t + 6; queueEv(s, 'musical_res', 1, { r: r.id, title: d.title, co: d.co, p: musicalPass(s, r) }); return `${d.co}의 뮤지컬 「${d.title}」 ${r.n} 오디션을 봤다.`; } })).concat([{ t: '그만둔다', f: () => '이번 오디션은 보지 않기로 했다.' }]),
 });
 E({
-  id: 'musical_res', cat: '활동 지원', title: '뮤지컬 오디션 결과', tag: 'career',
+  id: 'musical_res', cat: '지원', title: '뮤지컬 오디션 결과', tag: 'career',
   init(s, d) { d.pass = U.chance(d.p); },
   text: (s, d) => d.pass ? `「${d.title}」 ${MUSICAL_ROLES.find(r => r.id === d.r).n} 오디션에 붙었다!` : `「${d.title}」 오디션에 떨어졌다.`,
   ch: (s, d) => d.pass ? [{ t: '연습에 들어간다', f: s => startMusical(s, d.r, d.title, d.co) }] : [{ t: '다음에 다시', f: s => `뮤지컬 「${d.title}」 오디션에 떨어졌다. 다음 기회를 노리기로 했다.` + fx(s, { stress: 3 * pm(s, 'loseStress') }) }],

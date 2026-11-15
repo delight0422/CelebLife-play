@@ -181,15 +181,30 @@ const JA_TAGS = [
   [/^youtube_vt/, ['vt']],
 ];
 function jaTags(id) { const x = []; for (const [re, tg] of JA_TAGS) if (re.test(id)) x.push(...tg); return x; }
-// 활동 지원 중 붙으면 직업이 생기는 것 (그 직업을 아직 안 할 때만 본다)
+// 한 번 하는 지원(ACT_APPLY) 중 붙으면 직업이 생기는 것 (그 직업을 아직 안 할 때만 본다)
 const AA_JOB = { drama_aud: 'actor' };
+// v238: '활동 지원' 창을 없앴다. 한 번 하는 지원은 항목마다 주인이 있고, 주인의 창 '지원' 탭에서 한다 (ui.js jobApplyTab)
+//   none: 하는 직업이 하나도 없을 때 (직업 활동 칸의 '무직' · '학생' 배너). 직업 id: 그 직업을 하고 있을 때 그 직업 창
+//   하는 직업이 없으면 none 항목만, 직업이 있으면 그 직업이 주인인 항목만 지원할 수 있다 (자동 지원도 같다 — actAutoMonth가 a.ok를 본다)
+//   새 항목을 만들면 여기에 주인을 적는다. 적지 않으면 none
+const AA_OWN = { drama_aud: ['none', 'actor'], musical: ['none', 'actor'], var_guest: ['none', 'variety'], mask: ['none', 'solo'], tv_aud_vocal: ['none'], tv_aud_rap: ['none'],
+  mcn_collab: ['youtube'], mcn_goods: ['youtube'], mcn_event: ['youtube'], vi_cover: ['vidol'], vi_endure: ['vidol'] };
+function aaOwners(a) { return AA_OWN[a.id] || ['none']; }
+function aaOwnWhy(s, a) {
+  const O = aaOwners(a);
+  if (jobCount(s) === 0 ? O.includes('none') : O.some(id => id !== 'none' && trackOn(s, id))) return '';
+  return O.map(id => id === 'none' ? '직업이 없을 때' : `${evJobN(id)}일 때`).join(' · ') + '만';
+}
 function aaBlock(s, a) {
+  if (s.army) return '군 복무 중'; // v238: 군 복무 중에는 한 번 하는 지원을 하나도 못 한다 (뮤지컬처럼 군 복무 조건이 없던 항목도)
+  const ow = aaOwnWhy(s, a);
+  if (ow) return ow;
   const trk = AA_JOB[a.id];
   if (trk) return trackOn(s, trk) ? '' : jobBlock(s, trk);
   if (a.id === 'var_guest' && trackOn(s, 'vidol')) return '버츄얼 아이돌은 얼굴이 나오는 방송에 나갈 수 없다';
   return '';
 }
-// 모든 직업 · 활동 지원에 자숙과 겸직 규칙을 씌운다. 모든 직업 파일이 JOB_APPLY · ACT_APPLY를 채운 뒤 ui.js가 한 번 부른다
+// 모든 직업 지원 · 한 번 하는 지원에 자숙과 겸직 규칙(한 번 하는 지원은 주인 조건도)을 씌운다. 모든 직업 파일이 JOB_APPLY · ACT_APPLY를 채운 뒤 ui.js가 한 번 부른다
 // (자숙은 원래 scandal.js에서 씌웠는데, scandal.js보다 뒤에 읽는 직업 파일의 지원은 빠져 있었다)
 function gateApplies() {
   if (gateApplies.done) return;
@@ -1129,7 +1144,7 @@ function dedupeJobSlots(s) {
 function jobTakenElse(s, i, act) { return act.startsWith('c_') && s.slots.some((sl, j) => j !== i && sl.act === act); }
 // 평판(rep)이 있는 직업은 평판이, 없는 직업(배우·가수 등)은 그 직업의 인기가 떨어진다. 첫 달은 봐주고, 손 놓은 달이 길수록 더 떨어진다
 const JOB_IDLE = { rep: 2, step: 0.5, max: 4.5, pop: 1.2 };
-// 활동 지원 자동 (피드백 24): '자동'을 켜 둔 활동은 다시 지원할 수 있게 되면(기다리는 기간이 끝나면) 저절로 지원한다
+// 매달 알아서 지원 (피드백 24): 직업 창 · 무직 창 '행동' 탭에서 켠 지원은 다시 지원할 수 있게 되면(기다리는 기간이 끝나면) 저절로 지원한다 (v238: 주인 조건은 a.ok가 본다)
 function actAutoMonth(s) {
   const A = s.actAuto;
   if (!A || s.pending || typeof ACT_APPLY === 'undefined') return;

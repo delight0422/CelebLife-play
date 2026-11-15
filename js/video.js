@@ -269,7 +269,7 @@ E({
   text: s => { const t = s.tracks.actor; return `오디션을 보러 오라는 작품이 들어왔다. 하나만 고를 수 있다.\n\n연기 ${lvi(me(s), 'acting')}레벨 · '${ACTOR_TIERS[t.tier]}' · 요즘 드라마 유행 '${s.trendTV.drama}'`; },
   ch: (s, d) => projChoices(s, d.ps, () => {}).concat([{ t: '이번엔 다 넘긴다', f: () => '들어온 작품을 모두 거절했다.' }]),
 });
-// 드라마·영화 오디션 (활동 지원): 배우가 아니어도 연기를 할 줄 알면 직접 지원한다. 붙으면 배우 일이 시작된다
+// 드라마·영화 오디션 (직업이 없을 때 · 배우 창의 지원 — game.js AA_OWN): 배우가 아니어도 연기를 할 줄 알면 직접 지원한다. 붙으면 배우 일이 시작된다
 ACT_APPLY.push({
   id: 'drama_aud', cat: 'video', n: '드라마·영화 오디션', ic: '🎬',
   h: s => '지금 배우를 뽑는 작품 중 하나에 직접 지원한다. 붙으면 촬영을 시작한다.',
@@ -278,7 +278,7 @@ ACT_APPLY.push({
   run: s => { s.cd.dramaAud = s.t + 3; fireEvent(s, 'drama_aud', {}); return ''; },
 });
 E({
-  id: 'drama_aud', cat: '활동 지원', title: '드라마·영화 오디션', tag: 'career',
+  id: 'drama_aud', cat: '지원', title: '드라마·영화 오디션', tag: 'career',
   init(s, d) { d.ps = genProjects(s, trackOn(s, 'actor') ? s.tracks.actor.tier : 0, 3); },
   text: s => `지금 배우를 뽑고 있는 작품들이다. 하나에 지원할 수 있다.\n\n연기 ${lvi(me(s), 'acting')}레벨 · 요즘 드라마 유행 '${s.trendTV.drama}'`,
   // 붙었을 때 아직 배우가 아니면 배우 일을 시작한다 (음악 소속사가 있으면 그 회사를 통해서)
@@ -731,7 +731,7 @@ E({
     ? [Object.assign(showChoice(s, d.sh), { t: '📌 고정 멤버로 합류한다' }), { t: '거절한다', f: () => `「${d.sh.title}」 고정 멤버 섭외를 거절했다.` }]
     : [Object.assign(showChoice(s, d.sh), { t: '출연한다' }), { t: '거절한다', f: () => `「${d.sh.title}」 섭외를 거절했다.` }],
 });
-// 예능 출연 신청 (활동 지원): 예능인이 아니어도 게스트로 나가 본다. 몇 번 재밌게 나오면 예능 쪽에서 연락이 온다
+// 예능 출연 신청 (직업이 없을 때 · 예능인 창의 지원 — game.js AA_OWN): 예능인이 아니어도 게스트로 나가 본다. 몇 번 재밌게 나오면 예능 쪽에서 연락이 온다
 // 예능에 나가서 잘한 적(재밌게 나온 회차, 아이돌 스케줄 예능에서 크게 웃긴 적)이 있어야 신청할 수 있다 (피드백 17)
 function varHit(s) { return !!s.flags.varHit || s.works.some(w => w.type === '예능' && w.sc >= 70); }
 ACT_APPLY.push({
@@ -742,7 +742,7 @@ ACT_APPLY.push({
   run: s => { s.cd.varGuest = s.t + 4; fireEvent(s, 'var_guest', {}); return ''; },
 });
 E({
-  id: 'var_guest', cat: '활동 지원', title: '예능 출연 신청', tag: 'career',
+  id: 'var_guest', cat: '지원', title: '예능 출연 신청', tag: 'career',
   init(s, d) { const tier = trackOn(s, 'variety') ? s.tracks.variety.tier : 0; d.ss = [0, 1, 2].map(() => genShow(s, tier, false)); },
   text: s => `게스트를 찾는 예능들이다. 하나에 나갈 수 있다.\n\n요즘 예능 유행 '${s.trendTV.show}' · 예능 ${has(me(s), 'variety') ? lvi(me(s), 'variety') + '레벨' : '못 함'}`,
   ch: (s, d) => d.ss.map(sh => showChoice(s, sh)).concat([{ t: '그만둔다', f: () => '이번엔 신청하지 않았다.' }]),

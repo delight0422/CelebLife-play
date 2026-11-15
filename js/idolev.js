@@ -61,7 +61,7 @@ function idolWaySet(s, t, w, v) {
 function idolPicks(s, t) {
   if (s.army || (t.st !== 'active' && !idTr(s))) return [];
   const n = idolWayCnt(s, t);
-  // v159: '한 번 하는 일'(외부 레슨 · 게릴라 공연)은 뺐다 (사용자 결정: 직업 창에는 켜 두는 일만. 한 번 하는 일이 필요하면 활동 지원으로)
+  // v159: '한 번 하는 일'(외부 레슨 · 게릴라 공연)은 뺐다 (사용자 결정: 직업 창에는 켜 두는 일만. 한 번 하는 일이 필요하면 활동 지원으로 — v238부터는 직업 창 '지원' 탭)
   return IDOL_WAYS.map((w, i) => {
     const can = w.show(s, t), on = idolWayOn(t, w), room = !w.sk || has(me(s), w.sk) || skRoom(s, w.sk);
     return { sw: true, on, sec: i === 0 ? `매달 꾸준히 한다 · ${IDOL_WAY_MAX}가지까지 (지금 ${n}가지)` : '', t: `${w.ic} ${idolWayN(t, w)}`, tag: on ? (can ? '켜 둠' : `켜 둠 · 쉬는 중 (${w.no(s, t)})`) : '', h: w.h(s, t), btn: on ? '끄기' : '켜기', ok: on || (can && n < IDOL_WAY_MAX && room), why: !can ? w.no(s, t) : !room ? `특기가 ${SKILL_CAP}개라 ${SKILLS[w.sk].n} 특기를 새로 배울 수 없다` : `${IDOL_WAY_MAX}가지까지만 켜 둘 수 있다 · 하나를 먼저 끈다`, run: s => idolWaySet(s, t, w, !on) };

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>연예인으로 살아가기</title>
-<link rel="stylesheet" href="style.css?v=1794764181">
+<link rel="stylesheet" href="style.css?v=1794765701">
 </head>
 <body>
 <div id="app">
@@ -60,7 +60,7 @@
         </div>
       </div>
     </header>
-    <!-- 세 줄 (UI 개편 시안): 왼쪽 프로필 → 재정 · 상태 → 직업 활동 / 가운데 인간관계 → 구직활동 · 활동 지원 · 에고서칭 → 생활 → 회사 / 오른쪽 일정 (진행 버튼 바로 아래) -->
+    <!-- 세 줄 (UI 개편 시안): 왼쪽 프로필 → 재정 · 상태 → 직업 활동 / 가운데 인간관계 → 구직활동 · 에고서칭 → 생활 → 회사 (v238: 활동 지원 창은 없앴다 — 직업 창 · 무직 창의 지원 탭) / 오른쪽 일정 (진행 버튼 바로 아래) -->
     <!-- 왼쪽 줄과 가운데 줄은 따로 쌓는다. 맨 아래 박스(직업 활동 · 회사)가 남는 높이를 채운다 -->
     <main id="cols">
       <div class="col-l">
@@ -75,7 +75,6 @@
         <div id="people-card" class="card bn-card" data-panel="people"></div>
         <div class="hub-btns">
           <button class="hub-bn" id="btn-applyjob" data-panel="applyjob">📝 구직활동</button>
-          <button class="hub-bn" id="btn-applyact" data-panel="applyact">🎭 활동 지원</button>
           <button class="hub-bn hub-ego hidden" id="btn-ego" data-commnow>💬 에고서칭</button>
         </div>
         <div id="life-card" class="card">
@@ -107,39 +106,39 @@
   <div id="toast" class="toast"></div>
   <input type="file" id="file-input" accept=".json,application/json" class="hidden">
 </div>
-<script src="js/util.js?v=1794764181"></script>
-<script src="js/data.js?v=1794764181"></script>
-<script src="js/skills.js?v=1794764181"></script>
-<script src="js/person.js?v=1794764181"></script>
-<script src="js/game.js?v=1794764181"></script>
-<script src="js/life.js?v=1794764181"></script>
-<script src="js/events.js?v=1794764181"></script>
-<script src="js/work.js?v=1794764181"></script>
-<script src="js/inbox.js?v=1794764181"></script>
-<script src="js/family.js?v=1794764181"></script>
-<script src="js/music.js?v=1794764181"></script>
-<script src="js/album.js?v=1794764181"></script>
-<script src="js/musicstaff.js?v=1794764181"></script>
-<script src="js/project.js?v=1794764181"></script>
-<script src="js/idolev.js?v=1794764181"></script>
-<script src="js/video.js?v=1794764181"></script>
-<script src="js/film.js?v=1794764181"></script>
-<script src="js/scandal.js?v=1794764181"></script>
-<script src="js/vidol.js?v=1794764181"></script>
-<script src="js/mcn.js?v=1794764181"></script>
-<script src="js/company.js?v=1794764181"></script>
-<script src="js/studio.js?v=1794764181"></script>
-<script src="js/concert.js?v=1794764181"></script>
-<script src="js/dancer.js?v=1794764181"></script>
-<script src="js/anime.js?v=1794764181"></script>
-<script src="js/webnovel.js?v=1794764181"></script>
-<script src="js/illust.js?v=1794764181"></script>
-<script src="js/prof.js?v=1794764181"></script>
-<script src="js/tutor.js?v=1794764181"></script>
-<script src="js/marketer.js?v=1794764181"></script>
-<script src="js/npc.js?v=1794764181"></script>
-<script src="js/chparts.js?v=1794764181"></script>
-<script src="js/live.js?v=1794764181"></script>
-<script src="js/ui.js?v=1794764181"></script>
+<script src="js/util.js?v=1794765701"></script>
+<script src="js/data.js?v=1794765701"></script>
+<script src="js/skills.js?v=1794765701"></script>
+<script src="js/person.js?v=1794765701"></script>
+<script src="js/game.js?v=1794765701"></script>
+<script src="js/life.js?v=1794765701"></script>
+<script src="js/events.js?v=1794765701"></script>
+<script src="js/work.js?v=1794765701"></script>
+<script src="js/inbox.js?v=1794765701"></script>
+<script src="js/family.js?v=1794765701"></script>
+<script src="js/music.js?v=1794765701"></script>
+<script src="js/album.js?v=1794765701"></script>
+<script src="js/musicstaff.js?v=1794765701"></script>
+<script src="js/project.js?v=1794765701"></script>
+<script src="js/idolev.js?v=1794765701"></script>
+<script src="js/video.js?v=1794765701"></script>
+<script src="js/film.js?v=1794765701"></script>
+<script src="js/scandal.js?v=1794765701"></script>
+<script src="js/vidol.js?v=1794765701"></script>
+<script src="js/mcn.js?v=1794765701"></script>
+<script src="js/company.js?v=1794765701"></script>
+<script src="js/studio.js?v=1794765701"></script>
+<script src="js/concert.js?v=1794765701"></script>
+<script src="js/dancer.js?v=1794765701"></script>
+<script src="js/anime.js?v=1794765701"></script>
+<script src="js/webnovel.js?v=1794765701"></script>
+<script src="js/illust.js?v=1794765701"></script>
+<script src="js/prof.js?v=1794765701"></script>
+<script src="js/tutor.js?v=1794765701"></script>
+<script src="js/marketer.js?v=1794765701"></script>
+<script src="js/npc.js?v=1794765701"></script>
+<script src="js/chparts.js?v=1794765701"></script>
+<script src="js/live.js?v=1794765701"></script>
+<script src="js/ui.js?v=1794765701"></script>
 </body>
 </html>

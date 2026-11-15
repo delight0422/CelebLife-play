@@ -4,7 +4,7 @@
 const $ = (sel, el = document) => el.querySelector(sel);
 const UI = { speed: 1, lastSpeed: 1, overlay: null, timer: null, minimized: false, acts: [], onConfirm: null, openCats: {}, openGroups: { artist: true, staff: true, biz: true }, apTab: {}, trk: null, kid: null, pickSlot: null, pickQ: '', logLen: -1, logAge: -1 };
 const SPEED_MS = { 1: 1500, 2: 750, 4: 360, 8: 160 };
-// 모든 직업 파일을 읽었으니 직업 · 활동 지원에 자숙과 겸직 규칙을 씌운다 (game.js)
+// 모든 직업 파일을 읽었으니 직업 지원 · 한 번 하는 지원에 자숙과 겸직 규칙을 씌운다 (game.js)
 gateApplies();
 
 function show(id) { document.querySelectorAll('.screen').forEach(e => e.classList.toggle('hidden', e.id !== id)); }
@@ -392,7 +392,6 @@ function renderTop() {
   dEl.querySelector('.dt-bar i').style.width = `${(m / 12 * 100).toFixed(2)}%`;
   UI.dateM = m;
   $('#btn-applyjob').classList.toggle('hidden', typeof jobApplies !== 'function');
-  $('#btn-applyact').classList.toggle('hidden', typeof actApplies !== 'function');
   // 에고서칭: 커뮤니티에서 내 이름을 찾아본다 (일곱 살부터). 구직활동 줄 맨 끝의 작은 배너
   $('#btn-ego').classList.toggle('hidden', !(typeof commNow === 'function' && age(s) >= 7));
 }
@@ -571,7 +570,7 @@ function jobFacts(s, id) {
   return F;
 }
 // 직업 활동 박스: 첫 줄에 요즘 유행, 그 아래 직업마다 배너(누르면 그 직업 창), 그 아래 공개 예정 작품 · 맡은 작품 · 광고 · 스캔들 · 자숙
-const WAIT_CAT = /^(오디션|채용|공채 시험|임용|공모전|투고|MCN|밴드|활동 지원|오디션 프로그램)$/;
+const WAIT_CAT = /^(오디션|채용|공채 시험|임용|공모전|투고|MCN|밴드|지원|오디션 프로그램)$/; // v238: 한 번 하는 지원의 분류 글 '활동 지원' → '지원'
 function waitLine(s, q) {
   const ev = EVENTS[q.id];
   if (!ev || !(q.at > s.t)) return '';
@@ -579,6 +578,14 @@ function waitLine(s, q) {
   if (typeof tt !== 'string' || !/결과$/.test(tt) || !WAIT_CAT.test(evCat(ev, s, q.d))) return '';
   const d = q.d || {}, n = d.ag && AG[d.ag] ? AG[d.ag].n : typeof d.co === 'string' ? d.co : typeof d.agN === 'string' ? d.agN : '';
   return `${n ? n + ' ' : ''}${tt.replace(/ 결과$/, '')}`;
+}
+// v238: 하는 직업이 하나도 없을 때의 배너 이름 [아이콘, 이름]. 군 복무 중이면 '군 복무', 다니는 학교가 있으면 '학생', 그 밖에는 '무직'. 학교에 가기 전 어린아이는 null (배너를 두지 않는다)
+function noJobLabel(s) {
+  if (s.army) return ['🪖', '군 복무'];
+  const y = schoolYear(s);
+  if (y < 1 && age(s) < 19) return null;
+  if (y < 10 || (!s.edu.graduated && y <= 12) || inUni(s)) return ['🎒', '학생'];
+  return ['🧑', '무직'];
 }
 function renderJobsCard() {
   const s = S, el = $('#jobs-card');
@@ -597,9 +604,17 @@ function renderJobsCard() {
       cls = !n ? ' off' : !x ? ' bad' : '';
       dot = (!!n && !x) || pickDue(s, id);
     }
+    // v238: 그 직업 창 '지원' 탭에 새로 지원할 수 있게 된 것이 있으면 점
+    if (aaFresh(s, id).length) dot = true;
     const F = jobFacts(s, id);
     h += `<button class="job-bn${cls}" data-job="${id}">${dot ? '<span class="rdot"></span>' : ''}<span class="jb-top"><span class="sb-ic">${jobIc(id)}</span><span class="sb-t">${U.esc(jobName(id))}</span>${st ? `<span class="jb-auto">${U.esc(st)}</span>` : ''}<span class="sb-n">›</span></span>`
       + (F.length ? `<span class="jb-facts">${F.map(([k, v]) => `<span class="jf"><i>${k}</i>${U.esc(v)}</span>`).join('')}</span>` : '') + `</button>`;
+  }
+  // v238: 하는 직업이 하나도 없으면 '무직'(학생 · 군 복무) 배너. 누르면 무직 창 (panelNoJob) — 직업이 없을 때 하는 지원이 여기 있다
+  const nj = any ? null : noJobLabel(s);
+  if (nj) {
+    const n = aaList(s, 'none').filter(a => applyOKNow(s, a)).length;
+    h += `<button class="job-bn" data-job="none">${aaFresh(s, 'none').length ? '<span class="rdot"></span>' : ''}<span class="jb-top"><span class="sb-ic">${nj[0]}</span><span class="sb-t">${nj[1]}</span><span class="jb-auto">${n ? `지원할 수 있는 곳 ${n}곳` : '지금 지원할 수 있는 곳이 없다'}</span><span class="sb-n">›</span></span></button>`;
   }
   const soon = upcomingWorks(s);
   if (soon.length || WORK_TRKS.some(id => trackOn(s, id))) h += `<button class="soon-banner" data-soon><span class="sb-ic">🗓️</span><span><span class="sb-t">공개 예정 작품</span><br><span class="sb-s">${soon.length ? `「${U.esc(soon[0].title)}」 ${U.esc(soon[0].when)}` : '기다리는 작품 없음'}</span></span><span class="sb-n">${soon.length}편 ›</span></button>`;
@@ -613,7 +628,7 @@ function renderJobsCard() {
   // v219: 지원해 두고 결과를 기다리는 곳 (오디션 · 채용 · 공모전)
   for (const q of s.queue) { const w = waitLine(s, q); if (w) rows.push(`<div class="trk wait"><b>⏳ ${U.esc(w)}</b><div class="st">결과 대기 중</div></div>`); }
   if (rows.length) h += `<div class="trks">${rows.join('')}</div>`;
-  if (!any && !rows.length) {
+  if (!any && !nj && !rows.length) {
     // v212: 구직활동 안내는 처음으로 지원할 수 있는 곳이 생긴 뒤부터 (그 전에는 눌러도 빈 창이다)
     if (!s.apOpen && typeof jobApplies === 'function' && jobApplies(s).some(a => applyOKNow(s, a))) s.apOpen = 1;
     h += `<div class="empty">아직 하는 일이 없다.${s.apOpen ? ' 📝 구직활동에서 시작할 수 있다.' : ''}</div>`;
@@ -1001,7 +1016,8 @@ function afterChoiceGo() {
   if (!S.uiOpen) dreamNow(S);
   if (S.pending) { showEvent(); return; }
   // 사건에서 '지원 창 열기' 같은 걸 골랐으면 그 창을 연다
-  if (S.uiOpen) { const k = S.uiOpen; delete S.uiOpen; openPanel(k); }
+  // v238: 'job:직업:탭' — 그 직업 창(none이면 무직 창)의 그 탭을 연다 (지원 알림의 '지원하러 가기'). 예전 세이브의 'applyact'(없앤 활동 지원 창)도 이리로
+  if (S.uiOpen) { const k = S.uiOpen; delete S.uiOpen; const m = /^job:([^:]+):?(.*)$/.exec(k === 'applyact' ? `job:${aaHome(S)}:apply` : k); if (m) { UI.jobId = m[1]; UI.jobFrom = ''; UI.jobTab = m[2] || 'act'; openPanel('job'); } else openPanel(k); }
   startLoop();
 }
 // 팝업에서 고른 결과는 그 팝업에서 바로 보여 준다 (v88): 고른 것 · 그 결과로 생긴 기록(걸어온 길에도 그대로 남는다) · 확인
@@ -1264,7 +1280,7 @@ function showEnding(preview) {
 // ───── 패널 ─────
 // v194: 인간관계 창은 다시 열어도 저번에 펼치고 접은 그대로 (UI.pplOpen을 지우지 않는다). 스크롤만 맨 위로 (top0)
 function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people' && S.pplSeenT !== S.t) { S.pplSeenT = S.t; renderPeopleCard(); } UI.overlay = kind; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
-function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.apjFrom = null; UI.skFrom = null; UI.pickNew = null; UI.skDrop = false; UI.pickSlot = null; if (S) render(); }
+function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.apjFrom = null; UI.skFrom = null; UI.pickNew = null; UI.aaNew = null; UI.skDrop = false; UI.pickSlot = null; if (S) render(); }
 // 행동 버튼 한 줄. 버튼이 누를 일은 UI.acts(창) 또는 UI.lacts(오른쪽 생활 카드)에 모아 둔다
 function actRow(a) {
   const reg = UI.rowReg || UI.acts, at = UI.rowReg ? 'lact' : 'act';
@@ -1291,7 +1307,7 @@ function renderPanel() {
   const k = UI.overlay;
   UI.acts = [];
   let h = `<button class="m-close" data-close>✕</button>`;
-  const P = { lifelog: panelLifelog, soon: panelSoon, job: panelJob, lifesec: panelLifeSec, money: panelMoney, trk: panelTrk, kid: panelKid, applyjob: panelApplyJob, applyact: panelApplyAct, pastecode: panelPasteCode, profile: panelProfile, me: panelProfile, family: panelFamily, love: panelLove, career: panelCareer, people: panelPeople, life: panelLife, menu: panelMenu, hall: panelHall, help: panelHelp, pick: panelPick };
+  const P = { lifelog: panelLifelog, soon: panelSoon, job: panelJob, lifesec: panelLifeSec, money: panelMoney, trk: panelTrk, kid: panelKid, applyjob: panelApplyJob, pastecode: panelPasteCode, profile: panelProfile, me: panelProfile, family: panelFamily, love: panelLove, career: panelCareer, people: panelPeople, life: panelLife, menu: panelMenu, hall: panelHall, help: panelHelp, pick: panelPick };
   if (P[k]) h += P[k]();
   else if (typeof window['panel_' + k] === 'function') h += window['panel_' + k]();
   $('#pcard').classList.toggle('wide', k === 'company' || k === 'group'); // 회사 창은 넓게 (v131)
@@ -1507,30 +1523,37 @@ function lifeAutoRow(a) {
     { btn: a.btn || '하기', on: true, ok: a.ok, run: a.run },
     { btn: on ? '🔁 자동 켜짐' : '🔁 자동', on, ok: true, run: s => { s.lifeAuto = s.lifeAuto || {}; s.lifeAuto[a.autoKey] = !on; return ''; } }] });
 }
-// 활동 지원 한 줄: 지원하기 + 자동 (켜 두면 다시 지원할 수 있게 될 때마다 저절로 지원한다, 피드백 24)
 // 나이 때문에 못 하는지: '15세부터 지원할 수 있다' · '15~32세만 나갈 수 있다' · '30세까지만' 같은 이유 (v184)
 function ageWhy(w) { return /\d+세(부터|까지)|\d+~\d+세/.test(w || ''); }
-// 못 하는 '지원하기'는 회색 (ap-off, v183 · v184). '자동'은 나이 때문에 못 할 때만 막는다: 결과를 기다리는 동안 · 실력이 모자랄 때는 켜 두면 할 수 있게 될 때 저절로 지원한다. 켜 둔 자동은 언제든 끌 수 있다
-function actAutoRow(s, a) {
-  const ok = !!a.ok(s), on = !!(s.actAuto || {})[a.id], why = ok ? '' : (a.why ? a.why(s) : '');
-  return actRow({ t: `${a.ic || ''} ${a.n}`, h: a.h ? a.h(s) : '', why, cls: ok ? '' : 'ap-off', opts: [
-    { btn: '지원하기', on: true, ok, run: a.run },
-    { btn: on ? '🔁 자동 켜짐' : '🔁 자동', on, ok: ok || on || !ageWhy(why), run: s => { s.actAuto = s.actAuto || {}; s.actAuto[a.id] = !on; return ''; } }] });
+// v238: '활동 지원' 창을 없앴다. 한 번 하는 지원(ACT_APPLY)은 주인(game.js AA_OWN)의 직업 창 · 무직 창에 나눠 둔다 — '지원' 탭에는 지원 단추, '행동' 탭 맨 아래에는 매달 알아서 지원
+// 지원 탭: 누르면 바로 지원한다. 못 하는 줄은 회색 (ap-off, v183 · v184). 새로 지원할 수 있게 된 줄에는 점 — 탭을 열면 본 것으로 치고(inbox.js aaSeenMark), 창을 닫을 때까지는 남는다 (UI.aaNew)
+function jobApplyTab(s, own) {
+  const L = aaList(s, own);
+  if (!L.length) return `<div class="empty">지금 지원할 수 있는 곳이 없다.</div>`;
+  const N = UI.aaNew = UI.aaNew || {};
+  for (const a of aaFresh(s, own)) N[a.id] = 1;
+  aaSeenMark(s, own);
+  return L.map(a => {
+    const ok = applyOKNow(s, a);
+    return actRow({ t: `${a.ic || ''} ${a.n}`, emo: N[a.id] && ok ? '<i class="rdot in"></i>' : '', tag: (s.actAuto || {})[a.id] ? '매달 알아서 지원' : '', h: a.h ? a.h(s) : '', ok, why: ok ? '' : (a.why ? a.why(s) : ''), btn: '지원하기', run: a.run, cls: ok ? '' : 'ap-off' });
+  }).join('');
 }
-function panelApplyAct() {
-  const s = S, list = actApplies(s);
-  let h = `<h2>🎭 활동 지원</h2><p class="p-intro">뮤지컬, 오디션 프로그램처럼 내가 직접 지원해서 나가는 활동이다. 분야별로 모았다.</p>`;
-  if (!list.length) return h + `<div class="empty">지금 지원할 수 있는 활동이 없다.</div>`;
-  // 분야마다 접었다 펼 수 있다. 처음에는 지금 지원할 수 있는 곳이 있는 분야만 펼쳐 둔다
-  UI.actOpen = UI.actOpen || {};
-  for (const [cid, cn] of APPLY_CATS) {
-    const items = list.filter(a => applyCatOf(a) === cid);
-    if (!items.length) continue;
-    const okN = items.filter(a => a.ok(s)).length, open = UI.actOpen[cid] != null ? UI.actOpen[cid] : okN > 0;
-    h += `<div class="ap-cat"><button class="ap-cat-h ap-tog" data-apcat="${cid}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${cn}<span class="hint">${okN ? `지금 지원 가능 ${okN}곳` : '지금 바로 지원할 수 있는 곳은 없다'}</span></button>`
-      + (open ? items.map(a => actAutoRow(s, a)).join('') : '') + `</div>`;
-  }
-  return h;
+// 행동 탭 맨 아래: 한 번 하는 지원을 매달 알아서 하게 맡긴다 (s.actAuto — game.js actAutoMonth, 피드백 24). 빨간 점은 달지 않는다
+//   나이 때문에 못 할 때만 막는다: 결과를 기다리는 동안 · 실력이 모자랄 때는 맡겨 두면 할 수 있게 될 때 알아서 지원한다. 맡겨 둔 것은 언제든 끌 수 있다
+function jobAutoApplyHTML(s, own) {
+  const L = aaList(s, own);
+  if (!L.length) return '';
+  return `<div class="sec-h">🔁 매달 알아서 지원</div><div class="lnote">다시 지원할 수 있게 될 때마다 알아서 지원한다</div>` + L.map(a => {
+    const ok = applyOKNow(s, a), on = !!(s.actAuto || {})[a.id], why = ok ? '' : (a.why ? a.why(s) : '');
+    return actRow({ t: `${a.ic || ''} ${a.n}`, tag: on ? (ok || !why ? '켜 둠' : `켜 둠 · 쉬는 중 (${why})`) : '', ok: ok || on || !ageWhy(why), why, btn: on ? '끄기' : '켜기', run: s => { s.actAuto = s.actAuto || {}; s.actAuto[a.id] = !on; return ''; } });
+  }).join('');
+}
+// 무직 창 (v238): 하는 직업이 하나도 없을 때 직업 활동 칸의 배너(무직 · 학생 · 군 복무)를 누르면 뜬다. 직업 창과 같은 틀에 행동 · 지원 두 탭
+function panelNoJob() {
+  const s = S, nj = noJobLabel(s) || ['🧑', '무직'], tab = UI.jobTab === 'act' ? 'act' : 'apply', fresh = tab !== 'apply' && aaFresh(s, 'none').length > 0;
+  const h = `<h2>${nj[0]} ${nj[1]}</h2><p class="p-intro">📝 구직활동에서 직업을 시작할 수 있다. 직업이 생기면 이런 일은 섭외로 들어온다.</p>`
+    + `<div class="ap-row pf-tabs">${[['act', '🎬 행동'], ['apply', '📝 지원']].map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-jobtab="${k}">${n}${k === 'apply' && fresh ? '<i class="rdot in"></i>' : ''}</button>`).join('')}</div>`;
+  return h + (tab === 'act' ? jobAutoApplyHTML(s, 'none') || `<div class="empty">지금 할 수 있는 일이 없다.</div>` : jobApplyTab(s, 'none'));
 }
 // 프로필 창: 프로필 박스를 누르면 뜬다. 탭: 프로필(타고난 것) · 직업 · 재능 · 가족 정보 · 걸어온 길(인생 기록) · 작품 (특기는 특기 박스에서 본다)
 // 한 직업에만 해당하는 것(등급·숙련도·내 실력·할 수 있는 일)은 직업 활동 박스의 그 직업 창에 있다
@@ -1711,8 +1734,8 @@ const CAREER_REQ = {
   solo: [['인디 가수로 시작하기', '15세부터 · 보컬이나 랩이 12레벨 이상'], ['기획사 솔로 오디션', '15~30세 · 노래나 랩을 할 줄 알아야 한다 · 붙으면 솔로 연습생으로 들어가고, 혼자 설 실력이 되면 회사가 데뷔를 정한다 · 이미 인디 가수로 활동 중이면 붙는 대로 곧바로 계약한다 · 일본 · 미국 기획사는 일본어나 영어도 본다']],
   player: [['연주가로 활동 시작', '14세부터 · 악기 하나가 15레벨 이상']],
   dancer: [['프리랜서 댄서로 시작하기', '15세부터 · 댄스 25레벨 이상'], ['댄스팀 입단 오디션', '15~35세']],
-  actor: [['드라마 · 영화 오디션 (활동 지원)', '8세부터 · 연기 10레벨 이상 · 붙으면 배우 일을 시작한다'], ['배우 소속사 오디션', '8~40세'], ['지금 소속사를 통해 연기 시작하기', '14세부터 · 음악 소속사에 있을 때 · 연기 15레벨 이상'], ['소속사 없이 배우 시작하기', '19세부터 · 연기 15레벨 이상']],
-  variety: [['예능 출연 신청 (활동 지원)', '10세부터'], ['예능인으로 활동 시작하기', '16세부터 · 예능 25레벨 이상 · 팬 5천 명이 넘거나 예능에 나가 좋은 반응을 얻은 적이 있어야 한다'], ['방송사 개그맨 공채 시험', '19~34세 · 예능 25레벨 이상 · 1년에 한 번']],
+  actor: [['드라마 · 영화 오디션 (직업이 없을 때 · 배우 창의 지원 탭)', '8세부터 · 연기 10레벨 이상 · 붙으면 배우 일을 시작한다'], ['배우 소속사 오디션', '8~40세'], ['지금 소속사를 통해 연기 시작하기', '14세부터 · 음악 소속사에 있을 때 · 연기 15레벨 이상'], ['소속사 없이 배우 시작하기', '19세부터 · 연기 15레벨 이상']],
+  variety: [['예능 출연 신청 (직업이 없을 때 · 예능인 창의 지원 탭)', '10세부터'], ['예능인으로 활동 시작하기', '16세부터 · 예능 25레벨 이상 · 팬 5천 명이 넘거나 예능에 나가 좋은 반응을 얻은 적이 있어야 한다'], ['방송사 개그맨 공채 시험', '19~34세 · 예능 25레벨 이상 · 1년에 한 번']],
   youtube: [['라이브온 채널 열기', '14세부터 · 아이돌 연습생은 열 수 없다'], ['버튜버 개인세 준비', '14세부터 · 아바타 값이 든다 · 그림 실력이 있어야 고를 수 있는 아바타도 있다'], ['MCN 가입 신청', '채널을 하는 중 · MCN마다 정한 구독자 수를 넘어야 한다']],
   vidol: [['버츄얼 아이돌 기획사 오디션', '14세부터 · 개인 채널이 없거나 개인세 버튜버일 때 · 일본 회사는 일본어도 본다']],
   model: [['모델 에이전시 오디션', '14~32세'], ['프리랜서 모델로 시작하기', '16세부터 · 외모 · 운동신경 재능과 연기로 본다']],
@@ -2077,9 +2100,10 @@ function careerTab(s) {
 }
 // 직업 창: 직업 활동 박스의 직업 배너(또는 프로필 창의 직업)를 누르면 뜬다
 // 맨 위 그 분야의 유행 → 현황 → 할 일(일정의 직업 활동 칸에서 하는 일) → 그 직업 정보(등급·숙련도·내 실력·계약) → 할 수 있는 일
-// 직업 창 (UI 개편 시안): 행동 · 정보 · 소속 · 업계 인물 탭 (v234: 행동 탭이 맨 앞이고, 창을 열면 행동 탭부터 보인다)
+// 직업 창 (UI 개편 시안): 행동 · 지원 · 정보 · 소속 · 업계 인물 탭 (v234: 행동 탭이 맨 앞이고, 창을 열면 행동 탭부터 보인다)
+// v238: '지원' 탭 — 그 직업이 주인인 한 번 하는 지원(game.js AA_OWN)이 있을 때만 보인다. 행동 탭에는 매달 하는 일만 (사용자 규칙)
 // 직업마다 정보 줄(c.info)을 이름으로 나눈다: 회사 · 그룹 · 팀에 대한 줄은 소속, 나에 대한 줄은 정보
-const JOB_TABS = [['act', '🎬 행동'], ['info', '📋 정보'], ['grp', '🎤 그룹'], ['org', '🏢 회사'], ['npc', '⭐ 업계 인물']];
+const JOB_TABS = [['act', '🎬 행동'], ['apply', '📝 지원'], ['info', '📋 정보'], ['grp', '🎤 그룹'], ['org', '🏢 회사'], ['npc', '⭐ 업계 인물']];
 const GRP_ROWS = ['그룹 팬', '밴드 팬', '팀워크', '팬덤 · 대표 컨셉', '대표 컨셉', '팬덤', '기수 안 순위', '동기', '선배', '최근 평가'];
 const CO_ROWS = ['소속', '회사', '일하는 곳', '팀장', '고정 일정', '작곡팀', '전담 방송인', 'MCN 지원', '공채'];
 const ORG_ROWS = GRP_ROWS.concat(CO_ROWS);
@@ -2090,6 +2114,7 @@ function infoGroups(G) { return G.filter(([, L]) => L.length).map(([h, L]) => `<
 const GROUP_JOBS = ['idol', 'band', 'vidol'];
 function jobNpcs(s, id) { return NPC_FIDS.filter(f => NPC_F[f].trk.includes(id)); }
 function panelJob() {
+  if (UI.jobId === 'none') return panelNoJob(); // v238: 무직 창
   const s = S, id = UI.jobId, c = CAREERS[id], t = s.tracks[id];
   const back = UI.jobFrom === 'profile' ? '<button class="btn sm ghost back-btn" data-pftab="rec">← 기록</button>' : UI.jobFrom === 'company' ? '<button class="btn sm ghost back-btn" data-panel="company">← 회사</button>' : '';
   if (!c || !trackOn(s, id)) return back + '<div class="empty">지금은 하지 않는 일이다.</div>';
@@ -2121,12 +2146,13 @@ function panelJob() {
   if (tk != null) { const i = info.findIndex(r => Array.isArray(r) && (r[0] === '등급' || r[0] === '자리')); if (i >= 0) info[i] = [info[i][0], info[i][1], tk]; }
   const isG = r => Array.isArray(r) ? GRP_ROWS.includes(r[0]) : r.bars || GRP_HEADS.test(r.h), grp = org.filter(isG), co = org.filter(r => !isG(r));
   // 탭: 그룹이 없는 직업(배우 등)은 그룹 탭이 없다. 업계 인물이 없는 분야는 업계 인물 탭이 없다
-  const tabs = JOB_TABS.filter(([k]) => (k !== 'grp' || grp.length) && (k !== 'npc' || jobNpcs(s, id).length)), tab = tabs.some(x => x[0] === UI.jobTab) ? UI.jobTab : 'act';
+  const tabs = JOB_TABS.filter(([k]) => (k !== 'grp' || grp.length) && (k !== 'npc' || jobNpcs(s, id).length) && (k !== 'apply' || aaList(s, id).length)), tab = tabs.some(x => x[0] === UI.jobTab) ? UI.jobTab : 'act';
   let h = back + `<h2>${jobIc(id)} ${U.esc(jobName(id))}</h2>`;
   if (JOB_FIELD[id]) h += trendRowHTML(s, JOB_FIELD[id]);
   if (c.status) h += `<p class="p-intro">${U.esc(careerStatus(s, id))}</p>`;
-  h += `<div class="ap-row pf-tabs">${tabs.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-jobtab="${k}">${n}${k === 'act' && tab !== 'act' && jobDot(s, id) ? '<i class="rdot in"></i>' : ''}</button>`).join('')}</div>`;
+  h += `<div class="ap-row pf-tabs">${tabs.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-jobtab="${k}">${n}${(k === 'act' && tab !== 'act' && jobDot(s, id)) || (k === 'apply' && tab !== 'apply' && aaFresh(s, id).length) ? '<i class="rdot in"></i>' : ''}</button>`).join('')}</div>`;
   if (tab === 'act') return h + jobActTab(s, id);
+  if (tab === 'apply') return h + jobApplyTab(s, id);
   if (tab === 'npc') return h + jobNpcTab(s, id);
   if (tab === 'grp') return h + infoTable(grp);
   if (tab === 'org') return h + (co.length ? infoTable(co) : `<div class="empty">소속 없이 혼자 하는 일이다.</div>`);
@@ -2149,6 +2175,7 @@ function jobActTab(s, id) {
   if (c.act) h += jobTaskHTML(s, id);
   const A = c.actions ? c.actions(s, t) : [], other = A.filter(a => !a.danger);
   if (other.length) h += `<div class="sec-h">할 수 있는 일</div>` + other.map(actRow).join('');
+  h += jobAutoApplyHTML(s, id); // v238
   return h || `<div class="empty">지금 할 수 있는 일이 없다.</div>`;
 }
 // 업계 인물 탭: 그 직업 분야의 업계 인물만 (인간관계 창의 업계 인물과 같은 줄)
@@ -2860,7 +2887,7 @@ document.addEventListener('click', e => {
   if (t.dataset.fbtn != null) { if (t.disabled) return; const pre = resPre(S); fbtnRun(S, +t.dataset.fbtn); if (!resAfter(pre, -1)) afterChoice(); return; }
   if (t.dataset.cancel != null) { cancelForm(S); afterChoice(); return; }
   // 창을 내려 둔 채 패널 버튼으로 새 창(자본금 꺼내기 등)을 열면 그 창은 바로 보여 준다. 내려 둔 창은 대기열에 돌아가 있다가 새 창을 마치면 다시 뜬다 (v116 버그 1)
-  if (t.dataset.act != null) { const a = UI.acts[+t.dataset.act]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, jf0 = totalFans(S), jfJ = UI.overlay === 'job' ? UI.jobId : null; CH_RAND = 0; const r = a.run(S); UI.actUnc = CH_RAND > 0; jfAdd(S, jfJ, totalFans(S) - jf0); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t, () => { if (UI.overlay === 'company' || UI.overlay === 'group') S.uiOpen = UI.overlay; }); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
+  if (t.dataset.act != null) { const a = UI.acts[+t.dataset.act]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending, jf0 = totalFans(S), jfJ = UI.overlay === 'job' && CAREERS[UI.jobId] ? UI.jobId : null; CH_RAND = 0; const r = a.run(S); UI.actUnc = CH_RAND > 0; jfAdd(S, jfJ, totalFans(S) - jf0); applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t, () => { if (UI.overlay === 'company' || UI.overlay === 'group') S.uiOpen = UI.overlay; }); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
   // 오른쪽 생활 카드의 버튼과 탭
   if (t.dataset.lact != null) { const a = (UI.lacts || [])[+t.dataset.lact]; if (!a || !a.ok) return; const go = () => { const L0 = S.log[S.log.length - 1], p0 = S.pending; CH_RAND = 0; const r = a.run(S); UI.actUnc = CH_RAND > 0; applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false; if (r) { addLog(S, r, 'ev'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, a.t); }; if (a.confirm) askConfirm(a.confirm, go); else go(); return; }
   // 오른쪽 생활 칸의 묶음을 누르면 그 묶음 창이 뜬다 (휴대폰 생활 창에서 누르면 그 창이 바뀐다)
@@ -2888,7 +2915,7 @@ document.addEventListener('click', e => {
   if (t.dataset.cogrp) { UI.coGrp = t.dataset.cogrp; renderPanel(); return; }
   if (t.dataset.fam != null) { openPanel('family'); return; }
   if (t.dataset.love != null) { openPanel('love'); return; }
-  if (t.dataset.job) { UI.jobId = t.dataset.job; UI.jobFrom = t.dataset.from || ''; UI.jobTab = 'act'; openPanel('job'); return; }
+  if (t.dataset.job) { UI.jobId = t.dataset.job; UI.jobFrom = t.dataset.from || ''; UI.jobTab = t.dataset.job === 'none' ? 'apply' : 'act'; openPanel('job'); return; } // v238: 무직 배너는 지원 탭부터
   if (t.dataset.jobtab) { UI.jobTab = t.dataset.jobtab; renderPanel(); return; }
   if (t.dataset.cof) { UI.coF = t.dataset.cof; UI.coTab = 'home'; UI.coGrp = null; if (UI.overlay) { UI.overlay = 'company'; renderPanel(); } else openPanel('company'); return; }
   // v198: 회사 이름 바꾸기 (회사 창 제목 옆 ✏️) · 사옥 이름 짓기 (메인 화면 사옥 상자 옆 ✏️). 사옥 상자 · 회사 창을 누른 것으로 치지 않는다
@@ -2901,7 +2928,6 @@ document.addEventListener('click', e => {
   if (t.dataset.apcty) { UI.apcTy = UI.apcTy || {}; UI.apcTy[t.dataset.apcty] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.apcco) { UI.apcCo = UI.apcCo || {}; UI.apcCo[t.dataset.apcco] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.tsec) { UI.tsec = UI.tsec || {}; UI.tsec[t.dataset.tsec] = t.dataset.open !== '1'; renderPanel(); return; }
-  if (t.dataset.apcat) { UI.actOpen[t.dataset.apcat] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.apsz) { UI.apSz = UI.apSz || {}; UI.apSz[t.dataset.apsz] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.homecat) { UI.homeOpen[t.dataset.homecat] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.pgrp) { UI.pplOpen[t.dataset.pgrp] = t.dataset.open !== '1'; renderPanel(); return; }
