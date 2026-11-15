@@ -22,7 +22,8 @@ function projMonth(s, k, t) {
   const ag = AG[t.ag];
   if (!ag || s.army || s.hiatus || pregMe(s) || hasQ(s, 'proj_call') || hasQ(s, 'proj_res')) return;
   if ((t.projT != null ? t.projT : -99) > s.t - 24 || t.months < 12) return;
-  if (k === 'idol' ? t.promo > 0 || t.alb || t.nextCb < 2 : t.alb || t.nextRel < 3) return;
+  // v232: 솔로는 다음 신곡 준비가 이미 시작됐으면(신곡 회의가 잡힌 달부터 발매까지 nextRel이 99) 뽑히지 않는다. 예전에는 회의와 같은 달에 뽑혀서, 밀린다던 신곡이 그대로 나왔다
+  if (k === 'idol' ? t.promo > 0 || t.alb || t.nextCb < 2 : t.alb || t.nextRel < 3 || t.nextRel >= 90) return;
   // 솔로는 그룹 멤버보다 덜 뽑힌다
   if (U.chance(PROJ_P * (0.5 + ag.tier * 0.5) * projPickW(s) * (k === 'idol' ? 1 : 0.4))) queueEv(s, 'proj_call', 0, { k });
 }
@@ -38,8 +39,8 @@ E({
   id: 'proj_call', cat: '회사 결정', title: '프로젝트 그룹', tag: 'career',
   init(s, d) {
     const t = s.tracks[d.k], ag = t && AG[t.ag];
-    if (!ag || projTrack(s) !== d.k || t.proj) { d.skip = true; return; }
-    d.name = newGroupName(s);
+    if (!ag || projTrack(s) !== d.k || t.proj || (d.k !== 'idol' && (t.alb || t.nextRel >= 90))) { d.skip = true; return; }
+    d.name = newGroupName(s, 0); // v232: 프로젝트 그룹 이름에는 숫자를 붙이지 않는다 (숫자는 인원수라는 뜻인데 인원이 그때그때 다르다)
     d.mates = Array.from({ length: U.int(2, 4) }, () => projMate(s, ag, d.name).id);
     const P = [me(s)].concat(d.mates.map(id => s.people[id])), L = TRENDS.filter(c => cAgeOK(s, P, c, 1));
     d.c = U.chance(0.5) && L.includes(s.trend) ? s.trend : U.pick(L.length ? L : TRENDS);
@@ -159,4 +160,4 @@ E({
 // ── 다른 직업이 만나는 프로젝트 그룹 앨범 ──
 // 프로듀서 의뢰 · A&R 심사 · 작곡가 공모의 가수가 가끔 프로젝트 그룹이다 (여러 그룹에서 모인 멤버들)
 const PROJ_ART_P = 0.08;
-function projArtist(s, a, p) { if (!U.chance(p != null ? p : PROJ_ART_P)) return a; return Object.assign(a, { name: newGroupName(s), kind: '프로젝트 그룹' }); }
+function projArtist(s, a, p) { if (!U.chance(p != null ? p : PROJ_ART_P)) return a; return Object.assign(a, { name: newGroupName(s, 0), kind: '프로젝트 그룹' }); }

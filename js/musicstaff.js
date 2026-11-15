@@ -709,7 +709,7 @@ function anrSetup(s, d) {
   d.gi = d.gi != null && t.groups[d.gi] ? d.gi : U.int(0, t.groups.length - 1);
   for (const g of t.groups) if (!g.sig) g.sig = U.pick(TRENDS);
   // 가끔은 여러 그룹에서 멤버를 모은 프로젝트 그룹의 앨범이다 (v156)
-  if (!d.pg && U.chance(0.1)) d.pg = { name: newGroupName(s), kind: '프로젝트 그룹', sig: U.pick(TRENDS), f: Math.round(t.groups.reduce((a, y) => a + y.f, 0) * 0.3) };
+  if (!d.pg && U.chance(0.1)) d.pg = { name: newGroupName(s, 0), kind: '프로젝트 그룹', sig: U.pick(TRENDS), f: Math.round(t.groups.reduce((a, y) => a + y.f, 0) * 0.3) };
   const g = anrG(s, d), c = U.chance(0.6) ? g.sig : U.chance(0.6) ? s.trend : U.pick(TRENDS);
   const src = ['open'].concat(t.tier >= 2 && U.chance(t.tier >= 3 ? 0.8 : 0.5) ? ['name'] : [], t.tier >= 3 && U.chance(0.4) ? ['camp'] : []);
   const x = { tier: t.tier, rep: 20 + t.tier * 15, sig: g.sig, mem: [], cs: [c], src, budget: null };

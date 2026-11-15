@@ -99,7 +99,9 @@ function npcMonth(s) {
 }
 function npcOut(s, n, line) {
   npcNews(s, n, line, true);
-  if (n.rk || n.fol) addLog(s, `${NPC_F[n.f].ic} ${josa(n.n, '이가')} 업계를 떠났다.${n.rk === 'rival' ? ' 오래 겨뤄 온 상대였다.' : n.rk ? ' 가깝게 지내던 사이였다.' : ''}`, 'news');
+  // v232: 라이벌로 지낸 기간에 맞춰 말한다 (n.rkT: 그 사이가 된 달. 예전 저장에는 없다). 1년 안 · 4년 안 · 그보다 오래
+  const ry = n.rkT != null ? (s.t - n.rkT) / 12 : null, rv = ry == null ? ' 서로 겨루던 상대였다.' : ry < 1 ? ' 얼마 전 맞붙었던 상대였다.' : ry < 4 ? ' 한동안 겨뤄 온 상대였다.' : ' 오래 겨뤄 온 상대였다.';
+  if (n.rk || n.fol) addLog(s, `${NPC_F[n.f].ic} ${josa(n.n, '이가')} 업계를 떠났다.${n.rk === 'rival' ? rv : n.rk ? ' 가깝게 지내던 사이였다.' : ''}`, 'news');
   s.npc.L.splice(s.npc.L.indexOf(n), 1);
 }
 // ───── 나와의 사이 ─────
@@ -118,7 +120,9 @@ function npcKnow(n) { n.kn = 1; }
 function npcFollow(n, on) { n.fol = on ? 1 : 0; if (on) n.kn = 1; }
 function npcRel(s, n, d, rk) {
   n.r = U.clamp((n.r || 0) + d, -100, 100); npcKnow(n);
+  const rk0 = n.rk;
   if (rk) n.rk = rk; else if (!n.rk && n.r >= 40) n.rk = 'pal'; else if (!n.rk && n.r <= -40) n.rk = 'rival';
+  if (n.rk !== rk0) n.rkT = s.t; // v232: 그 사이가 된 달
   if (n.rk) npcFollow(n, true); // 라이벌 · 가까운 동료 · 동기는 저절로 관심 인물
 }
 function npcRelWord(n) { return n.rk === 'rival' ? '라이벌' : n.rk === 'dongi' ? '데뷔 동기' : n.rk === 'pal' ? '가까운 동료' : (n.r || 0) >= 15 ? '호의적' : (n.r || 0) <= -15 ? '껄끄러움' : '아는 사이'; }
