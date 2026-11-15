@@ -788,7 +788,7 @@ const FLAVOR = [
   { c: s => age(s) >= 19 && moneyTight(s), x: '편의점 도시락으로 끼니를 때웠다.' },
   { c: s => age(s) >= 19 && feelRich(s) >= 7, x: '바빠서 끼니를 거르다 단골 식당에서 늦은 저녁을 먹었다.' },
   { c: s => age(s) >= 25 && feelRich(s) >= 8, x: '부모님께 용돈을 넉넉히 보내 드렸다. 전화 너머로 웃음소리가 들렸다.', w: s => parentsAlive(s).length ? 1 : 0, f: { money: -2000000, stress: -2 } },
-  { c: s => age(s) >= 19, x: '본가에서 반찬을 한가득 보내 주셨다.', w: s => s.home.mode === 'alone' ? 1 : 0 },
+  { c: s => age(s) >= 19, x: '본가에서 반찬을 한가득 보내 주셨다.', w: s => s.home.mode === 'alone' && parentsAlive(s).length ? 1 : 0 }, // v233: 부모님이 살아 계실 때만
   { c: s => age(s) >= 25, x: '친척 어른이 언제 독립하냐고 물었다.', w: s => s.home.mode === 'parents' && !isDorm(s) && !s.army ? 1 : 0, f: { stress: 2 } },
   { c: s => age(s) >= 27, x: '밤늦게 들어왔더니 거실에서 긴 한숨 소리가 들렸다.', w: s => s.home.mode === 'parents' && !isDorm(s) && !s.army ? 1 : 0, f: { stress: 2 } },
   { c: s => totalFans(s) >= 1000, x: '팬레터를 받았다. 한 글자씩 천천히 읽었다.', f: { stress: -3 } },

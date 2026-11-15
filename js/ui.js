@@ -1189,7 +1189,7 @@ function endGraphHTML(s) {
   const ticks = L.map((x, i) => i === 0 || i === n - 1 || (x.y % 10 === 0 && i >= 4 && i <= n - 5) ? `<text x="${X(i).toFixed(1)}" y="11" class="eg-y" text-anchor="${i === 0 ? 'start' : i === n - 1 ? 'end' : 'middle'}">${x.y}</text>` : '').join('');
   return `<section class="en-sec en-graph"><h3>📈 해마다</h3><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" class="eg">${ticks}`
     + `<path d="${area('e', me2)}" class="eg-ea"/><path d="${line('e', me2)}" class="eg-e"/>` + (D.fans ? `<path d="${line('f', mf)}" class="eg-f"/>` : '') + stars + `</svg>`
-    + `<div class="eg-lg">${D.fans ? `<span class="f">팬 (가장 많을 때 ${fmtFans(mf)})</span>` : ''}<span class="e">번 돈 (모두 ${endWon(me2)})</span>${Object.keys(aw).length ? '<span class="s">★ 상을 받은 해</span>' : ''}${D.fans ? '' : '<span class="n">팬 기록은 이번 버전부터 남아요</span>'}</div></section>`;
+    + `<div class="eg-lg">${D.fans ? `<span class="f">팬 (가장 많을 때 ${fmtFans(Math.max(mf, (s.peak && s.peak.fans) || 0))})</span>` : ''}<span class="e">번 돈 (모두 ${endWon(me2)})</span>${Object.keys(aw).length ? '<span class="s">★ 상을 받은 해</span>' : ''}${D.fans ? '' : '<span class="n">팬 기록은 이번 버전부터 남아요</span>'}</div></section>`;
 }
 // 인연: 가장 가까웠던 사람들 (가족 · 연인 · 친구 · 동료)과 업계의 라이벌 · 단짝
 function endBonds(s) {
@@ -1222,7 +1222,7 @@ function showEnding(preview) {
   h += `<section class="en-nums">${tiles.map(([ic, k, v]) => `<div class="en-n"><i>${ic}</i><b>${v}</b><span>${k}</span></div>`).join('')}</section>`;
   if (handoff && heirs.length) h += `<section class="en-sec"><h3>이어 받을 아이</h3><div class="heirs">${heirs.map(k => heirCard(s, k)).join('')}</div></section>`;
   h += endGraphHTML(s);
-  const best = s.works.filter(w => w.sc != null).sort((a, b) => b.sc - a.sc).slice(0, 3);
+  const best = bestWorks(s); // v233: 피처링은 뺀다
   if (best.length) h += `<section class="en-sec"><h3>🎬 대표작</h3><div class="en-works">${best.map((w, i) => `<div class="en-w${i === 0 ? ' top' : ''}"><div class="en-w-r">${i + 1}</div><div class="en-w-t">「${U.esc(w.title)}」</div><div class="en-w-s">${w.y}년 · ${U.esc(w.type)}${w.by ? ' · ' + U.esc(w.by) : ''}</div>${w.note ? `<div class="en-w-n">${U.esc(w.note)}</div>` : ''}</div>`).join('')}</div></section>`;
   const bonds = endBonds(s);
   if (bonds.length) h += `<section class="en-sec"><h3>🤝 인연</h3><div class="en-bonds">${bonds.map(b => `<div class="en-b ${b.k}"><i style="background:hsl(${hashN(b.n) % 360} 50% 62%)">${U.esc(b.n.slice(0, 1))}</i><div><b>${U.esc(b.n)}</b><span>${U.esc(b.r)}</span></div></div>`).join('')}</div></section>`;

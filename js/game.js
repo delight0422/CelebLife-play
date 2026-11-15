@@ -589,8 +589,8 @@ const CO_AFF = {
 const coLeaveHist = (t, n, w) => { (t.hist = t.hist || []).push(`${n} (${w})`); };
 const CO_CLOSE = {
   idol: (s, t) => { if (t.st === 'trainee') { quitTrainee(s, '회사 폐업'); return '연습생 생활이 여기서 끝났다.'; } endGroup(s, '회사 폐업'); return '그룹도 함께 해체됐다.'; },
-  band: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { st: 'indie', ag: null, agN: '', tier: 0, cut: 0, nextRel: U.int(3, 6) }); return '밴드는 다시 인디가 됐다.'; },
-  solo: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { st: 'indie', ag: null, agN: '', cut: 0, tier: 0, nextRel: 3 }); return '이제 인디로 활동한다.'; },
+  band: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { exAg: t.ag, st: 'indie', ag: null, agN: '', tier: 0, cut: 0, nextRel: U.int(3, 6) }); return '밴드는 다시 인디가 됐다.'; },
+  solo: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { exAg: t.ag, st: 'indie', ag: null, agN: '', cut: 0, tier: 0, nextRel: 3 }); return '이제 인디로 활동한다.'; },
   actor: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { via: 'indie', ag: null, agN: '', cut: 0, contract: 0 }); return '이제 무소속으로 활동한다.'; },
   model: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { ag: null, agN: '', cut: 0, contract: 0 }); return '이제 프리랜서로 활동한다.'; },
   vidol: (s, t) => { viEnd(s, t, '회사 폐업'); return '아바타가 회사 것이라 버츄얼 아이돌 활동도 끝났다.'; },
@@ -1430,7 +1430,7 @@ function livingMoney(s) {
     const hol = m === 1 ? '설날' : '추석';
     // 명절 용돈 (피드백 26): 4~18세는 설날·추석에 집안 형편만큼 용돈을 받는다. 매달 받는 용돈은 없다
     if (a < 19) { if (a >= 4) { const v = holidayMoney(s); addMoney(s, v, '명절 용돈'); addLog(s, `${hol}에 가족과 시간을 보냈다. ${hol === '설날' ? '세뱃돈' : '용돈'}으로 ${fmtWon(v)}을 받았다.` + holBankNote(s), 'flavor'); } }
-    else if (anyTrackActive(s) && totalFans(s) >= 1e5 && U.chance(0.6)) addLog(s, `${hol} 특집 촬영 때문에 본가에 못 갔다.`);
+    else if (anyTrackActive(s) && totalFans(s) >= 1e5 && parentsAlive(s).length && U.chance(0.6)) addLog(s, `${hol} 특집 촬영 때문에 본가에 못 갔다.`); // v233: 부모님이 살아 계실 때만
     else if (s.home.mode === 'alone' && parentsAlive(s).length && U.chance(0.5)) addLog(s, `${hol}에 본가에 다녀왔다.` + fx(s, { money: -20e4, stress: -4 }));
   }
   if (s.flags.artFee && schoolYear(s) >= 10 && !s.edu.graduated) addMoney(s, -20e4, '예술고 레슨비');
@@ -1599,6 +1599,7 @@ function pfRename(o) {
 }
 function migrate(s) {
   // v230: 같은 회사와 재계약해 활동 개월이 0으로 돌아갔던 솔로 가수 (예전 저장) — 그 전 활동(4년 넘음)을 돌려줘서 신곡 회의에서 다시 의견을 낼 수 있게
+  for (const k of ['solo', 'band']) { const t = s.tracks && s.tracks[k]; if (t && t.st === 'indie' && t.exAg == null && t.hist && t.hist.length && typeof AG !== 'undefined') { const n = String(t.hist[t.hist.length - 1]).replace(/ \([^)]*\)$/, ''), a = Object.values(AG).find(x => x && x.n === n); if (a) t.exAg = a.id; } } // v233: 직전 소속사
   { const t = s.tracks && s.tracks.solo; if (t && t.st === 'signed' && t.sayM == null) t.sayM = (s.log || []).some(l => l.e === 'solo_contract' && l.t >= s.t - (t.months || 0) - 1 && /재계약했다/.test(l.x || '')) ? 48 : 0; }
   NAME_S = s; // v228: 저장을 불러온 직후(첫 달이 지나기 전)에도 제목이 겹치는지 · 계절에 맞는지 볼 수 있게 (예전엔 한 달이 지나야 기억했다)
   // v153: 컴백 회의 · 타이틀곡 고르기 창이 기획 창으로 바뀌었다 (줄 서 있던 것 · 떠 있던 것을 옮긴다)
@@ -1961,9 +1962,11 @@ function bestTitle(s) {
   return '';
 }
 function topSkill(s) { const p = me(s); return learnedSkills(p).sort((a, b) => lv(p, b) - lv(p, a))[0]; }
+// v233: 대표작 세 편 (결산 창 · 걸어온 길). 점수가 높은 순서이고, 남의 곡에 참여한 피처링은 뺀다 (OST는 내 노래라 넣는다)
+function bestWorks(s) { return s.works.filter(w => w.sc != null && w.type !== '피처링').sort((a, b) => b.sc - a.sc).slice(0, 3); }
 function lifeSummary(s) {
   const out = s.ms.map(msText);
-  if (s.works.length) out.push('대표작은 ' + s.works.slice().sort((a, b) => (b.sc || 0) - (a.sc || 0)).slice(0, 3).map(w => `「${w.title}」`).join(', ') + '.');
+  { const bw = bestWorks(s); if (bw.length) out.push('대표작은 ' + bw.map(w => `「${w.title}」`).join(', ') + '.'); }
   if (s.awards.length) out.push(`상은 모두 ${s.awards.length}개를 받았다.`);
   const p = partner(s);
   if (p) out.push(`${p.rel === '배우자' ? '배우자' : '연인'} ${josa(p.name, '과와')} 함께였다.`);

@@ -401,7 +401,9 @@ function scoutOffer(s, kind) {
   const f = totalFans(s);
   const maxTier = f >= 1e6 ? 3 : f >= 1e5 ? 2 : f >= 8000 ? 1 : 0;
   if (!maxTier) return null;
-  const pool = musicAgencies().filter(a => a.tier <= maxTier && langOK(s, a) && (kind !== 'band' || a.mkt === 'kr'));
+  // v233: 방금 나온 회사(재계약 불발 · 계약 만료 · 해지 · 폐업, t.exAg)는 제안을 보내지 않는다. 다른 회사에 들어갔다 나오면 그 회사가 직전 소속사가 된다
+  const ex = kind && s.tracks[kind] ? s.tracks[kind].exAg : null;
+  const pool = musicAgencies().filter(a => a.tier <= maxTier && a.id !== ex && langOK(s, a) && (kind !== 'band' || a.mkt === 'kr'));
   if (!pool.length) return null;
   const a = U.shuffle(pool).sort((x, y) => y.tier - x.tier)[0];
   return { ag: a.id, bonus: Math.round((f * U.fl(15, 45) + a.tier * 800e4) / 1e5) * 1e5, cut: Math.round(U.clamp(a.cut - (maxTier - a.tier) * 0.05 - (f >= 1e6 ? 0.15 : f >= 1e5 ? 0.08 : 0), 0.25, 0.7) * 100) / 100, months: U.pick([36, 48, 60]) + coLongC(a) };
@@ -1961,7 +1963,7 @@ CAREERS.band = {
     if (!['forming', 'indie', 'signed'].includes(t.st)) return [];
     const A = [], miss = bandMissing(t);
     if (t.st === 'signed') A.push(...songSubActs(s, t));
-    if (t.st === 'signed') { const pen = bandBreakPen(t); A.push({ t: '회사와 계약 해지', h: `계약이 ${Math.max(0, t.contract - t.cm)}개월 남았다 · 위약금 ${fmtWon(pen)} · 밴드는 인디로 돌아간다`, ok: true, danger: true, confirm: `${josa(t.agN, '과와')}의 계약을 해지할까요? 위약금 ${fmtWon(pen)}을 물어야 해요.`, run: s => { s.debt += pen; const n = t.agN; t.hist.push(`${n} (계약 해지)`); t.st = 'indie'; t.ag = null; t.agN = ''; t.tier = 0; t.cut = 0; t.nextRel = U.int(3, 6); return `${josa(n, '과와')}의 계약을 해지했다. 밴드는 다시 인디가 됐다.` + fx(s, { rep: -3 }); } }); }
+    if (t.st === 'signed') { const pen = bandBreakPen(t); A.push({ t: '회사와 계약 해지', h: `계약이 ${Math.max(0, t.contract - t.cm)}개월 남았다 · 위약금 ${fmtWon(pen)} · 밴드는 인디로 돌아간다`, ok: true, danger: true, confirm: `${josa(t.agN, '과와')}의 계약을 해지할까요? 위약금 ${fmtWon(pen)}을 물어야 해요.`, run: s => { s.debt += pen; const n = t.agN; t.hist.push(`${n} (계약 해지)`); t.exAg = t.ag; t.st = 'indie'; t.ag = null; t.agN = ''; t.tier = 0; t.cut = 0; t.nextRel = U.int(3, 6); return `${josa(n, '과와')}의 계약을 해지했다. 밴드는 다시 인디가 됐다.` + fx(s, { rep: -3 }); } }); }
     const want = miss.concat(!bandHasKeys(t) ? ['keyboard'] : []);
     for (const k of want) A.push({ t: `${partN(k)} 구인 글 올리기${miss.includes(k) ? '' : ' (있으면 좋다)'}`, h: '다음 달에 지원자들이 연락해 온다 · 실력과 사람을 보고 고른다', ok: !hasQ(s, 'band_cands'), why: '다른 구인 글의 지원자를 기다리는 중', run: s => { queueEv(s, 'band_cands', 1, { k }); return `밴드 ${partN(k)} 구인 글을 올렸다.`; } });
     // 아는 사람 중에 비어 있는 파트를 할 줄 아는 사람에게 부탁한다 (같은 사람에게는 반년에 한 번)
@@ -2123,7 +2125,7 @@ E({
     d.card.live = bandLive(s, t, { vn: t.st === 'signed' ? 'hall' : 'club', place: t.st === 'signed' ? '쇼케이스' : '클럽 공연', t: d.title, sc, key: t.rel === 1 || d.peak === 1, z: { q: (d.q - 45) / 15, trend: d.c && d.c === s.trend ? 0.7 : -0.5 } });
     addWork(s, { type: '밴드 싱글', title: d.title, by: `「${t.b.name}」`, sc, note: chartText(d.peak) + (d.self ? ' · 자작곡' : ''), card: d.card });
     if (t.rel === 1) milestone(s, `${age(s)}세에 밴드 「${t.b.name}」의 첫 곡 ${josa(`「${d.title}」`, '을를')} 냈다.`);
-    if (d.peak && d.peak <= 10 && !t.hitMs) { t.hitMs = true; milestone(s, `${age(s)}세에 밴드 「${t.b.name}」의 ${josa(`「${d.title}」`, '이가')} 차트 ${d.peak}위에 올랐다.`); }
+    if (d.peak && d.peak <= 10) { milestone(s, `${age(s)}세에 밴드 「${t.b.name}」의 ${josa(`「${d.title}」`, '이가')} 차트 ${d.peak}위에 올랐다.`); }
     for (const m of bandMembers(s, t)) bond(s, m, sc >= 60 ? 4 : 0);
     d.sc = sc; d.cm = comments(sc, actNick(s, 'band'));
     if (typeof npcClashDue === 'function') npcClashDue(s, 'band', sc, d.title, ck.pw);
@@ -2262,7 +2264,7 @@ E({
     const t = s.tracks.band, nc = Math.max(0.25, t.cut - 0.1), end = ymLater(s, 48);
     return [
       { t: '재계약한다', h: `회사 몫 ${pctN(t.cut)} → ${pctN(nc)} · 4년 (${end}까지)${t.debt > 0 ? ` · 남은 빚 ${fmtWon(t.debt)}은 정산에서 갚는다` : ''}`, f: s => { const c0 = t.cut; t.cm = 0; t.contract = 48; t.cut = nc; return `${josa(t.agN, '과와')} 재계약했다. 회사 몫 ${pctN(c0)} → ${pctN(nc)}, 계약 ${end}까지.`; } },
-      { t: '회사를 나와 다시 인디로', h: t.debt > 0 ? `남은 빚 ${fmtWon(t.debt)}은 갚지 않는다` : '', f: s => { const ag = t.agN; t.st = 'indie'; t.ag = null; t.agN = ''; t.tier = 0; t.cut = 0; t.debt = 0; return `${josa(ag, '을를')} 나와 다시 인디 밴드가 됐다.`; } },
+      { t: '회사를 나와 다시 인디로', h: t.debt > 0 ? `남은 빚 ${fmtWon(t.debt)}은 갚지 않는다` : '', f: s => { const ag = t.agN; t.exAg = t.ag; t.st = 'indie'; t.ag = null; t.agN = ''; t.tier = 0; t.cut = 0; t.debt = 0; return `${josa(ag, '을를')} 나와 다시 인디 밴드가 됐다.`; } },
     ];
   },
 });
@@ -2279,7 +2281,8 @@ function bestSoloType(s) { return SOLO_TYPES.map(x => x[0]).filter(k => soloType
 // 퍼포먼스형이 무대에서 함께 쓰는 노래·랩 (둘 중 잘하는 쪽)
 function perfVoice(p) { return lv(p, 'rap') > lv(p, 'vocal') ? 'rap' : 'vocal'; }
 // 솔로 신곡의 음반·음원 판매 정산: 팬 중 사는 비율(최소~최대), 차트 순위 한 칸당 음원 수익
-const SOLO_SALE = { lo: 0.017, hi: 0.027, chart: 60e4 };
+// v233: promo = 회사 홍보 · 유통으로 팬이 아닌 사람에게 팔리는 음반 (회사 크기 한 단계마다 2,000장). 팬이 적을 때는 회사 소속이, 팬이 많을 때는 인디가 더 번다 (재 본 것: 중형 회사 · 회사 몫 47%면 팬 20만~40만 명 사이에서 갈린다. 인디가 곡값 · 제작비를 얼마나 쓰느냐에 따라 다르다)
+const SOLO_SALE = { lo: 0.017, hi: 0.027, chart: 60e4, promo: 2000 };
 function soloMain(t) { return t.type === 'rap' ? 'rap' : t.type === 'perf' ? 'dance' : 'vocal'; }
 function soloTypeN(type) { return type === 'rap' ? '래퍼' : type === 'perf' ? '퍼포머' : '보컬'; }
 function soloBlock(s) {
@@ -2335,7 +2338,7 @@ E({
     return SOLO_TYPES.filter(([type]) => soloTypeOK(s, type)).map(([type, , n]) => { const k = type === 'perf' ? 'dance' : type;
       const pp = ag ? soloAudP(s, ag, type) : 0;
       return { t: n, h: `${SKILLS[k].n} ${lvi(p, k)}레벨` + (type === 'perf' ? ` · ${SKILLS[perfVoice(p)].n} ${lvi(p, perfVoice(p))}레벨` : '') + (ag ? ` · 합격 가능성 ${fmtPct(pp)}` : ''), f: s => {
-        if (d.indie) { const old = s.tracks.solo; s.tracks.solo = { st: 'indie', type, months: 0, rel: old.rel || 0, nextRel: 3, bestPeak: old.bestPeak || null, yearBest: 0, mkt: 'kr', cut: 0, tier: 0, sn: old.sn, hist: old.hist || [], liveT: old.liveT, liveN: old.liveN, ostMs: old.ostMs, xcd: old.xcd, ostN: old.ostN, ostHit: old.ostHit, featN: old.featN, featHit: old.featHit }; milestone(s, `${age(s)}세에 인디 ${soloTypeN(type)}${josa(soloTypeN(type), '으로').slice(soloTypeN(type).length)} 활동을 시작했다.`); return `인디 ${soloTypeN(type)}${josa(soloTypeN(type), '으로').slice(soloTypeN(type).length)} 활동을 시작했다. 일정에 '가수 활동'을 넣어야 공연을 한다.`; }
+        if (d.indie) { const old = s.tracks.solo; s.tracks.solo = { st: 'indie', type, exAg: old.exAg, months: 0, rel: old.rel || 0, nextRel: 3, bestPeak: old.bestPeak || null, yearBest: 0, mkt: 'kr', cut: 0, tier: 0, sn: old.sn, hist: old.hist || [], liveT: old.liveT, liveN: old.liveN, ostMs: old.ostMs, xcd: old.xcd, ostN: old.ostN, ostHit: old.ostHit, featN: old.featN, featHit: old.featHit }; milestone(s, `${age(s)}세에 인디 ${soloTypeN(type)}${josa(soloTypeN(type), '으로').slice(soloTypeN(type).length)} 활동을 시작했다.`); return `인디 ${soloTypeN(type)}${josa(soloTypeN(type), '으로').slice(soloTypeN(type).length)} 활동을 시작했다. 일정에 '가수 활동'을 넣어야 공연을 한다.`; }
         s.cd['saud_' + d.ag] = s.t + 12; queueEv(s, 'solo_aud', 1, { ag: d.ag, p: pp, type }); return `${ag.n} 솔로 오디션을 ${josa(type === 'rap' ? '랩' : type === 'perf' ? '퍼포먼스' : '노래', '으로')} 봤다. 결과는 다음 달에 나온다.`;
       } };
     }).concat([{ t: '그만둔다', f: () => '다음에 하기로 했다.' }]);
@@ -2344,7 +2347,7 @@ E({
 function startSoloSigned(s, agId, o = {}) {
   const ag = AG[agId], old = s.tracks.solo;
   const type = o.type || old.type || bestSoloType(s);
-  s.tracks.solo = { st: 'signed', type, ag: agId, agN: ag.n, tier: ag.tier, cut: o.cut || ag.cut, mkt: ag.mkt, months: 0, contract: o.months || 60, rel: old.rel || 0, nextRel: 2, bestPeak: old.bestPeak || null, yearBest: 0, sn: old.sn || s.tracks.idol.sn, hist: old.hist || [], withGroup: !!o.withGroup, liveT: old.liveT, liveN: old.liveN, ostMs: old.ostMs, xcd: old.xcd, ostN: old.ostN, ostHit: old.ostHit, featN: old.featN, featHit: old.featHit };
+  s.tracks.solo = { st: 'signed', type, exAg: old.exAg, ag: agId, agN: ag.n, tier: ag.tier, cut: o.cut || ag.cut, mkt: ag.mkt, months: 0, contract: o.months || 60, rel: old.rel || 0, nextRel: 2, bestPeak: old.bestPeak || null, yearBest: 0, sn: old.sn || s.tracks.idol.sn, hist: old.hist || [], withGroup: !!o.withGroup, liveT: old.liveT, liveN: old.liveN, ostMs: old.ostMs, xcd: old.xcd, ostN: old.ostN, ostHit: old.ostHit, featN: old.featN, featHit: old.featHit };
   milestone(s, `${age(s)}세에 ${josa(ag.n, '과와')} 솔로 ${soloTypeN(type)} 계약을 했다.`);
   askStageName(s, 'solo', ag.n);
   return `${josa(ag.n, '과와')} 솔로 ${soloTypeN(type)} 계약을 했다. (${yrs(o.months || 60)} · 회사 몫 ${pctN(s.tracks.solo.cut)})`;
@@ -2393,7 +2396,7 @@ CAREERS.solo = {
   },
   actions(s, t) {
     if (t.st === 'indie') return [{ t: '가수 활동 그만두기', ok: true, danger: true, confirm: '정말 가수 활동을 그만둘까요?', run: s => { t.st = 'ended'; t.endNote = `인디 ${soloTypeN(t.type)} 활동 종료`; t.hist.push(t.endNote); return '가수 활동을 그만뒀다.'; } }];
-    if (t.st === 'signed' && !t.withGroup) { const pen = Math.max(1000e4, (t.contract - t.months) * 100e4 * t.tier); return [{ t: '회사와 계약 해지', h: `계약이 ${Math.max(0, t.contract - t.months)}개월 남았다 · 위약금 ${fmtWon(pen)} · 해지하면 인디 가수로 활동한다`, ok: true, danger: true, confirm: `${josa(t.agN, '과와')}의 계약을 해지할까요? 위약금 ${fmtWon(pen)}을 물어야 해요.`, run: s => { s.debt += pen; const n = t.agN; t.hist.push(`${n} (계약 해지)`); t.st = 'indie'; t.ag = null; t.agN = ''; t.cut = 0; t.tier = 0; t.debt = 0; t.nextRel = 3; t.subSong = t.subLyr = false; s.cd.agOffer = s.t + 12; return `${josa(n, '과와')}의 솔로 계약을 해지했다. 이제 인디로 활동한다.` + fx(s, { rep: -5 }); } }]; }
+    if (t.st === 'signed' && !t.withGroup) { const pen = Math.max(1000e4, (t.contract - t.months) * 100e4 * t.tier); return [{ t: '회사와 계약 해지', h: `계약이 ${Math.max(0, t.contract - t.months)}개월 남았다 · 위약금 ${fmtWon(pen)} · 해지하면 인디 가수로 활동한다`, ok: true, danger: true, confirm: `${josa(t.agN, '과와')}의 계약을 해지할까요? 위약금 ${fmtWon(pen)}을 물어야 해요.`, run: s => { s.debt += pen; const n = t.agN; t.hist.push(`${n} (계약 해지)`); t.exAg = t.ag; t.st = 'indie'; t.ag = null; t.agN = ''; t.cut = 0; t.tier = 0; t.debt = 0; t.nextRel = 3; t.subSong = t.subLyr = false; s.cd.agOffer = s.t + 12; return `${josa(n, '과와')}의 솔로 계약을 해지했다. 이제 인디로 활동한다.` + fx(s, { rep: -5 }); } }]; }
     return t.st === 'signed' ? songSubActs(s, t) : [];
   },
   monthly(s, t) {
@@ -2474,7 +2477,7 @@ E({
     // v154: 수록곡에 실린 내 곡 · 가사
     if (d.a) { const r = albRoyalty(s, d.a, sc, 'solo', true); d.roy += r.m; d.side = r.txt; }
     // 음반·음원 판매 정산: 팬 일부가 음반을 사고(아이돌 앨범보다 적게), 차트에 오르면 음원 수익이 붙는다. 소속이면 회사 몫을 뗀다
-    const buyers = Math.round(totalFans(s) * U.fl(SOLO_SALE.lo, SOLO_SALE.hi) * albBuyMul(ck.pure));
+    const buyers = Math.round((totalFans(s) * U.fl(SOLO_SALE.lo, SOLO_SALE.hi) + (signed ? (t.tier || 0) * SOLO_SALE.promo : 0)) * albBuyMul(ck.pure));
     // 정산서 (v118 UI C2)
     const gross = buyers * 14000 + (d.peak ? (101 - d.peak) * SOLO_SALE.chart : 0);
     d.sale = 0;
@@ -2497,7 +2500,8 @@ E({
     if (d.c) cmGain(s, d.c, 3); // v215: 솔로도 신곡을 낼 때마다 그 컨셉 숙련도가 오른다 (예전엔 직접 쓴 곡일 때만 올랐다)
     addWork(s, { type: '싱글', title: d.title, by: actName(s, 'solo'), sc, pay: d.sale || 0, note: chartText(d.peak) + (d.wins ? ` · 음악방송 1위 ${d.wins}회` : '') + (d.self ? ' · 자작곡' : ''), card: d.card });
     if (t.rel === 1) milestone(s, `${age(s)}세에 첫 솔로곡 ${josa(`「${d.title}」`, '을를')} 냈다.`);
-    if (d.peak && d.peak <= 10 && !t.hitMs) { t.hitMs = true; milestone(s, `${age(s)}세에 ${josa(`「${d.title}」`, '으로')} 음원 차트 ${d.peak}위에 올랐다.`); }
+    // v233: 10위 안에 든 곡은 모두 남긴다 (밴드 싱글도). 예전에는 처음 한 번만 남겼고(t.hitMs), 새 회사와 계약하면 그 표시가 지워져 한 번 더 남았다 — 가장 높은 순위가 빠지기도 했다
+    if (d.peak && d.peak <= 10) milestone(s, `${age(s)}세에 ${josa(`「${d.title}」`, '으로')} 음원 차트 ${d.peak}위에 올랐다.`);
     d.sc = sc; d.cm = comments(sc, actNick(s, 'solo'));
     if (typeof npcClashDue === 'function') npcClashDue(s, 'solo', sc, d.title, ck.pw);
   },
@@ -2515,18 +2519,25 @@ E({
   text: (s, d) => `「${d.title}」${d.self ? ` (자작곡${d.c ? ` · '${d.c}' 컨셉` : ''})` : d.w && d.c ? ` (작곡 ${d.w} · '${d.c}' 컨셉)` : ''} 성적이 나왔다.${d.side ? ` ${d.side}` : ''}${d.c && d.c === s.trend ? ' 요즘 유행하는 컨셉이다.' : ''}${d.card ? '' : `\n\n${chartText(d.peak)}${d.wins ? ` · 음악방송 1위 ${d.wins}회` : ''}\n${MK_N[s.tracks.solo.mkt || 'kr']} 팬 ${sgnFans(d.gain)}`}${d.sale ? `\n\n음반·음원 정산 ${fmtWon(d.sale)}` : ''}\n매달 들어올 음원·저작권 수익 약 ${fmtWon(d.roy)} (조금씩 줄어든다)${d.card ? '' : `\n\n반응: ${d.cm}`}`,
   ch: (s, d) => songCommentCh(s, d, `${josa(`「${d.title}」`, '을를')} 발표했다. ${chartText(d.peak)}${d.wins ? `, 음악방송 1위 ${d.wins}회` : ''}.`, 'solo'),
 });
+// v233: 회사가 재계약을 받아 줄 가능성. 44세까지는 늘 받아 준다. 45세부터는 나이가 바탕이고(한 살마다 15%p씩 줄어 15%까지), 팬(10만 → 100만 명)과 요즘 싱글 네 곡의 평균 성적(60 → 85점)이 각각 15%p까지 보탠다 (갈수록 가파르게)
+function soloStayP(s) {
+  const a = age(s); if (a < 45) return 1;
+  const base = Math.max(0.15, 1 - (a - 44) * 0.15), fb = 0.15 * Math.pow(U.clamp(Math.log10(Math.max(1, totalFans(s)) / 1e5), 0, 1), 1.5);
+  const W = (s.works || []).filter(w => w.type === '싱글').slice(-4), av = W.length ? W.reduce((x, w) => x + (w.sc || 0), 0) / W.length : 0, rb = 0.15 * Math.pow(U.clamp((av - 60) / 25, 0, 1), 1.5);
+  return Math.min(1, Math.round((base + fb + rb) * 100) / 100);
+}
 E({
   id: 'solo_contract', cat: '계약', title: '솔로 계약 만료', tag: 'career',
   cond: s => s.tracks.solo.st === 'signed',
-  init(s, d) { d.stayCut = Math.round(Math.max(0.25, s.tracks.solo.cut - 0.1) * 100) / 100; },
-  text: s => { const t = s.tracks.solo; return `${josa(t.agN, '과와')}의 솔로 계약이 끝났다. 발표곡 ${t.rel}곡, 팬 ${fmtFans(totalFans(s))}.\n\n회사를 나오면 이름이 알려진 만큼 다른 회사에서 연락이 올 수도 있다.${age(s) >= 45 ? ' 다만 나이가 있어서 회사도 재계약을 망설이는 눈치다.' : ''}`; },
+  // v233: 회사가 망설일 때는 받아 줄 가능성을 낮추는 대신, 회사 몫을 올린 조건으로 재계약을 내밀기도 한다 (망설일수록 그럴 때가 많고, 올리는 폭도 크다: 5~18%p). 그 조건은 받아들이면 바로 된다
+  init(s, d) { const t = s.tracks.solo; d.p = soloStayP(s); d.stayCut = Math.round(Math.max(0.25, t.cut - 0.1) * 100) / 100; const upCut = Math.round(Math.min(0.75, t.cut + 0.05 + 0.15 * (1 - d.p)) * 100) / 100; if (d.p < 1 && upCut > t.cut && U.chance(U.clamp(1.1 - d.p, 0, 0.8))) { d.up = true; d.stayCut = upCut; d.p = 1; } },
+  text: (s, d) => { const t = s.tracks.solo, p = d.p != null ? d.p : soloStayP(s); return `${josa(t.agN, '과와')}의 솔로 계약이 끝났다. 발표곡 ${t.rel}곡, 팬 ${fmtFans(totalFans(s))}.\n\n회사를 나오면 이름이 알려진 만큼 다른 회사에서 연락이 올 수도 있다.${d.up ? ' 다만 나이가 있어서, 회사는 몫을 더 받아야 재계약하겠다고 한다.' : p < 1 ? ' 다만 나이가 있어서 회사도 재계약을 망설이는 눈치다.' : ''}`; },
   ch(s, d) {
     const t = s.tracks.solo;
-    // 45세부터는 회사가 재계약을 망설인다 (한 살마다 받아 줄 가능성이 준다)
-    const p = age(s) < 45 ? 1 : Math.max(0.15, 1 - (age(s) - 44) * 0.15);
+    const p = d.p != null ? d.p : soloStayP(s);
     return [
-      { t: `${josa(t.agN, '과와')} 재계약`, h: `회사 몫 ${Math.round(d.stayCut * 100)}%로 낮춰 준다 · 4년${p < 1 ? ` · 회사가 받아 줄 가능성 ${fmtPct(p)}` : ''}`, f: s => { if (!U.chance(p)) { t.hist.push(`${t.agN} (재계약 불발)`); t.st = 'indie'; t.ag = null; t.agN = ''; t.cut = 0; t.tier = 0; t.debt = 0; t.nextRel = 3; return '회사가 재계약을 거절했다. 이제 인디로 활동한다.' + fx(s, { stress: 6 }); } t.sayM = (t.sayM || 0) + (t.months || 0); t.months = 0; t.contract = 48; t.cut = d.stayCut; return `${josa(t.agN, '과와')} 재계약했다.`; } },
-      { t: '회사를 나와 인디로 활동한다', f: s => { t.hist.push(`${t.agN} (계약 만료)`); t.st = 'indie'; t.ag = null; t.agN = ''; t.cut = 0; t.tier = 0; t.debt = 0; t.nextRel = 3; s.cd.agOffer = s.t + 2; return '회사를 나와 혼자 음악을 하기로 했다.'; } },
+      { t: `${josa(t.agN, '과와')} 재계약`, h: d.up ? `회사 몫 ${pctN(t.cut)} → ${pctN(d.stayCut)}로 올린다 · 4년` : `회사 몫 ${Math.round(d.stayCut * 100)}%로 낮춰 준다 · 4년${p < 1 ? ` · 회사가 받아 줄 가능성 ${fmtPct(p)}` : ''}`, f: s => { if (!U.chance(p)) { t.hist.push(`${t.agN} (재계약 불발)`); t.exAg = t.ag; t.st = 'indie'; t.ag = null; t.agN = ''; t.cut = 0; t.tier = 0; t.debt = 0; t.nextRel = 3; return '회사가 재계약을 거절했다. 이제 인디로 활동한다.' + fx(s, { stress: 6 }); } t.sayM = (t.sayM || 0) + (t.months || 0); t.months = 0; t.contract = 48; t.cut = d.stayCut; return `${josa(t.agN, '과와')} 재계약했다.`; } },
+      { t: '회사를 나와 인디로 활동한다', f: s => { t.hist.push(`${t.agN} (계약 만료)`); t.exAg = t.ag; t.st = 'indie'; t.ag = null; t.agN = ''; t.cut = 0; t.tier = 0; t.debt = 0; t.nextRel = 3; s.cd.agOffer = s.t + 2; return '회사를 나와 혼자 음악을 하기로 했다.'; } },
     ];
   },
 });
@@ -2769,6 +2780,8 @@ function musAlbMonth(s, k) {
     return;
   }
   if (t.nextRel > 0 || musRelQ(s, k) || (k === 'band' && bandMissing(t).length)) return;
+  // v233: 계약이 끝나기 직전(곡이 계약이 끝난 뒤에 나오게 될 때)에는 회사가 새 곡 준비를 시작하지 않는다. 회의에서 발매까지 석 달. 재계약하거나 회사를 나오면 이어진다
+  if (t.st === 'signed' && !t.withGroup && t.contract - (k === 'band' ? t.cm || 0 : t.months || 0) <= 3) return;
   t.nextRel = 99;
   // v219: 회사 소속은 아이돌처럼 팬이 30만 명을 넘거나 활동 4년이 지나야 회의에서 의견을 낼 수 있다. 그 전에는 회사가 정한다
   if (t.st === 'signed' && !(a && a.five) && !musSay(s, k)) {
