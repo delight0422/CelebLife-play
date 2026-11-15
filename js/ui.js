@@ -450,7 +450,7 @@ function renderSchedule() {
       h += `<div class="les"><label><input type="checkbox" data-les="${i}" ${sl.lesson ? 'checked' : ''}> ${U.esc(a.les.n)} 다니기</label>`;
       if (sl.lesson) {
         h += `<div class="payer"><button data-leslv="${i}" data-v="1" class="${ll === 1 ? 'on' : ''}" ${lesOK(p, a.skill, 1) ? '' : 'disabled'}>일반 학원 · 월 ${lesCost(p, a.skill, 1)}만</button><button data-leslv="${i}" data-v="2" class="${ll === 2 ? 'on' : ''}">명문 학원 · 월 ${lesCost(p, a.skill, 2)}만</button></div>`;
-        // 가족이 보내 줄 수 있으면 가족이, 아니면 내 돈으로 (고르지 않는다, 피드백 24)
+        // 성인이 되기 전에는 늘 부모님이, 그 뒤에는 내 돈으로 (고르지 않는다, 피드백 24 · v234)
         sl.payer = !graduated(s) && familyCanPay(s, i) ? 'family' : 'me';
         if (sl.payer !== 'family' && s.money < lesCost(p, a.skill, ll) * 1e4) h += `<div class="why">지금 가진 돈으로는 학원비가 모자라다</div>`;
       }
@@ -1046,11 +1046,12 @@ function resAfter(pre, i) {
 }
 // ───── 고른 결과 토스트 (v202) ─────
 // 화면 아래쪽 가운데에 크게. 한동안(글이 길수록 오래, 6~16초) 남고, 마우스를 올리면 멈춘다. ✕로 닫는다
+// v234: 창이 하나도 안 떠 있으면 한가운데에 크게 뜬다 (#ctoast.mid). 스페이스바 · 엔터 · 눌러서 넘긴다. 패널 · 요약 창이 떠 있을 때는 예전 자리 (그 창을 가리지 않게)
 // 떠 있는 동안 창(사건 · 결과 · 요약)은 토스트 위쪽으로 비켜 선다 (body.ct-on, --ct-h). 한꺼번에 3개까지, 넘치면 오래된 것부터
 // v209: 결과 한 줄이 잘된 일(1)인지 · 안된 일(-1)인지 · 둘 다 아닌지(0). 0인 줄은 토스트로 띄우지 않는다 (멤버를 정했다 · 출자했다 같은 것)
 const TONE_B = /받아들여지지 않았다|맞대결에서 밀렸다|그런 쪽으로 볼 수 없다|결혼은 생각하지 않는다|자리를 피했|떨어졌|불합격|탈락|거절|실패|혹평|손해|망했|해체|떠났|그만뒀|그만두었|잃었|식었|아쉬|실수(?! 없)|지쳐|논란|모자라|못 했|못했|빚을 내|빚 \d|폐업|문을 닫|쫓겨|불발|무산|하락|지쳤|다쳤|줄었|낮아졌|내려갔|싸늘|외면|비판|악플|헤어졌|이혼|💔|⚠️/;
 const TONE_BS = /받아들여지지 않았다|떨어졌|불합격|탈락|거절|실패|혹평|손해|망했|해체|폐업|문을 닫|무산|불발|하지 못|못했|못 했|지쳐/;
-const TONE_G = /내 의견대로|더 주목받았다|같은 마음이었|사귀게 됐|오늘부터 1일|결혼했다|합격|뽑혔|발탁|성공|(?:^|[^0-9])1위|🏆|상을 받|돌파|매진|호평|대박|흥행|올랐|늘었|데뷔했|데뷔한다|데뷔하게 됐|데뷔가 확정|데뷔를 확정|데뷔 무대|화제가 됐|화제가 되|화제를 모|화제였|캐스팅됐|캐스팅되었|캐스팅이 확정|계약했|재계약을 하고|선정|칭찬|반응이 좋|터졌|인기를|이겼|우승|입상|승진|벌었|받아 줬|손잡았|제작을 시작했|\[새 특기|높아졌|좋아했|뜨거웠|박수|환호|등급 ↑/;
+const TONE_G = /친구가 되었다|일정에 넣었다|내 의견대로|더 주목받았다|같은 마음이었|사귀게 됐|오늘부터 1일|결혼했다|합격|뽑혔|발탁|성공|(?:^|[^0-9])1위|🏆|상을 받|돌파|매진|호평|대박|흥행|올랐|늘었|데뷔했|데뷔한다|데뷔하게 됐|데뷔가 확정|데뷔를 확정|데뷔 무대|화제가 됐|화제가 되|화제를 모|화제였|캐스팅됐|캐스팅되었|캐스팅이 확정|계약했|재계약을 하고|선정|칭찬|반응이 좋|터졌|인기를|이겼|우승|입상|승진|벌었|받아 줬|손잡았|제작을 시작했|\[새 특기|높아졌|좋아했|뜨거웠|박수|환호|등급 ↑/;
 // 내가 고른 거절 · 그만둠(주어가 없는 문장: '입사 제안을 거절했다', '고백을 정중히 거절했다', '애니메이터 일을 그만뒀다')은 빼고 본다
 //   남이 거절한 것('김도윤은 주연 제안을 거절했다')은 주어가 있어 그대로 실패
 const TONE_N = /(?:제안|고백|부탁|요청|초대|섭외|의뢰|권유)[을를]\s*(?:정중히\s*|결국\s*)?거절했다|(?:일|활동|연재|방송|수업|아르바이트|알바)[을를]\s*그만(?:뒀|두었)다/;
@@ -1079,13 +1080,15 @@ function ctoastShow(o) {
   const nG = L.filter(([, tn]) => tn > 0).length, nB = L.filter(([, tn]) => tn < 0).length, tone = nB && !nG ? 'b' : nG && !nB ? 'g' : 'm';
   let box = $('#ctoast');
   if (!box) { box = document.createElement('div'); box.id = 'ctoast'; box.className = 'ctoast'; document.body.appendChild(box); }
+  box.classList.toggle('mid', ctMid());
   const e = document.createElement('div'), hd = [o.cat, o.title].filter(Boolean).filter((x, i, A) => A.indexOf(x) === i).join(' · ');
   e.className = 'ct-i ' + tone;
-  e.innerHTML = `<button type="button" class="ct-x" aria-label="닫기">✕</button><div class="ct-h">${tone === 'g' ? '✅ ' : tone === 'b' ? '❌ ' : ''}${U.esc(hd || '방금 한 일')}</div>${o.pick ? `<div class="ct-pick">✔ ${U.esc(o.pick)}</div>` : ''}<div class="ct-b">${L.map(([x, tn]) => `<div class="ct-l ${tn > 0 ? 'g' : tn < 0 ? 'b' : ''}">${resLine(x.x)}${x.sub ? `<span class="res-sub">${nl(x.sub)}</span>` : ''}</div>`).join('')}</div>`;
+  e.innerHTML = `<button type="button" class="ct-x" aria-label="닫기">✕</button><div class="ct-h">${tone === 'g' ? '✅ ' : tone === 'b' ? '❌ ' : ''}${U.esc(hd || '방금 한 일')}</div>${o.pick ? `<div class="ct-pick">✔ ${U.esc(o.pick)}</div>` : ''}<div class="ct-b">${L.map(([x, tn]) => `<div class="ct-l ${tn > 0 ? 'g' : tn < 0 ? 'b' : ''}">${resLine(x.x)}${x.sub ? `<span class="res-sub">${nl(x.sub)}</span>` : ''}</div>`).join('')}</div><div class="ct-k"><kbd>Space</kbd> 넘기기</div>`;
   const len = L.map(([x]) => x).reduce((a, x) => a + String(x.x || '').replace(/<[^>]+>/g, '').length, 0), ms = Math.min(9000, 3200 + len * 28); // v219: 떠 있는 시간을 줄였다 (예전 6~16초 → 3~9초)
   let tm = null; const go = () => { clearTimeout(tm); tm = setTimeout(() => ctOut(e), ms); };
   e.addEventListener('mouseenter', () => clearTimeout(tm)); e.addEventListener('mouseleave', go);
   e.querySelector('.ct-x').addEventListener('click', ev => { ev.stopPropagation(); clearTimeout(tm); ctOut(e); });
+  e.addEventListener('click', () => { if (box.classList.contains('mid')) { clearTimeout(tm); ctOut(e); } });
   e._o = o; e._t = Date.now();
   box.appendChild(e);
   [...box.children].filter(c => !c.classList.contains('out')).slice(0, -4).forEach(ctOut);
@@ -1093,13 +1096,18 @@ function ctoastShow(o) {
 }
 // v219: 토스트를 가리는 창 (사건 · 결과 카드 · 실시간 · 확인 · 한가운데 성과 알림). 요약 창과 패널은 가리지 않는다
 let CT_Q = [], CT_TM = null;
+// v234: 한가운데에 띄울 때인가 (패널 · 요약 창이 안 떠 있을 때). ctMidOn: 한가운데에 떠 있는 토스트가 있는가. ctSkip: 떠 있는 것을 모두 넘긴다 (막 뜬 참 0.5초 안에 누른 것은 창을 넘기던 손이 한 번 더 누른 것으로 보고 넘기지 않는다)
+function ctMid() { return !['#panel', '#turn'].some(q => { const e = $(q); return !!e && !e.classList.contains('hidden'); }); }
+function ctLive() { const b = $('#ctoast'); return b ? [...b.children].filter(c => !c.classList.contains('out')) : []; }
+function ctMidOn() { return !!S && !S.ended && !$('#game-screen').classList.contains('hidden') && ctMid() && !ctBlocked() && ctLive().length > 0; }
+function ctSkip(now) { const L = ctLive(), t = Date.now(); if (!now && L.some(c => t - (c._t || 0) < 500)) return; L.forEach(ctOut); }
 function ctBlocked() { return ['#modal', '#pop', '#live', '#confirm'].some(q => { const e = $(q); return !!e && !e.classList.contains('hidden'); }) || !!document.querySelector('.rt-ov:not(.hidden)'); }
 // 0.25초마다 살핀다: 창이 뜨면 떠 있던 토스트를 내리고(뜬 지 2.5초가 안 된 것은 다시 모아 둔다), 창이 없으면 모아 둔 토스트를 한꺼번에 띄운다 (최근 4개)
 function ctWatch() {
   if (CT_TM) return;
   CT_TM = setInterval(() => {
     const box = $('#ctoast'), live = box ? [...box.children].filter(c => !c.classList.contains('out')) : [];
-    if (S && S.ended) CT_Q = [];
+    if (S && S.ended) CT_Q = []; if (box && box.classList.contains('mid') !== ctMid()) { box.classList.toggle('mid', ctMid()); ctFit(); }
     if (ctBlocked()) { const young = live.filter(e => e._o && Date.now() - e._t < 2500).map(e => e._o); live.forEach(ctOut); if (young.length) CT_Q = young.concat(CT_Q); }
     else if (CT_Q.length) { const Q = CT_Q.slice(-4); CT_Q = []; for (const o of Q) ctoastShow(Object.assign({}, o, { now: 1 })); }
     if (!CT_Q.length && !(box && box.children.length)) { clearInterval(CT_TM); CT_TM = null; }
@@ -1604,7 +1612,7 @@ function pfBornTab(s, p) {
 function famHTML(s) {
   const hw = married(s) ? homeWealth(s) : s.wealth, row = (k, v) => `<tr><td style="width:120px;color:var(--muted)">${k}</td><td>${v}</td></tr>`;
   let h = `<table class="list">` + row('집안 형편', `${wealthWord(hw)} 집 (10단계 중 ${hw})${married(s) ? ` · 나와 배우자 기준 · 태어난 집은 ${wealthWord(s.wealth)} 집` : ''}`);
-  if (!graduated(s)) h += row('학원 지원', !parentsAlive(s).length ? '학원비를 대 줄 가족이 없다' : familyBudget(s) ? `가족이 보내 줄 수 있는 학원: ${famPlanText(familyBudget(s))}` : '형편이 어려워 가족이 학원을 보내 주기 어렵다');
+  if (!graduated(s)) h += row('학원 지원', parentsAlive(s).length ? '성인이 되기 전까지 학원비는 부모님이 내 준다' : '학원비를 대 줄 가족이 없다');
   for (const f of [mom(s), dad(s)].filter(Boolean)) h += row(`${f.rel} ${U.esc(f.name)}`, f.alive ? `${pAge(s, f)}세 · ${U.esc(f.job)} · ${skillLine(f, 3, s)}` : '돌아가셨다');
   if (s.family.single) h += row('아빠', '없음 (엄마 혼자 키우신 집)');
   if (s.olderSib || s.youngerSib) h += row('형제자매', sibText(s));
@@ -2014,8 +2022,8 @@ function npcCard(s, n) {
   h += `<div class="npc-btns">`;
   if (!kid && !kidSib) h += `<button class="btn sm" data-npc="${n.id}" data-op="${love ? 'date' : 'call'}" ${used >= CONTACT_MAX || called || contactYoung(s) ? 'disabled' : ''}>${love ? `데이트하기 (${age(s) < 19 ? '1만 원' : '10만 원'})` : '연락하기'}</button>${contactYoung(s) ? `<span class="hint">${CONTACT_AGE}세부터 연락할 수 있다</span>` : called ? `<span class="hint">이번 반년(${halfName(s)})에 이미 두 번 ${love ? '만났다' : '연락했다'}</span>` : ''}`;
   if (!kid && !love && !n.married && age(s) >= 14 && !partner(s) && !['전 연인', '전 배우자', '형제자매'].includes(n.rel)) h += `<button class="btn sm" data-npc="${n.id}" data-op="confess">고백하기 · ${confessWord(s, n)}</button>`;
-  // 청혼: 사귄 지 3년이 넘은 연인에게만 (둘 다 성인일 때)
-  if (n.rel === '연인' && canPropose(s, n)) { const cd = s.cd.propose > s.t; h += `<button class="btn sm" data-npc="${n.id}" data-op="propose" ${cd ? 'disabled' : ''}>청혼하기 · 받아 줄 가능성 ${fmtPct(proposeP(n))}</button>${cd ? `<span class="hint">${ymLater(s, s.cd.propose - s.t)}에 다시 할 수 있다</span>` : ''}`; }
+  // 청혼: 사귄 지 3년이 넘은 연인에게만 (둘 다 성인일 때). v234: 내 돈 2,000만 원이 있어야 한다 (PROPOSE_MONEY)
+  if (n.rel === '연인' && canPropose(s, n)) { const cd = s.cd.propose > s.t, poor = s.money < PROPOSE_MONEY; h += `<button class="btn sm" data-npc="${n.id}" data-op="propose" ${cd || poor ? 'disabled' : ''}>청혼하기 · 받아 줄 가능성 ${fmtPct(proposeP(n))}</button>${cd ? `<span class="hint">${ymLater(s, s.cd.propose - s.t)}에 다시 할 수 있다</span>` : poor ? `<span class="hint">내 돈 ${fmtWon(PROPOSE_MONEY)}이 있어야 청혼할 수 있다</span>` : ''}`; }
   if (n.rel === '연인') h += `<button class="btn sm danger" data-npc="${n.id}" data-op="break">헤어지기</button>`;
   if (kid) h += `<button class="btn sm" data-kid="${n.id}">능력 보기</button>`;
   // 돈 빌리기: 형제자매(친밀도가 낮으면 안 빌려준다), 아주 가까운 지인(평생 한 번)
@@ -2051,7 +2059,7 @@ function npcOp(id, op) {
     askConfirm(`${n.name}에게 ${josa(fmtWon(v), '을를')} 빌릴까요?\n매달 ${fmtWon(sibLoanPay(v))}씩 저절로 갚아요.`, () => { const x = sib ? sibBorrow(S, S.people[id]) : friendBorrow(S, S.people[id]); addLog(S, x, 'ev'); save(S); toast(x); renderPanel(); render(); });
     return;
   } else if (op === 'propose') {
-    if (!canPropose(s, n) || s.cd.propose > s.t) return;
+    if (!canPropose(s, n) || s.cd.propose > s.t || s.money < PROPOSE_MONEY) return;
     askConfirm(`${n.name}에게 청혼할까요?\n받아 줄 가능성 ${fmtPct(proposeP(n))}. 받아 주면 바로 결혼하고(결혼식 2,000만 원) 두 사람의 재산을 합쳐요.`, () => { const x = propose(S, S.people[id]); addLog(S, x, 'ev'); save(S); toast(x); renderPanel(); render(); });
     return;
   } else if (op === 'break') {
@@ -2091,9 +2099,9 @@ function careerTab(s) {
 }
 // 직업 창: 직업 활동 박스의 직업 배너(또는 프로필 창의 직업)를 누르면 뜬다
 // 맨 위 그 분야의 유행 → 현황 → 할 일(일정의 직업 활동 칸에서 하는 일) → 그 직업 정보(등급·숙련도·내 실력·계약) → 할 수 있는 일
-// 직업 창 (UI 개편 시안): 정보 · 소속 · 행동 · 업계 인물 탭
+// 직업 창 (UI 개편 시안): 행동 · 정보 · 소속 · 업계 인물 탭 (v234: 행동 탭이 맨 앞이고, 창을 열면 행동 탭부터 보인다)
 // 직업마다 정보 줄(c.info)을 이름으로 나눈다: 회사 · 그룹 · 팀에 대한 줄은 소속, 나에 대한 줄은 정보
-const JOB_TABS = [['info', '📋 정보'], ['grp', '🎤 그룹'], ['org', '🏢 회사'], ['act', '🎬 행동'], ['npc', '⭐ 업계 인물']];
+const JOB_TABS = [['act', '🎬 행동'], ['info', '📋 정보'], ['grp', '🎤 그룹'], ['org', '🏢 회사'], ['npc', '⭐ 업계 인물']];
 const GRP_ROWS = ['그룹 팬', '밴드 팬', '팀워크', '팬덤 · 대표 컨셉', '대표 컨셉', '팬덤', '기수 안 순위', '동기', '선배', '최근 평가'];
 const CO_ROWS = ['소속', '회사', '일하는 곳', '팀장', '고정 일정', '작곡팀', '전담 방송인', 'MCN 지원', '공채'];
 const ORG_ROWS = GRP_ROWS.concat(CO_ROWS);
@@ -2133,7 +2141,7 @@ function panelJob() {
   if (tk != null) { const i = info.findIndex(r => Array.isArray(r) && (r[0] === '등급' || r[0] === '자리')); if (i >= 0) info[i] = [info[i][0], info[i][1], tk]; }
   const isG = r => Array.isArray(r) ? GRP_ROWS.includes(r[0]) : r.bars || GRP_HEADS.test(r.h), grp = org.filter(isG), co = org.filter(r => !isG(r));
   // 탭: 그룹이 없는 직업(배우 등)은 그룹 탭이 없다. 업계 인물이 없는 분야는 업계 인물 탭이 없다
-  const tabs = JOB_TABS.filter(([k]) => (k !== 'grp' || grp.length) && (k !== 'npc' || jobNpcs(s, id).length)), tab = tabs.some(x => x[0] === UI.jobTab) ? UI.jobTab : 'info';
+  const tabs = JOB_TABS.filter(([k]) => (k !== 'grp' || grp.length) && (k !== 'npc' || jobNpcs(s, id).length)), tab = tabs.some(x => x[0] === UI.jobTab) ? UI.jobTab : 'act';
   let h = back + `<h2>${jobIc(id)} ${U.esc(jobName(id))}</h2>`;
   if (JOB_FIELD[id]) h += trendRowHTML(s, JOB_FIELD[id]);
   if (c.status) h += `<p class="p-intro">${U.esc(careerStatus(s, id))}</p>`;
@@ -2728,7 +2736,7 @@ function panelHall() {
 function panelHelp() {
   return `<h2>도움말</h2>
   <div class="sec-h">재능과 특기</div><div class="ms">재능은 태어날 때 정해지고 거의 안 변해요. 특기는 살면서 만나는 선택지로 처음 배우고, 그다음부터 일정에서 연습하거나 학원에 다니며 레벨을 올려요. 오래 안 하면 천천히 떨어져요. 특기마다 숨은 한계(포텐)가 있어서, 그 근처에 가면 잘 안 늘어요.</div>
-  <div class="sec-h">일정</div><div class="ms">초등학교에 들어가면 '📅 이번 달 일정' 칸에서 매달 할 일을 정해요. 고등학교 졸업 전에는 학원비를 가족이 내 줄 수도 있어요(집안 형편에 따라 개수가 달라요).</div>
+  <div class="sec-h">일정</div><div class="ms">초등학교에 들어가면 '📅 이번 달 일정' 칸에서 매달 할 일을 정해요. 고등학교 졸업 전에는 학원비를 부모님이 내 줘요.</div>
   <div class="sec-h">직업</div><div class="ms">백과사전 진로 탭에서 직업과 시작하는 법(지원할 수 있는 나이 · 필요한 특기)을 알아볼 수 있어요. 아티스트(앞에 서는 일)와 스태프(뒤에서 만드는 일), 회사 경영으로 나뉘어 있어요.</div>
   <div class="sec-h">생활</div><div class="ms">백과사전 생활 탭에서 생활 박스(장비 · 집 · 지속 관리 · 기타)에 무엇이 언제 생기는지 알아볼 수 있어요.</div>`;
 }
@@ -2897,7 +2905,7 @@ document.addEventListener('click', e => {
   if (t.dataset.cogrp) { UI.coGrp = t.dataset.cogrp; renderPanel(); return; }
   if (t.dataset.fam != null) { openPanel('family'); return; }
   if (t.dataset.love != null) { openPanel('love'); return; }
-  if (t.dataset.job) { UI.jobId = t.dataset.job; UI.jobFrom = t.dataset.from || ''; UI.jobTab = 'info'; openPanel('job'); return; }
+  if (t.dataset.job) { UI.jobId = t.dataset.job; UI.jobFrom = t.dataset.from || ''; UI.jobTab = 'act'; openPanel('job'); return; }
   if (t.dataset.jobtab) { UI.jobTab = t.dataset.jobtab; renderPanel(); return; }
   if (t.dataset.cof) { UI.coF = t.dataset.cof; UI.coTab = 'home'; UI.coGrp = null; if (UI.overlay) { UI.overlay = 'company'; renderPanel(); } else openPanel('company'); return; }
   // v198: 회사 이름 바꾸기 (회사 창 제목 옆 ✏️) · 사옥 이름 짓기 (메인 화면 사옥 상자 옆 ✏️). 사옥 상자 · 회사 창을 누른 것으로 치지 않는다
@@ -2962,6 +2970,8 @@ document.addEventListener('click', e => {
 document.addEventListener('keydown', e => {
   // 성과 토스트가 떠 있으면 (v176): 스페이스바 · 엔터 = 떠 있는 줄만 넘기기 (v230), Esc = 모두 닫기. 다른 키는 막는다 (뒤의 진행 버튼이 눌리지 않게)
   if (rtOn()) { if (['Space', 'Enter', 'NumpadEnter', 'Escape'].includes(e.code)) { e.preventDefault(); if (!e.repeat) (e.code === 'Escape' ? rtClose() : rtSkip()); } return; }
+  // v234: 한가운데 뜬 고른 결과 토스트는 스페이스바 · 엔터로 넘긴다 (뒤의 진행 버튼이 같이 눌리지 않게 먼저 받는다). Esc는 바로 닫는다
+  if (['Space', 'Enter', 'NumpadEnter', 'Escape'].includes(e.code) && !['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) && ctMidOn()) { e.preventDefault(); if (!e.repeat) ctSkip(e.code === 'Escape'); return; }
   if (e.key === 'Escape' || e.code === 'Escape') { if (escClose()) e.preventDefault(); return; }
   // 실시간 창이 떠 있으면 스페이스바 · 엔터 = 결과 바로 보기 (뒤의 창보다 먼저)
   if (liveOn() && (e.code === 'Space' || e.key === 'Enter')) { e.preventDefault(); if (!e.repeat) liveClose(); return; }

@@ -1196,27 +1196,9 @@ function applyLocks(s) {
 }
 // 직업 활동 고정 칸('+c_직업')의 직업 id
 function fixedJob(sl) { return sl && sl.lock && sl.lock[0] === '+' ? sl.lock.slice(3) : null; }
-// 가족이 대 줄 수 있는 학원 몫 (고등학교 졸업 뒤에는 0, 버튼도 안 보인다)
-// 일반 학원은 1, 명문 학원은 2를 쓴다. 성인 전 일정 칸은 많아야 둘(13~18세)이라 학원도 둘까지
-// 형편 4~6단계: 일반 1곳 · 7~8단계: 일반 2곳 또는 명문 1곳 · 9~10단계: 명문 2곳. 아래 30%(1~3단계)는 못 보낸다
-function familyBudget(s) {
-  if (graduated(s) || !parentsAlive(s).length) return 0;
-  const w = s.wealth;
-  return w >= 9 ? 4 : w >= 7 ? 2 : w >= 4 ? 1 : 0;
-}
-function famPlanText(b) { return b >= 4 ? '명문 학원 2곳까지' : b >= 2 ? '일반 학원 2곳 또는 명문 학원 1곳' : b >= 1 ? '일반 학원 1곳' : ''; }
-function familyWhyNot(s) {
-  if (!parentsAlive(s).length) return '학원비를 대 줄 가족이 없다';
-  return familyBudget(s) === 0 ? '집안 형편이 어려워 가족이 학원을 보내 줄 수 없다' : `가족이 보내 줄 수 있는 학원은 ${famPlanText(familyBudget(s))}이다`;
-}
-// i번째 칸을 lvl 등급 학원으로 가족이 대 줄 수 있는지 (다른 칸들이 이미 쓴 몫을 빼고)
-function familyCanPay(s, i, lvl = lesLv(s.slots[i])) {
-  const b = familyBudget(s);
-  if (!b) return false;
-  let used = 0;
-  s.slots.forEach((sl, j) => { if (j !== i && sl.lesson && sl.payer === 'family' && actInfo(sl.act).les) used += lesLv(sl); });
-  return used + lvl <= b;
-}
+// v234: 성인이 되기 전(고등학교 졸업 전)에는 학원비를 늘 부모님이 낸다 (집안 형편 · 학원 수 · 일반/명문과 상관없이). 부모님이 안 계시면 내 돈으로 낸다
+//   (예전: 형편 4~6단계 일반 1곳 · 7~8단계 일반 2곳 또는 명문 1곳 · 9~10단계 명문 2곳까지만 가족이 내고, 넘는 학원은 내 돈으로 냈다. 아래 30%는 못 보냈다)
+function familyCanPay(s) { return !graduated(s) && parentsAlive(s).length > 0; }
 function doActivity(s, sl, i) {
   const a = actInfo(sl.act);
   if (!a || a.trk) return;

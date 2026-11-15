@@ -104,7 +104,7 @@ function soloWaysMonth(s, t) {
 
 // ───── v220: 솔로 가수의 OST · 피처링 · 단독 공연 ─────
 // 첫 곡을 낸 뒤부터. OST · 피처링은 메시지함으로 제안이 오고, 받으면 한두 달 뒤 성적 창이 뜬다. 성적이 좋을수록 팬과 인기가 더 오른다
-// 단독 공연은 2년에 한 번 (발표곡 3곡 · 팬 2만 명부터). 공연장 크기를 고르고 다음 달에 무대에 선다
+// 단독 공연은 2년에 한 번 (발표곡 5곡 · 팬 3만 명부터. v234: 예전 3곡 · 2만 명). 공연장 크기를 고르고 다음 달에 무대에 선다
 // v228: OST · 피처링으로 느는 팬을 조금 줄였다 (OST 0.8배 · 피처링 0.72배쯤). 대중 호감도가 높을수록 제안이 잦다 (game.js offerPopM)
 const SOLO_VENUE = [
   { n: '라이브 클럽', seat: 300, cost: 600e4 },
@@ -114,13 +114,13 @@ const SOLO_VENUE = [
   { n: '체육관', seat: 10000, cost: 3.6e8 },
   { n: '돔 경기장', seat: 40000, cost: 14e8 },
 ];
-const SOLO_TICKET = 77000, SOLO_LIVE_GAP = 24;
+const SOLO_TICKET = 77000, SOLO_LIVE_GAP = 24, SOLO_LIVE_REL = 5, SOLO_LIVE_FANS = 3e4, SOLO_LIVE_RATE = 0.022;
 function soloOn(s) { const t = s.tracks.solo; return !!t && (t.st === 'indie' || t.st === 'signed'); }
 function soloVoice(t, p) { return t.type === 'rap' ? 'rap' : t.type === 'perf' ? perfVoice(p) : 'vocal'; }
 // 회사 소속이면 회사 몫을 뗀 내 몫
 function soloShare(t, v) { return Math.round(v * (1 - (t.st === 'signed' ? t.cut || 0 : 0))); }
-// 단독 공연에 올 만한 사람 수: 팬의 3.5%쯤, 인기가 좋으면 더
-function soloDemand(s, t) { return totalFans(s) * 0.035 * (0.6 + jpop(s, 'solo') / 100 * 0.8); }
+// 단독 공연에 올 만한 사람 수: 팬의 2.2%쯤(대중 호감도 50일 때), 호감도가 좋으면 더 (v234: 예전 3.5% → 2.2%. 같은 공연장을 채우려면 팬이 1.6배쯤 있어야 한다)
+function soloDemand(s, t) { return totalFans(s) * SOLO_LIVE_RATE * (0.6 + jpop(s, 'solo') / 100 * 0.8); }
 // 먼저 낸 대관비 돌려받기 (내 회사 소속이면 회사 돈으로)
 function soloLiveBack(s, d) { if (!d.cost) return; const co = ownCo(s, 'solo'); if (co) coIn(co, d.cost, '단독 공연 대관비 환불', ownCoF(s, 'solo')); else addMoney(s, d.cost, '단독 공연 대관비 환불'); d.back = d.cost; d.cost = 0; }
 function soloHeatW(h) { return h >= 82 ? '공연장이 터질 듯했다' : h >= 67 ? '분위기가 뜨거웠다' : h >= 52 ? '무난하게 즐겼다' : '분위기가 좀처럼 달아오르지 않았다'; }
@@ -153,8 +153,8 @@ function soloExtraMonth(s, t) {
     const L = featFrom(s);
     if (L.length) { const n = U.wpick(L, x => 1 + (x.kn ? 2 : 0) + (x.rk ? 3 : 0)); X.feat = s.t + Math.max(4, 8 - (t.featN || 0) - (t.featHit || 0)); npcKnow(n); sendMsg(s, 'solo_feat', { from: n.n, title: '피처링 제안', months: 3, d: { id: n.id, fee: Math.round(50 + lv(p, soloVoice(t, p)) * 2 + fame * 5) * 1e4 } }); }
   }
-  // 단독 공연: 발표곡 3곡 · 팬 2만 명부터, 2년에 한 번
-  if (t.rel >= 3 && fans >= 2e4 && !(t.liveT > s.t) && !hasQ(s, 'solo_concert') && !hasQ(s, 'solo_concertres') && U.chance(0.25)) queueEv(s, 'solo_concert', 0, {});
+  // 단독 공연: 발표곡 5곡 · 팬 3만 명부터, 2년에 한 번
+  if (t.rel >= SOLO_LIVE_REL && fans >= SOLO_LIVE_FANS && !(t.liveT > s.t) && !hasQ(s, 'solo_concert') && !hasQ(s, 'solo_concertres') && U.chance(0.25)) queueEv(s, 'solo_concert', 0, {});
 }
 function soloRelCan(t) { return !!t && !t.alb && t.nextRel > 0 && t.nextRel < 90; }
 function soloRelPush(t) { if (soloRelCan(t)) t.nextRel++; }
@@ -265,7 +265,7 @@ E({
     addWork(s, { type: '단독 공연', title: V.n, by: actName(s, 'solo'), sc: d.heat, pay: d.pay || 0, note: `관객 ${d.sold.toLocaleString()}명 · ${soloHeatW(d.heat)}` });
     if (t.liveN === 1) milestone(s, `${age(s)}세에 ${V.n}에서 첫 단독 공연을 열었다.`);
     const z = (perf - 45) / 18;
-    d.live = liveStage({ k: 'solo', c: s.trend, mic: 1, key: true, place: V.n, t: '단독 공연', g: actName(s, 'solo'), cn: actCall(s, 'solo'), mem: [[actCall(s, 'solo'), '']], mi: 0, z: { perf: z, me: z, q: (d.heat - 57) / 20, fans: d.fill * 2 - 1, star: (p.tal.star - 50) / 25 }, sc: d.heat, wins: 0, cand: 0, debut: false }); // v228: 후렴 반응(q)은 공연 열기를 따라간다 (예전엔 값이 없어 열기가 낮아도 늘 '좋다!'였다)
+    d.live = liveStage({ k: 'solo', c: s.trend, mic: 1, key: true, place: V.n, ph: SOLO_VENUE.indexOf(V) <= 1 ? 'soloclub' : SOLO_VENUE.indexOf(V) <= 3 ? 'solohall' : 'concert', t: '단독 공연', g: actName(s, 'solo'), cn: actCall(s, 'solo'), mem: [[actCall(s, 'solo'), '']], mi: 0, z: { perf: z, me: z, q: (d.heat - 57) / 20, fans: d.fill * 2 - 1, star: (p.tal.star - 50) / 25 }, sc: d.heat, wins: 0, cand: 0, debut: false }); // v228: 후렴 반응(q)은 공연 열기를 따라간다 (예전엔 값이 없어 열기가 낮아도 늘 '좋다!'였다)
   },
   text: (s, d) => { const t = s.tracks.solo, fl = [d.net > 0 ? `공연 수익 +${fmtWon(d.net)}` : d.net < 0 ? `공연 적자 ${fmtWon(-d.net)}` : '', soloFxLine(d)].filter(Boolean).join(' · '); return `${d.vn} 단독 공연을 마쳤다. 관객 ${d.sold.toLocaleString()}명${d.fill >= 0.98 ? ' · 매진' : ` (${d.seat.toLocaleString()}석 가운데 ${Math.round(d.fill * 100)}%)`}. ${soloHeatW(d.heat)}.${fl ? `\n\n${fl}` : ''}`; },
   ch: (s, d) => [{ t: '확인', f: () => `${d.vn}에서 단독 공연을 했다. 관객 ${d.sold.toLocaleString()}명, ${soloHeatW(d.heat)}.` }],

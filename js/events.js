@@ -192,7 +192,7 @@ E({
   ],
 });
 E({
-  id: 'best_friend', fixed: true, once: true, cat: '초등학교', title: '첫 짝꿍',
+  id: 'best_friend', fixed: true, once: true, cat: '초등학교', title: '첫 짝꿍', noRes: 'toast',
   cond: s => schoolYear(s) === 1 && calM(s) >= 3,
   init(s, d) { const g0 = myGender(s); d.c = [0, 1].map(() => { const g = U.chance(0.6) ? g0 : (g0 === '여' ? '남' : '여'); return { g, name: genName(g), trait: U.pick(TRAITS).id, look: U.pick(g === '여' ? LOOKS_F : LOOKS_M) }; }); },
   text: (s, d) => '초등학교에서 새 친구들을 만났다. 누구랑 친해질까?\n\n' + d.c.map(c => `· ${c.name} (${c.g === '여' ? '여자아이' : '남자아이'}) — ${TRAIT_BY[c.trait].n}`).join('\n'),
@@ -201,7 +201,7 @@ E({
 E({
   id: 'after_school', once: true, p: 0.075, cat: '초등학교', title: '방과후 교실',
   cond: s => schoolYear(s) >= 1 && schoolYear(s) <= 3 && s.done.school_start,
-  text: s => `학교에서 방과후 교실 신청서를 나눠 줬다. 하나는 무료로 들을 수 있다.${s.wealth <= 3 ? ' 학원 보낼 형편은 안 되니, 엄마가 이거라도 꼭 들으라고 하셨다.' : ''}`,
+  text: s => `학교에서 방과후 교실 신청서를 나눠 줬다. 하나는 무료로 들을 수 있다.${s.wealth <= 3 ? ' 형편이 넉넉하지 않으니, 엄마가 이건 꼭 들으라고 하셨다.' : ''}`,
   init(s, d) { d.o = fitPick(s, [['방과후 합창반', 'vocal'], ['방과후 미술', 'art'], ['방과후 방송댄스', 'dance'], ['방과후 컴퓨터', 'game'], ['방과후 영어', 'en'], ['방과후 피아노', 'piano'], ['방과후 연극놀이', 'acting'], ['방과후 스피치', 'variety']].filter(x => skOpen(s, x[1]) && !has(me(s), x[1])), 3); },
   ch: (s, d) => d.o.map(([t, k]) => ({ t, h: gainH(s, k), f: s => `${josa(t, '을를')} 들었다.` + learnMe(s, k) })).concat([{ t: '아무것도 신청하지 않는다', f: () => '방과후 교실은 신청하지 않았다. 친구들과 운동장에서 놀았다.' }]),
 });
@@ -319,7 +319,7 @@ E({
 
 // 이사 뒤: 전학 간 학교에서 새 친구를 사귄다 (성인이 되기 전까지는 예전 동네 친구 대신 이 친구들과 어울린다)
 E({
-  id: 'new_friend', cat: '학교', title: '전학 간 학교',
+  id: 'new_friend', cat: '학교', title: '전학 간 학교', noRes: 'toast',
   cond: s => age(s) < 19,
   init(s, d) { const g0 = myGender(s); d.c = [0, 1].map(() => { const g = U.chance(0.6) ? g0 : (g0 === '여' ? '남' : '여'); return { g, name: genName(g), trait: U.pick(TRAITS).id, look: U.pick(g === '여' ? LOOKS_F : LOOKS_M) }; }); },
   text: (s, d) => `전학 온 지 얼마 안 됐는데, 반 아이들 몇 명이 먼저 말을 걸어 왔다. 누구랑 친해질까?\n\n` + d.c.map(c => `· ${c.name} (${c.g === '여' ? '여자아이' : '남자아이'}) — ${TRAIT_BY[c.trait].n}`).join('\n'),
@@ -1003,7 +1003,7 @@ E({
   }),
 });
 // 청혼 (인간관계 창): 사귄 지 3년이 넘은 연인에게. 친밀도 50이면 0%, 100이면 100%
-const PROPOSE_YEARS = 3;
+const PROPOSE_YEARS = 3, PROPOSE_MONEY = 2000e4; // v234: 청혼하려면 내 돈 2,000만 원(결혼식 값)이 있어야 한다 (인간관계 창에서 막는다. 남녀 모두)
 function canPropose(s, n) { return !!n && n.rel === '연인' && s.partner === n.id && age(s) >= 19 && pAge(s, n) >= 19 && s.t - (n.dateT || s.t) >= PROPOSE_YEARS * 12 && !s.army; }
 function proposeP(n) { return U.clamp((n.aff - 50) / 50, 0, 1); }
 function propose(s, n) {
@@ -1294,6 +1294,8 @@ E({
 // 중 · 고등학생이 놀 틈 없이(kidBusy) 오래 지내면 먼저 낌새가 보이고(WANDER_WARN개월째에 창으로 경고), 그래도 쉬지 않으면 WANDER_AT개월째에 1년 동안 방황한다 (평생 한 번)
 // 놀기 · 쉬기 칸을 넣으면 쌓인 달이 한 달에 두 달씩 줄어든다
 const WANDER_WARN = 24, WANDER_AT = 30;
+// v234: '잠시 쉬기'로 바꿀 칸. 고정되지 않은 칸 가운데 ① 학원을 안 다니는 연습 · 생활 칸 ② 학원을 다니는 칸 ③ 직업 활동 칸(c_…) 순서로, 같으면 아래 칸. 없으면 -1
+function kidRestSlot(s) { const I = s.slots.map((sl, i) => i).filter(i => !s.slots[i].lock), w = i => { const sl = s.slots[i]; return String(sl.act || '').startsWith('c_') ? 2 : sl.lesson ? 1 : 0; }; return I.length ? I.sort((a, b) => w(a) - w(b) || b - a)[0] : -1; }
 function kidLesson(s) { return s.slots.filter(sl => sl.lesson && actInfo(sl.act).les); }
 function kidMonth(s) {
   const p = me(s);
@@ -1301,8 +1303,8 @@ function kidMonth(s) {
   // 학창 시절에 친구와 놀면 통찰력 · 유머 감각이 아주 조금 자라고(12년 내내 놀아도 6쯤) 추억이 쌓인다
   // 재능은 정수로만 오른다: 놀 때마다 조금씩 모아 두었다가(s.talAcc) 1이 차면 +1 (두 해 남짓에 1)
   if (s.slots.some(sl => sl.act === 'play')) { const A = s.talAcc = s.talAcc || {}; for (const k of ['insight', 'humor']) { A[k] = (A[k] || 0) + 0.04; if (A[k] >= 1) { A[k] -= 1; if (p.tal[k] < 100) p.tal[k] = Math.min(100, Math.round(p.tal[k]) + 1); } } s.memo = (s.memo || 0) + 1; }
-  if (s.wandered || s.ill) return;
-  if (!kidBusy(s)) { if (s.busyM) s.busyM = Math.max(0, s.busyM - 2); return; }
+  if (s.wandered || s.ill) { delete s.skipRest; return; }
+  if (!kidBusy(s) || s.skipRest) { delete s.skipRest; if (s.busyM) s.busyM = Math.max(0, s.busyM - 2); return; } // v234: 학원을 빠지고 논 다음 달(s.skipRest)은 놀기 칸이 없어도 한 달 쉰 것으로 친다
   if (!s.slots.some(sl => !sl.lock)) return; // 칸이 전부 고정(연습생 · 촬영 · 활동기)이라 쉴 칸을 넣을 수 없는 달은 세지 않는다
   s.busyM = (s.busyM || 0) + 1;
   // 경고는 한 해에 한 번까지 (쉬었다 다시 바빠져 같은 달수로 돌아와도 또 띄우지 않게)
@@ -1312,8 +1314,12 @@ function kidMonth(s) {
 E({
   id: 'puberty_warn', cat: '사춘기', title: '요즘 좀 이상하다', keepPop: true,
   cond: s => age(s) < 19,
-  text: () => `요즘 부쩍 말수가 줄었다. 연습을 하다가도 멍하니 서 있고, 친구들이 놀러 간 이야기를 하면 혼자 창밖만 본다. 마음 놓고 놀아 본 게 언제인지 기억도 나지 않는다.\n\n이대로 숨 돌릴 틈 없이 지내면 머지않아 크게 엇나갈 것 같다. 일정에 '친구와 놀기'나 '푹 쉬기'를 한 칸 넣어 두면 차츰 나아진다.`,
-  ch: () => [{ t: '알겠다', f: () => '쉴 틈이 없어 마음이 지쳐 간다. 이대로면 머지않아 크게 엇나갈 것 같다.' }],
+  text: () => `요즘 부쩍 말수가 줄었다. 연습을 하다가도 멍하니 서 있고, 친구들이 놀러 간 이야기를 하면 혼자 창밖만 본다. 마음 놓고 놀아 본 게 언제인지 기억도 나지 않는다.\n\n이대로 숨 돌릴 틈 없이 지내면 머지않아 크게 엇나갈 것 같다.`,
+  // v234: '잠시 쉬기'를 고르면 일정 한 칸이 '친구와 놀기'로 바뀐다 (칸의 학원 설정은 기억해 둔다)
+  ch: () => [
+    { t: '잠시 쉬기', h: "일정 한 칸이 '친구와 놀기'로 바뀐다", ok: s => kidRestSlot(s) >= 0, f: s => { const sl = s.slots[kidRestSlot(s)], old = actInfo(sl.act); lesKeep(s, sl); sl.act = 'play'; lesBack(s, sl); delete sl.dflt; return `${old && old.n ? `'${old.n}' 대신 ` : ''}'친구와 놀기'를 일정에 넣었다. 숨이 좀 트인다.`; } },
+    { t: '그대로 버틴다', f: () => '쉴 틈이 없어 마음이 지쳐 간다. 이대로면 머지않아 크게 엇나갈 것 같다.' },
+  ],
 });
 E({
   id: 'puberty', cat: '사춘기', title: '다 그만두고 싶다', keepPop: true,
@@ -1324,7 +1330,7 @@ E({
 });
 // 학원 친구: 학원에 다니는 학생에게 가끔 생긴다
 E({
-  id: 'acad_friend', cd: 30, p: 0.03, cat: '학원', title: '학원 친구',
+  id: 'acad_friend', cd: 30, p: 0.03, cat: '학원', title: '학원 친구', noRes: 'toast',
   cond: s => age(s) < 19 && schoolYear(s) >= 1 && !s.edu.graduated && !s.ill && kidLesson(s).length > 0 && people(s, n => n.acad).length < 3,
   init(s, d) { const g0 = myGender(s); d.k = actInfo(U.pick(kidLesson(s)).act).skill; d.g = U.chance(0.65) ? g0 : (g0 === '여' ? '남' : '여'); d.name = genName(d.g); d.trait = U.pick(TRAITS).id; d.look = U.pick(d.g === '여' ? LOOKS_F : LOOKS_M); },
   text: (s, d) => `${SKILLS[d.k].les.n}에서 같은 반 ${josa(d.name, '과와')} 자주 마주친다. 쉬는 시간마다 붙어 다니다 보니 어느새 친해졌다.`,
@@ -1337,7 +1343,7 @@ E({
   init(s, d) { const F = people(s, n => n.rel === '친구' && !n.far), A = F.filter(x => x.acad); d.id = U.pick(A.length ? A : F).id; d.k = actInfo(U.pick(kidLesson(s)).act).skill; },
   text: (s, d) => { const n = s.people[d.id]; return `${SKILLS[d.k].les.n}에 가는 길에 ${josa(n.name, '이가')} 팔을 잡아끈다. "오늘 하루만 빠지자. 떡볶이 먹고 노래방 가자."`; },
   ch: (s, d) => { const n = s.people[d.id]; return [
-    { t: '따라간다', h: '스트레스 ↓ · 친구와 가까워진다', f: s => { aff(n, 6); n.contactT = s.t; s.memo = (s.memo || 0) + 6; const caught = U.chance(0.25); return `${josa(n.name, '과와')} 학원을 빠지고 해가 질 때까지 놀았다.` + (caught ? ' 집에 오니 학원에서 전화가 와 있었다. 한참 혼났다.' : ' 오래 기억에 남을 하루였다.') + fx(s, { stress: caught ? -4 : -9 }); } },
+    { t: '따라간다', h: '스트레스 ↓ · 친구와 가까워진다', f: s => { aff(n, 6); n.contactT = s.t; s.memo = (s.memo || 0) + 6; s.skipRest = 1; const caught = U.chance(0.25); return `${josa(n.name, '과와')} 학원을 빠지고 해가 질 때까지 놀았다.` + (caught ? ' 집에 오니 학원에서 전화가 와 있었다. 한참 혼났다.' : ' 오래 기억에 남을 하루였다.') + fx(s, { stress: caught ? -4 : -9 }); } },
     { t: '학원에 간다', f: s => { aff(n, -1); return `${n.name}에게 다음에 가자고 하고 학원에 갔다.`; } },
   ]; },
 });

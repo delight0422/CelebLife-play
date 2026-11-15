@@ -224,8 +224,7 @@ function viAlbStart(s, t) {
   const ag = viAgOf(t), P = [me(s)], L = TRENDS.filter(x => cAgeOK(s, P, x, 1)), c = U.chance(0.5) && L.includes(s.trend) ? s.trend : U.pick(L.length ? L : TRENDS);
   const r = albNpc(s, { tier: ag.tier || 1, rep: ag.plan != null ? ag.plan : 50, sig: null, mem: [], cs: [c], ok: x => cAgeOK(s, P, x, 1), boss: { sd: 8 }, bossN: t.corpN || '회사', anr: { sd: 8 }, anrN: 'A&R팀', out: 0.3 });
   t.alb = albKeep(s, r, true);
-  queueEv(s, 'vi_song', 3, { a: t.alb });
-  addLog(s, `${t.corpN}에서 「${t.ch}」의 오리지널 곡 제작에 들어갔다. ('${c}' 컨셉)`, 'career');
+  queueEv(s, 'vi_song', 3, { a: t.alb }); // v234: '오리지널 곡 제작에 들어갔다' 같은 과정 글은 남기지 않는다 (석 달 뒤 성적 창이 결과)
 }
 // 오리지널 곡: 회사가 곡을 받아 와 낸다. 내 보컬이 좋을수록 잘된다 (가창 저작인접권 몫이 조금 들어온다)
 E({
