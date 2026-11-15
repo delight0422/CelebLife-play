@@ -1,45 +1,156 @@
 'use strict';
-// 제안(메시지함)과 지원(직업 지원·활동 지원)
-// 제안: 회사·제작사·브랜드·방송인이 나한테 먼저 보낸 것. 바로 답하지 않아도 되고, 기한 마지막 날까지 답이 없으면 그때 대답을 고르게 한다.
+// 제안(제안 창)과 지원(직업 지원·활동 지원)
+// 제안: 회사·제작사·브랜드·방송인이 나한테 먼저 보낸 것. v237: 메시지함을 없앴다 — 제안이 오면 그달에 바로 제안 창이 뜨고 그 자리에서 답한다
 // 지원: 내가 할 수 있는 곳을 전부 보여 준다. 직업 지원(이력서·기획사 오디션)과 활동 지원(뮤지컬·오디션 프로그램 등).
 
-// ───── 메시지함 ─────
-// INBOX[kind] = { ic, text(s,m), ch(s,m) → [{ t, h, ok, f }] }
+// ───── 제안 ─────
+// INBOX[kind] = { ic, text(s,m), ch(s,m) → [{ t, h, ok, f }], to(s,m) 받는 곳 (없으면 나) }
+// s.inbox: 답을 기다리는 제안을 잠깐 담아 두는 곳 (제안 창에서 답하면 빠진다). 같은 제안이 두 번 오지 않게 막는 곳 · 논란으로 제안이 사라지는 곳(scandal.js)이 여기를 본다
 const INBOX = {};
+// 회사 제작 의뢰는 그 회사를 CEO가 맡고 있으면 CEO가 바로 답한다 (v237: 창을 띄우지 않는다. 예전에는 company.js coCeoMonth가 다음 달에 답했다)
+const MSG_CEO = { co_vad: 'video', co_aad: 'anime' };
+// 제안이 어느 직업의 일인가 (v237 업계 냉대: 그 직업으로 오는 제안이 드물어진다). 받으면 시작하는 직업(선택지의 nj)도 함께 본다
+const MSG_JOB = { ag_offer: m => m.d.kind, idol_solo: 'idol', band_fest: 'band', session: 'player', recital: 'player', solo_ost: 'solo', solo_feat: 'solo', cast_offer: 'actor', var_fixed: 'variety', dc_offer: 'dancer', mcn_offer: 'youtube',
+  w_name: 'composer', w_adopt: m => m.d.kind, w_team: m => m.d.kind, p_offer: 'producer', choreo: 'trainer', pf_inv: 'prof', tu_ol: 'tutor', ded_offer: 'editor', wb_cp_offer: m => m.d.id, dir_side: 'director', script_order: 'writer', script_fix: 'writer' };
+function msgJobs(s, m) {
+  const J = [], x = MSG_JOB[m.kind], j = typeof x === 'function' ? x(m) : x;
+  if (j) J.push(j);
+  try { for (const c of INBOX[m.kind].ch(s, m) || []) if (c && c.nj && !J.includes(c.nj)) J.push(c.nj); } catch (e) { }
+  return J;
+}
 function sendMsg(s, kind, o) {
-  const m = Object.assign({ id: 'm' + U.uid(), kind, at: s.t, due: s.t + (o.months || 6), read: false }, o);
+  const m = Object.assign({ id: 'm' + U.uid(), kind, at: s.t }, o);
+  // v237: 업계 냉대가 걸린 직업으로 오는 제안은 거의 오지 않는다 (처음에는 열에 아홉이 사라지고, 시간이 지날수록 풀린다. game.js coldK)
+  { const k = Math.max(0, ...msgJobs(s, m).map(j => coldK(s, j))); if (k > 0 && U.chance(COLD_OFFER * k)) return null; }
+  const cf = MSG_CEO[kind], ceo = !!cf && typeof coOn === 'function' && coOn(s) && !!coCeo(coT(s), cf);
   s.inbox.push(m);
-  addLog(s, `📨 ${m.from}에게서 제안이 왔다. (${m.title})`, 'career');
+  if (ceo) {
+    dlRun(() => { addLog(s, `📨 ${m.from}에게서 제안이 왔다. (${m.title})`, 'career'); const r = answerMsg(s, m.id, 0); if (r) addLog(s, r, 'career'); });
+    if (!s.inbox.includes(m)) return m;
+  } else addLog(s, `📨 ${m.from}에게서 제안이 왔다. (${m.title})`, 'career');
+  // 그달에 바로 제안 창으로 (한 달에 여러 개가 오면 차례로 뜬다)
+  queueEv(s, 'offer', 0, { id: m.id }, true);
   return m;
 }
-// 답장을 기다리는 제안 수
+// 답을 기다리는 제안 수
 function inboxCount(s) { return s.inbox.length; }
-function msgChoices(s, m) { return njGate(s, INBOX[m.kind].ch(s, m) || []); }
-// 메시지에 답하기. 돌려주는 값: 기록 문장
+// 선택지: 원래 선택지(겸직 규칙을 씌운 것) 뒤에, 겸직 · 전속 계약 때문에 못 받는 제안이면 '○○ 활동을 그만두고 받는다'를 붙인다 (v237)
+function msgBase(s, m) { return njGate(s, INBOX[m.kind].ch(s, m) || []); }
+function msgChoices(s, m) {
+  const raw = INBOX[m.kind].ch(s, m) || [], L = njGate(s, raw);
+  return L.concat(walkChoices(s, m, raw, L));
+}
+// 제안에 답하기. 돌려주는 값: 기록 문장
 function answerMsg(s, id, i) {
   const m = s.inbox.find(x => x.id === id);
   if (!m) return '';
   const c = msgChoices(s, m)[i];
   if (!c || (c.ok && !c.ok(s))) return '';
   s.inbox.splice(s.inbox.indexOf(m), 1);
-  // 지난 제안: 메시지함 아래에 무엇을 골랐는지 남겨 둔다
-  s.inboxLog = s.inboxLog || [];
-  s.inboxLog.push({ t: s.t, kind: m.kind, title: m.title, from: m.from, ans: c.t, late: !!m.forced });
-  if (s.inboxLog.length > 40) s.inboxLog.shift();
   return c.f(s, m) || '';
 }
-// 기한 마지막 날: 답하지 않은 제안은 대답을 고르는 창을 띄운다
+// 매달: 창이 뜨지 못하고 남은 제안을 다시 창으로 띄운다 (예전 세이브의 메시지함에 남아 있던 제안도 불러온 다음 달에 여기서 차례로 뜬다)
+// 세 번 넘게 못 띄운 제안은 버린다 (그 제안이 남아 있으면 같은 종류의 새 제안이 영영 오지 않는다)
+function offerQd(s, id) { return s.queue.some(q => q.id === 'offer' && q.d && q.d.id === id) || !!(s.pending && s.pending.id === 'offer' && s.pending.d && s.pending.d.id === id); }
 function inboxMonth(s) {
-  for (const m of s.inbox) if (m.due <= s.t && !m.forced) { m.forced = true; queueEv(s, 'inbox_due', 0, { id: m.id }, true); }
+  for (const m of s.inbox.slice()) {
+    if (offerQd(s, m.id)) continue;
+    m.rq = (m.rq || 0) + 1;
+    if (m.rq > 3 || !INBOX[m.kind]) { s.inbox.splice(s.inbox.indexOf(m), 1); continue; }
+    queueEv(s, 'offer', 0, { id: m.id }, true);
+  }
 }
+// 제안 창 (v237): 제안이 오면 그달에 바로 뜬다. 답하면 s.inbox에서 빠진다. 그사이 제안이 사라졌으면(논란 등) 창을 건너뛴다
+function offerMsg(s, d) { return d && d.id ? s.inbox.find(x => x.id === d.id) : null; }
 E({
-  id: 'inbox_due', cat: '📨 답장 기한', tag: 'career',
+  id: 'offer', tag: 'career', resAll: true, // resAll: 고른 결과를 늘 아래쪽 토스트로 알린다 (ui.js resAfter)
+  cat: (s, d) => { const m = offerMsg(s, d); return `${(m && INBOX[m.kind] && INBOX[m.kind].ic) || '📨'} 제안`; },
   cond: s => true,
-  init(s, d) { if (!s.inbox.find(m => m.id === d.id)) d.skip = true; },
-  title: (s, d) => { const m = s.inbox.find(x => x.id === d.id); return m ? m.title : '제안'; },
-  text: (s, d) => { const m = s.inbox.find(x => x.id === d.id); return `답장 기한이 오늘까지다. ${m.from}에서 온 제안에 답해야 한다.\n\n` + INBOX[m.kind].text(s, m); },
-  ch: (s, d) => { const m = s.inbox.find(x => x.id === d.id); if (!m) return [{ t: '확인', f: () => '' }]; return msgChoices(s, m).map((c, i) => ({ t: c.t, h: c.h, ok: c.ok, f: s => answerMsg(s, d.id, i) })); },
+  init(s, d) { const m = offerMsg(s, d); if (!m || !INBOX[m.kind]) d.skip = true; },
+  title: (s, d) => { const m = offerMsg(s, d); return m ? m.title : '제안'; },
+  text: (s, d) => { const m = offerMsg(s, d); if (!m) return '그사이 제안이 없던 일이 됐다.'; const K = INBOX[m.kind]; return `보낸 곳: ${m.from}${K.to ? ` → ${K.to(s, m)}` : ''}\n\n` + K.text(s, m); },
+  // 겸직 규칙은 msgChoices가 이미 씌웠으니 nj는 뺀다 (game.js evChoices가 또 씌우지 않게)
+  ch: (s, d) => { const m = offerMsg(s, d); if (!m) return [{ t: '확인', f: () => '' }]; return msgChoices(s, m).map((c, i) => Object.assign({}, c, { nj: null, nm: null, f: s => answerMsg(s, d.id, i) })); },
 });
+
+// ───── 못 받는 제안: 다른 일을 그만두고 받기 (v237) ─────
+// 받는 선택지가 겸직 규칙(직업 3개 · 같이 못 하는 조합)이나 전속 · 소속 계약 때문에 막혔을 때, 지금 하는 일 가운데 그것 하나를 그만두면 받을 수 있게 되는 일마다 선택지를 하나씩 붙인다
+// 고르면: 그 일을 그만둔다(직업 창 '탈퇴 · 그만두기'를 확인 창 없이 실행 — 위약금 · 탈퇴 처리도 그대로) → 평판 30~40 ↓ → 그 직업에 업계 냉대(game.js coldK) → 무책임한 하차 논란(scandal.js) → 원래 제안을 받는다
+// 돈 · 나이 · 다른 작품처럼 겸직이 아닌 까닭으로 막힌 제안에는 붙이지 않는다
+function walkJobN(id) { return typeof jobName === 'function' ? jobName(id) : evJobN(id); }
+function jobQuitActs(s, id) { const c = CAREERS[id]; return (c && c.actions ? c.actions(s, s.tracks[id]) || [] : []).filter(a => a && a.danger && a.run && a.ok); }
+// 직업 하나를 지금 그만둔다. 계약 해지처럼 그 일이 끝나지 않는 항목이면(소속만 나오고 프리랜서로 남는다) 이어서 다음 항목을 실행한다. 끝까지 그만둘 수 없으면 null
+function jobQuitNow(s, id) {
+  const logs = [], hs = [];
+  for (let n = 0; n < 5 && trackOn(s, id); n++) {
+    const A = jobQuitActs(s, id), a = A[A.length - 1];
+    if (!a) return null;
+    if (a.h) hs.push(a.h);
+    const r = a.run(s); if (r) logs.push(r);
+  }
+  return trackOn(s, id) ? null : { logs, hs };
+}
+// 막힌 까닭이 겸직 규칙(njGate)이나 전속 · 소속 계약인가
+function walkCan(s, r, c) {
+  if (r.nj && jobBlock(s, r.nj, r.nm)) return true;
+  if (!c.ok || c.ok(s)) return false;
+  return !!c.h && (c.h === contractWhy(s) || c.h === artistContractWhy(s));
+}
+// 그 일 하나를 그만두면 정말 받을 수 있게 되는지, 저장 데이터를 복사해서 미리 해 본다 (그만두기가 직업마다 달라서 직접 해 보는 것이 가장 정확하다)
+function walkTry(s, m, i, id) {
+  const tap = MONEY_TAP, e0 = EV_E0; MONEY_TAP = null;
+  try {
+    const c = JSON.parse(JSON.stringify(s)), mm = c.inbox.find(x => x.id === m.id);
+    if (!mm) return null;
+    const q = jobQuitNow(c, id); if (!q) return null;
+    const a = msgBase(c, mm)[i];
+    return a && (!a.ok || a.ok(c)) ? q : null;
+  } catch (e) { return null; } finally { MONEY_TAP = tap; EV_E0 = e0; }
+}
+// 창을 그릴 때마다 다시 해 보지 않게, 상황이 그대로면 앞서 해 본 결과를 쓴다
+const WALK_MEMO = new Map();
+function walkList(s, m, i, nj) {
+  const on = CAREER_IDS.filter(id => CAREERS[id] && trackOn(s, id) && id !== nj);
+  const key = [m.id, i, s.t, s.log.length, Math.round(s.money), Math.round(s.debt || 0), on.map(id => `${id}:${s.tracks[id].st}:${s.tracks[id].mode || ''}:${s.tracks[id].via || ''}`).join(',')].join('|');
+  if (WALK_MEMO.has(key)) return WALK_MEMO.get(key);
+  if (WALK_MEMO.size > 30) WALK_MEMO.clear();
+  const out = [];
+  for (const id of on) {
+    if (!jobQuitActs(s, id).length) continue; // 그만둘 길이 없는 일 (회사 대표 · 촬영 중인 배우 등)
+    const q = walkTry(s, m, i, id);
+    if (q) out.push({ id, h: q.hs.join(' · ') });
+  }
+  WALK_MEMO.set(key, out);
+  return out;
+}
+function walkChoices(s, m, raw, L) {
+  const out = [];
+  L.forEach((c, i) => {
+    const r = raw[i];
+    if (!c || !r || !walkCan(s, r, c)) return;
+    for (const x of walkList(s, m, i, r.nj)) out.push({
+      t: `${josa(`「${walkJobN(x.id)} 활동」`, '을를')} 그만두고 받는다`, walk: x.id, h: x.h,
+      warn: `${coldField(x.id)} 업계에서 사실상 일할 수 없게 된다 · 평판 크게 ↓ · 논란이 터진다`,
+      f: (s, m) => walkTake(s, m, i, x.id),
+    });
+  });
+  return out;
+}
+function walkTake(s, m, i, id) {
+  const act = `「${walkJobN(id)} 활동」`, fd = coldField(id);
+  const q = jobQuitNow(s, id);
+  // 미리 해 본 것과 달리 그만둘 수 없으면 제안을 다시 띄운다
+  if (!q) { s.inbox.push(m); queueEv(s, 'offer', 0, { id: m.id }, true); return `지금은 ${josa(act, '을를')} 그만둘 수 없었다.`; }
+  for (const x of q.logs) addLog(s, x, 'career');
+  const a = msgBase(s, m)[i];
+  if (!a || (a.ok && !a.ok(s))) return `${josa(act, '을를')} 그만뒀지만, 그사이 사정이 바뀌어 제안은 받지 못했다.`;
+  const b = s.rep; s.rep = Math.max(0, b - U.int(30, 40));
+  const dr = Math.round(b) - Math.round(s.rep);
+  (s.jobCold = s.jobCold || {})[id] = { t0: s.t, until: s.t + COLD_M };
+  if (typeof walkScandal === 'function') walkScandal(s, walkJobN(id));
+  addLog(s, `${josa(act, '을를')} 그만두고 제안을 받았다. ${fd} 업계에 무책임하다는 말이 퍼졌다.${dr ? ` (평판 -${dr})` : ''}`, 'bad');
+  return a.f(s, m) || '';
+}
 
 // ───── 지원 ─────
 // 항목: { id, n, ic, h(s), ok(s), why(s), run(s) }

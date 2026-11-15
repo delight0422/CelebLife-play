@@ -58,7 +58,7 @@ function turnGo(max) {
   if (UI.overlay) closePanel();
   const p = me(s);
   // 요약에는 이번에 넘어간 동안 생긴 일만 넣는다 (창에서 고른 결과 · 버튼으로 한 일은 이미 아는 일이라 넣지 않는다)
-  UI.turn = { max, kid: turnKid(s) && max > 1, sl0: slotCount(s), n: 0, last: s.log[s.log.length - 1] || null, t0: s.t, inbox: new Set(s.inbox.map(m => m.id)), money: s.money, fans: totalFans(s), stress: Math.round(s.stress), g0: growSnap(s), why: '', co: trackOn(s, 'agency') ? s.tracks.agency.money : null, inc: (MONEY_TAP = {}), acc0: ledSnapA(s), gf0: ledGF(s) };
+  UI.turn = { max, kid: turnKid(s) && max > 1, sl0: slotCount(s), n: 0, last: s.log[s.log.length - 1] || null, t0: s.t, money: s.money, fans: totalFans(s), stress: Math.round(s.stress), g0: growSnap(s), why: '', co: trackOn(s, 'agency') ? s.tracks.agency.money : null, inc: (MONEY_TAP = {}), acc0: ledSnapA(s), gf0: ledGF(s) };
   $('#tcard').innerHTML = turnRunHTML(s); $('#tcard').classList.add('run'); // v205: 진행 중 화면은 작게 그대로
   $('#turn').classList.remove('hidden');
   UI.timer = setTimeout(turnStep, TURN_MS);
@@ -71,7 +71,7 @@ function turnStep() {
   T.n++;
   save(s); render();
   // v196: 경고(s.warnT, 그만둘까 고민하는 연습생)가 생긴 달에도 멈춘다
-  T.why = s.ended ? 'end' : s.pending ? 'ev' : s.inbox.some(m => !T.inbox.has(m.id)) ? 'msg' : s.warnT === s.t ? 'warn' : T.n >= T.max ? 'max' : T.kid && (slotCount(s) !== T.sl0 || !turnKid(s) || turnKidSpecial(s, T)) ? 'sp' : '';
+  T.why = s.ended ? 'end' : s.pending ? 'ev' : s.warnT === s.t ? 'warn' : T.n >= T.max ? 'max' : T.kid && (slotCount(s) !== T.sl0 || !turnKid(s) || turnKidSpecial(s, T)) ? 'sp' : '';
   $('#tcard').innerHTML = T.why ? turnSumHTML(s, T) : turnRunHTML(s); $('#tcard').classList.toggle('run', !T.why);
   if (!T.why) UI.timer = setTimeout(turnStep, TURN_MS);
 }
@@ -272,9 +272,9 @@ function turnSumHTML(s, T) {
   if (flav.length) h += `<details class="ts-more" open><summary>☕ 일상 ${flav.length}건</summary>${flav.map(x => `<div class="ts-i flavor">${mo ? `<span class="ts-mo">${ymOfT(s, x.t).m}월</span>` : ''}<span class="ts-x">${nl(x.x)}</span></div>`).join('')}</details>`;
   h += `</div>`;
   if (coL) h += `<div class="ts-body${tab === 'res' ? '' : ' hidden'}" data-tsp="res">${LG.html}</div>`;
-  const why = T.why === 'ev' ? '📌 결정할 일이 생겼다' : T.why === 'msg' ? '📨 새 메시지가 왔다' : T.why === 'warn' ? '⚠️ 살펴볼 일이 생겼다' : '';
+  const why = T.why === 'ev' ? '📌 결정할 일이 생겼다' : T.why === 'warn' ? '⚠️ 살펴볼 일이 생겼다' : '';
   // v205: 큰 창 맨 아래에 (ts-end)
-  h += `<div class="ts-end">${why ? `<div class="ts-why">${why}</div>` : ''}<div class="choices ts-btns">${T.why === 'msg' ? `<button class="btn" data-turnok="inbox">📨 메시지함 열기</button>` : ''}<button class="btn primary" data-turnok="">확인 <kbd>Space</kbd></button></div></div>`;
+  h += `<div class="ts-end">${why ? `<div class="ts-why">${why}</div>` : ''}<div class="choices ts-btns"><button class="btn primary" data-turnok="">확인 <kbd>Space</kbd></button></div></div>`;
   return h;
 }
 // 장래희망 발표 (피드백): 정해진 달이 없다. 9세가 된 해에 진행이 멈추면 요약 창 다음에 덧붙여 뜬다
@@ -284,19 +284,18 @@ function dreamNow(s) {
 }
 // 버튼으로 한 일 다음에 생긴 사건: 고를 게 없으면 창 없이 처리하고 알림으로 보여 준다
 function actAuto(s) { const n0 = s.log.length; autoEvs(s); chMark(s); pullNow(s); if (s.log.length > n0) toast(s.log[s.log.length - 1].x); }
-// 요약 창을 닫는다: 사건이 있으면 사건 창, 인생이 끝났으면 결산, 메시지를 보러 가면 메시지함
-function turnClose(next) {
+// 요약 창을 닫는다: 사건이 있으면 사건 창, 인생이 끝났으면 결산 (v237: 메시지함을 없앴다 — 제안은 사건 창으로 뜬다)
+function turnClose() {
   if (!UI.turn || !UI.turn.why) return;
   UI.turn = null;
   $('#turn').classList.add('hidden');
-  if (!S.ended && next !== 'inbox') dreamNow(S);
+  if (!S.ended) dreamNow(S);
   // v229: 사건 창이 기다리고 있으면 성과 토스트(달마다 오른 등급 등)는 모아 둔 채로 창부터 띄운다. 기다리는 창이 없으면 어두운 화면 가운데에 띄우고, 다 끝나면 이어 간다 (v176)
   const L = rtHold(S) ? null : rtTake(S);
   render();
   const go = () => {
     if (S.ended) { showEnding(); return; }
     if (S.pending) { UI.minimized = false; showEvent(); return; }
-    if (next === 'inbox') openPanel('inbox');
   };
   if (L) resToast(L, true, go); else go();
 }
@@ -394,13 +393,9 @@ function renderTop() {
   UI.dateM = m;
   $('#btn-applyjob').classList.toggle('hidden', typeof jobApplies !== 'function');
   $('#btn-applyact').classList.toggle('hidden', typeof actApplies !== 'function');
-  // 에고서칭: 커뮤니티에서 내 이름을 찾아본다 (일곱 살부터). 메시지함 줄 맨 끝의 작은 배너
+  // 에고서칭: 커뮤니티에서 내 이름을 찾아본다 (일곱 살부터). 구직활동 줄 맨 끝의 작은 배너
   $('#btn-ego').classList.toggle('hidden', !(typeof commNow === 'function' && age(s) >= 7));
-  // 메시지함 버튼 (가운데 줄, 인간관계 아래): 안 읽은 제안이 있으면 버튼 오른쪽 위에 빨간 점
-  const unread = s.inbox.filter(m => !m.read).length;
-  $('#btn-inbox').innerHTML = `📨 메시지함${s.inbox.length ? ` <span class="cnt">${s.inbox.length}</span>` : ''}${unread ? '<i class="rdot"></i>' : ''}`;
 }
-function markInboxRead(s) { let ch = false; for (const m of s.inbox) if (!m.read) { m.read = true; ch = true; } return ch; }
 
 // 고정된 칸의 이유 (그 칸 바로 아래에 보인다)
 function lockWhy(s, lock) {
@@ -1018,7 +1013,7 @@ function resPre(s) {
   if (!ev) return null;
   let title = '';
   try { title = typeof ev.title === 'function' ? ev.title(s, p.d) : ev.title; } catch (e) { }
-  return { L0: s.log[s.log.length - 1], cat: evCat(ev, s, p.d), title, form: !!ev.form, noRes: ev.noRes || false, noToast: !!ev.noToast, C: ev.form ? [] : evChoices(s) };
+  return { L0: s.log[s.log.length - 1], cat: evCat(ev, s, p.d), title, form: !!ev.form, noRes: ev.noRes || false, noToast: !!ev.noToast, resAll: !!ev.resAll, C: ev.form ? [] : evChoices(s) };
 }
 // v202: 고른 결과와 그사이 생긴 일을 나눈다. M: 고른 결과의 끝 기록 (game.js CH_END). 모르면 모두 고른 결과
 //   다음에 뜰 창이 준비하며 남긴 기록(tk)은 그 창에서 보여 주니 빼고, 그사이 생긴 일에서는 일상 · 맡긴 일도 뺀다
@@ -1039,7 +1034,8 @@ function resAfter(pre, i) {
   // noRes 'toast' (작품 기획 중 고르는 창): 제작 시작 창처럼 따로 그리는 창이 바로 뜨면 그 창이 결과를 보여 주니 생략
   const nx = S.pending && EVENTS[S.pending.id], c = pre.C[i];
   // v205: ev.noToast — 창 글을 되풀이할 뿐인 결과(데뷔조의 합이 맞기 시작했다 등)는 토스트를 띄우지 않는다 (기록에는 남는다)
-  if (mine.length && !one && !pre.noToast && !(pre.noRes === 'toast' && nx && nx.card && nx.card !== 'plan-card')) ctoastShow({ cat: pre.cat, title: pre.title, pick: c ? c.t : '', L: mine, all: unc });
+  // v237: ev.resAll — 제안 창(inbox.js 'offer')은 고른 결과를 늘 알린다 (예전 메시지함에서 답했을 때처럼. '광고 모델이 되었다'처럼 잘됐다 · 안됐다 낱말이 없는 줄도)
+  if (mine.length && !one && !pre.noToast && !(pre.noRes === 'toast' && nx && nx.card && nx.card !== 'plan-card')) ctoastShow({ cat: pre.cat, title: pre.title, pick: c ? c.t : '', L: mine, all: unc || pre.resAll });
   if (!other.length) return false;
   resShow({ cat: '방금 고른 것과 따로', title: '그사이 생긴 일', L: other, next: afterChoice });
   return true;
@@ -1295,7 +1291,7 @@ function renderPanel() {
   const k = UI.overlay;
   UI.acts = [];
   let h = `<button class="m-close" data-close>✕</button>`;
-  const P = { lifelog: panelLifelog, soon: panelSoon, job: panelJob, lifesec: panelLifeSec, money: panelMoney, inbox: panelInbox, trk: panelTrk, kid: panelKid, applyjob: panelApplyJob, applyact: panelApplyAct, pastecode: panelPasteCode, profile: panelProfile, me: panelProfile, family: panelFamily, love: panelLove, career: panelCareer, people: panelPeople, life: panelLife, menu: panelMenu, hall: panelHall, help: panelHelp, pick: panelPick };
+  const P = { lifelog: panelLifelog, soon: panelSoon, job: panelJob, lifesec: panelLifeSec, money: panelMoney, trk: panelTrk, kid: panelKid, applyjob: panelApplyJob, applyact: panelApplyAct, pastecode: panelPasteCode, profile: panelProfile, me: panelProfile, family: panelFamily, love: panelLove, career: panelCareer, people: panelPeople, life: panelLife, menu: panelMenu, hall: panelHall, help: panelHelp, pick: panelPick };
   if (P[k]) h += P[k]();
   else if (typeof window['panel_' + k] === 'function') h += window['panel_' + k]();
   $('#pcard').classList.toggle('wide', k === 'company' || k === 'group'); // 회사 창은 넓게 (v131)
@@ -1332,39 +1328,6 @@ function panelPick() {
   if (!order.length) h += `<div class="empty">찾는 활동이 없다.</div>`;
   if (!learnedSkills(p).length) h += `<p class="hint">아직 배운 특기가 없어서 연습할 수 있는 게 없다. 특기는 살면서 만나는 선택지로 처음 배운다.</p>`;
   return h;
-}
-// 메시지함 (제안): 위쪽 메시지함 버튼을 누르면 창으로 연다
-// v208: 메시지함을 한눈에 — 위에 요약(답할 제안 · 새 제안 · 곧 마감), 곧 마감인 것부터 묶음으로, 제안마다 카드
-//   카드: 아이콘 · 제목 · 기한 칩(곧 마감이면 빨간색) · 보낸 곳 → 받는 곳 · 본문 상자 · 답 버튼. 넓은 화면에서는 두 줄로 늘어선다
-//   '새 제안': 이번에 처음 본 제안(창을 열 때 읽음으로 바뀌기 전에 기억해 둔다)과 이번 달에 온 제안
-function msgHTML(s, m, nw) {
-  const K = INBOX[m.kind] || {}, left = Math.max(0, m.due - s.t), ago = s.t - m.at, to = K.to ? K.to(s, m) : '나', urg = left <= 0 ? 'now' : left <= 1 ? 'soon' : '';
-  let h = `<div class="msg${nw ? ' new' : ''}${urg ? ' ' + urg : ''}"><div class="msg-h"><span class="msg-ic">${K.ic || '📨'}</span><div class="msg-tt"><b>${U.esc(m.title)}</b>${K.tag ? `<span class="fix-tag sm">${K.tag}</span>` : ''}${nw ? '<span class="new-tag">새 제안</span>' : ''}`
-    + `<div class="msg-from">${U.esc(m.from)} → <b>${U.esc(to)}</b>${ago ? ` · ${ago}개월 전에 받음` : ''}</div></div><span class="due ${urg}">${left ? (left === 1 ? '⏰ 다음 달까지' : `⏳ ${left}개월 남음`) : '⏰ 이번 달까지'}</span></div>`;
-  h += `<div class="msg-d">${nl(K.text(s, m))}</div><div class="msg-btns">`;
-  msgChoices(s, m).forEach((c, i) => { const ok = !c.ok || c.ok(s); h += `<div class="opt"><button class="btn sm ${i === 0 ? 'primary' : ''}" data-msg="${m.id}" data-mi="${i}" ${ok ? '' : 'disabled'}>${U.esc(c.t)}</button>${c.tr ? TR_BADGE : ''}${c.h ? `<span class="h">${U.esc(c.h)}</span>` : ''}</div>`; });
-  return h + `</div></div>`;
-}
-function inboxPastHTML(s, n) {
-  const past = (s.inboxLog || []).slice(-n).reverse();
-  if (!past.length) return '';
-  return treeSec('ibx:past', '🗂️ 지난 제안', `${past.length}건`, `<div class="ibx-past">` + past.map(x => {
-    const y = s.birthYear + Math.floor((s.birthMonth + x.t) / 12), mo = (s.birthMonth + x.t) % 12 + 1;
-    return `<div class="ibx-old"><span class="d">${y}.${String(mo).padStart(2, '0')}</span><span class="ic">${(INBOX[x.kind] && INBOX[x.kind].ic) || '📨'}</span><div><b>${U.esc(x.title)}</b> <span class="f">· ${U.esc(x.from)}</span><div class="r">→ ${U.esc(x.ans)}${x.late ? ' (기한 마지막 달에 답함)' : ''}</div></div></div>`;
-  }).join('') + `</div>`, false);
-}
-function panelInbox() {
-  const s = S, un = s.inbox.filter(m => !m.read).map(m => m.id);
-  if (un.length) { UI.ibxNew = new Set(un); UI.ibxNewT = s.t; }
-  if (markInboxRead(s)) { save(s); renderTop(); }
-  const nw = m => (UI.ibxNewT === s.t && UI.ibxNew && UI.ibxNew.has(m.id)) || m.at >= s.t;
-  const L = s.inbox.slice().sort((a, b) => a.due - b.due || b.at - a.at), soon = L.filter(m => m.due - s.t <= 1), later = L.filter(m => m.due - s.t > 1), nN = L.filter(nw).length;
-  let h = `<h2>📨 메시지함</h2><p class="p-intro">회사 · 제작사 · 브랜드 등에서 먼저 보낸 제안이 모인다. 바로 답하지 않아도 되지만, 기한 마지막 달까지 답이 없으면 그때 꼭 골라야 한다.</p>`;
-  if (!L.length) return h + `<div class="empty">답장을 기다리는 제안이 없다.</div>` + inboxPastHTML(s, 40);
-  h += `<div class="ibx-sum"><span class="ibx-chip"><b>${L.length}</b>건 답장 기다림</span>${nN ? `<span class="ibx-chip new"><b>${nN}</b>건 새 제안</span>` : ''}${soon.length ? `<span class="ibx-chip soon"><b>${soon.length}</b>건 곧 마감</span>` : ''}</div>`;
-  if (soon.length) h += `<div class="ibx-sec soon">⏰ 곧 마감 (이번 달 · 다음 달까지)</div><div class="ibx-grid">${soon.map(m => msgHTML(s, m, nw(m))).join('')}</div>`;
-  if (later.length) h += `<div class="ibx-sec">📨 기한이 남은 제안</div><div class="ibx-grid">${later.map(m => msgHTML(s, m, nw(m))).join('')}</div>`;
-  return h + inboxPastHTML(s, 40);
 }
 // 활동명 (v162): 직업 창 정보 탭 맨 위 한 줄. 내가 직접 정한 이름만 '바꾸기'를 누를 수 있다
 function snRowHTML(s, id) {
@@ -2149,6 +2112,8 @@ function panelJob() {
   // 그 일에서 함께 일하는 팀들 = 회사 직원 (피드백 28 · 29): 내가 그 팀 사람이면 '나'도 들어간다
   for (const x of jobTeams(s, id)) org.push({ h: coTeamName(x.tk), items: coTeamItems(s, x.tk, x.me, x.lead) });
   if (SONG_JOBS.includes(id)) (GROUP_JOBS.includes(id) ? org : info).push({ h: '곡 컨셉 숙련도', bars: cmBars(s) });
+  // v237: 업계 냉대 (game.js coldK) — 기간 · 숫자는 보여 주지 않는다
+  if (coldK(s, id) > 0) info.push(['업계 분위기', '싸늘하다 · 갑자기 그만뒀던 일이 아직 잊히지 않았다']);
   // 그 직업으로 지금까지 번 돈은 정보 맨 아래
   info.push(['지금까지 번 돈', fmtWon((s.jobEarn || {})[id] || 0)]);
   // 등급(자리) 칸에는 몇 번째 등급인지 별로 보인다. 교수는 대학원 길에만 등급이 있다
@@ -2877,7 +2842,7 @@ document.addEventListener('click', e => {
   }
   if (t.id === 'btn-go') { turnGo(turnMax(S)); return; }
   if (t.id === 'btn-month') { turnGo(1); return; }
-  if (t.dataset.turnok != null) { turnClose(t.dataset.turnok); return; }
+  if (t.dataset.turnok != null) { turnClose(); return; }
   // v202: 요약 창 두 장 (특별한 일 · 결산표)
   if (t.dataset.tstab && t.closest('#tcard')) { UI.tsTab = t.dataset.tstab; document.querySelectorAll('#tcard [data-tsp]').forEach(e => e.classList.toggle('hidden', e.dataset.tsp !== UI.tsTab)); document.querySelectorAll('#tcard [data-tstab]').forEach(b => b.classList.toggle('on', b.dataset.tstab === UI.tsTab)); return; }
   if (t.dataset.panel) { UI.apjFrom = null; UI.apForce = null; if (t.dataset.panel === 'group' && !UI.overlay) UI.grpTab = 'home'; if (t.dataset.cofx) { UI.coF = t.dataset.cofx; UI.coTab = 'home'; UI.coGrp = null; } if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
@@ -2905,7 +2870,6 @@ document.addEventListener('click', e => {
   if (t.dataset.montab) { UI.monTab = t.dataset.montab; renderPanel(); return; }
   if (t.dataset.npc) return npcOp(t.dataset.npc, t.dataset.op);
   if (t.dataset.meet) { if (meetWhy(S, t.dataset.meet)) return; meetStart(S, t.dataset.meet); save(S); if (S.pending) { closePanel(); showEvent(); stopLoop(); } return; }
-  if (t.dataset.msg) { const m0 = S.inbox.find(x => x.id === t.dataset.msg), L0 = S.log[S.log.length - 1], r = answerMsg(S, t.dataset.msg, +t.dataset.mi); if (r) { addLog(S, r, 'career'); if (!UI.overlay) toast(r); } actAuto(S); save(S); actDone(L0, m0 ? m0.title : '메시지 답장'); return; }
   if (t.dataset.heir) { const ns = continueAs(S, t.dataset.heir); S = ns; save(S); closeAll(); UI.speed = 1; UI.lastSpeed = 1; showGame(); toast(`${me(S).name}의 인생이 시작됐어요`); return; }
   if (t.dataset.pick != null) { UI.pickSlot = +t.dataset.pick; UI.pickQ = ''; openPanel('pick'); return; }
   if (t.dataset.pickact) { const sl = S.slots[UI.pickSlot]; if (t.dataset.pickact.startsWith('c_')) return; lesKeep(S, sl); sl.act = t.dataset.pickact; lesBack(S, sl); delete sl.dflt; save(S); closePanel(); return; }

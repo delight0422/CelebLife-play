@@ -144,14 +144,14 @@ function soloExtraMonth(s, t) {
     if (U.chance((0.02 + Math.min(0.03, fame / 2000) + Math.min(0.06, (t.ostN || 0) * 0.005 + (t.ostHit || 0) * 0.012)) * offerPopM(s, 'solo') * ostFitM(s, c))) {
       const drama = dramaTitle(genre), big = U.chance(U.clamp(0.1 + fame / 150, 0.1, 0.6));
       X.ost = s.t + Math.max(4, 10 - (t.ostN || 0) - (t.ostHit || 0));
-      sendMsg(s, 'solo_ost', { from: `드라마 「${drama}」 제작진`, title: 'OST 가창 제안', months: 3, d: { drama, genre, c, big, fee: Math.round((100 + lv(p, 'vocal') * 4 + fame * 10) * (big ? 1.8 : 1)) * 1e4 } });
+      sendMsg(s, 'solo_ost', { from: `드라마 「${drama}」 제작진`, title: 'OST 가창 제안', months: 3, d: { drama, genre, c, big, fee: Math.round((100 + lv(p, 'vocal') * 4 + fame * 10) * (big ? 1.8 : 1) * coldPayM(s, 'solo')) * 1e4 } });
     }
   }
   // 피처링: 팬 3천 명부터. 내 인지도와 비슷한 급의 솔로 가수 · 밴드에서 온다 (아이돌 그룹에서는 오지 않는다). 아는 사이면, 그리고 피처링을 많이 하고 잘될수록 자주
   // v230: 나보다 인기 있는 가수는 내 대중 호감도가 높아야 온다 (featFrom)
   if (free && fans >= 3000 && !(X.feat > s.t) && !s.inbox.some(m => m.kind === 'solo_feat') && !hasQ(s, 'solo_featres') && typeof npcNear === 'function' && npcOn(s) && U.chance((0.025 + Math.min(0.05, (t.featN || 0) * 0.004 + (t.featHit || 0) * 0.01)) * offerPopM(s, 'solo'))) {
     const L = featFrom(s);
-    if (L.length) { const n = U.wpick(L, x => 1 + (x.kn ? 2 : 0) + (x.rk ? 3 : 0)); X.feat = s.t + Math.max(4, 8 - (t.featN || 0) - (t.featHit || 0)); npcKnow(n); sendMsg(s, 'solo_feat', { from: n.n, title: '피처링 제안', months: 3, d: { id: n.id, fee: Math.round(50 + lv(p, soloVoice(t, p)) * 2 + fame * 5) * 1e4 } }); }
+    if (L.length) { const n = U.wpick(L, x => 1 + (x.kn ? 2 : 0) + (x.rk ? 3 : 0)); X.feat = s.t + Math.max(4, 8 - (t.featN || 0) - (t.featHit || 0)); npcKnow(n); sendMsg(s, 'solo_feat', { from: n.n, title: '피처링 제안', months: 3, d: { id: n.id, fee: Math.round((50 + lv(p, soloVoice(t, p)) * 2 + fame * 5) * coldPayM(s, 'solo')) * 1e4 } }); }
   }
   // 단독 공연: 발표곡 5곡 · 팬 3만 명부터, 2년에 한 번
   if (t.rel >= SOLO_LIVE_REL && fans >= SOLO_LIVE_FANS && !(t.liveT > s.t) && !hasQ(s, 'solo_concert') && !hasQ(s, 'solo_concertres') && U.chance(0.25)) queueEv(s, 'solo_concert', 0, {});
@@ -254,7 +254,7 @@ E({
     // 열기: 무대 실력 · 인기 · 자리가 찬 만큼 · 스타성. 몹시 지쳐 있으면 깎인다
     d.heat = Math.round(U.clamp(28 + perf * 0.7 + (jpop(s, 'solo') - 50) * 0.15 + (d.fill - 0.75) * 24 + (p.tal.star - 50) * 0.12 - (s.stress >= 70 ? 5 : 0) + U.normal(0, 5), 5, 100));
     // 티켓값에서 예매 수수료 10%를 뗀다. 회사 소속은 비용을 뺀 나머지에서 회사 몫을 떼고(적자는 회사가 진다), 인디는 비용을 먼저 냈으니 티켓값이 그대로 들어온다
-    const rev = d.sold * SOLO_TICKET * 0.9;
+    const rev = d.sold * SOLO_TICKET * 0.9 * coldPayM(s, 'solo'); // v237: 업계 냉대 — 들어오는 돈이 적다
     d.pay = signed ? Math.round(Math.max(0, rev - V.cost) * (1 - cut)) : Math.round(rev);
     d.net = signed ? d.pay : Math.round(rev - (d.cost != null ? d.cost : V.cost));
     if (d.pay > 0) earn(s, d.pay, '단독 공연', 'solo');
@@ -278,7 +278,7 @@ function idolWaysMonth(s, t) {
   const p = me(s), act = t.st === 'active';
   if (idolWayHas(t, 'act') && has(p, 'acting')) {
     practice(s, p, 'acting', 0.7); addStress(s, 0.8);
-    if (act && lv(p, 'acting') >= 25 && !hasQ(s, 'idol_act_offer') && U.chance(0.015 + lv(p, 'acting') / 4000)) queueEv(s, 'idol_act_offer', 0);
+    if (act && lv(p, 'acting') >= 25 && !hasQ(s, 'idol_act_offer') && U.chance((0.015 + lv(p, 'acting') / 4000) * coldOfferM(s, 'idol'))) queueEv(s, 'idol_act_offer', 0);
   }
   if (idolWayHas(t, 'var') && has(p, 'variety')) { practice(s, p, 'variety', 0.7); addStress(s, 0.8); }
   if (act && idolWayHas(t, 'fan')) {
@@ -478,7 +478,7 @@ E({
       t.partB = (t.partB || 0) + 0.35; bond(s, x, 8);
       milestone(s, `${age(s)}세에 ${x.name} 프로듀서에게 솔로곡을 받았다.`);
       let r = `${x.name} 프로듀서가 써 준 솔로곡이 다음 앨범에 실린다.`;
-      if (!trackOn(s, 'solo') && (lv(me(s), 'vocal') >= 35 || lv(me(s), 'rap') >= 35) && !s.inbox.some(m => m.kind === 'idol_solo')) { sendMsg(s, 'idol_solo', { from: t.agN, title: '솔로 데뷔 제안', months: 8, d: {} }); r += ' 회사에서도 솔로 이야기가 나왔다.'; }
+      if (!trackOn(s, 'solo') && (lv(me(s), 'vocal') >= 35 || lv(me(s), 'rap') >= 35) && !s.inbox.some(m => m.kind === 'idol_solo')) { if (sendMsg(s, 'idol_solo', { from: t.agN, title: '솔로 데뷔 제안', months: 8, d: {} })) r += ' 회사에서도 솔로 이야기가 나왔다.'; }
       return r + fx(s, { stress: -6, rep: 1 });
     } }];
     if (d.w === 'mid') return [{ t: '확인', f: s => { bond(s, x, 6); t.partB = (t.partB || 0) + 0.1; return `${x.name} 프로듀서와 서로 인정하는 사이가 됐다.` + fx(s, { stress: -3 }); } }];

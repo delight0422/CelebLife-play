@@ -168,6 +168,13 @@ const SC = {
     know: { real: '몰래 약속한 건 사실이다. 그 회사도 없던 일로 하자며 연락을 끊었다.\n\n회사는 바로 계약을 해지하고 채널을 거둬들였다. 업계에 소문이 다 퍼져서, 이제 다시는 버튜버로 데뷔할 수 없다.' },
     lab: { apo: '잘못을 인정하고 사과한다' },
   },
+  // v237: 하던 일을 갑자기 그만두고 다른 제안을 받으면 (inbox.js walkTake). 사과 · 자숙으로도 잘 가라앉지 않고(scOutcome), 꼬리표가 오래 남는다 (scApply · scandalMonth)
+  walkout: {
+    n: '무책임한 하차 논란', who: () => false, truth: () => 'real', sev: 2, noFight: true,
+    claim: s => { const x = s.flags.walkout || {}; return `내가 ${x.job ? josa(`${x.job} 활동`, '을를') : '하던 일을'} 하루아침에 그만두고 다른 일을 받았다는 이야기가 퍼졌다. 함께 일하던 사람들이 뒷수습을 떠안았다는 말까지 나왔다.`; },
+    know: { real: '하던 일을 내려놓고 새 제안을 받은 건 사실이다.' },
+    lab: { apo: '갑자기 그만둔 일을 사과한다' },
+  },
   affair: {
     n: '불륜 보도', who: () => false, truth: () => 'real', sev: 3,
     claim: '누군가 찍은 사진이 기자에게 넘어가 불륜 기사가 났다.',
@@ -192,6 +199,13 @@ function startScandal(s, id, truth) {
   if (id === 'plagiarism') s.scandal.own = wroteSongs(s) ? 1 : 0;
   queueEv(s, 'scandal', 0, {}, true);
 }
+// v237: 무책임한 하차 논란. 이미 다른 논란이 진행 중이면 덮어쓰지 않고, 그 논란이 끝난 뒤에 터진다 (달마다 다시 본다)
+function walkScandal(s, job) {
+  if (s.scandal) { queueEv(s, 'walkout_sc', 1, { job }, true); return; }
+  s.flags.walkout = { job, t: s.t };
+  startScandal(s, 'walkout', 'real');
+}
+E({ id: 'walkout_sc', cat: '논란', cond: s => true, init(s, d) { d.skip = true; walkScandal(s, d.job); } });
 // 지각 (v93): 끈기가 낮으면 일정이 잡힌 달에 가끔 늦는다 (v215: 성실성이 높을수록 드물게)
 // 혼자 하는 일(라이브온 · 글 · 그림 · 작곡 · 작사 · 회사 대표)은 늦을 데가 없어서 뺀다. 12개월 안에 세 번이면, 이름이 알려졌으면 지각 논란
 const LATE_AT = { actor: '촬영장', model: '촬영장', director: '촬영장', variety: '녹화장', voice: '녹음실', producer: '녹음실', idol: '리허설', band: '공연 리허설', solo: '리허설', player: '리허설', dancer: '리허설', vidol: '', anr: '회의', marketer: '회의', editor: '회의', animator: '회의', adir: '회의', trainer: '수업', acttrainer: '수업', prof: '강의', tutor: '강의' };
@@ -291,6 +305,9 @@ function scOutcome(s, sc, T) {
     sue: U.chance(0.35) ? [0.3, 'calm'] : [1.6, 'bad'], quiet: [0.8, 'calm'], hiatus: [0.4, 'calm'],
   }[r];
   if (tr === 'perf') return { apo: [0.5, 'calm'], deny: [1.4, 'bad'], quiet: [1, 'calm'], hiatus: [0.6, 'calm'] }[r];
+  // v237: 무책임한 하차 논란은 사과 · 자숙으로도 잘 가라앉지 않는다. 사과는 열에 일곱, 자숙은 열에 여섯이 오히려 번지고, 가라앉아도 무게가 거의 그대로다
+  //   (다른 진짜 논란은 사과하면 늘 0.65배 · 자숙하면 늘 0.4배로 가라앉는다)
+  if (sc.id === 'walkout') return { apo: U.chance(0.7) ? [1.1, 'bad'] : [0.85, 'calm'], deny: U.chance(0.85) ? [2.2, 'exposed'] : [0.9, 'calm'], quiet: [1.3, 'bad'], hiatus: U.chance(0.6) ? [1, 'bad'] : [0.75, 'calm'] }[r];
   // 진짜 열애: 아이돌·버튜버는 팬이 크게 떠나고, 배우·모델은 축하받는 편이다
   if (sc.id === 'dating') {
     const dl = datingLv(s), ex = U.chance(0.65);
@@ -323,6 +340,8 @@ function scApply(s, sc, T, mult, kind) {
   const loss = {}; for (const m of MK) loss['f' + m] = -Math.round(s.fans[m] * frac);
   x += fx(s, Object.assign({ rep: -Math.round(dmg * 4), pop: -Math.round(dmg * 4), fame: Math.round(dmg * 3), stress: Math.round(dmg * 4 / pm(s, 'criticRes')) }, loss));
   s.stigma = Math.min(100, Math.max(s.stigma || 0, Math.round(dmg * 7)));
+  // v237: 무책임한 하차 논란은 꼬리표가 적어도 40부터 시작하고, 그 뒤 5년 동안은 꼬리표가 절반쯤 느리게 옅어진다 (scandalMonth)
+  if (sc.id === 'walkout') { s.stigma = Math.max(s.stigma, 40); s.stigSlow = s.t + 60; }
   // 채널·그룹도 같이 흔들린다
   // MCN 소속이면 MCN이 대응을 도와 구독자 피해가 줄어든다
   if (trackOn(s, 'youtube') && s.tracks.youtube.subs) { const sh = MCN_HELP.shield[mcnTierT(s, s.tracks.youtube)]; s.tracks.youtube.subs = Math.round(s.tracks.youtube.subs * (1 - frac * (1 - sh))); if (sh) x += ` ${josa(s.tracks.youtube.mcn.n, '이가')} 대응을 도와 구독자 피해가 줄었다.`; }
@@ -368,7 +387,11 @@ E({
   },
   text: (s, d) => {
     const T = SC[d.id], r = d.resp, tr = d.truth;
-    const line = d.kind === 'clear' ? ({ deny: '해명 뒤에 함께 있던 사람들이 내 말을 뒷받침해 줬다. 처음 글을 올린 사람이 글을 지우고 사과했다.', prove: '모은 증거를 공개하자 여론이 단번에 뒤집혔다. 사람들이 오히려 나를 걱정해 줬다.', sue: '수사 결과 허위로 밝혀졌다. 처음 퍼뜨린 사람이 공개 사과를 했다.' })[r] || '사실이 아닌 것으로 밝혀졌다.'
+    // v237: 무책임한 하차 논란은 대응마다 글이 따로 있다 (사과 · 자숙을 해도 잘 가라앉지 않는다)
+    const wk = d.id === 'walkout' && d.kind !== 'exposed' ? (d.kind === 'bad'
+      ? ({ apo: '사과문을 올렸지만 말뿐인 사과라는 반응이 많았다. 함께 일하던 사람들의 서운하다는 말이 이어졌다.', hiatus: '자숙하겠다고 했지만 비난은 가라앉지 않았다. 일을 내던지고 쉬러 간다는 말까지 나왔다.', quiet: '아무 말도 하지 않자 무책임하다는 말이 더 퍼졌다.' })[r]
+      : ({ apo: '사과하자 비난이 조금 잦아들었다.', hiatus: '자숙하겠다는 말에 비난이 조금 잦아들었다.', deny: '해명이 어느 정도 받아들여졌다.' })[r] + ' 그래도 업계에서는 쉽게 잊지 않을 분위기다.') : '';
+    const line = wk ? wk : d.kind === 'clear' ? ({ deny: '해명 뒤에 함께 있던 사람들이 내 말을 뒷받침해 줬다. 처음 글을 올린 사람이 글을 지우고 사과했다.', prove: '모은 증거를 공개하자 여론이 단번에 뒤집혔다. 사람들이 오히려 나를 걱정해 줬다.', sue: '수사 결과 허위로 밝혀졌다. 처음 퍼뜨린 사람이 공개 사과를 했다.' })[r] || '사실이 아닌 것으로 밝혀졌다.'
       : d.kind === 'exposed' ? (r === 'sue' ? '수사 과정에서 오히려 사실이라는 증거가 나왔다. 거짓말로 고소까지 했다는 비난이 쏟아졌다.' : '해명과 다른 증거가 나왔다. 거짓말까지 했다는 비난이 쏟아졌다.')
       : d.id === 'dating' && tr === 'real' && r === 'apo' ? ({ hard: '열애를 인정하자 팬들이 크게 반발했다. 팬 커뮤니티에 탈덕 인증 글이 줄을 이었다.', mid: '담담하게 밝히자 아쉬워하는 팬도, 응원하는 팬도 있었다.', soft: '열애를 인정하자 축하한다는 반응이 대부분이었다.' })[d.dl]
       : d.kind === 'bad' ? (tr === 'fake' && r === 'apo' ? (d.id === 'dating' ? '사귀지도 않는 사람과의 열애를 인정한 꼴이 됐다.' : '하지 않은 일을 사과한 꼴이 됐다. 사람들은 사실로 받아들였다.') : r === 'quiet' ? '아무 말도 하지 않자 사람들은 사실이라고 믿었다.' : r === 'sue' ? '반쯤은 맞는 이야기에 고소부터 하자 오히려 반감을 샀다.' : r === 'deny' && tr === 'perf' ? '변명처럼 들렸다. 비웃음만 더 커졌다.' : '해명이 잘 먹히지 않았다. 논란이 더 커졌다.')
@@ -390,7 +413,7 @@ function scandalMonth(s) {
   // v214: 임신 기간. 0이 돼도 출산 창(baby · oops_birth)이 지울 때까지 남는다. 출산 창이 줄에 없으면(예전 세이브 등) 여기서 지운다
   if (s.preg) { if (s.preg.left > 0) s.preg.left--; if (s.preg.left <= 0 && !hasQ(s, 'baby') && !hasQ(s, 'oops_birth')) s.preg = null; }
   if (s.hiatus) { s.hiatus.left--; if (s.hiatus.left <= 0) { queueEv(s, 'hiatus_end', 0, { n: s.hiatus.n }, true); s.hiatus = null; } }
-  if (s.stigma > 0) s.stigma = Math.max(0, s.stigma - 1.5);
+  if (s.stigma > 0) s.stigma = Math.max(0, s.stigma - (s.stigSlow > s.t ? 0.8 : 1.5)); // v237: 무책임한 하차 논란 뒤에는 천천히 옅어진다 (scApply)
 }
 
 // ── 논란의 씨앗: 내가 고른 일이 나중에 논란이 된다 ──

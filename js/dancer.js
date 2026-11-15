@@ -79,7 +79,7 @@ CAREERS.dancer = {
     if (n) { practice(s, p, 'dance', 0.8 * n); addStress(s, 1.5); }
     if (!n && !t.crew) return;
     // 댄스팀에 있으면 일정에 넣지 않아도 팀이 가끔 일을 잡아 준다
-    const chance = stigmaMul(s) * (0.3 + DANCER_POW[t.tier] * 0.04 + (t.crew ? 0.1 : 0)) * (n ? 1 : 0.4) * (t.lead ? 1 : Math.max(0.3, 1 + dancerAgeAdj(age(s)) / 15)) * access(s);
+    const chance = stigmaMul(s) * (0.3 + DANCER_POW[t.tier] * 0.04 + (t.crew ? 0.1 : 0)) * (n ? 1 : 0.4) * (t.lead ? 1 : Math.max(0.3, 1 + dancerAgeAdj(age(s)) / 15)) * access(s) * coldOfferM(s, 'dancer'); // v237: 업계 냉대 — 일이 거의 안 들어온다
     if (!hasQ(s, 'dc_job') && U.chance(chance)) queueEv(s, 'dc_job', 0);
     // 이름이 알려지면 가끔 예능 섭외가 온다
     if (n && t.tier >= 2 && !s.army && !hasQ(s, 'dc_var') && U.chance(0.004 + t.tier * 0.004)) queueEv(s, 'dc_var', 0);
@@ -156,7 +156,7 @@ E({
 function dcClient(s, t) { let a; for (let i = 0; i < 6; i++) { a = makeArtist(s, t.tier * 12); if (a.kind !== '밴드') break; } if (a.kind === '밴드') a.kind = '솔로 가수'; return a; }
 function dcJobP(s, j, c) {
   const t = s.tracks.dancer, sc = dancerScore(s, j.kind, c) + fitB(me(s), j.fit) + (j.kind === 'back' ? dancerAgeAdj(age(s)) : age(s) >= 50 ? -3 : 0) + DANCER_POW[t.tier] * 3 + (c && c === s.trend ? 3 : 0);
-  return U.clamp(U.sig((sc - j.demand) / 6), 0.05, 0.95);
+  return U.clamp(U.sig((sc - coldSc(s, 'dancer', 2) - j.demand) / 6), 0.05, 0.95); // v237: 업계 냉대 — 잘 나오기 어렵다 (다시 시작하면 쉬운 일감부터라 2배로 깎는다)
 }
 // 일감 두세 개 중 하나를 맡는다. 등급이 오를수록 큰 일이 들어온다
 E({
@@ -167,7 +167,7 @@ E({
     const t = s.tracks.dancer, can = DANCER_JOBS.filter(j => j.min <= t.tier && (!t.lead || j.kind === 'cho'));
     d.js = U.shuffle(can).slice(0, Math.min(3, can.length)).map(j => {
       const a = dcClient(s, t), c = j.kind === 'cho' ? (U.chance(0.4) ? s.trend : U.pick(TRENDS)) : null;
-      return { id: j.id, n: j.n, kind: j.kind, min: j.min, who: a.name, c, fee: Math.round(j.fee * (1 + DANCER_POW[t.tier] * 0.6) * U.fl(0.8, 1.2)) * 1e4, p: dcJobP(s, j, c), fame: j.fame };
+      return { id: j.id, n: j.n, kind: j.kind, min: j.min, who: a.name, c, fee: Math.round(j.fee * (1 + DANCER_POW[t.tier] * 0.6) * U.fl(0.8, 1.2) * coldPayM(s, 'dancer')) * 1e4, p: dcJobP(s, j, c), fame: j.fame }; // v237: 업계 냉대 — 일감 값이 깎인다
     });
   },
   text: s => `일이 들어왔다. 하나를 맡을 수 있다.\n\n'${DANCER_TIERS[s.tracks.dancer.tier]}' · 댄스 ${lvi(me(s), 'dance')}레벨`,

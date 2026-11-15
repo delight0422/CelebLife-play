@@ -190,7 +190,7 @@ function mcnMonth(s, t, n) {
   }
   if (m.left <= 0 && !m.endQ) { m.endQ = true; queueEv(s, 'mcn_end', 0); }
   if (n && t.subs >= 3000 && U.chance(MCN_HELP.ppl[k])) {
-    const fee = Math.round(t.subs * U.fl(4, 10) * (1 + k * 0.3) * (1 - m.cut) / 1e4) * 1e4;
+    const fee = Math.round(t.subs * U.fl(4, 10) * (1 + k * 0.3) * (1 - m.cut) * coldPayM(s, 'youtube') / 1e4) * 1e4;
     if (fee > 0) { earn(s, fee, '유료 광고 영상'); addLog(s, `${m.n}에서 잡아 온 유료 광고 영상을 올렸다. (${fmtWon(fee)})`, 'career'); }
   }
 }
@@ -249,7 +249,7 @@ ACT_APPLY.push({
   why: s => !mcnOf(s) ? 'MCN 소속이어야 한다' : s.tracks.youtube.subs < 1e4 ? '구독자가 1만 명을 넘어야 한다' : `${s.cd.mcnGoods - s.t}개월 뒤에 다시 할 수 있다`,
   run: s => {
     const t = s.tracks.youtube, m = t.mcn; s.cd.mcnGoods = s.t + 6;
-    const u = mcnGoodsUnits(t.subs, t.mode === 'vt'), pay = Math.round(u * MCN_GOODS_PER * (1 - m.cut) / 1e4) * 1e4;
+    const u = mcnGoodsUnits(t.subs, t.mode === 'vt'), pay = Math.round(u * MCN_GOODS_PER * (1 - m.cut) * coldPayM(s, 'youtube') / 1e4) * 1e4;
     earn(s, pay, '굿즈 판매');
     return showResult(s, 'MCN 굿즈 판매', `${josa(m.n, '이가')} 만든 「${t.ch}」 굿즈가 ${u.toLocaleString()}개 팔렸다.\n\n내 몫 ${fmtWon(pay)} (MCN 몫 ${pctN(m.cut)}를 뗐다)`, `「${t.ch}」 굿즈 ${u.toLocaleString()}개 판매. 내 몫 ${fmtWon(pay)}.`);
   },
@@ -264,7 +264,7 @@ ACT_APPLY.push({
     const t = s.tracks.youtube, m = t.mcn; s.cd.mcnEv = s.t + 12;
     // 예능 실력이 좋을수록, MCN이 클수록 사람이 많이 온다
     const r = mcnEventRoll(t.subs, (0.7 + lv(me(s), 'variety') / 150) * (1 + mcnTierT(s, t) * 0.1));
-    const pay = Math.max(0, Math.round(r.net * (1 - m.cut) / 1e4) * 1e4), gain = Math.round(t.subs * U.fl(0.01, 0.03));
+    const pay = Math.max(0, Math.round(r.net * (1 - m.cut) * coldPayM(s, 'youtube') / 1e4) * 1e4), gain = Math.round(t.subs * U.fl(0.01, 0.03));
     earn(s, pay, '개인 행사');
     t.subs += gain; t.peak = Math.max(t.peak || 0, t.subs);
     const money = pay > 0 ? `내 몫 ${fmtWon(pay)} (MCN 몫 ${pctN(m.cut)}를 뗐다)` : `남는 돈이 없어 내 몫은 없다. 손해는 ${josa(m.n, '이가')} 떠안았다.`;

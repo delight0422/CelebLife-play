@@ -68,9 +68,9 @@ function genProjects(s, tier, n) {
     const genre = T.mv ? `가수 ${singer.name}` : U.chance(0.35) ? s.trendTV.drama : U.pick(DRAMA_TRENDS);
     const demand = (T.mv ? [22, 30, 40] : [22, 38, 54])[ri] + (T.film ? 4 : 0);
     const q = U.int(30, 92);
-    const base = [50, 150, 300, 1000, 3000, 5500, 9000][tier] * 1e4 * [0.3, 0.7, 1][ri] * awMul(s, 'actor');
+    const base = [50, 150, 300, 1000, 3000, 5500, 9000][tier] * 1e4 * [0.3, 0.7, 1][ri] * awMul(s, 'actor') * coldPayM(s, 'actor'); // v237: 업계 냉대 — 출연료가 깎이고(여기), 오디션에 붙기 어렵다(아래 sc)
     const fee = Math.round(base * (T.film ? 10 : T.ep) * T.fee / 1e4) * 1e4;
-    const sc = actorScore(s) + ACT_POW[tier] * 4 + Math.log10(1 + totalFans(s)) * 2 + pm(s, 'audition', 0);
+    const sc = actorScore(s) + ACT_POW[tier] * 4 + Math.log10(1 + totalFans(s)) * 2 + pm(s, 'audition', 0) - coldSc(s, 'actor');
     const pp = U.clamp(U.sig((sc - demand) / 6), 0.03, 0.95);
     const dir = pickIndustry(s, '연출감독');
     out.push({ title: T.mv ? songTitle() : dramaTitle(genre), tk, ri, genre, demand, q, fee, p: pp, dir: dir.id, co: U.pick(PROD_CO), singer: singer ? singer.id : null, teacher: genre === '학원물' && a >= 40 });
@@ -93,6 +93,7 @@ function actPerf(s, pj, p = me(s)) {
   const teach = !!G.young && (pj.teacher || a >= 40);
   const old = !!G.young && !teach && a >= 30;
   if (old) v -= 12;
+  if (p === me(s)) v -= coldSc(s, 'actor', 1.5); // v237: 업계 냉대 — 같은 연기도 곱게 봐 주지 않는다 (연기 평은 특기 레벨 차이가 그대로 드러나는 점수라 1.5배로 깎아야 보통 실력이 묻힌다)
   return { v, old };
 }
 function roleTxt(pj) { return `${ROLE_N[pj.ri]}${pj.teacher ? ' (교사 역)' : ''}`; }
@@ -187,7 +188,7 @@ CAREERS.actor = {
     // 소속사가 있으면 일정에 넣지 않아도 회사가 작품을 물어 온다 (넣으면 훨씬 자주)
     if (n) { practice(s, p, 'acting', 1.2 * n); useSkill(s, p, 'variety', 0.2 * n); addStress(s, 1.5); }
     if (!n && t.via === 'indie') return;
-    const chance = stigmaMul(s) * (0.1 + ACT_POW[t.tier] * 0.03 + (t.via !== 'indie' ? 0.05 : 0) + Math.min(0.12, Math.log10(1 + totalFans(s)) / 45)) * access(s) * (n ? 1 : 0.45) * (0.8 + s.rep / 250) * (0.75 + jpop(s, 'actor') / 200);
+    const chance = stigmaMul(s) * (0.1 + ACT_POW[t.tier] * 0.03 + (t.via !== 'indie' ? 0.05 : 0) + Math.min(0.12, Math.log10(1 + totalFans(s)) / 45)) * access(s) * (n ? 1 : 0.45) * (0.8 + s.rep / 250) * (0.75 + jpop(s, 'actor') / 200) * coldOfferM(s, 'actor');
     if (!hasQ(s, 'actor_offer') && U.chance(chance)) queueEv(s, 'actor_offer', 0);
     // 이름이 알려지면 제작사가 오디션 없이 배역을 제안한다 (메시지함)
     if (t.tier >= 3 && !s.inbox.some(m => m.kind === 'cast_offer') && U.chance((0.02 + ACT_POW[t.tier] * 0.01) * stigmaMul(s) * offerPopM(s, 'actor'))) { const pj = genProjects(s, t.tier, 1)[0]; pj.ri = Math.max(pj.ri, t.tier >= 4 ? 2 : 1); sendMsg(s, 'cast_offer', { from: pj.co, title: `${PJ_TYPES[pj.tk].n} ${ROLE_N[pj.ri]} 제안`, months: 3, d: { pj } }); }
@@ -302,7 +303,7 @@ E({
     t.wait = (t.wait || []).filter(x => x.id !== pj.id);
     const cast = (pj.cast || []).map(id => s.people[id]).filter(Boolean), dir = s.people[pj.dir];
     const castAvg = cast.length ? cast.reduce((a, c) => a + lv(c, 'acting'), 0) / cast.length : 40;
-    const sc = U.clamp(pj.q * 0.35 + lv(p, 'acting') * [0.1, 0.2, 0.3][pj.ri] + castAvg * 0.1 + (dir ? lv(dir, 'direct') * 0.08 : 3) + visB(p) * 0.6 + Math.log10(1 + totalFans(s)) * 2.2 + (p.tal.star - 50) * 0.1 + (pj.genre === s.trendTV.drama ? 5 : 0) + promo + [10, 6, 0][pj.ri] + U.normal(0, 7), 0, 100);
+    const sc = U.clamp(pj.q * 0.35 + lv(p, 'acting') * [0.1, 0.2, 0.3][pj.ri] + castAvg * 0.1 + (dir ? lv(dir, 'direct') * 0.08 : 3) + visB(p) * 0.6 + Math.log10(1 + totalFans(s)) * 2.2 + (p.tal.star - 50) * 0.1 + (pj.genre === s.trendTV.drama ? 5 : 0) + promo + [10, 6, 0][pj.ri] + U.normal(0, 7) - coldSc(s, 'actor', 0.5), 0, 100); // v237: 업계 냉대 (작품 성적은 절반만 — 나 혼자 만드는 작품이 아니다)
     const pf = actPerf(s, pj);
     // 연기 평의 운(pn)은 촬영을 마칠 때 이미 정해 뒀다 (12-3: 촬영장 창이 그 연기를 보여 준다). 예전 세이브의 작품은 여기서 굴린다
     const perf = pf.v + (pj.pn != null ? pj.pn : U.normal(0, 6));
@@ -580,8 +581,8 @@ function startVariety(s, o = {}) {
 // 들어온 예능: fixed 고정·게스트, 형식(요즘 예능 유행과 맞으면 잘 나온다), 출연료, 재밌게 나올 가능성
 function genShow(s, tier, fixed) {
   const genre = U.chance(0.35) ? s.trendTV.show : U.pick(SHOW_TRENDS);
-  const fee = Math.round((fixed ? [100, 300, 450, 700, 1500, 2500, 3500] : [30, 80, 130, 200, 500, 750, 1000])[tier] * awMul(s, 'variety')) * 1e4;
-  const p = U.clamp(U.sig((varScore(s) + showFit(s, genre) + pm(s, 'audition', 0) / 2 + (genre === s.trendTV.show ? 4 : 0) - (36 + VAR_POW[tier] * 6)) / 6), 0.05, 0.95);
+  const fee = Math.round((fixed ? [100, 300, 450, 700, 1500, 2500, 3500] : [30, 80, 130, 200, 500, 750, 1000])[tier] * awMul(s, 'variety') * coldPayM(s, 'variety')) * 1e4; // v237: 업계 냉대 — 출연료가 깎이고(여기), 재밌게 나오기 어렵다(아래 p)
+  const p = U.clamp(U.sig((varScore(s) + showFit(s, genre) + pm(s, 'audition', 0) / 2 + (genre === s.trendTV.show ? 4 : 0) - coldSc(s, 'variety') - (36 + VAR_POW[tier] * 6)) / 6), 0.05, 0.95);
   return { title: tvShowTitle(genre), bc: U.pick(BROADCASTERS), genre, fixed, fee, p };
 }
 // 예능 한 번 나가기 (게스트) 또는 고정 합류. 잘 나오면 클립이 퍼지고 예능 점수가 쌓인다
@@ -660,7 +661,7 @@ CAREERS.variety = {
       s.fans.kr += Math.round(sh.reach * U.fl(0.5, 1.5) * myRoom(s, 'kr'));
       addStress(s, 1.5);
       if (sh.m % 6 === 0) {
-        const sc = (varScore(s) + showFit(s, sh.genre)) * 0.5 + (me(s).tal.star - 50) * 0.2 + VAR_POW[t.tier] * 3 + (sh.genre === s.trendTV.show ? 4 : 0) + U.normal(0, 12) + 6;
+        const sc = (varScore(s) + showFit(s, sh.genre)) * 0.5 + (me(s).tal.star - 50) * 0.2 + VAR_POW[t.tier] * 3 + (sh.genre === s.trendTV.show ? 4 : 0) + U.normal(0, 12) + 6 - coldSc(s, 'variety');
         t.yearBest = Math.max(t.yearBest || 0, sc + 20);
         if (sc < 34 + VAR_POW[t.tier] * 5 || sh.m >= sh.life) { t.shows.splice(t.shows.indexOf(sh), 1); addLog(s, `${sh.bc} 「${sh.title}」${sh.m >= sh.life ? '이 막을 내렸다.' : '이 시청률 부진으로 폐지됐다.'}`, 'career'); }
         else t.pts++;
@@ -671,7 +672,7 @@ CAREERS.variety = {
     if (calM(s) === 11) varAwards(s, t);
     const n = slotsOn(s, 'c_variety'), p = me(s);
     if (n) { practice(s, p, 'variety', 1.2 * n); useSkill(s, p, 'acting', 0.2 * n); addStress(s, 1.5); }
-    const chance = stigmaMul(s) * (0.04 + VAR_POW[t.tier] * 0.03 + Math.min(0.1, Math.log10(1 + totalFans(s)) / 50) + (t.gongM > 0 ? 0.05 : 0)) * access(s) * (n ? 1 : 0.3);
+    const chance = stigmaMul(s) * (0.04 + VAR_POW[t.tier] * 0.03 + Math.min(0.1, Math.log10(1 + totalFans(s)) / 50) + (t.gongM > 0 ? 0.05 : 0)) * access(s) * (n ? 1 : 0.3) * coldOfferM(s, 'variety');
     if (!hasQ(s, 'var_offer') && U.chance(chance)) queueEv(s, 'var_offer', 0);
   },
 };
@@ -793,7 +794,7 @@ function ytFitTal(s, t) { const p = me(s), F = YT_FIT[t.cat] || []; return F.fil
 function ytAppeal(s, t) {
   const p = me(s);
   const look = t.mode === 'vt' ? avQ(t) * 5 + (t.corp ? AG[t.corp].tier * 6 : 0) : 0;
-  return ytSkMix(s, t) * 0.95 + ytFitTal(s, t) + talB(p.tal.grit, false) - (s.stigma || 0) * 0.25 + look + (p.tal.star - 50) * 0.3 + ((t.mode === 'vt' ? '버튜버' : '캠튜버') === s.trendTV.yt ? 6 : 0) + MCN_HELP.grow[mcnTierT(s, t)];
+  return ytSkMix(s, t) * 0.95 + ytFitTal(s, t) + talB(p.tal.grit, false) - (s.stigma || 0) * 0.25 + look + (p.tal.star - 50) * 0.3 + ((t.mode === 'vt' ? '버튜버' : '캠튜버') === s.trendTV.yt ? 6 : 0) + MCN_HELP.grow[mcnTierT(s, t)] - coldSc(s, 'youtube'); // v237: 업계 냉대 — 시청자 반응이 차갑다
 }
 // 버츄얼 아이돌 합격 (v99, 8-5): 방송 점수(vidol.js viSk)와 같다. 오디션 때는 컨셉을 고르기 전이라 나한테 가장 잘 맞는 컨셉으로 본다 (v100). 연기는 뺐다
 function vtScore(s) { return Math.max(...ytCats(true).map(c => viSk(s, c))); }
@@ -876,7 +877,7 @@ CAREERS.youtube = {
     // 수입: 스트리머는 조회수 광고 수익, 버튜버는 방송 후원과 멤버십 (소속이면 회사 몫을 뗀다)
     const cut = t.mcn ? t.mcn.cut : t.corp ? t.cut : 0;
     const inc = t.mode === 'vt' ? t.subs * VT_INC * U.fl(0.6, 1.4) : t.subs * U.fl(1, 3) * Math.min(2, n) * YT_INC;
-    t.lastInc = t.subs >= 1000 ? Math.round(inc * (1 - cut)) : 0;
+    t.lastInc = t.subs >= 1000 ? Math.round(inc * (1 - cut) * coldPayM(s, 'youtube')) : 0;
     incPush(t, t.lastInc);
     if (t.lastInc) earn(s, t.lastInc, t.mode === 'vt' ? '방송 후원·멤버십' : '라이브온 광고 수익', 'youtube');
     if (before < 1000 && t.subs >= 1000) addLog(s, `「${t.ch}」 구독자가 1,000명을 넘었다. 이제 ${t.mode === 'vt' ? '방송 후원과 멤버십' : '영상 광고'} 수익이 들어온다. (이번 달 ${fmtWon(t.lastInc)})`, 'good');
@@ -1372,7 +1373,7 @@ CAREERS.model = {
     if (n) { practice(s, p, 'acting', 0.8 * n); addStress(s, 1.5); }
     if (!n && !t.ag) return;
     // 나이가 들수록 일감이 준다. 에이전시가 있으면 일정에 넣지 않아도 가끔 일을 잡아 준다
-    const chance = stigmaMul(s) * (0.25 + MODEL_POW[t.tier] * 0.04 + (t.ag ? 0.08 : 0)) * (n ? 1 : 0.4) * Math.max(0.2, 1 + modelAgeAdj(age(s)) / 15) * access(s);
+    const chance = stigmaMul(s) * (0.25 + MODEL_POW[t.tier] * 0.04 + (t.ag ? 0.08 : 0)) * (n ? 1 : 0.4) * Math.max(0.2, 1 + modelAgeAdj(age(s)) / 15) * access(s) * coldOfferM(s, 'model');
     if (!hasQ(s, 'model_job') && U.chance(chance)) queueEv(s, 'model_job', 0);
   },
 };
@@ -1425,8 +1426,8 @@ E({
   init(s, d) {
     const t = s.tracks.model, can = MODEL_JOBS.filter(j => j.min <= t.tier);
     d.js = U.shuffle(can).slice(0, Math.min(3, can.length)).map(j => {
-      const pp = U.clamp(U.sig((modelScore(s) + fitB(me(s), j.fit) + modelAgeAdj(age(s)) + MODEL_POW[t.tier] * 3 - j.demand) / 6), 0.05, 0.95);
-      return { id: j.id, n: j.n, min: j.min, brand: modelClient(j), fee: Math.round(j.fee * (1 + MODEL_POW[t.tier] * 0.6) * U.fl(0.8, 1.2)) * 1e4, p: pp, fame: j.fame };
+      const pp = U.clamp(U.sig((modelScore(s) + fitB(me(s), j.fit) + modelAgeAdj(age(s)) + MODEL_POW[t.tier] * 3 - coldSc(s, 'model', 2) - j.demand) / 6), 0.05, 0.95); // v237: 업계 냉대 — 잘 나오기 어렵고(여기. 다시 시작하면 쉬운 일감부터라 2배로 깎는다), 일감 값이 깎인다(아래 fee)
+      return { id: j.id, n: j.n, min: j.min, brand: modelClient(j), fee: Math.round(j.fee * (1 + MODEL_POW[t.tier] * 0.6) * U.fl(0.8, 1.2) * coldPayM(s, 'model')) * 1e4, p: pp, fame: j.fame };
     });
   },
   text: s => `일감이 들어왔다. 하나를 맡을 수 있다.\n\n'${MODEL_TIERS[s.tracks.model.tier]}' · 연기 ${lvi(me(s), 'acting')}레벨`,
@@ -1488,7 +1489,7 @@ function brandCats(s) { return (s.brands || []).map(x => BRAND_BY[x.id].cat); }
 // 이름이 알려지면 브랜드가 광고 모델을 제안한다 (이미지가 맞을수록 자주)
 E({
   id: 'brand_offer_gen', cat: '제안', title: '광고 제안',
-  p: s => brandReach(s) && age(s) >= 14 && (s.stigma || 0) < 30 && !s.hiatus ? (0.02 + brandReach(s) * 0.012 + (trackOn(s, 'model') ? 0.03 : 0) + (mcnOf(s) ? mcnTierT(s, s.tracks.youtube) * 0.01 : 0)) * offerPopM(s) : 0, // v228: 대중 호감도가 낮으면 광고가 드물다
+  p: s => brandReach(s) && age(s) >= 14 && (s.stigma || 0) < 30 && !s.hiatus ? (0.02 + brandReach(s) * 0.012 + (trackOn(s, 'model') ? 0.03 * coldOfferM(s, 'model') : 0) + (mcnOf(s) ? mcnTierT(s, s.tracks.youtube) * 0.01 : 0)) * offerPopM(s) : 0, // v228: 대중 호감도가 낮으면 광고가 드물다
   // v230: 평판 36부터 온다 (예전 30). 평판이 35 아래거나 대중 호감도가 25 아래면 광고가 끊길 수 있어서(brand_scandal), 받자마자 끊기는 일이 없게 (호감도 26부터)
   cond: s => !s.inbox.some(m => m.kind === 'brand_offer') && !s.army && s.rep >= 36 && jpopAvg(s) >= 26,
   init(s, d) {

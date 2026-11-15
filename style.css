@@ -95,21 +95,7 @@ button { font: inherit; color: inherit; }
 /* 사건 창: 협상으로 바뀐 조건 */
 .m-text s.was { color: var(--muted); }
 .m-text b.now { color: var(--mint); }
-.msg { border: 1px solid var(--line); border-radius: 14px; padding: var(--sp-3) var(--sp-3); margin-bottom: var(--sp-2); }
-.msg.new { border-color: var(--violet); background: var(--card2); }
-.msg-h { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
-.msg-h b { font-size: var(--fs-3); }
-.msg-h .due { font-size: var(--fs-2); color: var(--muted); white-space: nowrap; }
-.msg-h .due.soon { color: var(--red); font-weight: 700; }
-.msg-from { font-size: var(--fs-2); color: var(--ink2); margin-top: 1px; }
-.msg-d { font-size: var(--fs-2); color: var(--ink2); margin-top: var(--sp-2); white-space: pre-line; line-height: 1.6; }
-.msg-btns { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); flex-wrap: wrap; }
-.msg-btns .opt { display: flex; flex-direction: column; gap: 2px; }
-.msg-btns .opt .h { font-size: var(--fs-1); color: var(--muted); padding-left: 2px; }
 .new-tag { display: inline-block; font-size: var(--fs-1); font-weight: 800; color: #fff; background: var(--pink); border-radius: 99px; padding: 0 var(--sp-2); margin-left: var(--sp-1); vertical-align: 1px; }
-.ibx-old { font-size: var(--fs-2); color: var(--ink2); padding: var(--sp-2) 2px; border-bottom: 1px dashed #efeaf6; }
-.ibx-old .d { color: var(--muted); font-size: var(--fs-1); margin-right: var(--sp-1); }
-.ibx-old .r { color: var(--muted); font-size: var(--fs-2); margin-top: 1px; }
 .card { background: var(--card); border-radius: var(--radius); padding: var(--sp-3) var(--sp-4); box-shadow: var(--shadow); border: 1px solid var(--line); }
 .card-h { font-weight: 800; font-size: var(--fs-3); margin-bottom: var(--sp-2); display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
 .card-h.big { font-size: var(--fs-4); }
@@ -282,12 +268,9 @@ table.list th { color: var(--muted); font-weight: 700; }
   .turn-btns { width: auto; }
 }
 
-/* 메시지함 버튼은 늘 보이고 안 읽은 제안이 있으면 빨간 점이 붙는다. 생활 버튼은 오른쪽 생활 카드가 화면 아래로 내려가는 좁은 화면에서만 보인다 */
+/* 생활 버튼은 오른쪽 생활 카드가 화면 아래로 내려가는 좁은 화면에서만 보인다 */
 @media (min-width: 1151px) { .mob-only { display: none !important; } }
-#btn-inbox { position: relative; }
-#btn-inbox .cnt { font-weight: 800; }
 .rdot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ff3b4f; box-shadow: 0 0 0 2px var(--card); vertical-align: 2px; }
-#btn-inbox .rdot { position: absolute; top: -3px; right: -3px; }
 .rdot.in { margin: 0 var(--sp-1) 0 2px; box-shadow: none; }
 /* 진행 중인 일: 누르면 자세히 */
 .trk[data-trk], .trk[data-job] { cursor: pointer; transition: border-color .15s, background .15s; }
@@ -1272,7 +1255,7 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .pp-box .sb-t { font-weight: 800; font-size: var(--fs-3); }
 .pp-box .sb-s { font-size: var(--fs-2); color: var(--ink2); }
 
-/* 메시지함 · 직업 지원 · 활동 지원: 나란히 세 개 */
+/* 구직활동 · 활동 지원 (· 에고서칭): 나란히, 남은 버튼이 줄을 채운다 */
 .hub-btns { display: flex; gap: var(--sp-2); }
 .hub-btns .hub-bn { flex: 1 1 0; min-width: 0; }
 /* 에고서칭: 나머지 셋과 같은 크기, 테두리만 커뮤니티 대표 색 */
@@ -1769,36 +1752,6 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .lv-heat b { min-width: 2ch; text-align: right; font-size: var(--fs-4); }
 .lv-heat.hot { color: #fff; background: rgba(255, 90, 60, .32); }
 .lb.fast { animation-duration: 1s; }
-/* v208: 메시지함 — 요약 칩 · 곧 마감부터 묶음 · 카드(왼쪽 색 띠 · 아이콘 · 기한 칩 · 본문 상자) · 넓으면 두 줄 */
-.ibx-sum { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin: var(--sp-2) 0 var(--sp-2); }
-.ibx-chip { font-size: var(--fs-2); font-weight: 700; color: var(--ink2); background: var(--card2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 14px; }
-.ibx-chip b { font-size: var(--fs-4); color: var(--ink); margin-right: 3px; }
-.ibx-chip.new { background: #fff0f6; border-color: #ffc6dc; }
-.ibx-chip.new b { color: var(--pink); }
-.ibx-chip.soon { background: #fff1f3; border-color: #ffc7cf; }
-.ibx-chip.soon b { color: var(--red); }
-.ibx-sec { font-weight: 800; font-size: var(--fs-3); margin: var(--sp-4) 0 var(--sp-2); color: var(--ink); }
-.ibx-sec.soon { color: var(--red); }
-.ibx-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr)); gap: var(--sp-3); align-items: start; }
-.ibx-grid .msg { margin-bottom: 0; }
-.ibx-grid .msg, .ibx-grid .msg.new { background: var(--card); border: 1px solid var(--line); border-left: 5px solid #cfc6e6; box-shadow: var(--shadow); padding: var(--sp-3); }
-.ibx-grid .msg.new { border-left-color: var(--violet); }
-.ibx-grid .msg.soon, .ibx-grid .msg.now { border-left-color: var(--red); }
-.ibx-grid .msg-h { align-items: flex-start; flex-wrap: nowrap; justify-content: flex-start; gap: var(--sp-3); }
-.msg-ic { flex: 0 0 auto; width: 42px; height: 42px; border-radius: 12px; background: var(--violet-soft); display: grid; place-items: center; font-size: 22px; }
-.msg-tt { flex: 1 1 auto; min-width: 0; }
-.msg-tt > b { font-size: var(--fs-4); line-height: 1.35; }
-.msg-tt .msg-from { margin-top: 2px; }
-.msg-tt .msg-from b { font-size: inherit; }
-.ibx-grid .msg-h .due { flex: 0 0 auto; font-size: var(--fs-1); font-weight: 800; color: var(--ink2); background: var(--card2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; }
-.ibx-grid .msg-h .due.soon, .ibx-grid .msg-h .due.now { color: #fff; background: var(--red); border-color: var(--red); }
-.ibx-grid .msg-d { background: var(--card2); border-radius: 10px; padding: var(--sp-2) var(--sp-3); color: var(--ink); margin-top: var(--sp-3); }
-.ibx-grid .msg-btns { margin-top: var(--sp-3); }
-.ibx-grid .msg-btns .btn { min-width: 112px; }
-.ibx-past { margin-top: var(--sp-1); }
-.ibx-past .ibx-old { display: grid; grid-template-columns: 62px 26px minmax(0, 1fr); column-gap: var(--sp-2); align-items: baseline; }
-.ibx-past .ibx-old .f { color: var(--muted); }
-@media (max-width: 520px) { .ibx-grid .msg-h { flex-wrap: wrap; } .msg-ic { width: 34px; height: 34px; font-size: 18px; } }
 /* v209: 결산표 — 표 하나 (그룹 줄 아래 활동 줄 · 두 줄 선 아래 그룹 총수입 · 그 아래 회사 운영) */
 .led-one { width: 100%; border-collapse: collapse; font-size: var(--fs-2); }
 .led-one th, .led-one td { padding: 7px 12px; border: 1px solid var(--line); text-align: right; white-space: nowrap; font-weight: 700; }

@@ -4,7 +4,7 @@
 // 직업 활동을 하면 관련 특기가 혼자 연습할 때보다 빨리 는다 (직업 경험)
 
 // ───── 공통 ─────
-function audP(score, thr) { return U.clamp(U.sig((score - thr) / 5), 0.01, 0.97); }
+function audP(score, thr) { return U.clamp(U.sig((score - COLD_AUD - thr) / 5), 0.01, 0.97); } // v237: COLD_AUD — 업계 냉대가 걸린 직업의 구직활동 지원을 보는 동안만 0이 아니다 (game.js gateApplies)
 function musicAgencies() { return AGENCIES.filter(a => a.kind === 'music'); }
 function langOK(s, ag) { const p = me(s); return (!ag.needJp || lv(p, 'jp') >= ag.needJp) && (!ag.needEn || lv(p, 'en') >= ag.needEn); }
 function langMult(p, k) { return 0.3 + lv(p, k) / 60; }
@@ -76,7 +76,8 @@ function addCatalog(s, title, kind, sc, mult, job) {
 }
 // 노래 한 곡의 성적 점수 (0~100). perf: 무대에 서는 사람들의 실력, q: 곡 완성도, fans: 지금 팬, tier: 회사 크기
 function songScore(s, o) {
-  return U.clamp(o.perf * 0.5 + o.q * 0.35 + Math.log10(1 + o.fans) * 3.2 + (o.tier || 0) * 4 + (o.trend ? 5 : 0) + (o.bonus || 0) + U.normal(0, 7) + 4, 0, 100);
+  // v237: o.job — 업계 냉대가 걸린 직업의 곡은 반응이 차갑다 (game.js coldSc)
+  return U.clamp(o.perf * 0.5 + o.q * 0.35 + Math.log10(1 + o.fans) * 3.2 + (o.tier || 0) * 4 + (o.trend ? 5 : 0) + (o.bonus || 0) + U.normal(0, 7) + 4 - (o.job ? coldSc(s, o.job) : 0), 0, 100);
 }
 // 음악방송 1위 횟수 (v131): 곡 점수가 높아도 팬 투표가 받쳐 줘야 한다. 그룹 팬 2만 명 아래는 한 번까지, 10만 명 아래는 세 번까지
 function showWins(sc, fans) { const w = sc >= 75 ? U.int(1, Math.max(1, Math.round((sc - 70) / 3))) : (sc >= 70 && U.chance(0.3) ? 1 : 0); return Math.min(w, fans < 2e4 ? 1 : fans < 1e5 ? 3 : 99); }
@@ -190,6 +191,8 @@ function billRows(o) {
   return R;
 }
 function billPay(s, o) {
+  // v237: 업계 냉대가 걸린 직업은 들어오는 돈부터 적다 (정산서에도 줄어든 돈으로 적힌다)
+  if (o.job && coldK(s, o.job)) o = Object.assign({}, o, { rev: Math.round(o.rev * coldPayM(s, o.job)) });
   const R = billRows(o), mine = Math.max(0, R[R.length - 1][1]), t = o.t;
   let share = mine, pay = 0;
   if (t && t.debt > 0 && share > 0) { pay = Math.min(t.debt, share); t.debt -= pay; share -= pay; }
@@ -1200,7 +1203,7 @@ function idolRelease(s, t, c, debut, a) {
   // v157: 이번 한 번의 보탬 — 안무 수정(무대) · 내 파트가 늘거나 줄었으면 내 몫 (idolev.js)
   const ob = typeof idolTakeB === 'function' ? idolTakeB(t) : { st: 0, part: 0 };
   const tire = cTireB(g, c); cTireLog(s, g, c, `「${g.name}」: `); cRunAdd(g, c); // v235: 같은 분위기가 다섯 번째부터
-  const sc = songScore(s, { perf: cPerf(groupPower(s, g), cf), q, fans: gf, tier: 0, trend: c === s.trend, bonus: IDOL_TIER_B[t.tier] + (g.star - 50) * 0.12 + (c === g.sig ? 3 : 0) + Math.min(t.cbCount, 6) * 0.6 + buzz + g.mo - tired + rookie + cScoreB(cf) + ob.st + tire });
+  const sc = songScore(s, { job: 'idol', perf: cPerf(groupPower(s, g), cf), q, fans: gf, tier: 0, trend: c === s.trend, bonus: IDOL_TIER_B[t.tier] + (g.star - 50) * 0.12 + (c === g.sig ? 3 : 0) + Math.min(t.cbCount, 6) * 0.6 + buzz + g.mo - tired + rookie + cScoreB(cf) + ob.st + tire });
   g.mo = g.mo * 0.6 + U.normal(0, 4.5);
   const ck = chartRank(s, sc, gf), peak = ck.peak; // v223: 순위는 화력으로
   jpopWork(s, 'idol', sc);
@@ -2015,7 +2018,7 @@ CAREERS.band = {
     const pw = bandPower(s, t);
     const g = Math.max(0, Math.round((pw - 6) * U.fl(1.2, 3) * (1 + Math.log10(1 + t.b.f) / 3) * access(s) * (t.st === 'signed' ? 1.8 : 1) * Math.max(1, n) * Math.max(0, 1 - t.b.f / starCap(55, 'kr'))));
     t.b.f += g; s.fans.kr += Math.round(g * 0.35 * popSpeed(s) * myRoom(s, 'kr'));
-    if (t.b.f >= 300) { const live = (45e4 + Math.min(t.b.f, 2e4) * 180 + Math.max(0, t.b.f - 2e4) * 270) * awMul(s, 'band'); if (t.st === 'signed') bandIncome(s, t, live, '공연 정산'); else earn(s, Math.round(live / (mem.length + 1)), '공연 수입'); }
+    if (t.b.f >= 300) { const live = (45e4 + Math.min(t.b.f, 2e4) * 180 + Math.max(0, t.b.f - 2e4) * 270) * awMul(s, 'band'); if (t.st === 'signed') bandIncome(s, t, live, '공연 정산'); else earn(s, Math.round(live / (mem.length + 1) * coldPayM(s, 'band')), '공연 수입'); }
     addStress(s, 2 * pm(s, 'crowdStress'));
     t.nextRel--;
     musAlbMonth(s, 'band'); // v154: 인디는 새 곡 기획 창, 회사 소속은 새 곡 회의
@@ -2108,7 +2111,7 @@ E({
     const bp = [me(s)].concat(bandMembers(s, t)), cf = cFit(s, d.c, bp, stageYrs(s)), bv = bp.find(x => (x.id === s.me ? t.b.my : t.b.part[x.id]) === 'vocal');
     if (cf.rap != null) cf.rap = bv ? lv(bv, 'rap') : 0;
     const tire = cTireB(t.b, d.c); cTireLog(s, t.b, d.c, `밴드 「${t.b.name}」: `); cRunAdd(t.b, d.c); // v235
-    const sc = songScore(s, { perf: cPerf(bandPower(s, t), cf), q: d.q, fans: t.b.f, tier: t.tier, trend: !!d.c && d.c === s.trend, bonus: (d.self ? 3 : 0) + cScoreB(cf) + bandArrB(s, t, d) + tire });
+    const sc = songScore(s, { job: 'band', perf: cPerf(bandPower(s, t), cf), q: d.q, fans: t.b.f, tier: t.tier, trend: !!d.c && d.c === s.trend, bonus: (d.self ? 3 : 0) + cScoreB(cf) + bandArrB(s, t, d) + tire });
     cNote(s, cf, d.title);
     const ck = chartRank(s, sc, t.b.f); d.peak = ck.peak; d.cn = ck.cn; d.ht = false; // 밴드는 음악방송 1위가 없어 유행을 바꾸지 않는다 (v166)
     jpopWork(s, 'band', sc);
@@ -2229,7 +2232,7 @@ const BAND_FESTS = [
 ];
 // 페스티벌 무대 (v117 밸런스 C1): 관객 대부분이 아직 우리 팬이 아니라서, 기존 팬 반응 없이 새로 반한 사람만 센다 (최소 100명)
 function bandFestPlay(s, d) {
-  const t = s.tracks.band, sc = U.clamp(bandPower(s, t) + U.normal(0, 8) + 20, 0, 100);
+  const t = s.tracks.band, sc = U.clamp(bandPower(s, t) + U.normal(0, 8) + 20 - coldSc(s, 'band'), 0, 100);
   const g = Math.max(100, Math.round(Math.pow(10, sc / 18) * (d.mult || 1) * Math.max(0, 1 - t.b.f / starCap(60, 'kr'))));
   t.b.f += g;
   // 정산서 (v118 UI C2): 소속사가 있으면 회사 몫을 떼고, 멤버끼리 나눈다
@@ -2445,7 +2448,7 @@ CAREERS.solo = {
     const perf = soloScore(s, t.type);
     const g = Math.max(0, Math.round((perf - 6) * U.fl(1.5, 4) * (1 + Math.log10(1 + s.fans[mk]) / 3) * (t.st === 'signed' ? 1.4 + t.tier * 0.2 : 1) * access(s) * Math.max(0.6, n) * popSpeed(s) * myRoom(s, mk)));
     s.fans[mk] += g;
-    if (s.fans[mk] >= 1500) earn(s, Math.round((Math.max(0, s.fans[mk] - 5000) * 22 + Math.min(s.fans[mk], 5000) * 8) * (1 - t.cut) * awMul(s, 'solo')), '공연·행사');
+    if (s.fans[mk] >= 1500) earn(s, Math.round((Math.max(0, s.fans[mk] - 5000) * 22 + Math.min(s.fans[mk], 5000) * 8) * (1 - t.cut) * awMul(s, 'solo') * coldPayM(s, 'solo')), '공연·행사');
     addStress(s, 2 * pm(s, 'crowdStress'));
     if (!(s.tracks.idol.st === 'active' && s.tracks.idol.promo > 0)) t.nextRel--;
     musAlbMonth(s, 'solo'); // v154: 인디는 신곡 기획 창, 회사 소속은 신곡 회의
@@ -2495,7 +2498,7 @@ E({
     // 컨셉 궁합 (v97): 내 재능 · 나이 · 랩
     const cf = cFit(s, d.c, [p], stageYrs(s));
     const tire = cTireB(t, d.c); cTireLog(s, t, d.c); cRunAdd(t, d.c); // v235
-    const sc = songScore(s, { perf: cPerf(soloScore(s, t.type), cf), q: d.q, fans: totalFans(s), tier: signed ? t.tier : 0, trend: (d.tr = d.c ? d.c === s.trend : U.chance(0.3)), bonus: (d.self ? 3 : 0) + (p.tal.star - 50) * 0.12 + cScoreB(cf) + tire });
+    const sc = songScore(s, { job: 'solo', perf: cPerf(soloScore(s, t.type), cf), q: d.q, fans: totalFans(s), tier: signed ? t.tier : 0, trend: (d.tr = d.c ? d.c === s.trend : U.chance(0.3)), bonus: (d.self ? 3 : 0) + (p.tal.star - 50) * 0.12 + cScoreB(cf) + tire });
     cNote(s, cf, d.title);
     // v167: 솔로도 아이돌처럼 음악방송에 나가 1위를 한다 (팬이 적으면 1위 횟수가 적다). 유행을 바꾸는 조건도 아이돌과 같다
     const ck = chartRank(s, sc, totalFans(s)); d.peak = ck.peak; d.cn = ck.cn; d.wins = showWins(sc, totalFans(s)); d.ht = hitTrend(s, d.c, d.peak, d.wins);
@@ -2577,7 +2580,7 @@ E({
   cond: s => trackOn(s, 'solo'),
   text: s => `일본 공연 기획사에서 소극장 투어를 해 보자는 연락이 왔다. 일본어는 ${lvi(me(s), 'jp')}레벨.`,
   ch: () => [
-    { t: '일본 투어를 간다', f: s => { s.tracks.solo.jp = true; const add = Math.round((5000 + s.fans.kr * 0.1) * (0.5 + lv(me(s), 'jp') / 100)); earn(s, add * 3000, '일본 공연'); useSkill(s, me(s), 'jp', 2); milestone(s, `${age(s)}세에 일본 투어를 했다.`); return '일본 투어를 다녀왔다.' + fx(s, { fjp: add, stress: 6 }); } },
+    { t: '일본 투어를 간다', f: s => { s.tracks.solo.jp = true; const add = Math.round((5000 + s.fans.kr * 0.1) * (0.5 + lv(me(s), 'jp') / 100)); earn(s, Math.round(add * 3000 * coldPayM(s, 'solo')), '일본 공연'); useSkill(s, me(s), 'jp', 2); milestone(s, `${age(s)}세에 일본 투어를 했다.`); return '일본 투어를 다녀왔다.' + fx(s, { fjp: add, stress: 6 }); } },
     { t: '거절한다', f: () => '일본 투어는 다음으로 미뤘다.' },
   ],
 });
@@ -2685,7 +2688,7 @@ function playerBlock(s) {
 }
 JOB_APPLY.push({
   id: 'player_start', trk: 'player', g: '🎹 솔로 뮤지션 (연주가)', n: '연주가로 활동 시작', show: s => !trackOn(s, 'player'),
-  h: s => '악기 하나로 공연하고 연주 앨범을 낸다 · 실력이 쌓이면 다른 가수의 녹음 세션 의뢰가 메시지함으로 온다',
+  h: s => '악기 하나로 공연하고 연주 앨범을 낸다 · 실력이 쌓이면 다른 가수의 녹음 세션 의뢰가 들어온다',
   ok: s => !playerBlock(s), why: s => playerBlock(s),
   run: s => { fireEvent(s, 'player_pick', {}); return ''; },
 });
@@ -2712,19 +2715,19 @@ CAREERS.player = {
     // 세션 의뢰는 실력과 평판이 쌓이면 일정과 상관없이 온다
     if (lv(p, t.inst) >= 25 && U.chance(0.02 + t.rep / 900) && !s.inbox.some(m => m.kind === 'session')) {
       const a = makeArtist(s, t.rep);
-      sendMsg(s, 'session', { from: `${a.name} 앨범 제작팀`, title: `${SKILLS[t.inst].n} 세션 의뢰`, months: 6, d: { a, fee: Math.round((30 + a.tier * 40 + t.rep * 2) * awMul(s, 'player') * 1e4) } });
+      sendMsg(s, 'session', { from: `${a.name} 앨범 제작팀`, title: `${SKILLS[t.inst].n} 세션 의뢰`, months: 6, d: { a, fee: Math.round((30 + a.tier * 40 + t.rep * 2) * awMul(s, 'player') * coldPayM(s, 'player') * 1e4) } });
     }
     if (!n) return;
     practice(s, p, t.inst, 1.4 * n, 1);
     const lvl = lv(p, t.inst), pf = lvl + talB(p.tal.looks, false);
     const g = Math.max(0, Math.round((pf - 12) * U.fl(0.8, 2.5) * (1 + Math.log10(1 + s.fans.kr) / 3) * access(s) * n * popSpeed(s) * 0.7 * myRoom(s, 'kr')));
     s.fans.kr += g;
-    earn(s, Math.round((15 + Math.max(0, pf)) * 1e4 * (0.4 + Math.min(1.2, s.fans.kr / 5e4)) * (1 + (n - 1) * 0.4)), '공연·레슨');
+    earn(s, Math.round((15 + Math.max(0, pf)) * 1e4 * (0.4 + Math.min(1.2, s.fans.kr / 5e4)) * (1 + (n - 1) * 0.4) * coldPayM(s, 'player')), '공연·레슨');
     addStress(s, 1.5);
     t.rep = U.clamp(t.rep + (lvl - 30) / 200, 0, 100);
     t.nextRel--;
     if (t.nextRel <= 0 && !hasQ(s, 'player_relres')) { t.nextRel = U.int(8, 12); const title = U.pick(['피아노 소품집', '밤의 연주', '현 위의 계절', '리듬 노트', '손끝의 기록', '조용한 방', '즉흥 일기']) + (t.rel ? ` ${t.rel + 1}` : ''); queueEv(s, 'player_relres', 1, { title }); addLog(s, `연주 앨범 「${title}」 녹음을 시작했다.`, 'career'); }
-    if ((t.inst === 'piano' || t.inst === 'keyboard') && lvl >= 55 && U.chance(0.01) && !s.inbox.some(m => m.kind === 'recital')) sendMsg(s, 'recital', { from: U.pick(['예술의 숲 콘서트홀', '한강 아트센터', '별빛 문화재단']), title: '독주회 제안', months: 8, d: { fee: Math.round((300 + lvl * 10) * 1e4) } });
+    if ((t.inst === 'piano' || t.inst === 'keyboard') && lvl >= 55 && U.chance(0.01) && !s.inbox.some(m => m.kind === 'recital')) sendMsg(s, 'recital', { from: U.pick(['예술의 숲 콘서트홀', '한강 아트센터', '별빛 문화재단']), title: '독주회 제안', months: 8, d: { fee: Math.round((300 + lvl * 10) * coldPayM(s, 'player') * 1e4) } });
   },
 };
 // 남의 노래를 부르는 가수나 그룹 (작곡·작사·세션·프로듀싱 의뢰에 쓴다)
@@ -2766,7 +2769,7 @@ E({
     const t = s.tracks.player;
     if (t.st !== 'active') { d.skip = true; return; }
     const p = me(s);
-    const sc = songScore(s, { perf: lv(p, t.inst), q: lv(p, 'compose') * 0.6 + lv(p, t.inst) * 0.4, fans: s.fans.kr, tier: 0, bonus: t.rep * 0.05 - 6 });
+    const sc = songScore(s, { job: 'player', perf: lv(p, t.inst), q: lv(p, 'compose') * 0.6 + lv(p, t.inst) * 0.4, fans: s.fans.kr, tier: 0, bonus: t.rep * 0.05 - 6 });
     d.peak = sc >= 66 ? chartFromScore(sc) : null;
     jpopWork(s, 'player', sc);
     d.gain = Math.round(Math.max(0, fanGain(s, sc, 'kr', 0.5)) * myRoom(s, 'kr'));

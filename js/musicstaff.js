@@ -84,7 +84,7 @@ for (const kind of ['composer', 'lyricist']) {
   const key = wKey(kind), nm = wN(kind);
   JOB_APPLY.push({
     id: kind + '_start', trk: kind, g: kind === 'composer' ? '🎼 작곡가' : '✍️ 작사가', n: `${nm}로 활동 시작`, show: s => !trackOn(s, kind),
-    h: s => `곡을 써서 돌린다. 채택되면 계약금과 저작권료가 들어온다 · 채택 제안은 메시지함으로 온다 · 지금 ${SKILLS[key].n} ${has(me(s), key) ? lvi(me(s), key) + '레벨' : '못 함'}`,
+    h: s => `곡을 써서 돌린다. 채택되면 계약금과 저작권료가 들어온다 · 채택되면 계약하자는 제안이 온다 · 지금 ${SKILLS[key].n} ${has(me(s), key) ? lvi(me(s), key) + '레벨' : '못 함'}`,
     ok: s => lv(me(s), key) >= 15 && age(s) >= 14 && !s.army,
     why: s => s.army ? '군 복무 중' : age(s) < 14 ? '14세부터 할 수 있다' : `${SKILLS[key].n}${josa(SKILLS[key].n, '이가').slice(SKILLS[key].n.length)} 15레벨 이상이어야 한다`,
     run: s => { const old = s.tracks[kind]; s.tracks[kind] = { st: 'active', months: 0, rep: old.rep || 0, songs: old.songs || 0, hits: old.hits || 0, best: 0, team: null, sn: old.sn, cc: old.cc || null }; if (!old.songs) milestone(s, `${age(s)}세에 ${nm}의 길을 걷기 시작했다.`); if (kind === 'composer') pickConcept(s, { cb: 'comp', what: '앞으로 쓸 곡들의', cur: old.cc || null }); return `${nm}로 활동을 시작했다. 일정에 '${CAREERS[kind].act.n}'를 넣어야 곡을 쓴다.`; },
@@ -232,7 +232,7 @@ JOB_APPLY.push({
   h: s => '앨범 전체를 맡아 만든다 · 작곡 40레벨 이상에, 작곡가로 평판 30을 쌓았거나 히트곡이 2곡 있어야 한다 (가수 출신이면 작곡 50레벨 + 팬 5만으로 대신할 수 있다)',
   ok: s => producerReady(s) && !s.army,
   why: s => s.army ? '군 복무 중' : `아직 조건이 안 된다 (작곡 ${lvi(me(s), 'compose')}레벨 · 작곡가 평판 ${Math.round(s.tracks.composer.rep || 0)} · 히트 ${s.tracks.composer.hits || 0}곡)`,
-  run: s => { const old = s.tracks.producer; s.tracks.producer = { st: 'active', months: 0, rep: Math.max(10, (s.tracks.composer.rep || 0) * 0.6, old.rep || 0), albums: old.albums || 0, hits: old.hits || 0, sn: old.sn }; milestone(s, `${age(s)}세에 프로듀서로 나섰다.`); askStageName(s, 'producer'); return '프로듀서로 나섰다. 앨범 의뢰는 메시지함으로 온다.'; },
+  run: s => { const old = s.tracks.producer; s.tracks.producer = { st: 'active', months: 0, rep: Math.max(10, (s.tracks.composer.rep || 0) * 0.6, old.rep || 0), albums: old.albums || 0, hits: old.hits || 0, sn: old.sn }; milestone(s, `${age(s)}세에 프로듀서로 나섰다.`); askStageName(s, 'producer'); return '프로듀서로 나섰다. 앨범 의뢰는 제안으로 들어온다.'; },
 });
 // 작곡가와 다른 점: 작곡가는 곡 한 곡을 써 두고 기획사가 골라 가기를 기다린다.
 // 프로듀서는 남의 앨범 하나를 통째로 맡아 대표와 같은 일을 한다: ① 기획 · ② 데모곡 확보 → ④ 실을 곡 세 곡 + 타이틀곡 (v155, 앨범 제작 틀).
@@ -252,7 +252,7 @@ CAREERS.producer = {
   mainSk() { return 'compose'; },
   info(s, t) {
     const p = me(s), w = s.projects.find(x => x.type === 'produce'), inh = t.mode === 'in';
-    return [inh ? ['회사', `${t.agN} (${TIER_N[t.tier]} 기획사) 사내 프로듀서`] : ['일하는 방식', '프리랜서 (의뢰는 메시지함으로 온다)'], inh ? ['월급', fmtWon(t.sal)] : null, ['내 실력', ['compose', 'lyric', 'scout', 'vocal', 'rap', 'piano', 'keyboard', 'guitar'].filter(k => has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ')], ['단계', P_TIERS[pTier(t, s)]], ['프로듀싱한 앨범', `${t.albums}장 · 히트 ${t.hits}곡`], [inh ? '업무 평가' : '평판', `${Math.round(t.rep)}`], inh ? null : ['단골 가수', (t.clients || []).length ? t.clients.map(a => a.name).join(', ') : '없음'], ['지금 작업', w ? `${w.a.name} 「${w.title}」${w.c ? ` · '${w.c}' 컨셉` : ''} · ${w.left}개월 남음` : inh ? `없음 (다음 앨범은 ${Math.max(1, t.next || 1)}개월쯤 뒤)` : '없음 (의뢰는 메시지함으로 온다)'], { h: '컨셉 숙련도', bars: cmBars(s) }, inh ? { h: '전담 그룹', items: (t.groups || []).slice(0, pinOwn(s, t)).map(g => `${g.name} (${g.kind}) · 팬 ${fmtFans(g.f)} · 대표 컨셉 '${g.sig}'`) } : null].filter(Boolean);
+    return [inh ? ['회사', `${t.agN} (${TIER_N[t.tier]} 기획사) 사내 프로듀서`] : ['일하는 방식', '프리랜서 (의뢰는 제안으로 들어온다)'], inh ? ['월급', fmtWon(t.sal)] : null, ['내 실력', ['compose', 'lyric', 'scout', 'vocal', 'rap', 'piano', 'keyboard', 'guitar'].filter(k => has(p, k)).map(k => `${SKILLS[k].n} ${lvi(p, k)}`).join(' · ')], ['단계', P_TIERS[pTier(t, s)]], ['프로듀싱한 앨범', `${t.albums}장 · 히트 ${t.hits}곡`], [inh ? '업무 평가' : '평판', `${Math.round(t.rep)}`], inh ? null : ['단골 가수', (t.clients || []).length ? t.clients.map(a => a.name).join(', ') : '없음'], ['지금 작업', w ? `${w.a.name} 「${w.title}」${w.c ? ` · '${w.c}' 컨셉` : ''} · ${w.left}개월 남음` : inh ? `없음 (다음 앨범은 ${Math.max(1, t.next || 1)}개월쯤 뒤)` : '없음 (의뢰는 제안으로 들어온다)'], { h: '컨셉 숙련도', bars: cmBars(s) }, inh ? { h: '전담 그룹', items: (t.groups || []).slice(0, pinOwn(s, t)).map(g => `${g.name} (${g.kind}) · 팬 ${fmtFans(g.f)} · 대표 컨셉 '${g.sig}'`) } : null].filter(Boolean);
   },
   actions(s, t) {
     if (t.st !== 'active') return [];

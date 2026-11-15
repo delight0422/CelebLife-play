@@ -597,7 +597,8 @@ function stResHTML(L) { return L && L.length ? `<div class="st-res">${L.map(([ic
 // o.noDon: 후원을 따로 치지 않는 방송(합방 등) · o.queue: 한 달 진행 중에 생긴 방송(볼 차례가 아니면 창 없이 기록만 남긴다) · 나머지는 streamBoxes로
 function streamShow(s, job, cut, title, log, sp, o) {
   o = o || {};
-  const don = o.noDon ? null : streamDon(sp, cut);
+  let don = o.noDon ? null : streamDon(sp, cut);
+  if (don && FACE_JOBS.includes(job)) don = Math.round(don * coldPayM(s, job)); // v237: 업계 냉대 (얼굴이 나오는 직업은 여기서, 그 밖의 직업은 earn에서 깎는다)
   if (don) earn(s, don, '방송 후원·멤버십', job);
   const d = { title, text: log, log: log + (don ? ` 방송 후원 ${fmtWon(don)}.` : ''), live: sp || null, boxes: streamBoxes(sp, Object.assign({}, o, don != null ? { don } : {})) };
   if (o.queue) { if (liveShow(d.live)) queueEv(s, 'work_res', 0, d, true); else addLog(s, d.log, 'career'); return ''; }

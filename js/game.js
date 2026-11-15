@@ -198,6 +198,8 @@ function gateApplies() {
     const ok = a.ok, why = a.why, job = JOB_APPLY.includes(a), ex = jaTags(a.id);
     const jb = s => job ? (a.trk ? jobBlock(s, a.trk, ex) : '') : aaBlock(s, a);
     const pg = s => pregMe(s);
+    // v237: 업계 냉대가 걸린 직업의 지원은 막지 않고, 합격 점수만 깎는다 (설명 글의 합격 가능성 · 지원할 때 굴리는 가능성 모두. COLD_AUD → music.js audP)
+    if (job && a.trk) { const h = a.h, run = a.run, cw = f => function (s) { const c = coldSc(s, a.trk, 1.5); if (!c) return f.call(a, s); const p0 = COLD_AUD; COLD_AUD = c; try { return f.call(a, s); } finally { COLD_AUD = p0; } }; if (typeof h === 'function') { const h2 = cw(h); a.h = s => { const x = h2(s); return coldK(s, a.trk) ? `${x ? x + ' · ' : ''}업계 분위기가 싸늘하다` : x; }; } if (typeof run === 'function') a.run = cw(run); }
     a.ok = s => !s.hiatus && !pg(s) && !jb(s) && (!ok || ok(s));
     a.why = s => s.hiatus ? `자숙 중이다 (${s.hiatus.left}개월 남음)` : pg(s) ? `임신 중이다 (${s.preg.left}개월 뒤 출산)` : jb(s) || (why ? why(s) : '');
   }
@@ -223,6 +225,24 @@ function popWord(v) { return v >= 80 ? '사랑받는 중' : v >= 62 ? '좋게 �
 function popUnknown(s) { return (s.fame || 0) < 8 && totalFans(s) < 1000; }
 function repWord(v) { return v >= 80 ? '모두가 칭찬' : v >= 62 ? '좋은 사람' : v >= 42 ? '무난' : v >= 25 ? '뒷말 있음' : '적이 많음'; }
 function wealthWord(w) { return w <= 1 ? '가장 가난한' : w <= 3 ? '형편이 빠듯한' : w <= 6 ? '평범한' : w <= 8 ? '형편이 넉넉한' : '아주 부유한'; }
+// ───── 업계 냉대 (v237) ─────
+// 하던 일을 갑자기 그만두고 다른 제안을 받으면(inbox.js walkTake) 그 직업 업계가 5년 동안 나를 차갑게 대한다. 막지는 않아서 그 일을 다시 시작할 수는 있다
+// s.jobCold[직업] = { t0, until }. 세기 k = 남은 달 ÷ 60 (처음 1, 달마다 줄어 0). 화면에는 기간 · 숫자를 드러내지 않는다 ('업계 분위기가 싸늘하다'만)
+//  · 섭외 · 제안: 올 가능성 × (1 − 0.9k) — 제안 창(inbox.js sendMsg) · 그 직업의 매달 섭외
+//  · 반응: 그 직업의 작품 · 무대 · 방송 · 곡 점수 − 20k. 대중 호감도는 덜 오르고 더 내린다 (jpopAdd)
+//    재 보고 자리마다 무게를 달리했다: 배우의 연기 평 − 30k · 작품 성적 − 10k, 모델 · 댄서 일감이 잘 나올 가능성 − 40k (다시 시작하면 쉬운 일부터라 20으로는 보통 실력도 거의 다 잘 나왔다)
+//    목표: 주특기 50~60레벨은 처음 2년쯤 거의 잘되지 못하고, 85레벨부터는 잘될 수 있게
+//  · 수입: 그 직업으로 버는 돈 × (1 − 0.5k) — 얼굴이 나오는 직업은 일감 값 · 정산에서 미리 깎고(창에 보이는 돈과 같게), 그 밖의 직업은 earn에서 깎는다
+//  · 구직활동 오디션: 합격 점수 − 30k (gateApplies → COLD_AUD → music.js audP)
+const COLD_M = 60, COLD_SC = 20, COLD_OFFER = 0.9, COLD_PAY = 0.5, COLD_POP = 0.6;
+function coldK(s, id) { const c = id && s && s.jobCold && s.jobCold[id]; return c && c.until > s.t ? U.clamp((c.until - s.t) / COLD_M, 0, 1) : 0; }
+function coldSc(s, id, w = 1) { return COLD_SC * coldK(s, id) * w; }
+function coldOfferM(s, id) { return 1 - COLD_OFFER * coldK(s, id); }
+function coldPayM(s, id) { return 1 - COLD_PAY * coldK(s, id); }
+let COLD_AUD = 0; // 구직활동 지원 하나를 보는 동안 그 직업의 냉대 점수 (music.js audP가 뺀다)
+// 업계를 부르는 말 ('가요 업계에서 …'). 없으면 직업 이름 그대로
+const COLD_FIELD = { band: '밴드', solo: '가요', player: '연주', dancer: '댄스', variety: '예능', youtube: '인터넷 방송', voice: '성우', director: '영상 연출', writer: '시나리오', adir: '애니메이션', animator: '애니메이션', illust: '일러스트', tutor: '학원', prof: '대학', anr: '음악 기획', marketer: '마케팅', editor: '영상 편집' };
+function coldField(id) { return COLD_FIELD[id] || evJobN(id); }
 
 // ───── 기록 ─────
 // v179: 맡긴 일(CEO · 전담 프로듀서)이 남기는 기록은 dl 표시를 붙여 요약 창의 '특별한 일'에 넣지 않는다 (DL_N > 0인 동안)
@@ -407,6 +427,8 @@ function jobEarnAdd(s, j, v) { if (!j || !(v > 0)) return; const E = s.jobEarn =
 function earn(s, v, label, job) {
   if (!(v > 0)) return;
   const j = job || EARN_LABEL[label] || EARN_JOB, co = ownCo(s, j);
+  // v237: 업계 냉대 — 얼굴이 나오는 직업은 일감 값 · 정산에서 이미 깎았다. 그 밖의 직업은 여기서 깎는다
+  if (j && !FACE_JOBS.includes(j) && coldK(s, j)) v = Math.round(v * coldPayM(s, j));
   // 내 회사 소속 활동이면 수익은 자본금으로 (회사에서 꺼낼 때 '업계에서 번 돈'이 된다)
   if (co) { coIn(co, v, OWN_CO_N[j] + ' 수입', ownCoF(s, j)); return; }
   addMoney(s, v, label, true); jobEarnAdd(s, j, v);
@@ -749,7 +771,7 @@ function fameWord(v) { return v >= 85 ? '모르는 사람 없음' : v >= 65 ? '�
 // 대중 앞에 이름을 걸고 하는 직업만 인기가 있다 (스태프 직업은 업계 평판·업무 평가로 본다)
 const POP_JOBS = ['idol', 'band', 'solo', 'player', 'dancer', 'actor', 'variety', 'youtube', 'model', 'vidol', 'director', 'writer', 'voice', 'adir', 'webtoon', 'webnovel'];
 function jpop(s, id) { const v = (s.jpop || {})[id]; return v == null ? 50 : v; }
-function jpopAdd(s, id, v) { if (!v || !POP_JOBS.includes(id)) return 0; s.jpop = s.jpop || {}; const b = jpop(s, id); s.jpop[id] = U.clamp(b + v, 0, 100); return s.jpop[id] - b; }
+function jpopAdd(s, id, v) { if (!v || !POP_JOBS.includes(id)) return 0; { const k = coldK(s, id); if (k) v *= v > 0 ? 1 - COLD_POP * k : 1 + COLD_POP * k; } /* v237: 업계 냉대 — 덜 오르고 더 내린다 */ s.jpop = s.jpop || {}; const b = jpop(s, id); s.jpop[id] = U.clamp(b + v, 0, 100); return s.jpop[id] - b; }
 function popJobsOn(s) { return POP_JOBS.filter(id => trackOn(s, id)); }
 // 지금 하는 모든 직업의 인기 (내 이미지 전체가 걸린 일: 논란, 사생활 기사, 광고 사고 등)
 function jpopAll(s, v) { let sum = 0; const L = popJobsOn(s); for (const id of L) sum += jpopAdd(s, id, v); return L.length ? sum / L.length : 0; }
@@ -1528,7 +1550,7 @@ function blankState() {
     home: { mode: 'parents', type: null }, edu: { hs: null, hsBonus: null, uni: null, graduated: false }, subs: {}, equip: {},
     money: 0, debt: 0, earned: 0, jobEarn: {}, jobEarn0: 0, everSuccess: false, peak: { fans: 0, money: 0 }, yinc: {},
     mon: { inc: 0, exp: 0, ent: 0, items: {} }, lastMon: null, pending: null, ended: null, gen: 1, inbox: [], projects: [],
-    apSeen: {}, careerLog: [], carOn: {}, cmast: {}, clTr: 1, tier7: true,
+    apSeen: {}, careerLog: [], carOn: {}, cmast: {}, clTr: 1, tier7: true, jobCold: {},
   };
 }
 function newLife() {
@@ -1673,6 +1695,9 @@ function migrate(s) {
   // 예전 세이브: 스트리머 직업의 회사 소속 버튜버 → 버츄얼 아이돌 (6-2단계)
   if (typeof viMigrate === 'function') viMigrate(s);
   s.subs = s.subs || {}; s.equip = s.equip || {}; s.yinc = s.yinc || {}; s.inbox = s.inbox || []; s.projects = s.projects || [];
+  // v237: 메시지함을 없앴다. 줄 서 있던 · 떠 있던 '답장 기한' 창은 제안 창으로 옮긴다. 메시지함에 남아 있던 제안은 다음 달에 차례로 제안 창으로 뜬다 (inbox.js inboxMonth)
+  for (const q of (s.queue || []).concat(s.pending ? [s.pending] : [])) if (q.id === 'inbox_due') q.id = 'offer';
+  s.jobCold = s.jobCold || {};
   s.cmast = s.cmast || {};
   // 같은 직업 활동은 한 칸만 (0단계): 예전 세이브에 두 칸 이상 들어 있으면 하나만 남긴다
   if (s.slots) dedupeJobSlots(s);
