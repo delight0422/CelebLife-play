@@ -339,21 +339,6 @@ function showGame() {
   render();
   if (S.ended) showEnding(); else if (S.pending) showEvent(); else startLoop();
 }
-function stageLabel(s) {
-  const tops = CAREER_IDS.filter(id => CAREERS[id] && trackOn(s, id) && CAREERS[id].short).map(id => CAREERS[id].short(s, s.tracks[id]));
-  if (tops.length) return tops.join(' · ');
-  const a = age(s);
-  if (s.army) return '군 복무 중';
-  const y = schoolYear(s);
-  if (y < 1 && a < 19) return a < 1 ? '아기' : '유년기';
-  if (y < 7) return '초등학생';
-  if (y < 10) return '중학생';
-  if (!s.edu.graduated && y <= 12) return `고등학생${s.edu.hs && s.edu.hs !== '일반고' ? ' · ' + s.edu.hs : ''}`;
-  if (inUni(s)) return `대학생 · ${s.edu.uni.n}`;
-  // 결혼했고 30세가 넘었는데 하는 일이 없으면 전업주부
-  if (married(s) && a >= 30 && !s.slots.some(sl => sl.act === 'job')) return '전업주부';
-  return s.slots.some(sl => sl.act === 'job') ? '아르바이트 중' : '진로를 찾는 중';
-}
 // 진행 버튼 (v118 UI A1): 선택 창을 내려 둔 동안에는 '선택 대기중'. 누르거나 스페이스를 치면 그 창이 다시 뜬다 (떠 있던 '다시 보기' 버튼은 없앴다)
 function goBtnSync() { const b = $('#btn-go'); if (!b) return; const w = !!(S && S.pending && UI.minimized); b.classList.toggle('waiting', w); b.innerHTML = w ? '선택 대기중 <kbd>Space</kbd>' : '진행 ▶ <kbd>Space</kbd>'; }
 function render() {
@@ -384,7 +369,7 @@ function g2Role(s) { const J = g2Jobs(s); if (!J.includes(UI.role)) UI.role = J[
 // 바뀌었을 때만 다시 넣는다 (캐릭터 그림이 달마다 깜빡이지 않게)
 function g2Set(q, h) { const el = $(q); if (!el) return null; if (el._h !== h) { el._h = h; el.innerHTML = h; } return el; }
 // 내 캐릭터 (실시간 창과 같은 그림 조각): 이름마다 머리 · 얼굴이 정해진다
-function g2Me(p) { return typeof liveChar === 'function' ? liveChar('me/' + p.id + '/' + p.name, 265, 'me/' + p.id, { sx: p.g === '여' ? 'f' : 'm' }) : ''; }
+function g2Me(p, o) { return typeof liveChar === 'function' ? liveChar('me/' + p.id + '/' + p.name, 265, 'me/' + p.id, Object.assign({ sx: p.g === '여' ? 'f' : 'm' }, o || {})) : ''; }
 function g2Paint() { if (typeof chLoad !== 'function') return; chLoad(); if (CH.ok) document.querySelectorAll('#g2 canvas.lv-chc').forEach(c => { if (c._k !== c.dataset.ch) { c._k = c.dataset.ch; chPaint(c); } }); }
 // 창 크기에 맞춰 화면을 통째로 줄이거나 키운다 (넓은 화면에서만. 좁은 화면은 위에서 아래로 쌓는다)
 function g2Fit() {
@@ -402,7 +387,7 @@ function renderTop() {
   const sc = schoolLine(s), gf = TALENTS_SHOWN.filter(t => (p.tal[t.id] || 0) >= 70).map(t => t.n);
   g2Set('#g2-plate', `<span class="g2-pf">${g2Me(p)}</span><span class="g2-pt"><span class="g2-pn">${U.esc(p.name)}<small>${age(s)}세</small></span><span class="g2-ps">${U.esc(idLabel(s))}${sc && sc[1] ? ` · ${U.esc(sc[1])}` : ''}</span>${gf.length ? `<span class="g2-pg">⭐ ${U.esc(gf.join(' · '))}</span>` : ''}</span>`);
   // 캐릭터 그림은 어른 몸 하나뿐이라, 어릴 때는 작게 그린다
-  const ag = age(s), ch = g2Set('#g2-char', `${g2Me(p)}<span class="g2-nt">${U.esc(p.name)}</span>`);
+  const ag = age(s), ch = g2Set('#g2-char', `${g2Me(p, g2Cos(s))}<span class="g2-nt">${U.esc(p.name)}</span>`);
   if (ch) ch.style.setProperty('--chh', `${Math.round(480 * (ag < 4 ? .42 : ag < 8 ? .52 : ag < 13 ? .66 : ag < 17 ? .82 : ag < 20 ? .93 : 1))}px`);
   // 날짜: 연도 글씨 아래에 1~12월 막대 (달이 갈수록 차오르고, 1월이 되면 처음부터)
   // 막대는 한 번만 만들고 너비만 바꾼다 (그래야 부드럽게 차오른다). 1월로 돌아갈 때는 바로 비운다
@@ -428,41 +413,174 @@ function renderMid() {
   if (s.preg) h += `<span class="g2-al">${pregMe(s) ? '🤰 임신 중' : `👶 ${U.esc((partner(s) || { name: '배우자' }).name)} 임신 중`} · ${s.preg.left > 0 ? `${s.preg.left}개월 뒤 출산 (${ymLater(s, s.preg.left)})` : '곧 출산'}${pregMe(s) ? ' · 직업 활동은 쉰다' : ''}</span>`;
   g2Set('#g2-mid', h);
 }
-// 오른쪽: 지원 카드(그 역할에서 한 번 하는 지원 — 새로 생기면 눈에 띄게) → 역할 카드(누르면 그 직업 창) → 특기(레벨순, 레벨이 다 보이게)
-function renderRight() {
-  const s = S, p = me(s), role = g2Role(s);
+// ───── v240: 직업별 화면 ─────
+// 왼쪽에서 고른 직업에 따라 장면(배경) · 옷 · '지금 하는 일' · 최근 결과 · 숙련도 · 행동 버튼이 바뀐다. 표에 없는 직업은 집 배경에 기본 카드만
+// 장면: 지금 있는 그림만 쓴다 (img/st 무대 4장 · img/sc 연습실 · 회의실 · 대기실). 그림이 없는 직업은 집 (앞으로-할-일.md '직업별 장면 그림')
+const G2_SCENE = {
+  idol: (s, t) => t.st === 'active' && t.promo > 0 ? 'st/musicshow' : 'sc/practice',
+  solo: (s, t) => t.st === 'signed' ? 'st/musicshow' : 'st/soloclub',
+  band: (s, t) => t.st === 'signed' ? 'st/musicshow' : 'st/soloclub',
+  player: 'st/solohall', dancer: 'sc/practice', trainer: 'sc/practice', acttrainer: 'sc/practice',
+  actor: 'sc/waiting', model: 'sc/waiting', variety: 'sc/waiting',
+  anr: 'sc/meeting', marketer: 'sc/meeting', producer: (s, t) => t.mode === 'in' ? 'sc/meeting' : null,
+};
+function g2SceneKey(s) {
+  const r = g2Role(s), f = G2_SCENE[r]; let k = null;
+  if (f && s.tracks[r]) { try { k = typeof f === 'function' ? f(s, s.tracks[r]) : f; } catch (e) { k = null; } }
+  return k || 'bg/' + homeBgKey(s);
+}
+// 옷: 가수는 준비 중인 곡의 분위기 옷(없으면 그 사람 기본 옷), 연습실에서는 연습복. 솔로 가수는 마이크
+function g2Cos(s) {
+  const r = g2Role(s), t = s.tracks[r]; if (!t || r === 'none') return {};
+  const c = (t.alb && typeof CH_COS !== 'undefined' && CH_COS[t.alb.c]) || '';
+  if (r === 'idol') return t.st === 'active' && t.promo > 0 ? { cos: c } : { cos: 'practice' };
+  if (r === 'solo') return { cos: c, mic: 1 };
+  if (r === 'band') return { cos: c };
+  if (r === 'dancer' || r === 'trainer' || r === 'acttrainer') return { cos: 'practice' };
+  return {};
+}
+// 지금 하는 일: [{ k: 작은 제목, big: 큰 글, sub: 덧붙임, pct: 진행 막대(없으면 안 그림) }] — 직업 상태 글(status)과 같은 값을 읽는다
+// 인디는 실을 곡을 고르는 동안 at이 없다 (직업 창도 '실을 곡을 정할 차례'). 곡 이름은 게임이 '곡이 정해졌다'고 알린 달부터 보인다
+function g2Alb(s, t, k) { const a = t.alb; if (!a) return null; if (a.at == null) return { k, big: '실을 곡을 정할 차례' }; const n = a.deb ? 2 : U.clamp(s.t - a.at, 0, 2); return { k, big: a.title && n >= 1 ? `「${a.title}」` : '곡을 고르는 중', sub: albStageW(s, a), pct: (n + 1) * 25 }; }
+function g2Rel(s, t, k, q) { return g2Alb(s, t, k) || (t.nextRel > 12 || musRelQ(s, q) ? { k, big: '준비 중' } : t.nextRel > 0 ? { k, big: `${t.nextRel}개월 뒤` } : null); }
+function g2Wb(s, t, id) { const w = t.w; return [w ? { k: '연재 중', big: `「${w.title}」`, sub: `${w.pro ? w.plat + ' 연재' : WB[id].free} · 독자 ${fmtFans(w.readers)}${w.pro ? ' · ' + wbRankN(id, w) : ''}` } : { k: '연재', big: '다음 작품 준비 중' }]; }
+function g2Sub(s, t) { return [(t.subs || []).length ? { k: '심사 중', big: `보낸 곡 ${t.subs.length}곡` } : null]; }
+const G2_NOW = {
+  idol(s, t) {
+    const ev = `최근 평가 ${t.rank || '-'}위 / ${t.pool}명`;
+    if (t.st === 'trainee') return [t.team ? { k: '데뷔조', big: `데뷔까지 약 ${Math.max(1, 6 - t.prep)}개월`, sub: ev, pct: U.clamp(t.prep / 6 * 100, 8, 95) } : { k: '연습생', big: `${t.months}개월 차`, sub: ev }];
+    return [t.promo > 0 ? { k: '활동기', big: `${t.promo}개월 남음` } : null, g2Alb(s, t, '다음 앨범')];
+  },
+  solo: (s, t) => [g2Rel(s, t, '다음 발매', 'solo')],
+  band: (s, t) => [t.st === 'forming' ? { k: '멤버 모으는 중', big: `필요: ${bandMissing(t).map(partN).join(' · ')}` } : g2Rel(s, t, '다음 발매', 'band')],
+  actor: (s, t) => [t.proj ? { k: '촬영 중', big: `「${t.proj.title}」`, sub: `${t.proj.left}개월 남음` } : null, (t.wait || []).length ? { k: '공개 대기', big: `「${t.wait[0].title}」`, sub: `${ymLater(s, t.wait[0].at - s.t)} 공개${t.wait.length > 1 ? ` · 그 밖에 ${t.wait.length - 1}편` : ''}` } : null],
+  director: (s, t) => [t.proj ? { k: '촬영 중', big: `「${t.proj.title}」`, sub: `${t.proj.left}개월 남음` } : null],
+  variety: (s, t) => (t.shows || []).slice(0, 2).map(x => ({ k: '고정 프로그램', big: `「${x.title}」`, sub: x.m ? `${x.m}개월째` : '' })),
+  youtube: (s, t) => [t.st === 'prep' ? { k: '데뷔 준비', big: `${VT_AV[t.av].n} 제작`, sub: `${t.left}개월 남음` } : { k: '채널', big: `「${t.ch}」`, sub: `구독자 ${fmtFans(t.subs)}${t.lastInc > 0 ? ` · 지난달 수입 ${fmtWon(t.lastInc)}` : ''}` }],
+  vidol: (s, t) => t.st === 'prep' ? [{ k: '데뷔 준비', big: `${t.gen}기 · ${t.prepM || 0}개월째`, sub: `동기 ${t.mates.length + 1}/${VI_GEN_N}명` }] : [{ k: '채널', big: `「${t.ch}」`, sub: `구독자 ${fmtFans(t.subs)}` }],
+  composer: g2Sub, lyricist: g2Sub,
+  producer(s, t) { const w = s.projects.find(x => x.type === 'produce'); return [w ? { k: '작업 중', big: w.title ? `${w.a.name} 「${w.title}」` : `${w.a.name} 앨범`, sub: `${w.left}개월 남음` } : null]; },
+  writer(s, t) { const d = draftOf(s); return [d ? { k: '쓰는 원고', big: `「${d.title}」`, sub: `${Math.floor(d.prog)}% 씀`, pct: d.prog } : null]; },
+  webtoon: (s, t) => g2Wb(s, t, 'webtoon'), webnovel: (s, t) => g2Wb(s, t, 'webnovel'),
+  tutor: (s, t) => [t.book ? { k: '교재 집필', big: `「${t.book.title}」`, sub: `${t.book.prog}/${t.book.need}개월`, pct: t.book.prog / t.book.need * 100 } : null, t.tv ? { k: '고정 출연', big: `「${t.tv.title}」`, sub: `${t.tv.left}개월 남음` } : null],
+  adir: (s, t) => [t.pj ? { k: '만드는 중', big: `「${t.pj.title}」`, sub: `${Math.max(1, t.pj.end - s.t)}개월 남음` } : null],
+};
+function g2Now(s, id) {
+  const f = G2_NOW[id], t = s.tracks[id]; if (!f || !t) return [];
+  try { return (f(s, t) || []).filter(x => x && x.big && !/undefined|NaN/.test(x.big + (x.sub || ''))).slice(0, 2); } catch (e) { return []; }
+}
+// 최근 결과: 기록(s.works)에서 그 직업이 낸 것 (작품 기록에는 직업이 적혀 있지 않아 종류 이름으로 고른다)
+const G2_WK = {
+  solo: ['싱글', 'OST', '피처링', '단독 공연'], idol: ['데뷔 앨범', '앨범', '프로젝트 앨범'], band: ['밴드 싱글'], player: ['연주 앨범', '독주회', '세션 참여'],
+  composer: ['작곡 참여곡'], lyricist: ['작사 참여곡'], producer: ['프로듀싱 앨범'], anr: ['A&R 참여곡'], dancer: ['댄서', '안무'],
+  variety: ['예능'], model: ['모델'], voice: ['성우'], vidol: ['오리지널 곡', '단체곡'], webtoon: ['웹툰'], webnovel: ['웹소설'], illust: ['일러스트'],
+  animator: ['작화'], adir: ['애니 연출'], editor: ['영상 편집'], tutor: ['교재', '드라마 특별출연'],
+  actor: w => w.type === '뮤지컬' || (typeof PJ_TYPES !== 'undefined' && Object.values(PJ_TYPES).some(T => T.n === w.type)),
+  director: w => / 연출$/.test(w.type) && w.type !== '애니 연출', writer: w => / 각본/.test(w.type), marketer: w => / (홍보|런칭)$/.test(w.type),
+};
+function g2Works(s, id) {
+  const m = G2_WK[id]; if (!m) return [];
+  const ok = typeof m === 'function' ? m : w => m.includes(w.type), R = [];
+  for (let i = s.works.length - 1; i >= 0 && R.length < 3; i--) if (ok(s.works[i])) R.push([s.works[i], i]);
+  return R;
+}
+function g2WkNote(w) { if (w.card) return w.card.peak ? `${w.card.peak}위` : '100위 밖'; const P = String(w.note || '').split(' · '); return (P.find(x => /\d+위|위 밖|독자|조회수|시청률|관객/.test(x)) || P[0]).replace('음원 차트 최고 ', '').replace('음원 차트 ', ''); }
+// 숙련도: 직업 창 정보 탭에 있는 막대와 같은 값 (높은 것부터)
+const G2_BARS = {
+  idol: s => cmBars(s), band: s => cmBars(s), solo: s => cmBars(s), composer: s => cmBars(s), lyricist: s => cmBars(s), producer: s => cmBars(s),
+  dancer: s => chBars(s), webtoon: s => wbMBars(s, 'webtoon'), webnovel: s => wbMBars(s, 'webnovel'), illust: s => ilMBars(s), tutor: s => tuMBars(s),
+  director: s => dmBars(s, 'g'), writer: s => smBars(s, 'g'), animator: s => aniMBars(s, 'anm'), adir: s => aniMBars(s, 'adm'), editor: s => emBars(s),
+};
+function g2Bars(s, id) { const f = G2_BARS[id]; if (!f) return []; try { return (f(s) || []).filter(x => x && x.n && x.v >= 1).sort((a, b) => b.v - a.v); } catch (e) { return []; } }
+// 직업 카드에 덧붙이는 줄 (정보 탭에 없는 것)
+function g2Facts(s, id) {
+  const F = jobFacts(s, id).slice();
+  if (id === 'composer' || id === 'lyricist') { const v = (s.catalog || []).filter(x => x.job === id).reduce((a, x) => a + (x.m || 0), 0); if (v > 0) F.splice(1, 0, ['이번 달 저작권료', fmtWon(v)]); }
+  return F;
+}
+// 오른쪽: 지원 카드(그 역할에서 한 번 하는 지원 — 새로 생기면 눈에 띄게) → 직업 카드(지금 하는 일 · 상태, 누르면 그 직업 창) → 최근 결과 → 숙련도 → 특기(레벨순, 레벨이 다 보이게)
+// 한 화면에 안 들어가면 덜 중요한 것부터 줄인다 (lv 0~5: 상태 글 → 숙련도 → 최근 결과 → 직업 카드의 줄). 특기는 줄이지 않는다 (레벨이 다 보여야 한다)
+function g2RightHTML(s, role, lv) {
+  const p = me(s);
   let h = '';
   const L = aaList(s, role).filter(a => applyOKNow(s, a)), F = aaFresh(s, role);
   if (F.length) h += `<button type="button" class="g2-card g2p g2-quest" data-job="${role}" data-jt="apply"><span class="g2-ct">📢 새로 지원할 수 있는 곳<i>${F.length}곳</i></span><b class="g2-big">${U.esc(`${F[0].ic || ''} ${F[0].n}`.trim())}</b><span class="g2-bt">지원하기</span></button>`;
   else if (L.length) h += `<button type="button" class="g2-card g2p g2-apply" data-job="${role}" data-jt="apply"><em>📝</em><span><b>지원</b><small>지원할 수 있는 곳 ${L.length}곳</small></span><i>›</i></button>`;
   if (role !== 'none') {
-    const F2 = jobFacts(s, role), st = CAREERS[role].status ? careerStatus(s, role) : '';
-    h += `<button type="button" class="g2-card g2p" data-job="${role}"><span class="g2-ct">${jobIc(role)} ${U.esc(jobName(role))}<i>›</i></span>${st ? `<span class="g2-sub">${U.esc(st)}</span>` : ''}${F2.map(([k, v]) => `<span class="g2-rk"><span>${k}</span><b>${U.esc(v)}</b></span>`).join('')}</button>`;
+    const N = g2Now(s, role), st = CAREERS[role].status ? careerStatus(s, role) : '';
+    h += `<button type="button" class="g2-card g2p g2-job" data-job="${role}"><span class="g2-ct">${jobIc(role)} ${U.esc(jobName(role))}<i>›</i></span>`
+      + N.map(x => `<span class="g2-now"><span class="g2-nk">${U.esc(x.k)}</span><b class="g2-nb">${U.esc(x.big)}</b>${x.sub ? `<span class="g2-ns">${U.esc(x.sub)}</span>` : ''}${x.pct != null ? `<span class="g2-np"><i style="width:${U.clamp(Math.round(x.pct), 0, 100)}%"></i></span>` : ''}</span>`).join('')
+      + (st && (N.length ? lv < 1 : lv < 4) ? `<span class="g2-sub${N.length ? ' cl' : ''}">${U.esc(st)}</span>` : '')
+      + g2Facts(s, role).slice(0, lv >= 5 ? 2 : lv >= 3 ? 3 : 4).map(([k, v]) => `<span class="g2-rk"><span>${k}</span><b>${U.esc(v)}</b></span>`).join('') + `</button>`;
+    const W = g2Works(s, role).slice(0, lv >= 4 ? 0 : lv >= 2 ? 2 : 3);
+    if (W.length) h += `<div class="g2-card g2p g2-wk"><button type="button" class="g2-ct" data-pftab="rec">📀 최근 결과<i>기록 ›</i></button>${W.map(([w, i]) => `<${w.card ? `button type="button" data-song="${i}"` : 'span'} class="g2-wr"><span>「${U.esc(w.title)}」</span><b>${U.esc(g2WkNote(w))}</b></${w.card ? 'button' : 'span'}>`).join('')}</div>`;
+    const B = lv >= 2 ? [] : g2Bars(s, role).slice(0, lv >= 1 ? 2 : 4);
+    if (B.length) h += `<button type="button" class="g2-card g2p g2-mbc" data-job="${role}" data-jt="info"><span class="g2-ct">📊 숙련도<i>›</i></span>${B.map(x => `<span class="g2-mb"><span>${U.esc(x.n)}${x.tag ? `<em>${U.esc(x.tag)}</em>` : ''}</span><span class="g2-np"><i style="width:${U.clamp(Math.round(x.v), 0, 100)}%"></i></span><b>${x.txt != null ? U.esc(x.txt) : Math.floor(x.v)}</b></span>`).join('')}</button>`;
   }
   // 특기: 레벨이 높은 순서 (학업 · 외국어도 같이). 개수는 학업 · 외국어를 빼고 센다
   const ks = learnedSkills(p).sort((a, b) => p.sk[b].lv - p.sk[a].lv);
-  if (ks.length) h += `<button type="button" class="g2-card g2p" data-tstab="sk"><span class="g2-ct">🎯 특기<i>${capCount(p)}/${SKILL_CAP}</i></span><span class="g2-skg" style="grid-template-rows:repeat(${Math.ceil(ks.length / 2)},auto)">${ks.map(k => `<span class="g2-sk"><span class="g2-skr"><span>${skIc(k)}${U.esc(SKILLS[k].n)}</span><b>${lvi(p, k)}레벨</b></span>${bar(p.sk[k].lv, 100)}</span>`).join('')}</span></button>`;
-  g2Set('#g2-rcards', h);
-  const co = $('#co-card'); if (co) co.classList.toggle('hidden', role !== 'agency' || !trackOn(s, 'agency'));
+  if (ks.length) h += `<button type="button" class="g2-card g2p" data-tstab="sk"><span class="g2-ct">🎯 특기<i>${capCount(p)}/${SKILL_CAP}</i></span><span class="g2-skg${ks.length > 10 ? ' c3' : ''}" style="grid-template-rows:repeat(${Math.ceil(ks.length / (ks.length > 10 ? 3 : 2))},auto)">${ks.map(k => `<span class="g2-sk"><span class="g2-skr"><span>${skIc(k)}${U.esc(SKILLS[k].n)}</span><b>${lvi(p, k)}레벨</b></span>${bar(p.sk[k].lv, 100)}</span>`).join('')}</span></button>`;
+  return h;
 }
-// 아래 가운데: 지금 보는 역할에서 할 수 있는 일. 누르면 그 직업 창의 행동 탭이 열린다 (자동으로 하는 활동은 일정 칸에 보이므로 여기 두지 않는다)
-// 행동 버튼 그림: 행동에 그림이 따로 없으면 이름에 든 말로 고르고, 그래도 없으면 그 직업 그림
-const G2_ACT_IC = [[/고용|영입|뽑|채용|스카우트/, '🧑‍💼'], [/해고|내보내/, '🚪'], [/계약|협상|재계약/, '📝'], [/이름|개명/, '🏷️'], [/아바타|외모|스타일/, '🧑‍🎤'], [/타겟|대상/, '🎯'], [/홍보|광고|마케팅/, '📣'], [/휴식|쉬|휴가|휴재/, '🛌'], [/장비|작업실|스튜디오/, '🎛️'], [/공연|콘서트|투어/, '🎤'], [/앨범|음반|신곡|곡/, '💿'], [/연재|원고|집필|대본/, '✍️'], [/촬영|영상|방송/, '🎥'], [/가격|요금|수강료|단가/, '💰'], [/바꾸|옮기|전환/, '🔄']];
+function renderRight() {
+  const s = S, role = g2Role(s), R = $('#g2-right');
+  const co = $('#co-card'); if (co) co.classList.toggle('hidden', role !== 'agency' || !trackOn(s, 'agency'));
+  for (let lv = 0; lv <= 5; lv++) { g2Set('#g2-rcards', g2RightHTML(s, role, lv)); if (!R || window.innerWidth <= 1150 || R.scrollHeight <= R.clientHeight + 2) break; }
+}
+// 아래 가운데: 지금 보는 역할에서 할 수 있는 일. 누르면 바로 한다 (설명이 있으면 한 번 묻는다). 자동으로 하는 활동은 일정 칸에 보이므로 여기 두지 않는다
+// 그림: 이름 앞에 붙은 그림 → 이름에 든 말 → 그 직업 그림
+const G2_ACT_IC = [[/고용|영입|뽑|채용|스카우트|구인/, '🧑‍💼'], [/해고|내보내/, '🚪'], [/계약|협상|재계약/, '📝'], [/이름|개명/, '🏷️'], [/아바타|외모|스타일/, '🧑‍🎤'], [/타겟|대상/, '🎯'], [/홍보|광고|마케팅/, '📣'], [/휴식|쉬|휴가|휴재/, '🛌'], [/장비|작업실|스튜디오/, '🎛️'], [/공연|콘서트|투어/, '🎤'], [/앨범|음반|신곡|곡/, '💿'], [/연재|원고|집필|대본|각본/, '✍️'], [/촬영|영상|방송|연출/, '🎥'], [/가격|요금|수강료|단가/, '💰'], [/바꾸|옮기|전환|돌리/, '🔄']];
 function g2ActIc(t, role) { const x = G2_ACT_IC.find(([re]) => re.test(t || '')); return x ? x[1] : jobIc(role); }
+function g2Split(t, role) { const m = /^([^\w가-힣\s「『(]+)\s+(.+)$/.exec(t || ''); return m ? [m[1], m[2]] : [g2ActIc(t, role), t || '']; }
+// 선택 활동 버튼의 빨간 점: 직업 창의 pickNewMark와 같은 규칙인데, 읽기만 한다 (s.pickSig를 고치지 않는다)
+function g2PickDot(s, id, P) {
+  const W = P.filter(a => a.sw), old = (s.pickSig || {})[id], O = old != null ? new Set(old.split('|').map(x => x.replace(/:[01]$/, ''))) : null, M = (UI.pickNew || {})[id] || {};
+  const none = W.length > 0 && !W.some(a => a.on), last = (s.pickT || {})[id], due3 = last == null || s.t - last >= 3;
+  return a => !!a.ok && (a.sw ? !a.on && (none || !!M[a.t] || (!!O && !O.has(`${a.t}:1`))) : due3);
+}
 function renderActs() {
-  const s = S, role = g2Role(s), A = [];
+  const s = S, role = g2Role(s), A = [], G = UI.g2acts = [];
   if (role !== 'none') {
-    const c = CAREERS[role];
+    const c = CAREERS[role], t = s.tracks[role];
     // 창 이름 앞에 그림이 붙어 있으면(「🏢 회사 창 열기」) 그 그림을 버튼 그림으로 쓴다
-    if (c.panel) { const m = /^([^\w가-힣\s]+)\s+(.+)$/.exec(c.panelN || ''); A.push([m ? m[1] : jobIc(role), m ? m[2] : c.panelN || '창 열기', `data-panel="${c.panel}"`, 0, 0]); }
-    if (jobDot(s, role)) A.push(['⚠️', '할 일 고르기', `data-job="${role}"`, 1, 0]);
-    let L = []; try { L = (c.actions ? c.actions(s, s.tracks[role]) : []).filter(a => a && !a.danger); } catch (e) { L = []; }
-    for (const a of L) A.push([a.emo && !/</.test(a.emo) ? a.emo : g2ActIc(a.t, role), a.t, `data-job="${role}"`, 0, !a.ok]);
+    if (c.panel) { const [ic, n] = g2Split(c.panelN || '창 열기', role); A.push([ic, n, `data-panel="${c.panel}"`, 0, 0]); }
+    // 일정에 넣고도 할 일을 안 골랐을 때 (새로 생긴 선택 활동은 그 버튼에 점이 붙는다 — g2PickDot)
+    if (c.act && jobSlots(s, role) && !jobTask(s, role)) A.push(['⚠️', '할 일 고르기', `data-job="${role}"`, 1, 0]);
+    const add = (a, dot) => { const [ic, n] = a.emo && !/</.test(a.emo) ? [a.emo, a.t] : g2Split(a.t, role); A.push([ic, n, `data-g2a="${G.push({ a, role, n }) - 1}"`, dot ? 1 : 0, !a.ok, a.sw && a.on ? 1 : 0]); };
+    // 골라서 하는 일 (직업 창 '선택 활동'): 그 일이 일정에 있어야 한다 (jobTaskHTML과 같은 조건)
+    try {
+      const P = c.picks ? c.picks(s, t) || [] : [];
+      if (P.length) { const n = jobSlots(s, role), cur = jobTask(s, role), V = jobTasks(role).filter(x => !x.show || x.show(s)), on = jobForced(s, role) ? true : V.length === 1 ? n > 0 : !!cur && n > 0; const nw = g2PickDot(s, role, P); for (const a of P) add(Object.assign({}, pickWrap(role, a), on ? {} : { ok: false, why: '일정에 이 일을 넣어야 할 수 있다' }), on && nw(a)); }
+    } catch (e) { }
+    try { for (const a of (c.actions ? c.actions(s, t) : [])) if (a && !a.danger) add(a); } catch (e) { }
   }
-  const B = A.slice(0, 8);
-  g2Set('#g2-acts', B.map(([ic, n, at, dot, off]) => `<button type="button" class="g2-db${off ? ' off' : ''}" ${at}>${dot ? '<i class="rdot"></i>' : ''}<em>${ic}</em><b>${U.esc(n)}</b></button>`).join(''));
+  // 5~6개는 작은 버튼 두 줄(세 칸씩). 더 많으면 다섯 개 + '더 보기'(그 직업 창)
+  const B = A.length > 6 ? A.slice(0, 5).concat([['⋯', `더 보기 ${A.length - 5}`, `data-job="${role}"`, A.slice(5).some(x => x[3]) ? 1 : 0, 0]]) : A;
+  g2Set('#g2-acts', B.map(([ic, n, at, dot, off, on]) => `<button type="button" class="g2-db${off ? ' off' : ''}${on ? ' on' : ''}" ${at}>${dot ? '<i class="rdot"></i>' : ''}${on ? '<u>켜 둠</u>' : ''}<em>${ic}</em><b>${U.esc(n)}</b></button>`).join(''));
   const el = $('#g2-acts'); if (el) el.className = B.length > 4 ? 'two' : '';
   const bot = $('#g2-bot'); if (bot) bot.classList.toggle('noact', !B.length);
+}
+// 행동 버튼을 눌렀을 때 (직업 창 '하기' 버튼과 같은 순서 — ui.js data-act). 못 하는 일은 까닭을 알려 주고, 설명이 있는 일은 한 번 묻는다
+function g2ActRun(x) {
+  const a = x.a;
+  if (S.ended) return;
+  if (S.pending) { UI.minimized = false; showEvent(); return; }
+  if (!a.ok) { toast(a.why || '지금은 할 수 없다'); return; }
+  const go = () => {
+    const L0 = S.log[S.log.length - 1], p0 = S.pending, jf0 = totalFans(S);
+    CH_RAND = 0; const r = a.run(S); UI.actUnc = CH_RAND > 0;
+    jfAdd(S, x.role, totalFans(S) - jf0); applyLocks(S);
+    if (S.pending && S.pending !== p0) UI.minimized = false;
+    if (r) addLog(S, r, 'ev');
+    actAuto(S); save(S);
+    // 켜고 끈 것은 내가 한 일이니 '새로 생긴 선택 활동' 표시를 다시 맞춘다 (직업 창에서 눌렀을 때와 같게)
+    if (a.sw) { try { const c = CAREERS[x.role]; pickNewMark(S, x.role, c.picks(S, S.tracks[x.role]) || []); } catch (e) { } }
+    actDone(L0, x.n);
+    // 창이 뜨지 않는 일은 결과를 아래쪽 알림으로 (직업 창 안에서 했을 때와 같게)
+    if (!S.pending && !S.ended && !UI.overlay) { const L = logsAfter(S, L0); if (L.length) ctoastShow({ title: x.n, L, all: true }); }
+  };
+  const q = a.confirm || (a.h ? `${x.n}\n${evPlain(a.h)}\n\n${a.sw ? (a.on ? '이제 그만할까요?' : '매달 꾸준히 할까요?') : '지금 할까요?'}` : '');
+  if (q) askConfirm(q, go); else go();
 }
 
 // 고정된 칸의 이유 (그 칸 바로 아래에 보인다)
@@ -577,7 +695,7 @@ function trendRowHTML(s, only) {
 }
 // 오른쪽·왼쪽 박스들. 박스 하나를 그리다 오류가 나도 나머지는 그린다 (오류는 콘솔과 UI.drawErr에 남긴다)
 function renderSide() {
-  for (const f of [renderProfileCard, renderJobsCard, renderPeopleCard, renderStatusCard, renderMoneyCard, renderLifeCard, renderCoCard]) {
+  for (const f of [renderJobsCard, renderPeopleCard, renderStatusCard, renderMoneyCard, renderLifeCard, renderCoCard]) {
     try { f(); } catch (e) { console.error('화면 그리기 오류', f.name, e); (UI.drawErr = UI.drawErr || []).push(`${f.name}: ${e.message}`); }
   }
 }
@@ -606,7 +724,6 @@ function idLabel(s) {
 // v239: 프로필 박스는 없앴다. 이름표(renderTop)와 위쪽 '정보' 버튼이 그 자리를 맡는다. 정보 창 맨 위 줄(infoTabs)에서 프로필 · 가족 · 기록 · 재능/특기를 오간다
 const PF_BNS = [['born', '🪪', '프로필'], ['fam', '👪', '가족'], ['rec', '📖', '기록'], ['skills', '🎯', '재능/특기']];
 function infoTabs(cur) { return `<div class="ap-row pf-tabs info-tabs">${PF_BNS.map(([k, ic, n]) => `<button class="ap-tab ${cur === k ? 'on' : ''}" ${k === 'skills' ? 'data-tstab="tal"' : `data-pftab="${k}"`}>${ic} ${n}</button>`).join('')}</div>`; }
-function renderProfileCard() { }
 // 직업 배너에 보이는 것 (UI 개편 시안): 소속 · 그룹 팬 · 개인 팬 · 인기 · 계약 만료일. 없는 것은 빼고 보여 준다
 function jobInfoRows(s, id) { const c = CAREERS[id]; try { return (c.info ? c.info(s, s.tracks[id]) : []).filter(r => Array.isArray(r)); } catch (e) { return []; } }
 function jobGroupFans(s, id) {
@@ -692,23 +809,6 @@ function renderJobsCard() {
   for (const q of s.queue) { const w = waitLine(s, q); if (w) rows.push(`<div class="trk wait"><b>⏳ ${U.esc(w)}</b><div class="st">결과 대기 중</div></div>`); }
   if (rows.length) m += `<div class="trks">${rows.join('')}</div>`;
   g2Set('#g2-more', m);
-}
-// 인간관계 박스: 박스를 누르면 인간관계 창. 안에는 가족 배너와 연인 배너 (결혼하면 가족 배너 하나)
-// 가족 배너 글자 조각: 중요한 것부터. 한 줄에 들어가는 만큼만 보인다 (fitLine). 부모님 이름은 빼고 나이만
-function famParts(s) {
-  const L = [], sp = partner(s), ks = kids(s);
-  if (isSpouse(sp)) L.push(`배우자 ${pAge(s, sp)}세`);
-  if (ks.length) L.push(`자녀 ${ks.length}명`);
-  const par = [mom(s), dad(s)].filter(Boolean);
-  if (par.length && !par.some(p => p.alive)) L.push('부모님 돌아가심');
-  else for (const p of par) L.push(p.alive ? `${p.rel} ${pAge(s, p)}세` : `${p.rel} 돌아가심`);
-  if (s.olderSib || s.youngerSib) L.push(`형제자매 ${s.olderSib + s.youngerSib}명`);
-  return L.length ? L : ['없음'];
-}
-// 한 줄 칸에 조각을 앞에서부터 넣고, 넘치면 뒤 조각부터 뺀다
-function fitLine(el) {
-  const parts = JSON.parse(el.dataset.parts || '[]');
-  for (let n = parts.length; n >= 1; n--) { el.textContent = parts.slice(0, n).join(' · '); if (n === 1 || el.scrollWidth <= el.clientWidth + 1) return; }
 }
 // 인간관계 박스 (작게, 왼쪽 맨 아래): 박스를 누르면 인간관계 창. 가족·연인 배너는 이름 + 한 줄
 function renderPeopleCard() {
@@ -807,11 +907,12 @@ function coPlanTags(s, t, f) {
 function homeBgKey(s) { if (isDorm(s)) return 'dorm'; const h = s.home || {}; return h.mode !== 'alone' || !h.type ? 'parents' : homeSize(h); }
 function homeBgSync() {
   const el = $('#game-screen'); if (!el || !S) return;
-  const k = homeBgKey(S); UI.bgOK = UI.bgOK || {};
-  // v239: 배경이 어두우면 밝은 배너로 (g2-light). 그림의 평균 밝기를 한 번 재 둔다 (못 재면 어두운 배너 그대로)
-  const set = () => { const kk = homeBgKey(S), ok = UI.bgOK[kk] === 1, lm = (UI.bgLum || {})[kk]; el.classList.toggle('has-bg', ok); el.classList.toggle('g2-light', ok && lm != null && lm < 0.42); if (ok) el.style.setProperty('--home-bg', `url("img/bg/${kk}.webp")`); };
-  const lum = im => { try { const c = document.createElement('canvas'); c.width = 16; c.height = 9; const x = c.getContext('2d'); x.drawImage(im, 0, 0, 16, 9); const d = x.getImageData(0, 0, 16, 9).data; let t = 0; for (let i = 0; i < d.length; i += 4) t += d[i] * .299 + d[i + 1] * .587 + d[i + 2] * .114; (UI.bgLum = UI.bgLum || {})[k] = t / (d.length / 4) / 255; } catch (e) { } };
-  if (UI.bgOK[k] == null) { UI.bgOK[k] = 0; const im = new Image(); im.onload = () => { UI.bgOK[k] = 1; lum(im); set(); }; im.onerror = () => { UI.bgOK[k] = -1; }; im.src = `img/bg/${k}.webp`; }
+  UI.bgOK = UI.bgOK || {}; UI.bgLum = UI.bgLum || {};
+  // v240: 고른 직업의 장면(g2SceneKey)을 먼저, 그 그림이 없으면 집. v239: 배경이 어두우면 밝은 배너로 (g2-light) — 그림의 평균 밝기를 한 번 재 둔다 (못 재면 어두운 배너 그대로)
+  const keys = () => { const a = g2SceneKey(S), h = 'bg/' + homeBgKey(S); return a === h ? [h] : [a, h]; };
+  const set = () => { const kk = keys().find(k => UI.bgOK[k] === 1), lm = kk ? UI.bgLum[kk] : null; el.classList.toggle('has-bg', !!kk); el.classList.toggle('g2-light', !!kk && lm != null && lm < 0.42); if (kk) el.style.setProperty('--home-bg', `url("img/${kk}.webp")`); };
+  const lum = (k, im) => { try { const c = document.createElement('canvas'); c.width = 16; c.height = 9; const x = c.getContext('2d'); x.drawImage(im, 0, 0, 16, 9); const d = x.getImageData(0, 0, 16, 9).data; let t = 0; for (let i = 0; i < d.length; i += 4) t += d[i] * .299 + d[i + 1] * .587 + d[i + 2] * .114; UI.bgLum[k] = t / (d.length / 4) / 255; } catch (e) { } };
+  for (const k of keys()) if (UI.bgOK[k] == null) { UI.bgOK[k] = 0; const im = new Image(); im.onload = () => { UI.bgOK[k] = 1; lum(k, im); set(); }; im.onerror = () => { UI.bgOK[k] = -1; set(); }; im.src = `img/${k}.webp`; }
   set();
 }
 // 사건 창 위쪽 띠 그림 (v154 보탬): img/sc/ 의 장면 그림. 원본은 img/scene/ 에 두고 python dev/make_bg.py 로 줄인다
@@ -2954,6 +3055,7 @@ document.addEventListener('click', e => {
   if (t.dataset.fam != null) { openPanel('family'); return; }
   if (t.dataset.love != null) { openPanel('love'); return; }
   // v239: 역할 배지 — 다른 역할이면 그 역할 화면으로 바꾸고, 이미 보고 있는 역할이면 그 직업 창을 연다
+  if (t.dataset.g2a != null) { const x = (UI.g2acts || [])[+t.dataset.g2a]; if (x) g2ActRun(x); return; }
   if (t.dataset.role) { if (UI.role !== t.dataset.role) { UI.role = t.dataset.role; render(); return; } UI.jobId = t.dataset.role; UI.jobFrom = ''; UI.jobTab = t.dataset.role === 'none' ? 'apply' : 'act'; openPanel('job'); return; }
   if (t.dataset.job) { UI.jobId = t.dataset.job; UI.jobFrom = t.dataset.from || ''; UI.jobTab = t.dataset.jt || (t.dataset.job === 'none' ? 'apply' : 'act'); openPanel('job'); return; } // v238: 무직 배너는 지원 탭부터
   if (t.dataset.jobtab) { UI.jobTab = t.dataset.jobtab; renderPanel(); return; }
@@ -2981,7 +3083,7 @@ document.addEventListener('click', e => {
 document.addEventListener('input', e => { if (e.target.id === 'tbl-q') evTblFilter(e.target.value); if (e.target.id === 'pick-q') { UI.pickQ = e.target.value; renderPanel(); } if (e.target.dataset && e.target.dataset.won != null) wonEq(e.target); });
 document.addEventListener('compositionend', e => { if (UI.enterComp && e.target.matches && e.target.matches('#mcard input[data-k]')) { UI.enterComp = false; setTimeout(formEnter, 0); } });
 // 자녀 교육비: 고른 아이의 단계 버튼을 보여 준다
-document.addEventListener('change', e => { if (e.target.closest && e.target.closest('#mcard')) formSum(); if (e.target.dataset && e.target.dataset.kidedu != null) { UI.kidEdu = e.target.value; UI.lifeHTML = null; renderLifeCard(); if (UI.overlay) renderPanel(); } });
+document.addEventListener('change', e => { if (e.target.closest && e.target.closest('#mcard')) formSum(); if (e.target.dataset && e.target.dataset.kidedu != null) { UI.kidEdu = e.target.value; renderLifeCard(); if (UI.overlay) renderPanel(); } });
 $('#file-input').addEventListener('change', e => { const f = e.target.files[0]; if (f) importSave(f); e.target.value = ''; });
 // ESC: 맨 위에 떠 있는 창부터 하나씩 닫는다 (확인 창 → 패널 → 사건 창은 잠시 내리기 → 인생 결산은 기록 보기로)
 function escClose() {

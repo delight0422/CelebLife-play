@@ -8,7 +8,6 @@
   /* 디자인 토큰 (UI 개편 시안): 간격 4단계 · 글자 크기 6단계. 새로 쓰는 값은 이 안에서만 고른다 */
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px;
   --fs-1: 11px; --fs-2: 12.5px; --fs-3: 14px; --fs-4: 16px; --fs-5: 20px; --fs-6: 26px;
-  --sched-w: 260px;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif; font-size: var(--fs-3); line-height: 1.5; }
@@ -50,11 +49,7 @@ button { font: inherit; color: inherit; }
 /* 게임 화면 */
 #game-screen { display: flex; flex-direction: column; height: 100vh; }
 #game-screen.hidden { display: none; }
-#topbar { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: rgba(255, 255, 255, .94); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .who { min-width: 160px; }
-.who-name { font-size: 18px; font-weight: 800; }
-.who-sub { font-size: 12px; color: var(--ink2); max-width: 520px; }
-.top-mid { display: flex; align-items: center; gap: 10px; margin-left: auto; }
 /* 날짜: 이름·나이와 배속 버튼 사이 빈칸 한가운데. 작은 'YYYY년 M월' 글씨 아래에 같은 길이의 1~12월 막대 (피드백 17·18) */
 .date { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: var(--ink2); }
 .dt-y { font-size: 16px; font-weight: 800; line-height: 1; letter-spacing: -0.3px; white-space: nowrap; }
@@ -66,7 +61,6 @@ button { font: inherit; color: inherit; }
 .speed { display: flex; background: var(--violet-soft); border-radius: 999px; padding: 3px; }
 .speed button { border: none; background: transparent; padding: 4px 10px; border-radius: 999px; cursor: pointer; font-weight: 700; font-size: 12px; color: var(--ink2); }
 .speed button.on { background: var(--ink); color: #fff; }
-.top-btns { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* 진행 중인 일 맨 위 '공개 예정 작품' 배너: 누르면 창이 뜬다 */
 .soon-banner { display: flex; align-items: center; gap: var(--sp-3); width: 100%; border: 1px solid var(--violet); background: linear-gradient(90deg, #f3efff, var(--card)); border-radius: 12px; padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); cursor: pointer; font-family: inherit; color: var(--ink); text-align: left; }
@@ -80,10 +74,7 @@ button { font: inherit; color: inherit; }
 .trk.soon .soon-at { font-size: var(--fs-2); font-weight: 800; color: var(--violet); margin-top: 2px; }
 /* 나란히 두 박스: 재정 | 상태 */
 .duo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-3); }
-/* 프로필: 아래에 배너 네 개를 한 줄로 */
-.pf-tbn { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-2); margin-top: var(--sp-3); }
-.pf-tb { font: inherit; font-size: var(--fs-3); font-weight: 800; padding: var(--sp-3) var(--sp-1); border-radius: 12px; text-align: center; border: 1px solid var(--line); background: var(--card2); color: var(--ink); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pf-tb:hover { border-color: var(--violet); }
+
 /* 특기 칸: 계열 없이 두 줄로 쭉 (v121) */
 .sk-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-2) var(--sp-2); }
 .sk-grid .sk { padding: var(--sp-2) var(--sp-3) var(--sp-2); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
@@ -105,8 +96,6 @@ button { font: inherit; color: inherit; }
 
 /* 인생 기록 */
 .log-card { flex: 1 1 0; display: flex; flex-direction: column; min-height: 220px; }
-#jobs-card .trks { display: grid; gap: var(--sp-2); grid-template-columns: minmax(0, 1fr); }
-#jobs-card .trk { margin-bottom: 0; }
 #log { flex: 1; overflow-y: auto; padding-right: var(--sp-1); }
 .log-y { position: sticky; top: 0; background: var(--card); font-weight: 800; color: var(--violet); padding: var(--sp-1) 0 2px; font-size: var(--fs-2); z-index: 1; }
 .log-i { font-size: var(--log-size); padding: var(--sp-1) 2px; border-bottom: 1px dashed #efeaf6; line-height: 1.55; }
@@ -249,27 +238,14 @@ table.list th { color: var(--muted); font-weight: 700; }
 .end-lines { font-size: var(--fs-4); line-height: 1.8; }
 .end-title { font-size: var(--fs-6); font-weight: 800; margin: var(--sp-1) 0 var(--sp-3); }
 
-/* 좁은 화면 (모바일 정리는 나중에 따로): 세 줄을 위에서 아래로 쌓는다 */
-@media (max-width: 1150px) {
-  #game-screen { height: auto; min-height: 100vh; }
-  #cols { grid-template-columns: minmax(0, 1fr); }
-  #sched-col, .col-l, .col-m { overflow: visible; }
-  #sched-col { order: -1; }
-}
 @media (max-width: 760px) {
-  #cols { padding: var(--sp-2); }
-  .duo { grid-template-columns: minmax(0, 1fr); } .hub-btns { flex-wrap: wrap; }
-  #topbar { padding: 8px 12px; }
-  .top-mid { margin-left: 0; }
+  .duo { grid-template-columns: minmax(0, 1fr); }
   .dt-y { font-size: 14px; } .dt-bar { width: 80px; height: 6px; }
-  .top-btns .btn.sm { padding: 5px 9px; }
   .mcard { padding: var(--sp-4) var(--sp-4) var(--sp-4); }
   .two-col { grid-template-columns: 1fr; }
-  .turn-btns { width: auto; }
 }
 
 /* 생활 버튼은 오른쪽 생활 카드가 화면 아래로 내려가는 좁은 화면에서만 보인다 */
-@media (min-width: 1151px) { .mob-only { display: none !important; } }
 .rdot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ff3b4f; box-shadow: 0 0 0 2px var(--card); vertical-align: 2px; }
 .rdot.in { margin: 0 var(--sp-1) 0 2px; box-shadow: none; }
 /* 진행 중인 일: 누르면 자세히 */
@@ -415,13 +391,6 @@ button.ap-tog { width: 100%; background: none; border: 0; padding: 0; color: inh
 /* 생활 카드 (오른쪽 아래): 집 · 지속 관리 · 장비 설치 · 기타 탭 */
 .life-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-1); margin: 0 0 var(--sp-2); }
 .life-tabs .ap-tab { padding: var(--sp-1) 2px; font-size: var(--fs-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; }
-#life-card .home-now { padding: var(--sp-2) var(--sp-3); gap: var(--sp-3); }
-#life-card .home-now .hn-ic { font-size: var(--fs-5); }
-#life-card .home-now .hn-n { font-size: var(--fs-3); }
-#life-card .act { padding: var(--sp-2) 0; gap: var(--sp-2); }
-#life-card .a-t { font-size: var(--fs-3); }
-#life-card .a-h { font-size: var(--fs-2); }
-#life-card .sec-h { margin: var(--sp-3) 0 var(--sp-1); font-size: var(--fs-2); }
 /* 한 칸에 설명 두 줄과 버튼 두 개 (장비: 처분하기 / 업그레이드) */
 .act.act-lines { display: block; }
 .act-line { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-top: var(--sp-1); }
@@ -444,9 +413,7 @@ button.ap-tog { width: 100%; background: none; border: 0; padding: 0; color: inh
 .ltile .lt-main { font-size: var(--fs-3); font-weight: 700; color: var(--ink); margin-top: 2px; }
 .ltile .st { font-size: var(--fs-2); color: var(--muted); }
 @media (max-width: 1150px) { .life-tiles { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); } }
-/* 돈 칸: 누르면 돈 흐름 창 */
-#money-card { cursor: pointer; transition: border-color .15s; }
-#money-card:hover { border-color: var(--violet); }
+
 /* 생활 묶음 창: 이름 → 돈 → 효과 → 덧붙임 순서로 눈에 들어오게 */
 .act.lrow { align-items: flex-start; padding: var(--sp-3) 0; }
 .act.lrow .a-t { font-size: var(--fs-4); font-weight: 800; }
@@ -478,9 +445,7 @@ button.ap-tog { width: 100%; background: none; border: 0; padding: 0; color: inh
 .mon-row { display: flex; justify-content: space-between; gap: var(--sp-2); font-size: var(--fs-3); padding: var(--sp-1) 0; border-bottom: 1px solid #f2eff7; }
 .mon-row span { color: var(--ink2); }
 @media (max-width: 760px) { .ms-v { font-size: var(--fs-4); } }
-/* PC: 생활 칸이 남는 높이를 채우도록 묶음 네 개가 같은 높이로 늘어난다 */
-#life-card .life-tiles { flex: 1; grid-auto-rows: minmax(0, 1fr); min-height: 0; }
-@media (max-width: 1150px) { #life-card .life-tiles { grid-auto-rows: auto; } }
+
 /* 사건 창의 '창 내리기' 버튼: 글자로 크게 */
 .m-min { font-size: var(--fs-2); font-weight: 700; border: 1px solid var(--line); border-radius: 999px; padding: var(--sp-1) var(--sp-3); background: var(--card); color: var(--ink2); top: 14px; }
 .m-min:hover { border-color: var(--violet); color: var(--violet); }
@@ -506,7 +471,6 @@ button.ap-tog { width: 100%; background: none; border: 0; padding: 0; color: inh
 /* 박스이자 배너 (프로필 · 인간관계 · 돈): 박스 자체를 누르면 창이 뜬다 */
 .bn-card { cursor: pointer; transition: border-color .15s, background .15s; }
 .bn-card:hover { border-color: var(--violet); }
-.bn-arr { margin-left: auto; color: var(--violet); font-weight: 800; font-size: var(--fs-4); line-height: 1; }
 /* 프로필 박스 (작게): 직업 이름 + 현황 */
 .pf-rows { display: grid; gap: var(--sp-1); }
 .pf-r { font-size: var(--fs-2); line-height: 1.45; color: var(--ink2); }
@@ -515,24 +479,13 @@ button.ap-tog { width: 100%; background: none; border: 0; padding: 0; color: inh
 .pf-jobs { display: grid; gap: var(--sp-2); }
 .pf-jobs .trk { margin-bottom: 0; }
 /* 직업 활동 박스 (넓게) */
-#jobs-card .trend-row { margin: 0 0 var(--sp-2); }
-#jobs-card .soon-banner { margin: 0 0 var(--sp-2); }
-#jobs-card .trks { margin-top: 2px; }
+
 .lnote.warn { color: #a86b00; font-weight: 700; }
-.pp-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.4; }
-.pp-tx { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
-.pp-tx .bar { margin: var(--sp-1) 0 0; }
 /* 상태: 군 복무·병 */
-.st-alert { font-size: var(--fs-2); font-weight: 800; color: #6d3fe0; background: var(--violet-soft); border-radius: 10px; padding: var(--sp-1) var(--sp-2); margin-bottom: var(--sp-2); cursor: pointer; }
-.st-alert:hover { background: #e6dcff; }
+
 .row.hot b, .row.hot span { color: var(--red); font-weight: 800; }
-/* 돈: 현금(크게)과 총자산 */
-.mn-r { display: flex; justify-content: space-between; align-items: baseline; gap: var(--sp-2); padding: 2px 0; }
-.mn-r span { color: var(--ink2); font-size: var(--fs-2); }
-.mn-r b { font-size: var(--fs-4); font-weight: 800; }
-.mn-r.big b { font-size: var(--fs-5); }
+
 /* 맨 아래 총자산: 위에 선을 긋고 굵게 */
-.mn-r.total { border-top: 1px solid var(--line); margin-top: var(--sp-2); padding-top: var(--sp-2); }
 .mon-row.total { border-top: 2px solid var(--line); border-bottom: none; margin-top: 2px; }
 .mon-row.total span { color: var(--ink); font-weight: 800; }
 .mon-row.total b { font-size: var(--fs-4); }
@@ -579,16 +532,8 @@ button.ap-tog { width: 100%; background: none; border: 0; padding: 0; color: inh
 .tstars { color: var(--gold); letter-spacing: 1px; margin-left: var(--sp-1); white-space: nowrap; }
 .tstars i { color: var(--muted); font-style: normal; }
 
-/* ───── 턴제 실험 ───── */
-/* UI 개편 시안: 진행 버튼 오른쪽에 1달 후(위) · 1년 후(아래). 묶음 너비 = 아래 일정 줄 너비 */
-.turn-btns { display: flex; align-items: stretch; gap: 6px; margin-left: 4px; width: var(--sched-w); }
-.turn-go { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 9px 18px; font-size: 15px; font-weight: 800; border-radius: 12px; box-shadow: 0 4px 14px rgba(123, 92, 255, .35); }
-.turn-jump { display: flex; flex-direction: column; gap: 4px; }
-/* v185: 1년 후 버튼을 빼고 1달 후 하나가 진행 버튼 높이를 다 채운다 */
-.turn-jump .btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 4px 14px; font-size: var(--fs-3); font-weight: 700; border-radius: 12px; white-space: nowrap; }
 /* v216: 단축키는 키보드 키 모양 (네모난 자판 · 아래쪽이 두꺼운 테두리 · 고정폭 글자). 예전 둥근 알약 모양은 알림 숫자처럼 보였다 */
 kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Courier New', monospace; font-size: 11px; font-weight: 700; line-height: 16px; min-width: 20px; padding: 0 5px; text-align: center; border-radius: 4px; color: #3b3355; background: linear-gradient(#ffffff, #ebe7f6); border: 1px solid #a99fca; border-bottom-width: 3px; box-shadow: 0 1px 1px rgba(30, 20, 60, .18); }
-.turn-go.waiting { background: var(--pink); box-shadow: 0 4px 14px rgba(255, 92, 154, .35); }
 /* 넘어가는 동안: 화면 전체가 어두워지고 가운데에 날짜 */
 .turn-dim { background: rgba(24, 14, 44, .58); z-index: 60; }
 .turn-card { max-width: 600px; }
@@ -629,12 +574,6 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 /* 걸어온 길 배너: 맨 마지막 기록 한 줄 */
 .ll-line { font-size: var(--fs-2); color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .log-pop { max-height: 68vh; overflow-y: auto; padding-right: var(--sp-1); }
-@media (max-width: 760px) { .turn-go { padding: var(--sp-2) var(--sp-3); font-size: var(--fs-3); } .turn-go kbd { display: none; } .turn-btns { margin-left: auto; } }
-/* v186: 백과사전 · 메뉴 (좁은 화면은 생활도) 버튼 세로폭을 진행 버튼과 똑같이 */
-:root { --top-h: 43px; }
-.turn-go, .turn-jump .btn, .top-btns .btn { height: var(--top-h); }
-.top-btns .btn { display: inline-flex; align-items: center; justify-content: center; }
-@media (max-width: 760px) { :root { --top-h: 39px; } }
 
 /* v88: 팝업에서 고른 결과 (그 팝업 안에서) */
 .res-pick { display: inline-block; font-size: var(--fs-2); font-weight: 800; color: var(--violet); background: var(--violet-soft); border-radius: 999px; padding: var(--sp-1) var(--sp-3); margin-bottom: var(--sp-3); }
@@ -655,16 +594,10 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .fix-t { font-size: var(--fs-4); font-weight: 800; color: var(--ink); }
 .fix-h { font-size: var(--fs-2); color: var(--ink2); margin-top: var(--sp-1); }
 .fix-n { font-size: var(--fs-2); font-weight: 800; color: #a86d00; margin-top: var(--sp-1); }
-@media (max-width: 760px) {
-}
 /* v89: 기록 아래 작게 덧붙이는 말 (정산이 빚 갚는 데 들어갔을 때 남은 비용 등) */
 .ts-sub, .res-sub { display: block; font-size: var(--fs-2); color: var(--muted); margin-top: 2px; line-height: 1.5; }
 /* v89: 프로필 창의 걸어온 길 탭 (인생 기록 전체) */
 .log-tab { padding-right: 2px; }
-/* 프로필 박스가 좁으면(창이 좁은 PC) 배너의 이모지를 숨기고 글자를 줄여서 다섯 개가 한 줄에 다 들어가게 */
-#profile-card { container-type: inline-size; }
-@container (max-width: 460px) { .pf-tb .pf-ic { display: none; } .pf-tb { font-size: var(--fs-2); padding: var(--sp-2) 2px; } }
-@container (max-width: 380px) { .pf-tbn { gap: var(--sp-1); } .pf-tb { font-size: var(--fs-2); } }
 /* v91: 환생한 사람의 힌트 */
 .soul-hint { color: var(--violet); font-weight: 700; }
 
@@ -1095,7 +1028,6 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
   .st-av .lv-ch .lv-chc, .st-av.duo .lv-ch .lv-chc { height: 200px; }
 }
 
-
 /* ───── 인생 결산 창 (12-5): 사진 무대 하나로 정함 (v150). 가운데 정렬. 색은 아래 .en.cv-P가 정한다 ───── */
 /* 주 직업 분야(th-*)는 머리 가운데의 그림 글자만 바꾼다. 색은 시안이 정한다 */
 #mcard.ending { max-width: 860px; }
@@ -1231,51 +1163,11 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .pl-like.dn { color: #b9b0d6; }
 .pl-c em .pl-dn { font-style: normal; margin-left: var(--sp-3); }
 
-
-/* ───── UI 개편 시안: 세 줄 배치 ───── */
-/* 왼쪽: 프로필 → 재정 · 상태 → 직업 활동 / 가운데: 인간관계 → 구직활동 (· 에고서칭) → 생활 → 회사 / 오른쪽: 일정 (진행 버튼 바로 아래) */
-/* 프로필과 인간관계는 같은 줄이라 높이가 같다. 아랫줄 두 칸은 내용이 넘치면 그 칸만 스크롤 */
-#cols { flex: 1; display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) var(--sched-w); gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); min-height: 0; }
-#sched-col { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-3); }
-#sched-col > * { flex-shrink: 0; }
-.col-l, .col-m { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-3); }
-.col-l > *, .col-m > * { flex-shrink: 0; }
-
 /* 프로필: 제목 줄 오른쪽에 이름 · 나이, 첫 줄은 신분, 아래 배너 네 개 (배너 이름만) */
 .pf-who { margin-left: auto; font-size: var(--fs-3); font-weight: 700; color: var(--ink); }
 .pf-who b { color: var(--violet); }
-.pf-id { font-size: var(--fs-3); font-weight: 700; color: var(--ink2); }
-
-/* 인간관계: 박스 전체가 배너. 안의 가족 · 연인은 누르지 않는 작은 박스 */
-#people-card { position: relative; }
-#people-card > .pp-dot { top: 6px; right: 6px; }
-#people-card .pp-bns { display: flex; flex-direction: column; gap: var(--sp-2); }
-.pp-box { display: flex; align-items: center; gap: var(--sp-2); border: 1px solid var(--line); background: var(--card2); border-radius: 12px; padding: var(--sp-2) var(--sp-3); }
-.pp-box .sb-ic { font-size: var(--fs-4); }
-.pp-box .sb-t { font-weight: 800; font-size: var(--fs-3); }
-.pp-box .sb-s { font-size: var(--fs-2); color: var(--ink2); }
-
-/* 구직활동 (· 에고서칭): 나란히, 남은 버튼이 줄을 채운다 */
-.hub-btns { display: flex; gap: var(--sp-2); }
-.hub-btns .hub-bn { flex: 1 1 0; min-width: 0; }
-/* 에고서칭: 나머지 셋과 같은 크기, 테두리만 커뮤니티 대표 색 */
-.hub-btns .hub-ego { border-color: var(--pf-comm); }
-.hub-btns .hub-ego:hover { background: #eef2ff; border-color: var(--pf-comm); }
-.hub-bn { position: relative; font: inherit; font-size: var(--fs-3); font-weight: 800; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: var(--sp-3) var(--sp-2); cursor: pointer; white-space: nowrap; transition: border-color .15s; }
-.hub-bn:hover { border-color: var(--violet); }
-.hub-bn .cnt { color: var(--violet); }
-
-/* 생활: 장비 · 집 / 지속 관리 · 기타 사분면. 박스가 남는 높이를 채운다 */
-/* 생활 박스는 작게 (배너 네 개가 내용만큼), 남는 높이는 회사 박스가 쓴다 */
-#life-card { flex: none; }
-.life-q { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--sp-2); }
-.lq { position: relative; display: flex; flex-direction: column; gap: 0; border: 1px solid var(--line); background: var(--card2); border-radius: 12px; padding: var(--sp-2) var(--sp-3); cursor: pointer; transition: border-color .15s; }
-.lq:hover { border-color: var(--violet); }
-.lq-h { display: flex; align-items: center; font-size: var(--fs-3); font-weight: 800; }
-.lq-d { font-size: var(--fs-1); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
 /* 직업 활동: 남는 높이를 채운다. 직업 배너 = 이름 + 자동 활동, 그 아래 소속 · 팬 · 인기 · 계약 */
-#jobs-card { flex: 1 0 auto; min-height: 200px; }
 .job-bn { position: relative; display: block; width: 100%; text-align: left; font: inherit; color: var(--ink); background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-2); cursor: pointer; transition: border-color .15s; }
 .job-bn:hover { border-color: var(--violet); }
 .jb-top { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; }
@@ -1296,12 +1188,7 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .ig:first-of-type { margin-top: var(--sp-2); }
 .ig-h { font-size: var(--fs-3); font-weight: 800; color: var(--violet); padding-bottom: var(--sp-1); border-bottom: 2px solid var(--violet-soft); margin-bottom: var(--sp-1); }
 .ig .sec-h { margin: var(--sp-3) 0 var(--sp-1); font-size: var(--fs-2); color: var(--ink2); }
-/* 프로필 배너는 박스 남는 높이를 채운다 */
-/* 프로필 배너는 낮게 (그만큼 직업 활동 박스가 커진다) */
-#profile-card .pf-tb { display: flex; align-items: center; justify-content: center; gap: var(--sp-1); padding: var(--sp-2) var(--sp-1); }
-/* 생활 사분면: 글자를 가운데로 (큰 버튼처럼) */
-.lq { align-items: center; justify-content: center; text-align: center; }
-.lq-h .bn-arr { margin-left: var(--sp-1); }
+
 /* 직업 배너 레드닷은 메시지함처럼 오른쪽 위 모서리에 */
 .job-bn .rdot { top: -3px; right: -3px; }
 
@@ -1330,9 +1217,6 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .cm-ph .pl-video { flex: none; height: clamp(180px, 34vh, 340px); }
 .cm-ph .pl-dur, .cm-ph .pl-kind, .cm-ph .pl-prog { display: none; }
 .cm-ph-t { margin-top: var(--sp-1); font-size: var(--fs-2); color: #b9b0d6; }
-
-/* 프로필 박스 제목 = 주인공 이름 · 나이 (v163) */
-.pf-name b { color: var(--violet); }
 
 /* 결과 기사 (v172 시안 · v173 넓은 창): 곡 · 앨범 결과 창을 인터넷 기사처럼. 매체 색은 임시 */
 .news { --nw-c: #d23a2a; border: 1px solid var(--line); border-radius: 14px; background: #fff; padding: var(--sp-3) var(--sp-4) var(--sp-2); margin-bottom: var(--sp-2); }
@@ -1650,7 +1534,7 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .co-minis .co-mini:only-child { grid-column: 1 / -1; }
 @media (max-width: 520px) { .co-minis { grid-template-columns: 1fr; } }
 /* v201: 배너에 마우스를 올리면 테두리가 두꺼워진다 (1px → 2px, 자리가 밀리지 않게 안쪽 그림자로 한 겹 더) */
-.bn-card:hover, .hub-bn:hover, #money-card:hover { box-shadow: inset 0 0 0 1px var(--violet), var(--shadow); }
+.bn-card:hover { box-shadow: inset 0 0 0 1px var(--violet), var(--shadow); }
 .job-bn:hover, .co-mini:hover, .soon-banner:hover { box-shadow: inset 0 0 0 1px var(--violet); }
 .pf-bn.plio:hover { box-shadow: inset 0 0 0 1px var(--pf-video); }
 .pf-bn.comm:hover { box-shadow: inset 0 0 0 1px var(--pf-comm); }
@@ -1807,15 +1691,7 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .co-mini { position: relative; }
 .co-mini .rdot { top: -3px; right: -3px; }
 .ap-tab .rdot.in { display: inline-block; margin-left: 5px; vertical-align: 1px; }
-/* v212: 프로필 박스 뛰어난 재능 */
-#profile-card .card-h { flex-wrap: wrap; row-gap: 2px; }
-.pf-gift { margin-left: var(--sp-2); font-size: var(--fs-2); font-weight: 700; color: #a56a00; }
-/* v212: 진행 버튼 크게 · '선택 대기중'도 한 줄 */
-:root { --go-h: 50px; }
-.turn-go, .turn-jump .btn { height: var(--go-h); }
-.turn-go { font-size: 17px; padding: 0 10px; gap: 6px; white-space: nowrap; }
-.turn-jump .btn { padding: 4px 10px; }
-@media (max-width: 760px) { :root { --go-h: 44px; } .turn-go { font-size: var(--fs-4); padding: 0 var(--sp-3); } }
+
 /* v212: 인생 결산 자녀 박스 — 흰 카드 위 글자는 어두운 색으로 (예전엔 금색이라 안 보였다) */
 .en-cur .heir-card, .en-cur .heir-card .row span { color: #241a3a; }
 .en-cur .heir-card b { color: #241a3a; }
@@ -1823,36 +1699,12 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .en-cur .heir-card .muted, .en-cur .heir-card .hc-g, .en-cur .heir-card .hc-sk { color: #5d5670; }
 .en-cur .heir-card .btn.primary { color: #fff; }
 .en-col1 .heirs { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); text-align: left; }
-/* v214: 프로필 박스 상태 줄 (임신) */
-.pf-st { margin-top: var(--sp-1); font-size: var(--fs-2); font-weight: 700; color: #b03a7a; }
 
 /* ───── v219 ───── */
 /* (v219의 '오른쪽 아래에 작게' · v234의 '한가운데에 크게'는 v235에 없앴다: 늘 아래 가운데. 위의 .ctoast) */
 /* 직업 활동 박스: 결과를 기다리는 지원 (누르는 줄이 아니다) */
 .trk.wait { cursor: default; }
 .ap-note { margin: 0 0 var(--sp-2); }
-/* 화면 폭별 배치
-   넓은 화면(1151px~): 세 줄 그대로
-   중간 화면(761~1150px, 작은 노트북 · 태블릿): 일정이 맨 위에 가로로 한 줄, 그 아래 두 줄 (왼쪽 프로필 · 재정 · 직업 / 오른쪽 인간관계 · 메시지함 · 생활 · 회사). 화면 전체가 스크롤된다
-   좁은 화면(~760px, 휴대폰): 한 줄로 쌓는다
-   (예전 '좁은 화면' 규칙은 UI 개편 때 세 줄 규칙에 덮여 듣지 않았다: 폭 1024에서 세 줄이 그대로 눌려 버튼 글자가 잘렸다) */
-@media (max-width: 1150px) {
-  #game-screen { height: auto; min-height: 100vh; }
-  #cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; }
-  #sched-col { grid-column: 1 / -1; order: -1; overflow: visible; }
-  .col-l, .col-m { overflow: visible; }
-  #slots-card { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: var(--sp-2); align-items: start; }
-  #slots-card > .card-h, #slots-card > .hint, #slots-card > .slot-over, #slots-card > .empty { grid-column: 1 / -1; }
-  #slots-card > .slot { margin-bottom: 0; }
-  #slots-card > .slot-over { margin-top: 0; }
-}
-/* 중간 화면에서는 생활 카드가 바로 보이므로 위쪽 '생활' 버튼은 휴대폰 폭에서만 */
-@media (min-width: 761px) { .mob-only { display: none !important; } }
-@media (max-width: 760px) {
-  #cols { grid-template-columns: minmax(0, 1fr); }
-  .hub-btns { flex-wrap: wrap; }
-  .hub-btns .hub-bn { flex: 1 1 40%; }
-}
 
 /* ───── v239: 새 메인 화면 (게임 화면 틀) ─────
    한 화면(1600×900)에 맞춰 짜고, 창 크기에 맞게 통째로 줄이거나 키운다 (ui.js g2Fit). 좁은 화면(1150px 이하)은 위에서 아래로 쌓는다
@@ -2013,11 +1865,33 @@ button.g2-al { cursor: pointer; }
 .g2-card { display: block; width: 100%; padding: 13px 16px; text-align: left; position: relative; }
 .g2-ct { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; font-weight: 800; color: var(--lbl); margin-bottom: 6px; }
 .g2-ct i { font-style: normal; color: var(--gold2); }
-.g2-big { display: block; font-size: 19px; font-weight: 800; }
+.g2-big { display: block; font-size: 19px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .g2-sub { display: block; font-size: 12.5px; color: var(--sub); margin-bottom: 4px; line-height: 1.4; }
 .g2-rk { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; font-size: 13.5px; border-top: 1px solid var(--line); }
 .g2-rk span { color: var(--sub); white-space: nowrap; }
 .g2-rk b { color: var(--gold2); font-weight: 800; text-align: right; }
+/* v240: 직업 카드의 '지금 하는 일' · 최근 결과 · 숙련도 */
+.g2-now { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 2px 10px; padding: 8px 12px; margin-bottom: 8px; border-radius: 12px; background: var(--fx-bg); border: 1px solid var(--fx-bd); }
+.g2-nk { grid-column: 1 / -1; font-size: 11.5px; font-weight: 800; color: var(--lbl); }
+.g2-nb { font-size: 17px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g2-ns { font-size: 12px; color: var(--sub); white-space: nowrap; text-align: right; }
+.g2-now .g2-nb:last-child { grid-column: 1 / -1; }
+.g2-np { display: block; height: 7px; border-radius: 99px; background: var(--track); overflow: hidden; }
+.g2-np i { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #9a7dff, #ff6aa5); }
+.g2-now .g2-np { grid-column: 1 / -1; margin-top: 4px; }
+.g2-sub.cl { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.g2-wk { padding-bottom: 8px; }
+.g2-wk .g2-ct { width: 100%; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; }
+.g2-wk .g2-ct i { color: var(--dim); font-weight: 600; font-size: 12px; }
+.g2-wr { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; width: 100%; padding: 6px 0; font-size: 13.5px; border: 0; border-top: 1px solid var(--line); background: none; color: var(--tx); text-align: left; }
+button.g2-wr { cursor: pointer; }
+button.g2-wr:hover span { text-decoration: underline; }
+.g2-wr span { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g2-wr b { color: var(--gold2); font-weight: 800; white-space: nowrap; max-width: 55%; overflow: hidden; text-overflow: ellipsis; }
+.g2-mb { display: grid; grid-template-columns: 96px minmax(0, 1fr) 30px; align-items: center; gap: 10px; padding: 3px 0; font-size: 13px; }
+.g2-mb > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.g2-mb em { font-style: normal; font-size: 10.5px; font-weight: 800; color: #fff; background: #ff6aa5; border-radius: 99px; padding: 1px 6px; margin-left: 5px; }
+.g2-mb b { text-align: right; font-weight: 800; color: var(--gold2); }
 .g2-quest { border: 2px solid var(--qbd); box-shadow: 0 0 0 4px color-mix(in srgb, var(--qbd) 22%, transparent), 0 10px 30px rgba(0, 0, 0, .35); }
 .g2-quest .g2-ct { color: var(--gold2); }
 .g2-bt { display: block; margin-top: 10px; border-radius: 12px; padding: 9px; font-weight: 800; font-size: 13px; text-align: center; background: var(--bt-bg); color: var(--bt-tx); }
@@ -2028,6 +1902,9 @@ button.g2-al { cursor: pointer; }
 .g2-apply > i { margin-left: auto; font-style: normal; color: var(--dim); font-size: 18px; }
 .g2-skg { display: grid; grid-auto-flow: column; grid-template-columns: 1fr 1fr; gap: 7px 18px; }
 .g2-sk { display: block; min-width: 0; }
+.g2-skg.c3 { grid-template-columns: 1fr 1fr 1fr; gap: 6px 12px; }
+.g2-skg.c3 .g2-skr { font-size: 12px; gap: 3px; }
+.g2-skg.c3 .g2-skr b { font-size: 11.5px; }
 .g2-skr { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; gap: 6px; }
 .g2-skr span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .g2-skr b { color: var(--gold2); font-size: 12.5px; white-space: nowrap; }
@@ -2058,10 +1935,13 @@ button.g2-al { cursor: pointer; }
 .g2-db em { font-style: normal; font-size: 28px; line-height: 1; }
 .g2-db b { font-size: 12.5px; line-height: 1.2; text-align: center; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .g2-db.off { opacity: .45; }
-#g2-acts.two { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: 44px 44px; gap: 8px; }
+.g2-db.on { background: var(--fx-bg); border-color: #b9a1ff; box-shadow: inset 0 0 0 1px #b9a1ff; }
+.g2-db u { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); text-decoration: none; font-size: 10.5px; font-weight: 800; color: #fff; background: #12a57a; border-radius: 99px; padding: 1px 7px; white-space: nowrap; }
+#g2-acts.two .g2-db u { left: auto; right: 6px; transform: none; top: -7px; font-size: 10px; padding: 0 6px; }
+#g2-acts.two { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: 44px 44px; gap: 8px; }
 #g2-acts.two .g2-db { width: auto; height: 44px; flex-direction: row; gap: 5px; padding: 0 6px; border-radius: 12px; }
 #g2-acts.two .g2-db em { font-size: 17px; }
-#g2-acts.two .g2-db b { font-size: 12px; -webkit-line-clamp: 1; text-align: left; }
+#g2-acts.two .g2-db b { font-size: 11.5px; line-height: 1.15; -webkit-line-clamp: 2; text-align: left; }
 
 /* 정보 창 맨 위 줄: 프로필 · 가족 · 기록 · 재능/특기 */
 .info-tabs { margin-bottom: var(--sp-3); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--line); }
@@ -2079,6 +1959,11 @@ button.g2-al { cursor: pointer; }
   .g2-turn { position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 20; flex-direction: row; width: auto; }
   .g2-go { flex: 1; } .g2-mo { height: 60px; padding: 0 16px; }
   #slots-card, #g2-more { overflow: visible; min-height: 0; }
+  /* 일정 칸은 폭이 되는 만큼 옆으로 나란히 */
+  #slots-card { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; align-items: start; }
+  #slots-card > .card-h, #slots-card > .hint, #slots-card > .slot-over, #slots-card > .empty { grid-column: 1 / -1; }
+  #slots-card > .slot { margin-bottom: 0; }
+  #slots-card > .slot-over { margin-top: 0; }
   #slots-card { margin-top: 0; }
   #g2-bot, #g2-bot.noact { grid-template-columns: 1fr; }
   #g2-acts { flex-wrap: wrap; }
