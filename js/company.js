@@ -388,7 +388,7 @@ E({
     milestone(s, `${age(s)}세에 ${josa(`「${name}」`, '을를')} 차리고 대표가 되었다.`);
     const hadBiz = has(me(s), 'biz'), lm = learnMe(s, 'biz', null, true);
     fireEvent(s, 'co_new_staff', { f: d.f });
-    return { log: `${REGION_BY[loc].n}에 ${CO_FIELDS[d.f].n} ${josa(`「${name}」`, '을를')} 차렸다! 자본금 ${fmtWon(cap)}${regTax ? ` (설립 등기 등록면허세 ${fmtWon(regTax)})` : ''}. 메인 화면의 회사 박스에서 회사를 관리한다.` + (!hadBiz && has(me(s), 'biz') ? `\n\n회사를 차리면서 '사업' 특기를 새로 얻었다. 회사를 운영할수록 늘고, 영업과 회사 일에 쓰인다.` : '') + lm };
+    return { log: `${REGION_BY[loc].n}에 ${CO_FIELDS[d.f].n} ${josa(`「${name}」`, '을를')} 차렸다! 자본금 ${fmtWon(cap)}${regTax ? ` (설립 등기 등록면허세 ${fmtWon(regTax)})` : ''}. 메인 화면 왼쪽의 「회사 대표」를 누르면 회사를 관리할 수 있다.` + (!hadBiz && has(me(s), 'biz') ? `\n\n회사를 차리면서 '사업' 특기를 새로 얻었다. 회사를 운영할수록 늘고, 영업과 회사 일에 쓰인다.` : '') + lm };
   },
 });
 // 회사 정리: 소속된 사람은 모두 떠난다. 남은 자본금은 내 돈, 모자란 돈은 내 빚
@@ -3638,7 +3638,7 @@ function hireStart(s, d) {
   const t = hireMake(s, d);
   milestone(s, `${age(s)}세에 「${t.name}」 CEO가 되었다.`);
   if (d.keep) { const o = s.people[d.owner]; if (o) o.job = `${t.name} 창업자 (은퇴)`; }
-  return `${josa(d.role, '으로')} 일하던 「${t.name}」의 CEO가 되었다!${d.keep ? ' 창업자는 일선에서 물러나 쉬기로 했다.' : ''} 월급 ${fmtWon(t.hire.sal)} · 3년 계약. 첫 목표는 ${hireGoalText(s, t)}. 메인 화면의 회사 박스에서 회사를 꾸린다.`;
+  return `${josa(d.role, '으로')} 일하던 「${t.name}」의 CEO가 되었다!${d.keep ? ' 창업자는 일선에서 물러나 쉬기로 했다.' : ''} 월급 ${fmtWon(t.hire.sal)} · 3년 계약. 첫 목표는 ${hireGoalText(s, t)}. 메인 화면 왼쪽의 「회사 대표」를 누르면 회사를 꾸릴 수 있다.`;
 }
 // 회사 만들기: 크기 · 사정에 맞게 이미 데뷔한 그룹 · 연습생 · 직원 · 크리에이터를 채운다. 자본금은 꼭 나가는 돈 몇 달 치 (사정이 나쁠수록 적게)
 function hireMake(s, d) {

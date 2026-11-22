@@ -359,7 +359,7 @@ function goBtnSync() { const b = $('#btn-go'); if (!b) return; const w = !!(S &&
 function render() {
   if (!S) return;
   // 박스 하나를 그리다 오류가 나도 나머지는 그리고 게임은 계속 간다 (오류는 콘솔에 남긴다)
-  for (const f of [renderTop, renderSchedule, renderSide]) { try { f(); } catch (e) { console.error('화면 그리기 오류', f.name, e); } }
+  for (const f of [renderTop, renderSchedule, renderSide, renderMid, renderRight, renderActs, g2Paint]) { try { f(); } catch (e) { console.error('화면 그리기 오류', f.name, e); } }
   $('#ended-bar').classList.toggle('hidden', !S.ended);
   goBtnSync();
   rtDrain(S);
@@ -377,11 +377,33 @@ function rtDrain(s) {
   if (!s || !s.rtq || !s.rtq.length || s.pending || ['#modal', '#live', '#turn'].some(q => !$(q).classList.contains('hidden'))) return;
   const L = s.rtq; s.rtq = []; try { resToast(L, true); } catch (e) { console.error('토스트 오류', e); }
 }
+// ───── v239: 새 메인 화면 ─────
+// 지금 보는 역할: 하는 직업의 id, 직업이 없으면 'none'(무직 · 학생 · 군 복무). 왼쪽 역할 배지를 누르면 바뀐다. 보던 일이 끝났으면 첫 직업으로 돌아간다
+function g2Jobs(s) { return CAREER_IDS.filter(id => CAREERS[id] && trackOn(s, id)); }
+function g2Role(s) { const J = g2Jobs(s); if (!J.includes(UI.role)) UI.role = J[0] || 'none'; return UI.role; }
+// 바뀌었을 때만 다시 넣는다 (캐릭터 그림이 달마다 깜빡이지 않게)
+function g2Set(q, h) { const el = $(q); if (!el) return null; if (el._h !== h) { el._h = h; el.innerHTML = h; } return el; }
+// 내 캐릭터 (실시간 창과 같은 그림 조각): 이름마다 머리 · 얼굴이 정해진다
+function g2Me(p) { return typeof liveChar === 'function' ? liveChar('me/' + p.id + '/' + p.name, 265, 'me/' + p.id, { sx: p.g === '여' ? 'f' : 'm' }) : ''; }
+function g2Paint() { if (typeof chLoad !== 'function') return; chLoad(); if (CH.ok) document.querySelectorAll('#g2 canvas.lv-chc').forEach(c => { if (c._k !== c.dataset.ch) { c._k = c.dataset.ch; chPaint(c); } }); }
+// 창 크기에 맞춰 화면을 통째로 줄이거나 키운다 (넓은 화면에서만. 좁은 화면은 위에서 아래로 쌓는다)
+function g2Fit() {
+  const el = $('#g2'); if (!el) return;
+  const W = window.innerWidth, H = window.innerHeight;
+  if (W <= 1150) { el.style.transform = ''; el.style.left = ''; el.style.top = ''; return; }
+  const k = Math.min(W / 1600, H / 900);
+  el.style.transform = `scale(${k})`; el.style.left = `${Math.round((W - 1600 * k) / 2)}px`; el.style.top = `${Math.round((H - 900 * k) / 2)}px`;
+}
+window.addEventListener('resize', g2Fit);
 function renderTop() {
   const s = S, p = me(s);
-  $('#t-name').textContent = p.name;
-  $('#t-age').textContent = `${age(s)}세`;
-  $('#t-stage').textContent = stageLabel(s);
+  g2Fit();
+  // 이름표: 얼굴 · 이름 · 나이 · 신분 · 뛰어난 재능(70 이상, 숨은 재능은 빼고)
+  const sc = schoolLine(s), gf = TALENTS_SHOWN.filter(t => (p.tal[t.id] || 0) >= 70).map(t => t.n);
+  g2Set('#g2-plate', `<span class="g2-pf">${g2Me(p)}</span><span class="g2-pt"><span class="g2-pn">${U.esc(p.name)}<small>${age(s)}세</small></span><span class="g2-ps">${U.esc(idLabel(s))}${sc && sc[1] ? ` · ${U.esc(sc[1])}` : ''}</span>${gf.length ? `<span class="g2-pg">⭐ ${U.esc(gf.join(' · '))}</span>` : ''}</span>`);
+  // 캐릭터 그림은 어른 몸 하나뿐이라, 어릴 때는 작게 그린다
+  const ag = age(s), ch = g2Set('#g2-char', `${g2Me(p)}<span class="g2-nt">${U.esc(p.name)}</span>`);
+  if (ch) ch.style.setProperty('--chh', `${Math.round(480 * (ag < 4 ? .42 : ag < 8 ? .52 : ag < 13 ? .66 : ag < 17 ? .82 : ag < 20 ? .93 : 1))}px`);
   // 날짜: 연도 글씨 아래에 1~12월 막대 (달이 갈수록 차오르고, 1월이 되면 처음부터)
   // 막대는 한 번만 만들고 너비만 바꾼다 (그래야 부드럽게 차오른다). 1월로 돌아갈 때는 바로 비운다
   const m = calM(s) + 1, dEl = $('#t-date');
@@ -391,9 +413,56 @@ function renderTop() {
   dEl.querySelector('.dt-y').textContent = `${calY(s)}년 ${m}월`;
   dEl.querySelector('.dt-bar i').style.width = `${(m / 12 * 100).toFixed(2)}%`;
   UI.dateM = m;
-  $('#btn-applyjob').classList.toggle('hidden', typeof jobApplies !== 'function');
-  // 에고서칭: 커뮤니티에서 내 이름을 찾아본다 (일곱 살부터). 구직활동 줄 맨 끝의 작은 배너
-  $('#btn-ego').classList.toggle('hidden', !(typeof commNow === 'function' && age(s) >= 7));
+  // 에고서칭: 커뮤니티에서 내 이름을 찾아본다 (일곱 살부터)
+  const ego = $('#btn-ego'), eOn = typeof commNow === 'function' && age(s) >= 7;
+  ego.classList.toggle('hidden', !eOn);
+  if (eOn) g2Set('#btn-ego', `<span class="g2-tg">💬 에고서칭</span><span class="g2-tx"><b>${s.scandal && (s.scandal.resp || s.scandal.seen) ? '🔥 이슈 게시판' : totalFans(s) < 300 && (s.fame || 0) < 5 ? `'${U.esc(p.name)}' 검색 결과 0건` : `'${U.esc(p.name)}' 검색`}</b><small>커뮤니티 와글</small></span>`);
+}
+// 가운데 위: 요즘 유행 · 눈에 띄어야 하는 상태(군 복무 · 병 · 임신)
+function renderMid() {
+  const s = S;
+  let h = trendRowHTML(s);
+  if (s.army) h += `<button type="button" class="g2-al" data-trk="army">🪖 군 복무 중 · 전역까지 ${s.army.left}개월</button>`;
+  if (s.ill) h += `<button type="button" class="g2-al" data-trk="ill">${s.ill.wander ? '🌀' : '🏥'} ${U.esc(s.ill.n)} · ${s.ill.wander ? '끝날 때까지' : '회복까지'} ${s.ill.left}개월</button>`;
+  // v214: 임신 (내가 임신했으면 직업 활동을 쉰다)
+  if (s.preg) h += `<span class="g2-al">${pregMe(s) ? '🤰 임신 중' : `👶 ${U.esc((partner(s) || { name: '배우자' }).name)} 임신 중`} · ${s.preg.left > 0 ? `${s.preg.left}개월 뒤 출산 (${ymLater(s, s.preg.left)})` : '곧 출산'}${pregMe(s) ? ' · 직업 활동은 쉰다' : ''}</span>`;
+  g2Set('#g2-mid', h);
+}
+// 오른쪽: 지원 카드(그 역할에서 한 번 하는 지원 — 새로 생기면 눈에 띄게) → 역할 카드(누르면 그 직업 창) → 특기(레벨순, 레벨이 다 보이게)
+function renderRight() {
+  const s = S, p = me(s), role = g2Role(s);
+  let h = '';
+  const L = aaList(s, role).filter(a => applyOKNow(s, a)), F = aaFresh(s, role);
+  if (F.length) h += `<button type="button" class="g2-card g2p g2-quest" data-job="${role}" data-jt="apply"><span class="g2-ct">📢 새로 지원할 수 있는 곳<i>${F.length}곳</i></span><b class="g2-big">${U.esc(`${F[0].ic || ''} ${F[0].n}`.trim())}</b><span class="g2-bt">지원하기</span></button>`;
+  else if (L.length) h += `<button type="button" class="g2-card g2p g2-apply" data-job="${role}" data-jt="apply"><em>📝</em><span><b>지원</b><small>지원할 수 있는 곳 ${L.length}곳</small></span><i>›</i></button>`;
+  if (role !== 'none') {
+    const F2 = jobFacts(s, role), st = CAREERS[role].status ? careerStatus(s, role) : '';
+    h += `<button type="button" class="g2-card g2p" data-job="${role}"><span class="g2-ct">${jobIc(role)} ${U.esc(jobName(role))}<i>›</i></span>${st ? `<span class="g2-sub">${U.esc(st)}</span>` : ''}${F2.map(([k, v]) => `<span class="g2-rk"><span>${k}</span><b>${U.esc(v)}</b></span>`).join('')}</button>`;
+  }
+  // 특기: 레벨이 높은 순서 (학업 · 외국어도 같이). 개수는 학업 · 외국어를 빼고 센다
+  const ks = learnedSkills(p).sort((a, b) => p.sk[b].lv - p.sk[a].lv);
+  if (ks.length) h += `<button type="button" class="g2-card g2p" data-tstab="sk"><span class="g2-ct">🎯 특기<i>${capCount(p)}/${SKILL_CAP}</i></span><span class="g2-skg" style="grid-template-rows:repeat(${Math.ceil(ks.length / 2)},auto)">${ks.map(k => `<span class="g2-sk"><span class="g2-skr"><span>${skIc(k)}${U.esc(SKILLS[k].n)}</span><b>${lvi(p, k)}레벨</b></span>${bar(p.sk[k].lv, 100)}</span>`).join('')}</span></button>`;
+  g2Set('#g2-rcards', h);
+  const co = $('#co-card'); if (co) co.classList.toggle('hidden', role !== 'agency' || !trackOn(s, 'agency'));
+}
+// 아래 가운데: 지금 보는 역할에서 할 수 있는 일. 누르면 그 직업 창의 행동 탭이 열린다 (자동으로 하는 활동은 일정 칸에 보이므로 여기 두지 않는다)
+// 행동 버튼 그림: 행동에 그림이 따로 없으면 이름에 든 말로 고르고, 그래도 없으면 그 직업 그림
+const G2_ACT_IC = [[/고용|영입|뽑|채용|스카우트/, '🧑‍💼'], [/해고|내보내/, '🚪'], [/계약|협상|재계약/, '📝'], [/이름|개명/, '🏷️'], [/아바타|외모|스타일/, '🧑‍🎤'], [/타겟|대상/, '🎯'], [/홍보|광고|마케팅/, '📣'], [/휴식|쉬|휴가|휴재/, '🛌'], [/장비|작업실|스튜디오/, '🎛️'], [/공연|콘서트|투어/, '🎤'], [/앨범|음반|신곡|곡/, '💿'], [/연재|원고|집필|대본/, '✍️'], [/촬영|영상|방송/, '🎥'], [/가격|요금|수강료|단가/, '💰'], [/바꾸|옮기|전환/, '🔄']];
+function g2ActIc(t, role) { const x = G2_ACT_IC.find(([re]) => re.test(t || '')); return x ? x[1] : jobIc(role); }
+function renderActs() {
+  const s = S, role = g2Role(s), A = [];
+  if (role !== 'none') {
+    const c = CAREERS[role];
+    // 창 이름 앞에 그림이 붙어 있으면(「🏢 회사 창 열기」) 그 그림을 버튼 그림으로 쓴다
+    if (c.panel) { const m = /^([^\w가-힣\s]+)\s+(.+)$/.exec(c.panelN || ''); A.push([m ? m[1] : jobIc(role), m ? m[2] : c.panelN || '창 열기', `data-panel="${c.panel}"`, 0, 0]); }
+    if (jobDot(s, role)) A.push(['⚠️', '할 일 고르기', `data-job="${role}"`, 1, 0]);
+    let L = []; try { L = (c.actions ? c.actions(s, s.tracks[role]) : []).filter(a => a && !a.danger); } catch (e) { L = []; }
+    for (const a of L) A.push([a.emo && !/</.test(a.emo) ? a.emo : g2ActIc(a.t, role), a.t, `data-job="${role}"`, 0, !a.ok]);
+  }
+  const B = A.slice(0, 8);
+  g2Set('#g2-acts', B.map(([ic, n, at, dot, off]) => `<button type="button" class="g2-db${off ? ' off' : ''}" ${at}>${dot ? '<i class="rdot"></i>' : ''}<em>${ic}</em><b>${U.esc(n)}</b></button>`).join(''));
+  const el = $('#g2-acts'); if (el) el.className = B.length > 4 ? 'two' : '';
+  const bot = $('#g2-bot'); if (bot) bot.classList.toggle('noact', !B.length);
 }
 
 // 고정된 칸의 이유 (그 칸 바로 아래에 보인다)
@@ -534,20 +603,10 @@ function idLabel(s) {
   if (married(s) && a >= 30 && !s.slots.some(sl => sl.act === 'job')) return '전업주부';
   return s.slots.some(sl => sl.act === 'job') ? '아르바이트 중' : '진로를 찾는 중';
 }
-// 프로필 박스 (UI 개편 시안): 오른쪽 위에 이름 · 나이, 첫 줄에 신분, 아래에 배너 네 개 (기본 정보 · 가족 · 기록 · 재능 및 특기). 박스 자체는 누르지 않는다
+// v239: 프로필 박스는 없앴다. 이름표(renderTop)와 위쪽 '정보' 버튼이 그 자리를 맡는다. 정보 창 맨 위 줄(infoTabs)에서 프로필 · 가족 · 기록 · 재능/특기를 오간다
 const PF_BNS = [['born', '🪪', '프로필'], ['fam', '👪', '가족'], ['rec', '📖', '기록'], ['skills', '🎯', '재능/특기']];
-function renderProfileCard() {
-  const s = S, p = me(s), el = $('#profile-card');
-  if (!el) return;
-  const sc = schoolLine(s);
-  // v212: 뛰어난 재능(70 이상)을 이름 옆에 모두 (숨은 재능은 빼고)
-  const gf = TALENTS_SHOWN.filter(t => (p.tal[t.id] || 0) >= 70).map(t => t.n);
-  el.innerHTML = `<div class="card-h"><span class="pf-name">👤 ${U.esc(p.name)} <b>${age(s)}세</b></span>${gf.length ? `<span class="pf-gift">⭐ ${U.esc(gf.join(' · '))}</span>` : ''}</div>`
-    + `<div class="pf-id">${U.esc(idLabel(s))}${sc && sc[1] ? `<span class="hint"> · ${U.esc(sc[1])}</span>` : ''}</div>`
-    // v214: 임신은 상태로 프로필 박스에 (내가 임신했으면 직업 활동을 쉰다)
-    + (s.preg ? `<div class="pf-st">${pregMe(s) ? '🤰 임신 중' : `👶 ${U.esc((partner(s) || { name: '배우자' }).name)} 임신 중`} · ${s.preg.left > 0 ? `${s.preg.left}개월 뒤 출산 (${ymLater(s, s.preg.left)})` : '곧 출산'}${pregMe(s) ? ' · 직업 활동은 쉰다' : ''}</div>` : '')
-    + `<div class="pf-tbn">${PF_BNS.map(([k, ic, n]) => k === 'skills' ? `<button class="pf-tb" data-tstab="tal"><span class="pf-ic">${ic}</span> ${n}</button>` : `<button class="pf-tb" data-pftab="${k}"><span class="pf-ic">${ic}</span> ${n}</button>`).join('')}</div>`;
-}
+function infoTabs(cur) { return `<div class="ap-row pf-tabs info-tabs">${PF_BNS.map(([k, ic, n]) => `<button class="ap-tab ${cur === k ? 'on' : ''}" ${k === 'skills' ? 'data-tstab="tal"' : `data-pftab="${k}"`}>${ic} ${n}</button>`).join('')}</div>`; }
+function renderProfileCard() { }
 // 직업 배너에 보이는 것 (UI 개편 시안): 소속 · 그룹 팬 · 개인 팬 · 인기 · 계약 만료일. 없는 것은 빼고 보여 준다
 function jobInfoRows(s, id) { const c = CAREERS[id]; try { return (c.info ? c.info(s, s.tracks[id]) : []).filter(r => Array.isArray(r)); } catch (e) { return []; } }
 function jobGroupFans(s, id) {
@@ -588,13 +647,12 @@ function noJobLabel(s) {
   return ['🧑', '무직'];
 }
 function renderJobsCard() {
-  const s = S, el = $('#jobs-card');
-  if (!el) return;
-  let h = trendRowHTML(s);
-  let any = false;
-  for (const id of CAREER_IDS) {
+  const s = S;
+  if (!$('#g2-roles')) return;
+  const role = g2Role(s);
+  let h = '', any = false;
+  for (const id of g2Jobs(s)) {
     const c = CAREERS[id];
-    if (!c || !trackOn(s, id)) continue;
     any = true;
     // 자동 활동: 일정에 그 직업 칸이 있어야 일한다. 고정된 칸(회사 연습시간 · 촬영)이 있으면 그 일을 이미 하고 있다
     let st = '', cls = '', dot = false;
@@ -603,37 +661,37 @@ function renderJobsCard() {
       st = !n ? '일정에 빈 칸이 없어 이번 달은 쉰다' : x ? `${f ? '🔒 ' : ''}${x.n}${f > 1 ? ` · 고정 ${f}칸` : ''}` : '할 일을 고르지 않았다 · 평가가 떨어진다';
       cls = !n ? ' off' : !x ? ' bad' : '';
       dot = (!!n && !x) || pickDue(s, id);
-    }
+    } else if (c.status) st = careerStatus(s, id);
     // v238: 그 직업 창 '지원' 탭에 새로 지원할 수 있게 된 것이 있으면 점
     if (aaFresh(s, id).length) dot = true;
-    const F = jobFacts(s, id);
-    h += `<button class="job-bn${cls}" data-job="${id}">${dot ? '<span class="rdot"></span>' : ''}<span class="jb-top"><span class="sb-ic">${jobIc(id)}</span><span class="sb-t">${U.esc(jobName(id))}</span>${st ? `<span class="jb-auto">${U.esc(st)}</span>` : ''}<span class="sb-n">›</span></span>`
-      + (F.length ? `<span class="jb-facts">${F.map(([k, v]) => `<span class="jf"><i>${k}</i>${U.esc(v)}</span>`).join('')}</span>` : '') + `</button>`;
+    h += `<button type="button" class="g2-role${id === role ? ' on' : ''}${cls}" data-role="${id}">${dot ? '<i class="rdot"></i>' : ''}<span class="g2-ri">${jobIc(id)}</span><span class="g2-rt"><b>${U.esc(jobName(id))}</b>${st ? `<small>${U.esc(st)}</small>` : ''}</span></button>`;
   }
-  // v238: 하는 직업이 하나도 없으면 '무직'(학생 · 군 복무) 배너. 누르면 무직 창 (panelNoJob) — 직업이 없을 때 하는 지원이 여기 있다
+  // v238: 하는 직업이 하나도 없으면 '무직'(학생 · 군 복무) 배지. 누르면 무직 창 (panelNoJob) — 직업이 없을 때 하는 지원이 여기 있다
   const nj = any ? null : noJobLabel(s);
   if (nj) {
     const n = aaList(s, 'none').filter(a => applyOKNow(s, a)).length;
-    h += `<button class="job-bn" data-job="none">${aaFresh(s, 'none').length ? '<span class="rdot"></span>' : ''}<span class="jb-top"><span class="sb-ic">${nj[0]}</span><span class="sb-t">${nj[1]}</span><span class="jb-auto">${n ? `지원할 수 있는 곳 ${n}곳` : '지금 지원할 수 있는 곳이 없다'}</span><span class="sb-n">›</span></span></button>`;
+    h += `<button type="button" class="g2-role on" data-role="none">${aaFresh(s, 'none').length ? '<i class="rdot"></i>' : ''}<span class="g2-ri">${nj[0]}</span><span class="g2-rt"><b>${nj[1]}</b><small>${n ? `지원할 수 있는 곳 ${n}곳` : '지금 지원할 수 있는 곳이 없다'}</small></span></button>`;
+  }
+  g2Set('#g2-roles', h);
+  // 역할 아래: 구직활동 · 회사 설립 · 공개 예정 작품 · 맡은 작품 · 광고 · 논란 · 자숙 · 결과를 기다리는 곳
+  let m = typeof jobApplies === 'function' ? `<button type="button" class="g2-add" id="btn-applyjob" data-panel="applyjob"><em>📝</em>구직활동</button>` : '';
+  if (!trackOn(s, 'agency') && typeof CO_SEED !== 'undefined') {
+    if (s.money < CO_SEED) m += `<div class="g2-add lk"><em>🏢</em>회사 설립<small>자본금 ${fmtWon(CO_SEED)}부터</small></div>`;
+    else { const w = coFoundWhy(s); m += w ? `<div class="g2-add lk"><em>🏢</em>회사 설립<small>${U.esc(w)}</small></div>` : `<button type="button" class="g2-add" data-cofound="new"><em>🏢</em>회사 설립<small>자본금 ${fmtWon(CO_SEED)}부터</small></button>`; }
   }
   const soon = upcomingWorks(s);
-  if (soon.length || WORK_TRKS.some(id => trackOn(s, id))) h += `<button class="soon-banner" data-soon><span class="sb-ic">🗓️</span><span><span class="sb-t">공개 예정 작품</span><br><span class="sb-s">${soon.length ? `「${U.esc(soon[0].title)}」 ${U.esc(soon[0].when)}` : '기다리는 작품 없음'}</span></span><span class="sb-n">${soon.length}편 ›</span></button>`;
+  if (soon.length || WORK_TRKS.some(id => trackOn(s, id))) m += `<button class="soon-banner" data-soon><span class="sb-ic">🗓️</span><span><span class="sb-t">공개 예정 작품</span><br><span class="sb-s">${soon.length ? `「${U.esc(soon[0].title)}」 ${U.esc(soon[0].when)}` : '기다리는 작품 없음'}</span></span><span class="sb-n">${soon.length}편 ›</span></button>`;
   const rows = [];
   const row = (key, title, st) => rows.push(`<div class="trk" data-trk="${key}"><b>${title}</b><div class="st">${U.esc(st)}</div></div>`);
   s.projects.forEach((w, i) => { const T = WORK_TYPES[w.type]; row('w:' + i, `${T.ic} ${U.esc(T.n)}`, T.status(s, w)); });
   if ((s.brands || []).length) row('brands', '📺 광고 모델', s.brands.map(x => BRAND_BY[x.id].n).join(' · '));
-  // 논란 창을 아직 안 봤으면 직업 활동 칸에 미리 띄우지 않는다 (v129)
+  // 논란 창을 아직 안 봤으면 미리 띄우지 않는다 (v129)
   if (s.scandal && (s.scandal.resp || s.scandal.seen)) row('scandal', `🔥 ${U.esc(SC[s.scandal.id].n)}`, s.scandal.resp ? '여론을 지켜보는 중' : '대응을 기다리는 중');
   if (s.hiatus) row('hiatus', '🤐 자숙', `${s.hiatus.left}개월 남음 (${ymLater(s, s.hiatus.left)})`);
   // v219: 지원해 두고 결과를 기다리는 곳 (오디션 · 채용 · 공모전)
   for (const q of s.queue) { const w = waitLine(s, q); if (w) rows.push(`<div class="trk wait"><b>⏳ ${U.esc(w)}</b><div class="st">결과 대기 중</div></div>`); }
-  if (rows.length) h += `<div class="trks">${rows.join('')}</div>`;
-  if (!any && !nj && !rows.length) {
-    // v212: 구직활동 안내는 처음으로 지원할 수 있는 곳이 생긴 뒤부터 (그 전에는 눌러도 빈 창이다)
-    if (!s.apOpen && typeof jobApplies === 'function' && jobApplies(s).some(a => applyOKNow(s, a))) s.apOpen = 1;
-    h += `<div class="empty">아직 하는 일이 없다.${s.apOpen ? ' 📝 구직활동에서 시작할 수 있다.' : ''}</div>`;
-  }
-  el.innerHTML = `<div class="card-h">💼 직업 활동</div><div class="jobs-body">${h}</div>`;
+  if (rows.length) m += `<div class="trks">${rows.join('')}</div>`;
+  g2Set('#g2-more', m);
 }
 // 인간관계 박스: 박스를 누르면 인간관계 창. 안에는 가족 배너와 연인 배너 (결혼하면 가족 배너 하나)
 // 가족 배너 글자 조각: 중요한 것부터. 한 줄에 들어가는 만큼만 보인다 (fitLine). 부모님 이름은 빼고 나이만
@@ -654,14 +712,8 @@ function fitLine(el) {
 }
 // 인간관계 박스 (작게, 왼쪽 맨 아래): 박스를 누르면 인간관계 창. 가족·연인 배너는 이름 + 한 줄
 function renderPeopleCard() {
-  const s = S, el = $('#people-card');
-  if (!el) return;
-  const pt = partner(s), wed = isSpouse(pt);
-  const bn = (k, ic, n, parts) => `<div class="pp-box"><span class="sb-ic">${ic}</span><span class="pp-tx"><span class="sb-t">${n}</span><span class="sb-s pp-line" data-parts="${U.esc(JSON.stringify(parts))}"></span></span></div>`;
-  let h = `${pplDot(s) ? '<span class="rdot pp-dot"></span>' : ''}<div class="card-h">👥 인간관계<span class="bn-arr">›</span></div><div class="pp-bns">` + bn('fam', '👪', '가족', famParts(s));
-  if (!wed) h += bn('love', '💕', '연인', pt ? [pt.name, `${pAge(s, pt)}세`, `친밀도 ${Math.round(pt.aff)}`] : ['없음']);
-  el.innerHTML = h + `</div>`;
-  el.querySelectorAll('.pp-line').forEach(fitLine);
+  const s = S;
+  g2Set('#g2-people', `${pplDot(s) ? '<i class="rdot"></i>' : ''}<em>👥</em><b>인간관계</b>${contactYoung(s) ? '' : `<small>남은 연락 ${Math.max(0, CONTACT_MAX - contactsUsed(s))}번</small>`}`);
 }
 // 회사 박스 (UI 개편 시안): 가운데 줄 맨 아래, 남는 높이를 채우는 그릇. 회사는 그 안의 배너 하나 (분야마다 배너가 하나씩 늘어날 자리)
 // 자본금 · 지난달 순수익, 적자면 버틸 수 있는 기간. 누르면 회사 창. 회사를 차리기 전에는 사슬로 잠가 둔다
@@ -711,15 +763,14 @@ function renderCoCard() {
   el.removeAttribute('data-panel');
   if (!t) {
     // 회사가 없을 때: 현금이 1억 원 이상이면 '회사 설립 가능' 배너, 아니면 잠긴 박스
-    if (s.money < CO_SEED) { el.className = 'card co-card chainlk'; el.innerHTML = `<div class="card-h">🏢 회사/그룹</div><div class="st">아직 차린 회사가 없다</div>`; return; }
-    const w = coFoundWhy(s);
-    el.className = 'card co-card'; delete el.dataset.cofx; el.innerHTML = `<div class="card-h">🏢 회사/그룹</div>` + coNewBannerHTML(false, w);
+    // v239: 회사가 없으면 박스를 비운다 (회사 설립 버튼은 왼쪽 역할 아래 — renderJobsCard)
+    el.className = 'card co-card hidden'; delete el.dataset.cofx; el.innerHTML = '';
     return;
   }
   // v191: '회사/그룹' 칸 = 사옥 상자들. 사옥 상자: 사옥 이름 · 연습실 정원 · 사옥 전체 자본금 · 지난달 순수익, 안에 회사 배너(작게: 어떤 회사 · 직원 수 · 기획 중인지)
   //   회사 배너를 누르면 그 회사 창, 배너 밖(사옥 상자 · 빈 곳)을 누르면 그룹 창 (회사가 하나면 그 회사 창). 사옥 상자는 따로 눌리지 않는다
   const fs = coFields(t), main = coMainF(t), grp = typeof coIsGrp === 'function' && coIsGrp(t);
-  el.className = 'card co-card bn-card co-wrap'; el.dataset.panel = grp ? 'group' : 'company';
+  el.className = 'card co-card bn-card co-wrap' + (g2Role(s) === 'agency' ? '' : ' hidden'); el.dataset.panel = grp ? 'group' : 'company';
   if (grp) delete el.dataset.cofx; else el.dataset.cofx = main;
   const B = typeof coBlds === 'function' ? coBlds(t) : [main];
   let h = `<div class="card-h">🏢 회사/그룹${grp ? `<span class="sub">${U.esc(coGrpName(t))} · 회사 ${fs.length}곳</span>` : ''}</div>`;
@@ -757,8 +808,10 @@ function homeBgKey(s) { if (isDorm(s)) return 'dorm'; const h = s.home || {}; re
 function homeBgSync() {
   const el = $('#game-screen'); if (!el || !S) return;
   const k = homeBgKey(S); UI.bgOK = UI.bgOK || {};
-  const set = () => { const ok = UI.bgOK[homeBgKey(S)] === 1; el.classList.toggle('has-bg', ok); if (ok) el.style.setProperty('--home-bg', `url("img/bg/${homeBgKey(S)}.webp")`); };
-  if (UI.bgOK[k] == null) { UI.bgOK[k] = 0; const im = new Image(); im.onload = () => { UI.bgOK[k] = 1; set(); }; im.onerror = () => { UI.bgOK[k] = -1; }; im.src = `img/bg/${k}.webp`; }
+  // v239: 배경이 어두우면 밝은 배너로 (g2-light). 그림의 평균 밝기를 한 번 재 둔다 (못 재면 어두운 배너 그대로)
+  const set = () => { const kk = homeBgKey(S), ok = UI.bgOK[kk] === 1, lm = (UI.bgLum || {})[kk]; el.classList.toggle('has-bg', ok); el.classList.toggle('g2-light', ok && lm != null && lm < 0.42); if (ok) el.style.setProperty('--home-bg', `url("img/bg/${kk}.webp")`); };
+  const lum = im => { try { const c = document.createElement('canvas'); c.width = 16; c.height = 9; const x = c.getContext('2d'); x.drawImage(im, 0, 0, 16, 9); const d = x.getImageData(0, 0, 16, 9).data; let t = 0; for (let i = 0; i < d.length; i += 4) t += d[i] * .299 + d[i + 1] * .587 + d[i + 2] * .114; (UI.bgLum = UI.bgLum || {})[k] = t / (d.length / 4) / 255; } catch (e) { } };
+  if (UI.bgOK[k] == null) { UI.bgOK[k] = 0; const im = new Image(); im.onload = () => { UI.bgOK[k] = 1; lum(im); set(); }; im.onerror = () => { UI.bgOK[k] = -1; }; im.src = `img/bg/${k}.webp`; }
   set();
 }
 // 사건 창 위쪽 띠 그림 (v154 보탬): img/sc/ 의 장면 그림. 원본은 img/scene/ 에 두고 python dev/make_bg.py 로 줄인다
@@ -790,33 +843,21 @@ function scBandHTML(id, ev, s, d) {
 }
 function renderStatusCard() {
   homeBgSync(); scLoad(); // 사건 창 띠 그림도 미리 읽어 둔다
-  const s = S;
-  let st = `<div class="card-h">❤ 상태</div>`;
-  if (s.army) st += `<div class="st-alert" data-trk="army">🪖 군 복무 중 · 전역까지 ${s.army.left}개월</div>`;
-  if (s.ill) st += `<div class="st-alert" data-trk="ill">${s.ill.wander ? '🌀' : '🏥'} ${U.esc(s.ill.n)} · ${s.ill.wander ? '끝날 때까지' : '회복까지'} ${s.ill.left}개월</div>`;
-  st += `<div class="row${s.stress >= 80 ? ' hot' : ''}"><span>스트레스</span><b>${Math.round(s.stress)}</b></div>${bar(s.stress, 100, 'stress')}`;
-  st += `<div class="row"><span>팬</span><b>${fmtFans(totalFans(s))}</b></div>`;
-  st += `<div class="row"><span>인지도</span><b>${fameWord(s.fame || 0)}</b></div>${bar(s.fame || 0, 100, 'pop')}`;
-  st += `<div class="row"><span>평판 (주변 사람)</span><b>${repWord(s.rep)}</b></div>${bar(s.rep, 100, 'rep')}`;
-  $('#status-card').innerHTML = st;
+  const s = S, v = Math.round(s.stress);
+  const row = (ic, k, t, b) => `<span class="g2-sr"><i>${ic}</i><span>${k}</span><b>${U.esc(t)}</b>${b == null ? '' : bar(b, 100)}</span>`;
+  // 스트레스는 크게 (둥근 눈금). 80부터 빨갛게
+  g2Set('#g2-stat', `<span class="g2-sw"><span class="g2-ring ${v >= 80 ? 'hot' : v >= 50 ? 'mid' : 'ok'}" style="--v:${U.clamp(v, 0, 100)}"><span><b>${v}</b><small>/ 100</small></span></span><span class="g2-stl">스트레스</span></span>`
+    + `<span class="g2-srows">${row('👥', '팬', fmtFans(totalFans(s)))}${row('⭐', '인지도', fameWord(s.fame || 0), s.fame || 0)}${row('🤝', '평판', repWord(s.rep), s.rep)}</span>`);
 }
 // 재정: 현금(크게) → 빚 → 지난달 → 맨 아래 총자산(집에 든 내 돈까지). 누르면 재정 창
 // 가족이 대 준 돈이 무엇이었는지 (v116 버그 14): 대학 다니는 중이면 등록금, 고교 졸업 전이면 학원비, 그 밖에는 생활비만
 function famPaidWhat(s) { return inUni(s) ? '등록금·생활비' : !s.edu.graduated ? '학원비·생활비' : '생활비'; }
 function renderMoneyCard() {
-  const s = S, lm = s.lastMon || { inc: 0, exp: 0, familyPaid: 0 }, ha = houseAsset(s);
-  let m = `<div class="card-h">💰 재정<span class="bn-arr">›</span></div>`;
-  m += `<div class="mn-r big"><span>현금</span><b>${fmtWon(s.money)}</b></div>`;
-  if (s.debt > 0) m += `<div class="row"><span>빚</span><b class="neg">${fmtWon(s.debt)}</b></div>`;
-  if (s.sibLoan) m += `<div class="row"><span>형제자매에게 빌린 돈</span><b class="neg">${fmtWon(s.sibLoan.left)}</b></div>`;
-  if (s.friendLoan) m += `<div class="row"><span>${U.esc(s.friendLoan.name)}에게 빌린 돈</span><b class="neg">${fmtWon(s.friendLoan.left)}</b></div>`;
-  m += `<div class="row"><span>지난달 들어온 돈</span><b class="pos">+${fmtWon(lm.inc)}</b></div><div class="row"><span>지난달 나간 돈</span><b class="neg">${Math.round(lm.exp) ? '-' : ''}${fmtWon(lm.exp)}</b></div>`;
-  // v224: 번 돈이 빚 갚는 데 먼저 나가 현금이 안 늘 때 까닭이 보이게
-  { const rp = lm.items && lm.items['빚 갚기'] ? -lm.items['빚 갚기'] : 0; if (rp > 0) m += `<div class="hint">나간 돈 가운데 ${fmtWon(rp)}은 빚을 갚는 데 들어갔다</div>`; }
-  if (lm.loanPaid) m += `<div class="hint">등록금 ${fmtWon(lm.loanPaid)}은 학자금 대출로 냈다 (빚이 그만큼 늘었다)</div>`;
-  if (lm.familyPaid) m += `<div class="hint">가족이 대 준 돈 ${fmtWon(lm.familyPaid)} (${famPaidWhat(s)})</div>`;
-  m += `<div class="mn-r total"><span>총자산 (집 포함)</span><b>${fmtWon(s.money + ha)}</b></div>`;
-  const mc = $('#money-card'); if (mc) mc.innerHTML = m;
+  // v239: 위쪽 돈 칸 — 현금(정확하게) · 지난달 변동 · 들어온 돈 / 나간 돈 · 빚. 누르면 재정 창 (총자산 · 항목별은 거기서)
+  const s = S, lm = s.lastMon || { inc: 0, exp: 0 }, net = Math.round((lm.inc || 0) - (lm.exp || 0));
+  const debt = (s.debt > 0 ? s.debt : 0) + (s.sibLoan ? s.sibLoan.left : 0) + (s.friendLoan ? s.friendLoan.left : 0);
+  g2Set('#g2-money', `<small>💰 현금</small><b class="g2-mv${s.money < 0 ? ' neg' : ''}">${fmtWon(s.money)}</b><span class="g2-md ${net >= 0 ? 'up' : 'dn'}">지난달 ${net >= 0 ? '▲' : '▼'} ${fmtWon(Math.abs(net))}</span>`
+    + `<span class="g2-mio"><span>들어온 돈 +${fmtWon(lm.inc || 0)}</span><span>나간 돈 ${Math.round(lm.exp || 0) ? '-' : ''}${fmtWon(lm.exp || 0)}</span>${debt > 0 ? `<span class="neg">빚 ${fmtWon(debt)}</span>` : ''}</span>`);
 }
 // 특기 순서 (특기 창)
 // 레벨이 높은 특기부터, 개수에 안 세는 학업 · 외국어는 맨 뒤
@@ -827,7 +868,7 @@ function skIc(k) { const c = SKILL_CATS.find(c => c.id === SKILLS[k].cat); retur
 // 재능 및 특기 창 (UI 개편 시안): 재능 탭 · 특기 탭
 function panel_skills() {
   const p = me(S), cnt = capCount(p), tab = UI.skTab === 'sk' ? 'sk' : 'tal';
-  return `${UI.skFrom === 'applyjob' ? '<button class="btn sm ghost back-btn" data-skback>← 구직활동</button>' : ''}<h2>🎯 재능 및 특기</h2><div class="ap-row pf-tabs">${[['tal', '✨ 재능', ''], ['sk', '🎯 특기', `<span class="sk-cnt${cnt >= SKILL_CAP ? ' full' : ''}">${cnt}/${SKILL_CAP}</span>`]].map(([t, n, x]) => `<button class="ap-tab ${tab === t ? 'on' : ''}" data-tstab="${t}">${n}${x ? ' ' + x : ''}</button>`).join('')}</div>`
+  return `${UI.skFrom === 'applyjob' ? '<button class="btn sm ghost back-btn" data-skback>← 구직활동</button>' : infoTabs('skills')}<h2>🎯 재능 및 특기</h2><div class="ap-row pf-tabs">${[['tal', '✨ 재능', ''], ['sk', '🎯 특기', `<span class="sk-cnt${cnt >= SKILL_CAP ? ' full' : ''}">${cnt}/${SKILL_CAP}</span>`]].map(([t, n, x]) => `<button class="ap-tab ${tab === t ? 'on' : ''}" data-tstab="${t}">${n}${x ? ' ' + x : ''}</button>`).join('')}</div>`
     + (tab === 'tal' ? pfTalTab(p) : skillsTabHTML());
 }
 function skillsTabHTML() {
@@ -1561,10 +1602,10 @@ const PF_TABS = [['born', '👤 프로필'], ['job', '💼 직업'], ['tal', '�
 // UI 개편 시안: 프로필 박스의 배너마다 창이 하나씩. 기본 정보 = 타고난 것, 가족 = 가족 정보, 기록 = 작품 + 경력 + 걸어온 길, 재능 및 특기 = 재능 · 특기 탭 (panel_skills)
 function panelProfile() {
   const s = S, p = me(s), k = UI.pfTab;
-  if (k === 'fam') return `<h2>👪 가족</h2>` + famHTML(s);
-  if (k === 'rec' || k === 'log' || k === 'works' || k === 'job') { const tab = UI.recTab === 'log' || (k === 'log' && !UI.recTab) ? 'log' : 'career'; return `<h2>📖 기록</h2><div class="ap-row pf-tabs">${[['career', '💼 경력'], ['log', '📖 걸어온 길']].map(([t, n]) => `<button class="ap-tab ${tab === t ? 'on' : ''}" data-rectab="${t}">${n}</button>`).join('')}</div>` + (tab === 'log' ? lifeLogHTML(s) : pfRecHTML(s)); }
+  if (k === 'fam') return infoTabs('fam') + `<h2>👪 가족</h2>` + famHTML(s);
+  if (k === 'rec' || k === 'log' || k === 'works' || k === 'job') { const tab = UI.recTab === 'log' || (k === 'log' && !UI.recTab) ? 'log' : 'career'; return infoTabs('rec') + `<h2>📖 기록</h2><div class="ap-row pf-tabs">${[['career', '💼 경력'], ['log', '📖 걸어온 길']].map(([t, n]) => `<button class="ap-tab ${tab === t ? 'on' : ''}" data-rectab="${t}">${n}</button>`).join('')}</div>` + (tab === 'log' ? lifeLogHTML(s) : pfRecHTML(s)); }
   if (k === 'tal') { UI.skTab = 'tal'; return panel_skills(); }
-  return `<h2>🪪 프로필</h2>` + pfBornTab(s, p);
+  return infoTabs('born') + `<h2>🪪 프로필</h2>` + pfBornTab(s, p);
 }
 // 기록 창의 경력 탭: 작품(받은 상 포함) → 번 돈 → 지난 경력. 걸어온 길은 따로 탭 (v162)
 function pfRecHTML(s) {
@@ -1757,7 +1798,7 @@ const CAREER_REQ = {
   acttrainer: [['배우 소속사 연기 트레이너 채용', '20세부터 · 연기 30레벨 이상']],
   animator: [['프리랜서 애니메이터로 시작하기', '16세부터 · 그림 20레벨 이상'], ['애니 제작사 작화팀 채용', '18세부터 · 그림 30레벨 이상']],
   adir: [['단편 애니메이션 만들기', '16세부터 · 연출 · 그림 20레벨 이상 · 제작비가 든다'], ['애니 제작사 연출부 (각 화 연출)', '20세부터 · 연출 25레벨 이상']],
-  agency: [['회사 차리기 (메인 화면 회사 박스)', '20세부터 · 자본금 1억 원 · 다른 회사와 소속 계약이 없을 때']],
+  agency: [['회사 차리기 (메인 화면 왼쪽 「회사 설립」)', '20세부터 · 자본금 1억 원 · 다른 회사와 소속 계약이 없을 때']],
 };
 // 백과사전 한 칸: 제목 + [이름, 설명] 줄들 (+ 맨 아래 덧붙일 것)
 function dxBox(title, rows, foot) { return `<div class="dx-box">${title ? `<div class="dx-h">${title}</div>` : ''}${rows.map(([n, c]) => `<div class="dx-r"><b>${U.esc(n)}</b><span>${U.esc(c)}</span></div>`).join('')}${foot || ''}</div>`; }
@@ -1810,7 +1851,7 @@ function dictCareerHTML(s) {
         h += `<div class="act" style="border:none;padding-bottom:0"><div><div class="a-t">${C.ic || ''} ${U.esc(C.n)}${trackOn(s, c.id) ? '<span class="tag">진행 중</span>' : ''}</div><div class="a-h">${U.esc(trackOn(s, c.id) && C.status ? careerStatus(s, c.id) : C.desc || '')}</div>${trackOn(s, c.id) && C.status && C.desc ? `<div class="hint">${U.esc(C.desc)}</div>` : ''}${trackOn(s, c.id) || !note ? '' : `<div class="hint">${U.esc(note)}</div>`}</div></div>`;
         if (CAREER_REQ[c.id]) h += dxBox('📋 시작하는 법', CAREER_REQ[c.id], dxGoHTML(s, c.id));
         for (const a of (C.actions ? C.actions(s, t) : []).filter(a => !a.danger)) h += actRow(a);
-        if (trackOn(s, c.id) && C.actions && C.actions(s, t).some(a => a.danger)) h += `<div class="hint" style="margin:0 0 var(--sp-2)">그만두기·탈퇴는 직업 활동 박스의 그 직업 창 '정보' 탭 맨 아래에서 할 수 있어요</div>`;
+        if (trackOn(s, c.id) && C.actions && C.actions(s, t).some(a => a.danger)) h += `<div class="hint" style="margin:0 0 var(--sp-2)">그만두기·탈퇴는 그 직업 창 '정보' 탭 맨 아래에서 할 수 있어요</div>`;
       }
       if (sn) h += `</div>`;
     }
@@ -1819,7 +1860,7 @@ function dictCareerHTML(s) {
 }
 // 생활 탭: 생활 박스 네 칸(장비 · 집 · 지속 관리 · 기타) 안의 것이 언제 열리는지. 장비 · 지속 관리 · 시술은 자료(EQUIP · SUBS · SURGERY)에서 바로 만든다
 function dictLifeHTML(s) {
-  let h = `<p class="p-intro">메인 화면 생활 박스의 네 칸에 무엇이 언제 생기는지 적었다. 장비 · 기타 칸은 새로 할 수 있는 게 생기면 빨간 점이 뜬다.</p>`;
+  let h = `<p class="p-intro">메인 화면 아래쪽 생활 네 칸에 무엇이 언제 생기는지 적었다. 장비 · 기타 칸은 새로 할 수 있는 게 생기면 빨간 점이 뜬다.</p>`;
   const eq = Object.values(EQUIP).filter(x => !x.slot).map(x => [`${x.ic} ${x.n}`, `${x.k.map(k => SKILLS[k].n).join(' · ')} 특기를 배우면${x.out ? ' · 집 자리를 차지하지 않는다' : ''}`]);
   const van = Object.values(EQUIP).filter(x => x.slot).map(x => [`${x.ic} ${x.n}`, `${x.min}세부터 · 일정 칸이 하나 늘어난다`]);
   h += `<div class="sec-h">🎛️ 장비</div><div class="lnote">혼자 나가 살면(독립) 직접 들일 수 있다. 본가에 사는 동안에는 한 특기를 여섯 달 넘게 연습하면 부모님이 그 장비를 가끔 사 주신다. 기획사 숙소에 살면 숙소 연습실 장비를 쓴다. 장비는 3단계까지 올릴 수 있다.</div>`;
@@ -2668,11 +2709,8 @@ function panelLifeSec() {
 // 생활 박스 (UI 개편 시안): 장비 · 집 / 지속 관리 · 기타 네 배너를 사분면으로. 배너에는 짧은 설명만, 누르면 그 묶음 창
 const LIFE_Q = [['equip', '🎛️', '장비', '연습 장비 들이기 · 업그레이드'], ['home', '🏠', '집', '이사 · 대출'], ['subs', '🥗', '지속 관리', '식단 · PT · 피부과 · 상담 등'], ['etc', '💉', '기타', '특기 배우기 · 시술 · 여행']];
 function renderLifeCard() {
-  const el = $('#life-grid');
-  if (!el || !S) return;
-  const h = LIFE_Q.map(([k, ic, n, d]) => { const lk = ltLock(S, k); if (k === 'etc') d = etcDesc(S); return `<div class="lq${lk ? ' chainlk' : ''}"${lk ? '' : ` data-lifesec="${k}"`}>${ltDot(S, k)}<div class="lq-h">${ic} ${n}${lk ? '' : '<span class="bn-arr">›</span>'}</div><div class="lq-d">${U.esc(d)}</div></div>`; }).join('');
-  if (h === UI.lifeHTML) return;
-  UI.lifeHTML = h; el.innerHTML = h;
+  if (!$('#life-grid') || !S) return;
+  g2Set('#life-grid', LIFE_Q.map(([k, ic, n]) => { const lk = ltLock(S, k); return `<button type="button" class="g2-li${lk ? ' lk' : ''}"${lk ? ' disabled' : ` data-lifesec="${k}"`}>${ltDot(S, k)}<em>${ic}</em>${n}</button>`; }).join(''));
 }
 // ───── 재정 창: 오른쪽 재정 박스를 누르면 뜬다. 지난달(기본) / 최근 1년 / 연도별 ─────
 function moneyTable(items) {
@@ -2749,7 +2787,7 @@ function panelHelp() {
   <div class="sec-h">재능과 특기</div><div class="ms">재능은 태어날 때 정해지고 거의 안 변해요. 특기는 살면서 만나는 선택지로 처음 배우고, 그다음부터 일정에서 연습하거나 학원에 다니며 레벨을 올려요. 오래 안 하면 천천히 떨어져요. 특기마다 숨은 한계(포텐)가 있어서, 그 근처에 가면 잘 안 늘어요.</div>
   <div class="sec-h">일정</div><div class="ms">초등학교에 들어가면 '📅 이번 달 일정' 칸에서 매달 할 일을 정해요. 고등학교 졸업 전에는 학원비를 부모님이 내 줘요.</div>
   <div class="sec-h">직업</div><div class="ms">백과사전 진로 탭에서 직업과 시작하는 법(지원할 수 있는 나이 · 필요한 특기)을 알아볼 수 있어요. 아티스트(앞에 서는 일)와 스태프(뒤에서 만드는 일), 회사 경영으로 나뉘어 있어요.</div>
-  <div class="sec-h">생활</div><div class="ms">백과사전 생활 탭에서 생활 박스(장비 · 집 · 지속 관리 · 기타)에 무엇이 언제 생기는지 알아볼 수 있어요.</div>`;
+  <div class="sec-h">생활</div><div class="ms">백과사전 생활 탭에서 생활 네 칸(장비 · 집 · 지속 관리 · 기타)에 무엇이 언제 생기는지 알아볼 수 있어요.</div>`;
 }
 
 // ───── 세이브 코드 (기기 사이에 옮기기) ─────
@@ -2915,7 +2953,9 @@ document.addEventListener('click', e => {
   if (t.dataset.cogrp) { UI.coGrp = t.dataset.cogrp; renderPanel(); return; }
   if (t.dataset.fam != null) { openPanel('family'); return; }
   if (t.dataset.love != null) { openPanel('love'); return; }
-  if (t.dataset.job) { UI.jobId = t.dataset.job; UI.jobFrom = t.dataset.from || ''; UI.jobTab = t.dataset.job === 'none' ? 'apply' : 'act'; openPanel('job'); return; } // v238: 무직 배너는 지원 탭부터
+  // v239: 역할 배지 — 다른 역할이면 그 역할 화면으로 바꾸고, 이미 보고 있는 역할이면 그 직업 창을 연다
+  if (t.dataset.role) { if (UI.role !== t.dataset.role) { UI.role = t.dataset.role; render(); return; } UI.jobId = t.dataset.role; UI.jobFrom = ''; UI.jobTab = t.dataset.role === 'none' ? 'apply' : 'act'; openPanel('job'); return; }
+  if (t.dataset.job) { UI.jobId = t.dataset.job; UI.jobFrom = t.dataset.from || ''; UI.jobTab = t.dataset.jt || (t.dataset.job === 'none' ? 'apply' : 'act'); openPanel('job'); return; } // v238: 무직 배너는 지원 탭부터
   if (t.dataset.jobtab) { UI.jobTab = t.dataset.jobtab; renderPanel(); return; }
   if (t.dataset.cof) { UI.coF = t.dataset.cof; UI.coTab = 'home'; UI.coGrp = null; if (UI.overlay) { UI.overlay = 'company'; renderPanel(); } else openPanel('company'); return; }
   // v198: 회사 이름 바꾸기 (회사 창 제목 옆 ✏️) · 사옥 이름 짓기 (메인 화면 사옥 상자 옆 ✏️). 사옥 상자 · 회사 창을 누른 것으로 치지 않는다

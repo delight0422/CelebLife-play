@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>연예인으로 살아가기</title>
-<link rel="stylesheet" href="style.css?v=1794765701">
+<link rel="stylesheet" href="style.css?v=1795370469">
 </head>
 <body>
 <div id="app">
@@ -40,53 +40,43 @@
 
   <!-- 게임 -->
   <section id="game-screen" class="screen hidden">
-    <header id="topbar">
-      <div class="who">
-        <div class="who-name"><span id="t-name"></span> <span id="t-age" class="accent"></span></div>
-        <div class="who-sub" id="t-stage"></div>
-      </div>
-      <!-- 날짜: 이름·나이와 메뉴 버튼 사이 한가운데, 위쪽 줄 높이에 맞춰 크게 -->
-      <span id="t-date" class="date"></span>
-      <nav class="top-btns">
-        <button class="btn sm" data-panel="career">📚 백과사전</button>
-        <button class="btn sm mob-only" id="btn-life" data-panel="life">🏠 생활</button>
-        <button class="btn sm ghost" data-panel="menu">메뉴</button>
-      </nav>
-      <!-- 진행(창이 뜨거나 6개월이 지날 때까지. 제안도 창으로 뜬다) · 오른쪽에 1달 후 (v185: 1년 후 버튼은 빼고 1달 후가 그 자리까지 채운다). 이 묶음 바로 아래가 일정 줄 (UI 개편 시안) -->
-      <div class="turn-btns">
-        <button class="btn primary turn-go" id="btn-go">진행 ▶ <kbd>Space</kbd></button>
-        <div class="turn-jump">
-          <button class="btn sm" id="btn-month">1달 후 <kbd>1</kbd></button>
+    <!-- v239: 새 메인 화면. 한 화면(1600×900)에 맞춰 짜고 창 크기에 맞게 통째로 줄이거나 키운다 (좁은 화면에서는 위에서 아래로 쌓는다)
+         위: 이름표 · 상태 · 날짜 · 정보 · 돈 · 진행 / 왼쪽: 역할(직업) · 구직활동 · 일정 / 오른쪽: 지원 · 역할 카드 · 특기 / 아래 가운데: 인간관계 · 에고서칭 · 역할 행동 · 생활 -->
+    <div id="g2">
+      <div id="g2-scene"><div id="g2-char"></div></div>
+      <header id="g2-top">
+        <button type="button" id="g2-plate" class="g2p" data-pftab="born"></button>
+        <div id="g2-stat" class="g2p"></div>
+        <div id="g2-date" class="g2p"><span id="t-date" class="date"></span></div>
+        <button type="button" id="g2-info" class="g2p" data-pftab="born"><em>📋</em><span><b>정보</b><small>프로필 · 가족<br>기록 · 재능/특기</small></span></button>
+        <button type="button" id="g2-money" class="g2p" data-moneycard></button>
+        <button type="button" class="g2p g2-ib" data-panel="career" title="백과사전">📚</button>
+        <button type="button" class="g2p g2-ib" data-panel="menu" title="메뉴">☰</button>
+        <!-- 진행(창이 뜨거나 6개월이 지날 때까지. 제안도 창으로 뜬다) · 그 아래 1달 후 -->
+        <div class="g2-turn">
+          <button class="g2-go" id="btn-go">진행 ▶ <kbd>Space</kbd></button>
+          <button class="g2-mo" id="btn-month">1달 후 <kbd>1</kbd></button>
         </div>
+      </header>
+      <div id="g2-mid"></div>
+      <div id="g2-left">
+        <div id="g2-roles"></div>
+        <div id="g2-more"></div>
+        <div id="slots-card" class="g2p"></div>
       </div>
-    </header>
-    <!-- 세 줄 (UI 개편 시안): 왼쪽 프로필 → 재정 · 상태 → 직업 활동 / 가운데 인간관계 → 구직활동 · 에고서칭 → 생활 → 회사 (v238: 활동 지원 창은 없앴다 — 직업 창 · 무직 창의 지원 탭) / 오른쪽 일정 (진행 버튼 바로 아래) -->
-    <!-- 왼쪽 줄과 가운데 줄은 따로 쌓는다. 맨 아래 박스(직업 활동 · 회사)가 남는 높이를 채운다 -->
-    <main id="cols">
-      <div class="col-l">
-        <div id="profile-card" class="card"></div>
-        <div class="duo ms-duo">
-          <div id="money-card" class="card bn-card" data-moneycard></div>
-          <div id="status-card" class="card"></div>
-        </div>
-        <div id="jobs-card" class="card"></div>
+      <div id="g2-right">
+        <div id="g2-rcards"></div>
+        <div id="co-card" class="card hidden"></div>
       </div>
-      <div class="col-m">
-        <div id="people-card" class="card bn-card" data-panel="people"></div>
-        <div class="hub-btns">
-          <button class="hub-bn" id="btn-applyjob" data-panel="applyjob">📝 구직활동</button>
-          <button class="hub-bn hub-ego hidden" id="btn-ego" data-commnow>💬 에고서칭</button>
+      <div id="g2-bot" class="g2p">
+        <div class="g2-side">
+          <button type="button" id="g2-people" class="g2-cb" data-panel="people"></button>
+          <button type="button" id="btn-ego" class="g2-cb g2-ego hidden" data-commnow></button>
         </div>
-        <div id="life-card" class="card">
-          <div class="card-h">🏠 생활</div>
-          <div id="life-grid" class="life-q"></div>
-        </div>
-        <div id="co-card" class="card"></div>
+        <div id="g2-acts"></div>
+        <div id="life-grid" class="g2-life"></div>
       </div>
-      <aside id="sched-col">
-        <div id="slots-card" class="card"></div>
-      </aside>
-    </main>
+    </div>
     <div id="ended-bar" class="ended-bar hidden">이 인생은 끝났습니다. <button class="btn sm primary" id="btn-ending">인생 결산 보기</button> <button class="btn sm" id="btn-newlife2">다시 태어나기</button></div>
   </section>
 
@@ -106,39 +96,39 @@
   <div id="toast" class="toast"></div>
   <input type="file" id="file-input" accept=".json,application/json" class="hidden">
 </div>
-<script src="js/util.js?v=1794765701"></script>
-<script src="js/data.js?v=1794765701"></script>
-<script src="js/skills.js?v=1794765701"></script>
-<script src="js/person.js?v=1794765701"></script>
-<script src="js/game.js?v=1794765701"></script>
-<script src="js/life.js?v=1794765701"></script>
-<script src="js/events.js?v=1794765701"></script>
-<script src="js/work.js?v=1794765701"></script>
-<script src="js/inbox.js?v=1794765701"></script>
-<script src="js/family.js?v=1794765701"></script>
-<script src="js/music.js?v=1794765701"></script>
-<script src="js/album.js?v=1794765701"></script>
-<script src="js/musicstaff.js?v=1794765701"></script>
-<script src="js/project.js?v=1794765701"></script>
-<script src="js/idolev.js?v=1794765701"></script>
-<script src="js/video.js?v=1794765701"></script>
-<script src="js/film.js?v=1794765701"></script>
-<script src="js/scandal.js?v=1794765701"></script>
-<script src="js/vidol.js?v=1794765701"></script>
-<script src="js/mcn.js?v=1794765701"></script>
-<script src="js/company.js?v=1794765701"></script>
-<script src="js/studio.js?v=1794765701"></script>
-<script src="js/concert.js?v=1794765701"></script>
-<script src="js/dancer.js?v=1794765701"></script>
-<script src="js/anime.js?v=1794765701"></script>
-<script src="js/webnovel.js?v=1794765701"></script>
-<script src="js/illust.js?v=1794765701"></script>
-<script src="js/prof.js?v=1794765701"></script>
-<script src="js/tutor.js?v=1794765701"></script>
-<script src="js/marketer.js?v=1794765701"></script>
-<script src="js/npc.js?v=1794765701"></script>
-<script src="js/chparts.js?v=1794765701"></script>
-<script src="js/live.js?v=1794765701"></script>
-<script src="js/ui.js?v=1794765701"></script>
+<script src="js/util.js?v=1795370469"></script>
+<script src="js/data.js?v=1795370469"></script>
+<script src="js/skills.js?v=1795370469"></script>
+<script src="js/person.js?v=1795370469"></script>
+<script src="js/game.js?v=1795370469"></script>
+<script src="js/life.js?v=1795370469"></script>
+<script src="js/events.js?v=1795370469"></script>
+<script src="js/work.js?v=1795370469"></script>
+<script src="js/inbox.js?v=1795370469"></script>
+<script src="js/family.js?v=1795370469"></script>
+<script src="js/music.js?v=1795370469"></script>
+<script src="js/album.js?v=1795370469"></script>
+<script src="js/musicstaff.js?v=1795370469"></script>
+<script src="js/project.js?v=1795370469"></script>
+<script src="js/idolev.js?v=1795370469"></script>
+<script src="js/video.js?v=1795370469"></script>
+<script src="js/film.js?v=1795370469"></script>
+<script src="js/scandal.js?v=1795370469"></script>
+<script src="js/vidol.js?v=1795370469"></script>
+<script src="js/mcn.js?v=1795370469"></script>
+<script src="js/company.js?v=1795370469"></script>
+<script src="js/studio.js?v=1795370469"></script>
+<script src="js/concert.js?v=1795370469"></script>
+<script src="js/dancer.js?v=1795370469"></script>
+<script src="js/anime.js?v=1795370469"></script>
+<script src="js/webnovel.js?v=1795370469"></script>
+<script src="js/illust.js?v=1795370469"></script>
+<script src="js/prof.js?v=1795370469"></script>
+<script src="js/tutor.js?v=1795370469"></script>
+<script src="js/marketer.js?v=1795370469"></script>
+<script src="js/npc.js?v=1795370469"></script>
+<script src="js/chparts.js?v=1795370469"></script>
+<script src="js/live.js?v=1795370469"></script>
+<script src="js/ui.js?v=1795370469"></script>
 </body>
 </html>
