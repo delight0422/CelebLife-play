@@ -188,7 +188,7 @@ const AA_JOB = { drama_aud: 'actor' };
 //   하는 직업이 없으면 none 항목만, 직업이 있으면 그 직업이 주인인 항목만 지원할 수 있다 (자동 지원도 같다 — actAutoMonth가 a.ok를 본다)
 //   새 항목을 만들면 여기에 주인을 적는다. 적지 않으면 none
 const AA_OWN = { drama_aud: ['none', 'actor'], musical: ['none', 'actor'], var_guest: ['none', 'variety'], mask: ['none', 'solo'], tv_aud_vocal: ['none'], tv_aud_rap: ['none'],
-  mcn_collab: ['youtube'], mcn_goods: ['youtube'], mcn_event: ['youtube'], vi_cover: ['vidol'], vi_endure: ['vidol'] };
+  mcn_collab: ['youtube'], mcn_goods: ['youtube'], mcn_event: ['youtube'], vi_cover: ['vidol'], vi_endure: ['vidol'], band_lesson: ['band'] }; // v245: 밴드 멤버 외부 레슨 (music.js)
 function aaOwners(a) { return AA_OWN[a.id] || ['none']; }
 function aaOwnWhy(s, a) {
   const O = aaOwners(a);
@@ -626,8 +626,8 @@ const CO_AFF = {
 const coLeaveHist = (t, n, w) => { (t.hist = t.hist || []).push(`${n} (${w})`); };
 const CO_CLOSE = {
   idol: (s, t) => { if (t.st === 'trainee') { quitTrainee(s, '회사 폐업'); return '연습생 생활이 여기서 끝났다.'; } endGroup(s, '회사 폐업'); return '그룹도 함께 해체됐다.'; },
-  band: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { exAg: t.ag, st: 'indie', ag: null, agN: '', tier: 0, cut: 0, nextRel: U.int(3, 6) }); return '밴드는 다시 인디가 됐다.'; },
-  solo: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { exAg: t.ag, st: 'indie', ag: null, agN: '', cut: 0, tier: 0, nextRel: 3 }); return '이제 인디로 활동한다.'; },
+  band: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { exAg: t.ag, st: 'indie', ag: null, agN: '', tier: 0, cut: 0, nextRel: U.int(3, 6), subSong: false, subLyr: false }); return '밴드는 다시 인디가 됐다.'; },
+  solo: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { exAg: t.ag, st: 'indie', ag: null, agN: '', cut: 0, tier: 0, nextRel: 3, subSong: false, subLyr: false }); return '이제 인디로 활동한다.'; },
   actor: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { via: 'indie', ag: null, agN: '', cut: 0, contract: 0 }); return '이제 무소속으로 활동한다.'; },
   model: (s, t, n) => { coLeaveHist(t, n, '회사 폐업'); Object.assign(t, { ag: null, agN: '', cut: 0, contract: 0 }); return '이제 프리랜서로 활동한다.'; },
   vidol: (s, t) => { viEnd(s, t, '회사 폐업'); return '아바타가 회사 것이라 버츄얼 아이돌 활동도 끝났다.'; },

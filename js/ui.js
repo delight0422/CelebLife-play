@@ -576,6 +576,8 @@ function renderActs() {
     if (c.panel) { const [ic, n] = g2Split(c.panelN || '창 열기', role); A.push([ic, n, `data-panel="${c.panel}"`, 0, 0]); }
     // 일정에 넣고도 할 일을 안 골랐을 때 (새로 생긴 선택 활동은 그 버튼에 점이 붙는다 — g2PickDot)
     if (c.act && jobSlots(s, role) && !jobTask(s, role)) A.push(['⚠️', '할 일 고르기', `data-job="${role}"`, 1, 0]);
+    // v245: 팀에 꼭 있어야 할 자리가 비었으면 (밴드 멤버 구하기) 선택 활동보다 앞에 — 누르면 직업 창 그룹 탭
+    try { if (c.grpNeed && c.grpNeed(s, t)) { const [ic, n] = g2Split(c.grpActsH || '할 수 있는 일', role); A.push([ic, n, `data-job="${role}" data-jt="grp"`, c.grpDot && c.grpDot(s, t) ? 1 : 0, 0]); } } catch (e) { }
     const add = (a, dot) => { const [ic, n] = a.emo && !/</.test(a.emo) ? [a.emo, a.t] : g2Split(a.t, role); A.push([ic, n, `data-g2a="${G.push({ a, role, n }) - 1}"`, dot ? 1 : 0, !a.ok, a.sw && a.on ? 1 : 0, a.ok ? '' : a.why || '']); };
     // 골라서 하는 일 (직업 창 '선택 활동'): 그 일이 일정에 있어야 한다 (jobTaskHTML과 같은 조건)
     try {
@@ -1159,6 +1161,7 @@ function renderJobsCard() {
     } else if (c.status) st = careerStatus(s, id);
     // v238: 그 직업 창 '지원' 탭에 새로 지원할 수 있게 된 것이 있으면 점
     if (aaFresh(s, id).length) dot = true;
+    if (CAREERS[id].grpDot && CAREERS[id].grpDot(s, s.tracks[id])) dot = true; // v245: 밴드 빈 파트에 구인 글을 안 올렸을 때
     h += `<button type="button" class="g2-role${id === role ? ' on' : ''}${cls}" data-role="${id}">${dot ? '<i class="rdot"></i>' : ''}<span class="g2-ri">${jobIc(id)}</span><span class="g2-rt"><b>${U.esc(jobName(id))}</b>${st ? `<small>${U.esc(st)}</small>` : ''}</span></button>`;
   }
   // v238: 하는 직업이 하나도 없으면 '무직'(학생 · 군 복무) 배지. 누르면 무직 창 (panelNoJob) — 직업이 없을 때 하는 지원이 여기 있다
@@ -2030,7 +2033,8 @@ function jobAutoApplyHTML(s, own) {
   if (!L.length) return '';
   return `<div class="sec-h">🔁 매달 알아서 지원</div><div class="lnote">다시 지원할 수 있게 될 때마다 알아서 지원한다</div>` + L.map(a => {
     const ok = applyOKNow(s, a), on = !!(s.actAuto || {})[a.id], why = ok ? '' : (a.why ? a.why(s) : '');
-    return actRow({ t: `${a.ic || ''} ${a.n}`, tag: on ? (ok || !why ? '켜 둠' : `켜 둠 · 쉬는 중 (${why})`) : '', ok: ok || on || !ageWhy(why), why, btn: on ? '끄기' : '켜기', run: s => { s.actAuto = s.actAuto || {}; s.actAuto[a.id] = !on; return ''; } });
+    // v245: autoH — 맡겨 두면 돈이 나가는 지원(밴드 외부 레슨)은 얼마가 나가는지 적어 둔다
+    return actRow({ t: `${a.ic || ''} ${a.n}`, tag: on ? (ok || !why ? '켜 둠' : `켜 둠 · 쉬는 중 (${why})`) : '', h: a.autoH ? a.autoH(s) : '', ok: ok || on || !ageWhy(why), why, btn: on ? '끄기' : '켜기', run: s => { s.actAuto = s.actAuto || {}; s.actAuto[a.id] = !on; return ''; } });
   }).join('');
 }
 // 무직 창 (v238): 하는 직업이 하나도 없을 때 직업 활동 칸의 배너(무직 · 학생 · 군 복무)를 누르면 뜬다. 직업 창과 같은 틀에 행동 · 지원 두 탭
@@ -2697,10 +2701,10 @@ function panelJob() {
   let h = back + `<h2>${jobIc(id)} ${U.esc(jobName(id))}</h2>`;
   if (JOB_FIELD[id]) h += trendRowHTML(s, JOB_FIELD[id]);
   if (c.status) h += `<p class="p-intro">${U.esc(careerStatus(s, id))}</p>`;
-  h += `<div class="ap-row pf-tabs">${tabs.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-jobtab="${k}">${n}${(k === 'act' && tab !== 'act' && jobDot(s, id)) || (k === 'apply' && tab !== 'apply' && aaFresh(s, id).length) ? '<i class="rdot in"></i>' : ''}</button>`).join('')}</div>`;
+  h += `<div class="ap-row pf-tabs">${tabs.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-jobtab="${k}">${n}${(k === 'act' && tab !== 'act' && jobDot(s, id)) || (k === 'apply' && tab !== 'apply' && aaFresh(s, id).length) || (k === 'grp' && tab !== 'grp' && CAREERS[id].grpDot && CAREERS[id].grpDot(s, s.tracks[id])) ? '<i class="rdot in"></i>' : ''}</button>`).join('')}</div>`;
   if (tab === 'act') return h + jobActTab(s, id);
   if (tab === 'apply') return h + jobApplyTab(s, id);
-  if (tab === 'grp') return h + infoTable(grp);
+  if (tab === 'grp') return h + infoTable(grp) + jobGrpActsHTML(s, id);
   if (tab === 'org') return h + (co.length ? infoTable(co) : `<div class="empty">소속 없이 혼자 하는 일이다.</div>`);
   const isM = r => Array.isArray(r) && MONEY_ROWS.includes(r[0]), isB = r => !Array.isArray(r) && r.bars;
   // 활동명 (v162): 직업 지원 창이 아니라 여기서만 바꾼다
@@ -2711,6 +2715,11 @@ function panelJob() {
 function jobQuitHTML(s, id) {
   const c = CAREERS[id], Q = (c.actions ? c.actions(s, s.tracks[id]) : []).filter(a => a.danger);
   return Q.length ? `<div class="sec-h">🚪 탈퇴 · 그만두기</div>` + Q.map(a => actRow(a.confirm ? a : Object.assign({}, a, { confirm: `'${a.t}' — 정말 할까요?\n되돌릴 수 없어요.` }))).join('') : '';
+}
+// v245: 그룹 탭 맨 아래 — 그 팀에서 한 번 하는 일 (밴드의 멤버 구하기: c.grpActs · 묶음 이름 c.grpActsH). 행동 탭에는 매달 하는 일만 둔다 (사용자 규칙)
+function jobGrpActsHTML(s, id) {
+  const c = CAREERS[id], A = c.grpActs ? c.grpActs(s, s.tracks[id]) || [] : [];
+  return A.length ? `<div class="sec-h">${U.esc(c.grpActsH || '할 수 있는 일')}</div>` + A.map(actRow).join('') : '';
 }
 // 행동 탭: 자동 활동(할 일) → 선택 활동(골라서 하는 일) → 그 밖에 할 수 있는 일
 function jobActTab(s, id) {

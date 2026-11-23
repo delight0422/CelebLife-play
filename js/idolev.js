@@ -79,6 +79,7 @@ const SOLO_WAYS = [
 ];
 function soloPicks(s, t) {
   if (s.army || (t.st !== 'indie' && t.st !== 'signed') || t.withGroup) return [];
+  if (t.st !== 'signed') t.subSong = t.subLyr = false; // v245: 예전 세이브 — 회사를 나왔는데 켜진 채 남은 것
   const n = SOLO_WAYS.filter(w => idolWayOn(t, w)).length;
   return SOLO_WAYS.map((w, i) => {
     const can = w.show(s, t), on = idolWayOn(t, w), room = !w.sk || has(me(s), w.sk) || skRoom(s, w.sk);
@@ -99,6 +100,93 @@ function soloWaysMonth(s, t) {
     practice(s, p, k, 0.4); addStress(s, 0.8);
     if (U.chance(0.02 + lv(p, k) / 2500)) { const g = Math.round(base * U.fl(8, 20)); s.fans.kr += g; addLog(s, `올린 커버 영상이 크게 퍼졌다. ${U.pick(['"원곡보다 좋다"는 댓글이 달렸다.', '"이 목소리 누구냐"는 댓글이 줄줄이 달렸다.', '원곡을 부른 가수의 팬들까지 찾아와 칭찬을 남겼다.', '추천 영상에 올라 조회수가 하루 만에 몇 배로 뛰었다.', '짧게 잘라 낸 영상이 여기저기로 퍼져 나갔다.'])} (한국 팬 +${fmtFans(g)})`, 'good'); }
     else s.fans.kr += Math.round(base);
+  }
+}
+
+// ───── v245: 밴드 멤버 — 자동 활동(시기에 따라 저절로 바뀐다) + 켜 두는 일 (아이돌 · 솔로 가수와 같은 틀) ─────
+// 멤버 모으는 중(form) → 결성한 뒤에는 세 시기: 활동(새 곡을 낸 뒤 두 달) → 합주 · 클럽 공연(다음 곡을 기다리는 평소) → 새 곡 작업(기획 · 선정 · 편곡 · 녹음 석 달)
+const BAND_ACT = CAREERS.band.act; // 밴드를 하지 않을 때의 기본 이름 (music.js)
+const BAND_PH = {
+  form: { n: '멤버 모으며 연습', ic: '🎸', g: '직업 활동', h: '내 파트 ↑ · 모인 멤버 ↑', eff: [['내 파트', '↑', 1], ['모인 멤버', '↑', 1]] },
+  jam: { n: '합주 · 클럽 공연', ic: '🎸', g: '직업 활동', h: '내 파트 ↑↑ · 밴드 팬 ↑ · 스트레스 조금 ↑', eff: [['내 파트', '↑↑', 1], ['밴드 팬', '↑', 1], ['스트레스', '조금 ↑', 0]] },
+  prep: { n: '새 곡 작업 (편곡 · 녹음)', ic: '🎚️', g: '직업 활동', h: '내 파트 ↑ · 팀워크 ↑ · 스트레스 ↑', eff: [['내 파트', '↑', 1], ['팀워크', '↑', 1], ['스트레스', '↑', 0]] },
+  promo: { n: '활동 (공연 · 방송)', ic: '🎤', g: '직업 활동', h: '밴드 팬 ↑↑ · 내 파트 ↑ · 스트레스 ↑↑', eff: [['밴드 팬', '↑↑', 1], ['내 파트', '↑', 1], ['스트레스', '↑↑', 0]] },
+};
+// 시기마다 달라지는 숫자 (music.js CAREERS.band.monthly가 쓴다): pr 내 파트 연습 · fan 클럽 공연으로 느는 팬의 배율 · st 스트레스 · tw 팀워크
+//   한 주기 = 활동 2달 → 합주 (N-2)달 → 새 곡 작업 3달. N은 곡을 낸 뒤 다음 기획까지의 3~6달(고르게 뽑아 평균 4.5달)이라 한 주기는 6~9달(평균 7.5달): 활동 2 · 합주 2.5 · 새 곡 작업 3
+//   연습     (2 × 1.0  + 2.5 × 1.6 + 3 × 1.25) / 7.5 = 1.3 (예전 1.3)
+//   팬       (2 × 1.45 + 2.5 × 1.0 + 3 × 0.7 ) / 7.5 = 1.0 (예전 1)
+//   스트레스 (2 × 3.0  + 2.5 × 1.2 + 3 × 2.0 ) / 7.5 = 2.0 (예전 2)
+//   팀워크는 새 곡 작업 석 달 동안 0.6씩 더 오른다 (한 주기에 +1.8 — 예전에 없던 몫)
+const BAND_PH_M = { jam: { pr: 1.6, fan: 1, st: 1.2, tw: 0 }, prep: { pr: 1.25, fan: 0.7, st: 2, tw: 0.6 }, promo: { pr: 1, fan: 1.45, st: 3, tw: 0 } };
+// now: 어느 달을 기준으로 볼지. 화면은 이번 달(s.t), 매달 계산은 지난달(s.t - 1 — 지난달 화면에 보이던 시기가 이번 달에 한 일이다)
+function bandPhase(s, t, now) {
+  if (!t || t.st === 'forming') return 'form';
+  if (t.lastRelT != null && (now == null ? s.t : now) - t.lastRelT < 2) return 'promo';
+  return t.alb || musRelQ(s, 'band') ? 'prep' : 'jam';
+}
+function bandPhM(s, t, now) { return BAND_PH_M[bandPhase(s, t, now)] || BAND_PH_M.jam; }
+// 일정 칸 이름도 시기를 따른다 (일정 칸 id는 c_band 그대로. 밴드 연습생은 idol 트랙이라 BAND_TR_ACT 그대로)
+Object.defineProperty(CAREERS.band, 'act', {
+  configurable: true,
+  get() { const s = typeof S !== 'undefined' ? S : null, t = s && s.tracks && s.tracks.band; return t && t.b && ['forming', 'indie', 'signed'].includes(t.st) ? BAND_PH[bandPhase(s, t)] : BAND_ACT; },
+});
+CAREERS.band.autoList = (s, t) => {
+  if (t.st === 'forming') return [{ ic: BAND_PH.form.ic, n: BAND_PH.form.n, eff: BAND_PH.form.h, on: true }];
+  const cur = bandPhase(s, t);
+  return ['jam', 'prep', 'promo'].map(k => ({ ic: BAND_PH[k].ic, n: BAND_PH[k].n, eff: BAND_PH[k].h, on: k === cur }));
+};
+// 켜 두는 일 여섯 가지 (두 가지까지, 언제든 바꾼다). 예전에는 한 번 누르는 팀 활동(music.js teamPicks)이었다. 여섯 가지가 늘 보이고, 지금 못 하는 것은 막힌 채로 까닭(no)을 보여 준다
+//   메인 화면 단추는 여섯 개를 넘으면 앞의 다섯만 보이니, 인디 · 결성 중에도 켤 수 있는 일을 앞에 둔다. 자작곡 · 가사 쓰기는 예전 '할 수 있는 일'(songSubActs)에서 옮겼다 (t.subSong · t.subLyr 그대로). 나머지는 t.ways에 적는다 (예전 세이브에는 없다 = 아무것도 안 켬)
+const BAND_WAYS = [
+  { id: 'jam', ic: '🎸', n: '추가 합주', show: (s, t) => bandMembers(s, t).length > 0, no: () => '같이 할 멤버가 없다', h: () => '팀워크 ↑↑ · 멤버 실력 ↑ · 스트레스 ↑' },
+  { id: 'busk', ic: '🎤', n: '버스킹', show: (s, t) => t.st !== 'forming' && !bandMissing(t).length, no: () => '멤버가 다 모여야 한다', h: () => '밴드 팬 ↑ · 내 팬 조금 ↑ · 팀워크 조금 ↑ · 스트레스 ↑ · 가끔 영상이 퍼진다' },
+  { id: 'coach', ic: '🧑‍🏫', n: '멤버 봐 주기', show: (s, t) => bandMembers(s, t).length > 0, no: () => '같이 할 멤버가 없다', h: s => `매달 실력이 가장 처지는 멤버를 봐 준다 · 그 멤버 실력 ↑ · 친밀도 ↑${has(me(s), 'edu') ? ' · 교육 ↑' : ''}` },
+  { id: 'mate', ic: '🤝', n: '멤버 챙기기', show: (s, t) => bandMembers(s, t).length > 0, no: () => '같이 할 멤버가 없다', h: (s, t) => `💸 매달 밥값 ${fmtWon(5e4 * (bandMembers(s, t).length + 1))}이 나간다 (한 사람에 5만 원) · 멤버 사이 ↑ · 팀워크 ↑ · 스트레스 ↓` },
+  { id: 'song', ic: '🎼', n: '자작곡 쓰기', f: 'subSong', show: (s, t) => t.st === 'signed' && has(me(s), 'compose'), no: (s, t) => t.st === 'forming' ? '멤버가 다 모여야 한다' : t.st !== 'signed' ? '인디는 새 곡 기획에서 내 곡을 바로 고른다' : '작곡 특기가 있어야 한다', h: s => has(me(s), 'compose') ? `다음 새 곡 데모곡 모집에 내 곡을 낸다 · 남의 곡과 똑같이 A&R 심사를 받는다 · 작곡 ${lvi(me(s), 'compose')}레벨` : '다음 새 곡 데모곡 모집에 내 곡을 낸다 · 남의 곡과 똑같이 A&R 심사를 받는다' },
+  { id: 'lyr', ic: '✍️', n: '가사 쓰기', f: 'subLyr', show: (s, t) => t.st === 'signed' && has(me(s), 'lyric'), no: (s, t) => t.st === 'forming' ? '멤버가 다 모여야 한다' : t.st !== 'signed' ? '인디는 새 곡 기획에서 가사를 바로 맡는다' : '작사 특기가 있어야 한다', h: s => has(me(s), 'lyric') ? `실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡 · 작사 ${lvi(me(s), 'lyric')}레벨` : '실릴 곡의 가사를 써 보겠다고 한다 · 맡을 작사가보다 잘 쓰면 타이틀곡' },
+];
+function bandPicks(s, t) {
+  if (s.army || !t.b || !['forming', 'indie', 'signed'].includes(t.st)) return [];
+  if (t.st !== 'signed') t.subSong = t.subLyr = false; // 예전 세이브: 회사를 나왔는데 켜진 채 남은 것
+  const n = BAND_WAYS.filter(w => idolWayOn(t, w)).length;
+  return BAND_WAYS.map((w, i) => {
+    const can = w.show(s, t), on = idolWayOn(t, w);
+    return { sw: true, on, sec: i === 0 ? `매달 꾸준히 한다 · ${IDOL_WAY_MAX}가지까지 (지금 ${n}가지)` : '', t: `${w.ic} ${w.n}`, tag: on ? (can ? '켜 둠' : `켜 둠 · 쉬는 중 (${w.no(s, t)})`) : '', h: w.h(s, t), btn: on ? '끄기' : '켜기', ok: on || (can && n < IDOL_WAY_MAX), why: !can ? w.no(s, t) : `${IDOL_WAY_MAX}가지까지만 켜 둘 수 있다 · 하나를 먼저 끈다`, run: s => idolWaySet(s, t, w, !on) };
+  });
+}
+// 팀 틀 (music.js myTeams와 같은 모양). 멤버를 모으는 동안에도 쓴다 (myTeams는 결성한 뒤의 밴드만 돌려준다)
+function bandTm(s, t) { return { k: 'band', t, o: t.b, nm: `밴드 「${t.b.name}」`, mem: bandMembers(s, t), part: m => t.b.part[m.id], my: t.b.my }; }
+// 멤버 봐 주기: 내가 가르치는 실력(교육 + 그 파트 — teachLv)이 높을수록 갈수록 가파르게 는다. 0이면 1배 · 20이면 1.7배 · 40이면 3배 · 60이면 4.7배 · 80이면 6.7배 · 100이면 9배
+//   (예전 멤버 코칭은 일직선이었다: 1 + 레벨/20 → 20이면 2배 · 40이면 3배 · 60이면 4배 · 80이면 5배 · 100이면 6배)
+function bandCoachM(tl) { return 1 + 8 * Math.pow(U.clamp(tl, 0, 100) / 100, 1.5); }
+// 버스킹 영상이 크게 퍼질 가능성 (한 달): 밴드 실력이 좋을수록 갈수록 가파르게. 실력 30이면 4.7% · 50이면 6% · 70이면 7.9% · 90이면 10.5% (한 해에 0.6~1.3번)
+function bandBuskBigP(pw) { return 0.04 + 0.08 * Math.pow(U.clamp(pw, 0, 100) / 100, 2); }
+// 매달: 켜 둔 일 (music.js CAREERS.band.monthly에서 부른다). 그달 일정에 밴드 칸이 없으면 쉰다
+function bandWaysMonth(s, t) {
+  if (!t.b || !['forming', 'indie', 'signed'].includes(t.st) || !slotsOn(s, 'c_band')) return;
+  const p = me(s), tm = bandTm(s, t), mem = tm.mem;
+  // 추가 합주: 예전 한 번 누르기(두 달에 한 번: 멤버 연습 1.5 · 내 연습 0.8 · 팀워크 +4 · 스트레스 +6)를 한 달 몫으로. 레슨 몫은 평소 합주에서 이미 받았으니 다시 더하지 않는다
+  if (idolWayHas(t, 'jam') && mem.length) { teamGrow(s, tm, 0.6, true); practice(s, p, t.b.my, 0.4); twAdd(t.b, 1.5); addStress(s, 2.5); }
+  // 버스킹: 예전 한 번 누르기(석 달에 한 번)의 팬 공식을 한 달 몫으로 — 평소 달은 1/4, 영상이 크게 퍼진 달은 그 4~8배 (평균하면 1/3쯤). 내 팬은 그 35%
+  if (idolWayHas(t, 'busk') && t.st !== 'forming' && !bandMissing(t).length) {
+    const pw = U.clamp(bandPower(s, t), 0, 100), big = U.chance(bandBuskBigP(pw));
+    // 클럽 공연처럼 밴드 팬이 많을수록 덜 는다 (팬 상한 starCap)
+    const g = Math.round(Math.max(5, Math.pow(10, pw / 20) * U.fl(0.6, 1.4) * access(s) * 0.25 * (big ? U.fl(4, 8) : 1)) * Math.max(0, 1 - t.b.f / starCap(55, 'kr')));
+    t.b.f += g; s.fans.kr += Math.round(g * 0.35 * myRoom(s, 'kr')); twAdd(t.b, 0.7); addStress(s, 1.5);
+    if (big && g >= 30) addLog(s, `버스킹을 찍은 영상이 크게 퍼졌다. ${U.pick(['지나가던 사람이 올린 영상이 하루 만에 여기저기로 퍼져 나갔다.', '"길에서 이런 연주를 듣다니"라는 댓글이 줄줄이 달렸다.', '"이 밴드 이름이 뭐냐"고 묻는 글이 잇따라 올라왔다.', '짧게 잘라 낸 영상이 추천 영상에 올라 조회수가 크게 뛰었다.', '영상을 보고 다음 버스킹 자리를 묻는 사람들이 생겼다.'])} (밴드 팬 +${fmtFans(g)})`, 'good');
+  }
+  // 멤버 봐 주기: 맡은 파트 실력이 가장 처지는 멤버 (같으면 덜 친한 쪽). 예전 멤버 코칭(두 달에 한 번)의 한 달 몫
+  if (idolWayHas(t, 'coach') && mem.length) {
+    const m = mem.slice().sort((a, b) => lvi(a, tm.part(a)) - lvi(b, tm.part(b)) || a.aff - b.aff)[0], k = tm.part(m);
+    matePot(m, k); practice(s, m, k, bandCoachM(teachLv(p, k)) * mateMot(s, tm, m));
+    bond(s, m, 2); twAdd(t.b, 0.5); teach(s, p, 0.3); addStress(s, 1);
+  }
+  // 멤버 챙기기: 아이돌의 멤버 챙기기와 같다 (밥값은 한 사람에 5만 원, 가진 돈만큼만)
+  if (idolWayHas(t, 'mate') && mem.length) {
+    bond(s, U.pick(mem), 2); for (const x of mem) bond(s, x, 0.4);
+    twAdd(t.b, twOf(t.b) < 80 ? 1 : 0.2); addStress(s, -1.5);
+    addMoney(s, -Math.min(Math.max(0, s.money), 5e4 * (mem.length + 1)), '멤버들과 식사');
   }
 }
 
