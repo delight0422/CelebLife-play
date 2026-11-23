@@ -869,7 +869,7 @@ E({
     const a = age(s), g0 = myGender(s), g = meetGender(s), kid = a < 19;
     d.grp = groupNameRaw();
     const n = makePerson(s, { g, orient: g === g0 ? 'g' : U.pick(['s', 's', 'b']), age: kid ? U.clamp(a + U.int(-1, 1), 16, 18) : Math.max(19, a + U.int(-4, 4)), rel: '지인', job: `「${d.grp}」 멤버`, aff: 55, met: `${showbizPlace(s)} 「${d.grp}」 멤버` });
-    n.idol = true; n.grp = d.grp;
+    n.idol = true; n.grp = d.grp; n.metJob = ['idol', 'solo', 'band', 'actor', 'variety'].find(j => trackOn(s, j)) || null;
     d.id = n.id; d.kind = U.chance(0.45) ? 'confess' : 'dm';
   },
   text: (s, d) => {

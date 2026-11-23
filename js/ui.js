@@ -1421,7 +1421,7 @@ function showEnding(preview) {
 
 // ───── 패널 ─────
 // v194: 인간관계 창은 다시 열어도 저번에 펼치고 접은 그대로 (UI.pplOpen을 지우지 않는다). 스크롤만 맨 위로 (top0)
-function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people' && S.pplSeenT !== S.t) { S.pplSeenT = S.t; renderPeopleCard(); } UI.overlay = kind; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
+function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people') UI.pplAll = false; if (kind === 'people' && S.pplSeenT !== S.t) { S.pplSeenT = S.t; renderPeopleCard(); } UI.overlay = kind; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
 function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.apjFrom = null; UI.skFrom = null; UI.pickNew = null; UI.aaNew = null; UI.skDrop = false; UI.pickSlot = null; if (S) render(); }
 // 행동 버튼 한 줄. 버튼이 누를 일은 UI.acts(창) 또는 UI.lacts(오른쪽 생활 카드)에 모아 둔다
 function actRow(a) {
@@ -2016,6 +2016,9 @@ function pplCmp(s, a, b) {
 function panelPeople() {
   const s = S;
   let h = `<h2>인간관계</h2><p class="p-intro">관계는 살면서 생기는 일들로 바뀐다. 연인·배우자는 반년, 나머지는 1년 넘게 연락하지 않으면 멀어진다.<br><b>${contactLeftLine(s)}</b></p>`;
+  // v241: 고른 직업 배지와 관련 있는 사람만 보인다 (가족 · 연인은 늘). 직업이 없으면(무직 · 학생 · 군 복무) 다 보인다. '전체'를 누르면 모두
+  const role = g2Role(s), rf = role !== 'none' && !UI.pplAll;
+  if (role !== 'none') h += `<div class="ap-row pf-tabs">${[['0', `${jobIc(role)} ${U.esc(role === 'agency' && typeof coOn === 'function' && coOn(s) ? coT(s).name : jobName(role))}`], ['1', '👥 전체']].map(([v, n]) => `<button class="ap-tab ${(v === '1') === !rf ? 'on' : ''}" data-pall="${v}">${n}</button>`).join('')}</div>`;
   h += `<div class="sec-h">가족</div><div class="npc">`;
   for (const p of [mom(s), dad(s)].filter(Boolean)) h += `<div class="npc-d">${p.rel} ${p.name} · ${p.alive ? `${pAge(s, p)}세 · ${U.esc(p.job)} · ${skillLine(p, 2, s)}` : '돌아가셨다'}</div>`;
   if (s.family.single) h += `<div class="npc-d">엄마 혼자 키우신 집이다.</div>`;
@@ -2028,8 +2031,8 @@ function panelPeople() {
   if (age(s) >= 19 && !partner(s)) h += meetHTML(s);
   // 묶음 안에서는 친밀도가 높은 사람부터 (가족·연인만 배우자 → 연인 → 자녀 → 형제자매 순서를 먼저 따른다)
   const grp = n => PPL_TOP.findIndex(x => x[0] === pplTop(n)), famR = n => pplTop(n) === 'fam' ? REL_ORDER.indexOf(n.rel) : 0;
-  const list = people(s, n => (!['엄마', '아빠', '업계'].includes(n.rel) || coMine(s, n)) && !n.hidden).sort((a, b) => grp(a) - grp(b) || pplCmp(s, a, b));
-  if (!list.length) h += `<div class="muted">아직 가까운 사람이 없다.</div>`;
+  const list = people(s, n => (!['엄마', '아빠', '업계'].includes(n.rel) || coMine(s, n)) && !n.hidden && (!rf || pplForRole(s, n, role))).sort((a, b) => grp(a) - grp(b) || pplCmp(s, a, b));
+  if (rf ? !list.some(n => pplTop(n) !== 'fam') : !list.length) h += `<div class="muted">${rf ? '이 일로 만난 사람이 아직 없다.' : '아직 가까운 사람이 없다.'}</div>`;
   // 트리 뷰 (피드백 26): 가족·연인 · 친구 · 동료(어느 직업으로 만났나) · 지인(그 사람의 직업)
   UI.pplOpen = UI.pplOpen || {};
   const tog = (key, open, title, n) => `<button class="ap-cat-h ap-tog" data-pgrp="${U.esc(key)}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${title}<span class="hint">${n}명</span></button>`;
@@ -2077,6 +2080,25 @@ function pplTop(n) {
   if (pplRetired(n)) return 'etc';
   if (['동료', '멤버', '전 멤버', '동기', '선배', '제자'].includes(n.rel)) return 'work';
   return 'know';
+}
+// v241: 이 직업과 관련 있는 사람인가. 가족 · 연인(배우자 · 자녀 · 형제자매 · 전 연인 포함)은 늘. 회사 대표는 내 회사 사람(직원 · 연습생 · 소속)과 회사 일로 만난 사람
+//   나머지 직업은 그 일로 엮인 사람(pplJobs)
+function pplForRole(s, n, role) {
+  if (pplTop(n) === 'fam') return true;
+  if (role === 'agency' && coMine(s, n)) return true;
+  return pplJobs(s, n).has(role);
+}
+// 그 사람과 엮인 직업들: 처음 만난 직업(relJob) + 그 뒤 다른 직업 일로 다시 만난 것(metJobs, meetAt) + 지금 같은 팀인 것
+//   (아이돌 그룹 멤버 · 연습생 동기 → idol, 밴드 멤버 → band, 교수의 제자 → prof). 뮤지컬은 무대에 서는 직업 모두
+function pplJobs(s, n) {
+  const J = new Set([relJob(s, n)].concat(n.metJobs || []));
+  if (J.has('musical')) for (const j of ['actor', 'idol', 'solo', 'band']) J.add(j);
+  const it = s.tracks.idol, bt = s.tracks.band, pt = s.tracks.prof;
+  // 연습생 동기는 방출 · 데뷔 뒤 친구가 되면 trainee가 지워지므로 만난 곳 글자('… 연습생 동기')로도 본다
+  if (n.trainee || /연습생 동기$/.test(n.met || '') || (it && it.g && (it.g.members || []).includes(n.id))) J.add('idol');
+  if (bt && bt.b && (bt.b.members || []).includes(n.id)) J.add('band');
+  if (pt && (pt.studs || []).includes(n.id)) J.add('prof');
+  return J;
 }
 // 동료 묶음 이름 (피드백 27): 만났을 때 내 소속. 앞에 그 직업의 그림 글자를 붙인다 (예: '🎬 라온 액터스', '🎥 연출감독 · 소속 없음')
 function orgOf(s, n) {
@@ -2126,7 +2148,7 @@ function relJobName(id) { return CAREERS[id] ? `${CAREERS[id].ic} ${CAREERS[id].
 function metJobGuess(s, n) {
   const m = n.met || '', j = n.job || '', did = id => !!s.tracks[id] && !!s.tracks[id].st && s.tracks[id].st !== 'none';
   if (['멤버', '전 멤버', '동기', '선배'].includes(n.rel)) return /밴드/.test(j + m) ? 'band' : 'idol';
-  if (n.rel === '제자') return /배우/.test(j) ? 'acttrainer' : 'trainer';
+  if (n.rel === '제자') return /배우/.test(j) ? 'acttrainer' : /대학생/.test(j) || (/\(내 제자\)$/.test(m) && !/(연습생|신인) \(내 제자\)$/.test(m)) ? 'prof' : 'trainer';
   if (/뮤지컬/.test(m)) return 'musical';
   if (/A&R/.test(m)) return 'anr';
   if (/합작/.test(m)) return 'youtube';
@@ -3072,6 +3094,7 @@ document.addEventListener('click', e => {
   if (t.dataset.tsec) { UI.tsec = UI.tsec || {}; UI.tsec[t.dataset.tsec] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.apsz) { UI.apSz = UI.apSz || {}; UI.apSz[t.dataset.apsz] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.homecat) { UI.homeOpen[t.dataset.homecat] = t.dataset.open !== '1'; renderPanel(); return; }
+  if (t.dataset.pall != null) { UI.pplAll = t.dataset.pall === '1'; renderPanel(); return; }
   if (t.dataset.pgrp) { UI.pplOpen[t.dataset.pgrp] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.apg) { const c = t.dataset.aptab, g = t.dataset.apg; UI.apTab[c] = UI.apTab[c] === g ? null : g; renderPanel(); return; }
   if (t.dataset.trk) { UI.trk = t.dataset.trk; openPanel('trk'); return; }

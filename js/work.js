@@ -221,6 +221,9 @@ function coMigrateKeys(s) {
 // job: 어느 직업 때문에 만났나. org: 그때 내 소속 (인간관계 창의 '동료' 트리 뷰, 피드백 27). 안 넘기면 그 직업의 지금 소속
 function meetAt(s, p, where, job, org) {
   if (p.rel === '업계') { p.rel = '동료'; p.met = where; p.metT = s.t; p.metJob = job || EARN_JOB || null; p.metOrg = org || myOrg(s, p.metJob); }
+  // v241: 인간관계 창은 직업 배지로 거른다. 관계와 상관없이, 다른 직업 일로 다시 만나도 그 직업을 남긴다
+  const j = job || EARN_JOB || null;
+  if (j) { if (!p.metJob) p.metJob = j; if (!(p.metJobs || []).includes(j)) (p.metJobs = p.metJobs || []).push(j); }
   p.contactT = s.t;
 }
 // 그 직업에서 지금 내 소속: 계약한 회사(직업 창의 계약 칸과 같다). 없으면 '배우 · 소속 없음'처럼
