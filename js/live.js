@@ -731,7 +731,9 @@ function chPaint(cv) {
   let hair = hl[h % hl.length];
   if (CH_NO_HAIR.includes(hair)) { const ok = hl.filter(n => !CH_NO_HAIR.includes(n)); hair = ok[(h >> 3) % ok.length]; }
   const face = P.face[(h >> 5) % P.face.length], hc = CH_HAIR[(h >> 9) % CH_HAIR.length];
-  const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+  const ctx = cv.getContext('2d'), up = +D.up || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height);
+  if (up > 1) { ctx.imageSmoothingEnabled = false; ctx.setTransform(up, 0, 0, up, 0, 0); }
   chLayer(ctx, hair + '_b', 'hair', hc); chLayer(ctx, body, 'fit', { k: chFit(D.g, D.cos, +D.hue), h: +D.hue }); chLayer(ctx, face, ''); chLayer(ctx, hair + '_f', 'hair', hc);
   if (D.mic) chLayer(ctx, 'prop_mic', '');
   cv.parentNode.classList.add('on');
@@ -766,7 +768,9 @@ function liveChar(key, hue, gkey, o) {
   o = o || {};
   const fk = chFit(gkey, o.cos, hue);
   if (typeof CH_PARTS === 'undefined') return liveSprite(key, hue, fk);
-  return `<span class="lv-ch">${liveSprite(key, hue, fk)}<canvas class="lv-chc" width="${CH_PARTS.w}" height="${CH_PARTS.h}" data-ch="${U.esc(key)}" data-g="${U.esc(gkey)}" data-hue="${hue}"${o.sx ? ` data-sx="${o.sx}"` : ''}${o.cos ? ` data-cos="${U.esc(o.cos)}"` : ''}${o.mic ? ' data-mic="1"' : ''}></canvas></span>`;
+  // v244: o.up이면 그림 칸을 그 배수(정수)로 키워 그린다 (점 하나가 정확히 up×up 칸). 크게 보이는 곳에서 부드럽게 줄여 쓰면 점 크기가 고르게 보인다
+  const up = Math.max(1, Math.round(o.up || 1));
+  return `<span class="lv-ch">${liveSprite(key, hue, fk)}<canvas class="lv-chc" width="${CH_PARTS.w * up}" height="${CH_PARTS.h * up}"${up > 1 ? ` data-up="${up}"` : ''} data-ch="${U.esc(key)}" data-g="${U.esc(gkey)}" data-hue="${hue}"${o.sx ? ` data-sx="${o.sx}"` : ''}${o.cos ? ` data-cos="${U.esc(o.cos)}"` : ''}${o.mic ? ' data-mic="1"' : ''}></canvas></span>`;
 }
 
 // ───── 창 ─────

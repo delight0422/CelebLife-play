@@ -1698,20 +1698,37 @@ button.g2p:hover, .g2-role:hover, button.g2-add:hover, .g2-cb:hover, .g2-li:not(
 #g2 .rdot { box-shadow: 0 0 0 2px #fff; }
 
 /* 장면: 집 배경 + 내 캐릭터 */
-#g2-scene { position: absolute; inset: 0; background: linear-gradient(180deg, #cfc6f2, #f3e6f0 60%, #e9dccb) center / cover no-repeat; }
+#g2-scene { position: absolute; inset: 0; overflow: hidden; background: linear-gradient(180deg, #cfc6f2, #f3e6f0 60%, #e9dccb) center / cover no-repeat; }
 #game-screen.has-bg #g2-scene { background-image: var(--home-bg); }
-#g2-scene::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10, 6, 24, .5) 0, rgba(10, 6, 24, 0) 22%, rgba(10, 6, 24, 0) 66%, rgba(10, 6, 24, .6) 100%); pointer-events: none; }
+/* v244: 배경 사진은 살짝 흐리게 (도트 캐릭터와 사진이 따로 놀지 않게 · 캐릭터에 초점이 맞은 것처럼). 가장자리는 조금 어둡게 */
+#g2-scene::before { content: ''; position: absolute; inset: -14px; background: inherit; background-size: cover; background-position: center; filter: blur(2.4px) saturate(.9); pointer-events: none; }
+.g2-ceo #g2-scene::before { filter: none; }
+#g2-scene::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(10, 6, 24, .5) 0, rgba(10, 6, 24, 0) 22%, rgba(10, 6, 24, 0) 66%, rgba(10, 6, 24, .6) 100%), radial-gradient(ellipse 62% 70% at 48% 62%, rgba(10, 6, 24, 0) 55%, rgba(10, 6, 24, .3) 100%); pointer-events: none; }
 #g2-char { position: absolute; left: 765px; bottom: 142px; transform: translateX(-50%); z-index: 1; display: flex; flex-direction: column-reverse; align-items: center; gap: 8px; }
-#g2-char .lv-ch .lv-chc { height: var(--chh, 480px); image-rendering: pixelated; filter: drop-shadow(0 12px 10px rgba(0, 0, 0, .45)); }
+#g2-char .lv-ch .lv-chc { height: var(--chh, 480px); image-rendering: auto; filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .3)); }
+/* v244: 발밑 그림자 (바닥에 서 있게) · 숨쉬기 (아주 살짝, 아래를 기준으로) */
+#g2-char::before { content: ''; position: absolute; left: 50%; bottom: calc(var(--chh, 480px) * -.012); width: calc(var(--chh, 480px) * .42); height: calc(var(--chh, 480px) * .065); transform: translateX(-50%); border-radius: 50%; background: radial-gradient(closest-side, rgba(16, 8, 28, .62), rgba(16, 8, 28, .3) 60%, rgba(16, 8, 28, 0)); z-index: -1; animation: g2-shadow 3.6s ease-in-out infinite; pointer-events: none; }
+#g2-char .lv-ch.on { transform-origin: 50% 100%; animation: g2-breathe 3.6s ease-in-out infinite; }
+@keyframes g2-breathe { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.006, 1.016); } }
+@keyframes g2-shadow { 0%, 100% { transform: translateX(-50%) scale(1); opacity: 1; } 50% { transform: translateX(-50%) scale(.95); opacity: .85; } }
+@media (prefers-reduced-motion: reduce) { #g2-char .lv-ch.on, #g2-char::before { animation: none; } }
 #g2-char .lv-ch:not(.on) { visibility: hidden; height: var(--chh, 480px); }
 .g2-nt { padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 800; background: #ffd76a; color: #4a3300; white-space: nowrap; box-shadow: 0 4px 12px rgba(0, 0, 0, .3); }
 
 /* 위쪽 바: 이름표 · 상태 · 날짜 · 정보 · 돈 · 백과사전 · 메뉴 · 진행 */
 #g2-top { position: absolute; left: 16px; right: 16px; top: 14px; height: 118px; display: flex; align-items: stretch; gap: 12px; z-index: 3; }
-#g2-plate { width: 322px; display: flex; gap: 12px; align-items: center; padding: 10px 14px 10px 12px; }
+#g2-plate { flex: 1; min-width: 0; display: flex; gap: 10px; align-items: center; padding: 8px 10px 8px 8px; }
+/* v244: 이름표 = 정보. 얼굴 · 이름 쪽(.g2-pm)을 누르면 프로필, 오른쪽 네 단추(.g2-pc)는 그 탭으로 */
+.g2-pm { flex: 1; min-width: 0; display: flex; gap: 12px; align-items: center; padding: 4px 8px 4px 4px; border: 1px solid transparent; border-radius: 14px; background: none; color: inherit; text-align: left; cursor: pointer; }
+.g2-pm:hover { background: rgba(255, 255, 255, .06); border-color: rgba(185, 161, 255, .5); }
+.g2-pm:hover .g2-pf { border-color: #b9a1ff; }
+.g2-pc { flex: none; width: 196px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.g2-pcb { height: 44px; display: flex; align-items: center; gap: 6px; padding: 0 9px; border-radius: 12px; background: var(--chipb); border: 1px solid var(--chipbd); color: var(--tx); font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; }
+.g2-pcb em { font-style: normal; font-size: 17px; }
+.g2-pcb:hover { border-color: #b9a1ff; background: var(--fx-bg); }
 .g2-pf { width: 76px; height: 76px; border-radius: 50%; overflow: hidden; background: #efeaff; border: 3px solid var(--pfbd); position: relative; flex: none; }
 .g2-pf .lv-ch { position: absolute; left: -26px; top: -23px; }
-.g2-pf .lv-ch .lv-chc { height: 260px; image-rendering: pixelated; filter: none; }
+.g2-pf .lv-ch .lv-chc { height: 260px; image-rendering: auto; filter: none; }
 .g2-pf .lv-ch:not(.on) { display: none; }
 .g2-pt { display: flex; flex-direction: column; min-width: 0; }
 .g2-pn { font-size: 21px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1874,6 +1891,15 @@ button.g2-wr:hover span { text-decoration: underline; }
 .g2-skr { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; gap: 6px; }
 .g2-skr span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .g2-skr b { color: var(--gold2); font-size: 12.5px; white-space: nowrap; }
+/* v244: 특기 판 — 하는 일의 주특기는 이름을 금색, 지난 진행에서 오른 만큼은 초록 (+N · 막대 끝) */
+.g2-skbw { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
+#g2 .g2-skbw .g2-skb { flex: 1; min-width: 0; margin: 0; }
+.g2-skbw > i { font-style: normal; color: #4be3a4; font-size: 10.5px; font-weight: 800; line-height: 1; white-space: nowrap; }
+.g2-sk.ms .g2-skr > span { color: #ffd76a; font-weight: 800; }
+#g2 .g2-skb { display: block; position: relative; overflow: hidden; }
+#g2 .g2-skb u { position: absolute; top: 0; bottom: 0; background: #4be3a4; box-shadow: 0 0 6px rgba(75, 227, 164, .8); text-decoration: none; }
+.g2-skl { display: block; font-size: 10.5px; color: var(--dim); margin: -2px 0 7px; }
+.g2-skl b.ms { color: #ffd76a; } .g2-skl b.up { color: #4be3a4; }
 #g2 .g2-sk .bar { height: 6px; margin-top: 3px; }
 
 /* 아래 가운데 2층: 인간관계 / 에고서칭 · 역할 행동 · 생활(장비 · 집 / 지속 관리 · 기타) */
@@ -1899,7 +1925,14 @@ button.g2-wr:hover span { text-decoration: underline; }
 .g2-db { width: 98px; height: 96px; border-radius: 16px; background: var(--chipb); border: 1px solid var(--chipbd); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; position: relative; color: var(--tx); padding: 0 5px; min-width: 0; }
 .g2-db em { font-style: normal; font-size: 28px; line-height: 1; }
 .g2-db b { font-size: 12.5px; line-height: 1.2; text-align: center; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-.g2-db.off { opacity: .45; }
+.g2-db.off { border-style: dashed; }
+.g2-db.off em { filter: grayscale(.8); opacity: .45; }
+.g2-db.off b { opacity: .5; }
+.g2-dbt { display: flex; flex-direction: column; align-items: center; min-width: 0; max-width: 100%; gap: 1px; }
+.g2-dbt small { font-size: 10.5px; font-weight: 700; color: #ffcf7a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+#g2-acts.two .g2-dbt { align-items: flex-start; }
+#g2-acts.two .g2-dbt small { font-size: 10px; }
+#g2-acts.two .g2-dbt:has(small) b { -webkit-line-clamp: 1; }
 .g2-db.on { background: var(--fx-bg); border-color: #b9a1ff; box-shadow: inset 0 0 0 1px #b9a1ff; }
 .g2-db u { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); text-decoration: none; font-size: 10.5px; font-weight: 800; color: #fff; background: #12a57a; border-radius: 99px; padding: 1px 7px; white-space: nowrap; }
 #g2-acts.two .g2-db u { left: auto; right: 6px; transform: none; top: -7px; font-size: 10px; padding: 0 6px; }
@@ -1921,6 +1954,11 @@ button.g2-wr:hover span { text-decoration: underline; }
   #g2-top { flex-wrap: wrap; }
   #g2-plate, #g2-stat, #g2-money { width: auto; flex: 1 1 280px; }
   #g2-date, #g2-info { width: auto; flex: 1 1 150px; }
+  /* v244: 좁은 화면에서는 정보 단추 넷을 이름 아래 한 줄로 */
+  #g2-plate { flex-wrap: wrap; }
+  .g2-pc { width: 100%; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .g2-pcb { height: 38px; justify-content: center; padding: 0 4px; font-size: 12px; gap: 4px; }
+  .g2-pcb em { font-size: 15px; }
   .g2-turn { position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 20; flex-direction: row; width: auto; }
   .g2-go { flex: 1; } .g2-mo { height: 60px; padding: 0 16px; }
   #slots-card, #g2-more { overflow: visible; min-height: 0; }

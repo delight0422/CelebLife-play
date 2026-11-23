@@ -57,6 +57,8 @@ function turnGo(max) {
   if (s.pending) { UI.minimized = false; showEvent(); return; }
   if (UI.overlay) closePanel();
   const p = me(s);
+  // v244: 메인 화면 특기 판의 '+N'(지난 진행에서 오른 만큼)을 위해 지금 레벨을 적어 둔다
+  s.skPrev = {}; for (const k of learnedSkills(p)) s.skPrev[k] = lvi(p, k);
   // 요약에는 이번에 넘어간 동안 생긴 일만 넣는다 (창에서 고른 결과 · 버튼으로 한 일은 이미 아는 일이라 넣지 않는다)
   UI.turn = { max, kid: turnKid(s) && max > 1, sl0: slotCount(s), n: 0, last: s.log[s.log.length - 1] || null, t0: s.t, money: s.money, fans: totalFans(s), stress: Math.round(s.stress), g0: growSnap(s), why: '', co: trackOn(s, 'agency') ? s.tracks.agency.money : null, inc: (MONEY_TAP = {}), acc0: ledSnapA(s), gf0: ledGF(s) };
   $('#tcard').innerHTML = turnRunHTML(s); $('#tcard').classList.add('run'); // v205: 진행 중 화면은 작게 그대로
@@ -389,9 +391,11 @@ function renderTop() {
   g2Fit();
   // 이름표: 얼굴 · 이름 · 나이 · 신분 · 뛰어난 재능(70 이상, 숨은 재능은 빼고)
   const sc = schoolLine(s), gf = TALENTS_SHOWN.filter(t => (p.tal[t.id] || 0) >= 70).map(t => t.n);
-  g2Set('#g2-plate', `<span class="g2-pf">${g2Me(p)}</span><span class="g2-pt"><span class="g2-pn">${U.esc(p.name)}<small>${age(s)}세</small></span><span class="g2-ps">${U.esc(idLabel(s))}${sc && sc[1] ? ` · ${U.esc(sc[1])}` : ''}</span>${gf.length ? `<span class="g2-pg">⭐ ${U.esc(gf.join(' · '))}</span>` : ''}</span>`);
+  // v244: 이름표 = 정보. 얼굴 · 이름을 누르면 프로필, 오른쪽 네 단추는 그 탭으로 바로 간다 (예전 '정보' 칸을 이름표에 합쳤다)
+  const PC = [['🪪', '프로필', 'data-pftab="born"'], ['👪', '가족', 'data-pftab="fam"'], ['📖', '기록', 'data-pftab="rec"'], ['🎯', '재능/특기', 'data-tstab="tal"']];
+  g2Set('#g2-plate', `<button type="button" class="g2-pm" data-pftab="born" title="프로필 보기"><span class="g2-pf">${g2Me(p, { up: 2 })}</span><span class="g2-pt"><span class="g2-pn">${U.esc(p.name)}<small>${age(s)}세</small></span><span class="g2-ps">${U.esc(idLabel(s))}${sc && sc[1] ? ` · ${U.esc(sc[1])}` : ''}</span>${gf.length ? `<span class="g2-pg">⭐ ${U.esc(gf.join(' · '))}</span>` : ''}</span></button><span class="g2-pc">${PC.map(([ic, n, at]) => `<button type="button" class="g2-pcb" ${at}><em>${ic}</em>${n}</button>`).join('')}</span>`);
   // 캐릭터 그림은 어른 몸 하나뿐이라, 어릴 때는 작게 그린다
-  const ag = age(s), ch = g2Set('#g2-char', `${g2Me(p, g2Cos(s))}<span class="g2-nt">${U.esc(p.name)}</span>`);
+  const ag = age(s), ch = g2Set('#g2-char', `${g2Me(p, Object.assign({ up: 3 }, g2Cos(s)))}<span class="g2-nt">${U.esc(p.name)}</span>`);
   if (ch) ch.style.setProperty('--chh', `${Math.round(480 * (ag < 4 ? .42 : ag < 8 ? .52 : ag < 13 ? .66 : ag < 17 ? .82 : ag < 20 ? .93 : 1))}px`);
   // 날짜: 연도 글씨 아래에 1~12월 막대 (달이 갈수록 차오르고, 1월이 되면 처음부터)
   // 막대는 한 번만 만들고 너비만 바꾼다 (그래야 부드럽게 차오른다). 1월로 돌아갈 때는 바로 비운다
@@ -526,8 +530,25 @@ function g2RightHTML(s, role, lv) {
   }
   // 특기: 레벨이 높은 순서 (학업 · 외국어도 같이). 개수는 학업 · 외국어를 빼고 센다
   const ks = learnedSkills(p).sort((a, b) => p.sk[b].lv - p.sk[a].lv);
-  if (ks.length) h += `<button type="button" class="g2-card g2p" data-tstab="sk"><span class="g2-ct">🎯 특기<i>${capCount(p)}/${SKILL_CAP}</i></span><span class="g2-skg${ks.length > 10 ? ' c3' : ''}" style="grid-template-rows:repeat(${Math.ceil(ks.length / (ks.length > 10 ? 3 : 2))},auto)">${ks.map(k => `<span class="g2-sk"><span class="g2-skr"><span>${skIc(k)}${U.esc(SKILLS[k].n)}</span><b>${lvi(p, k)}레벨</b></span>${bar(p.sk[k].lv, 100)}</span>`).join('')}</span></button>`;
+  if (ks.length) h += g2SkCard(s, p, ks);
   return h;
+}
+// 특기 판 (v244): 레벨이 다 보이는 건 그대로, 성장과 방향이 보이게
+// · 지난번 진행에서 오른 만큼: 레벨 옆 초록 +N, 막대에 오른 만큼 초록으로 (진행을 누를 때 s.skPrev에 적어 둔다 — turnGo)
+// · 지금 하는 직업의 주특기(mainSk)는 이름을 금색으로
+function g2MainSks(s) { const M = new Set(); for (const id of g2Jobs(s)) { try { const k = CAREERS[id].mainSk && CAREERS[id].mainSk(s, s.tracks[id]); if (k) M.add(k); } catch (e) { } } return M; }
+function g2SkCard(s, p, ks) {
+  const P0 = s.skPrev || null, MS = g2MainSks(s);
+  let up = 0;
+  const row = k => {
+    const L = lvi(p, k), v = U.clamp(p.sk[k].lv, 0, 100), was = P0 ? P0[k] : undefined, nw = !!P0 && was == null, d = was == null ? 0 : L - was;
+    if (d > 0 || nw) up++;
+    const v0 = d > 0 ? U.clamp(Math.min(v, was), 0, 100) : v;
+    return `<span class="g2-sk${MS.has(k) ? ' ms' : ''}${d > 0 || nw ? ' up' : ''}"><span class="g2-skr"><span>${skIc(k)}${U.esc(SKILLS[k].n)}</span><b>${L}레벨</b></span><span class="g2-skbw"><span class="bar g2-skb"><i style="width:${v0}%"></i>${d > 0 ? `<u style="left:${v0}%;width:${Math.max(1.5, v - v0)}%"></u>` : ''}</span>${d > 0 ? `<i>+${d}</i>` : nw ? '<i>새로</i>' : ''}</span></span>`;
+  };
+  const R = ks.map(row).join(''), c3 = ks.length > 10;
+  const lg = [MS.size && ks.some(k => MS.has(k)) ? '<b class="ms">금색</b> 하는 일의 주특기' : '', up ? `<b class="up">+N</b> 지난 진행에서 오름` : ''].filter(Boolean).join(' · ');
+  return `<button type="button" class="g2-card g2p g2-skc" data-tstab="sk"><span class="g2-ct">🎯 특기<i>${capCount(p)}/${SKILL_CAP}</i></span>${lg ? `<span class="g2-skl">${lg}</span>` : ''}<span class="g2-skg${c3 ? ' c3' : ''}" style="grid-template-rows:repeat(${Math.ceil(ks.length / (c3 ? 3 : 2))},auto)">${R}</span></button>`;
 }
 function renderRight() {
   const s = S, role = g2Role(s), R = $('#g2-right');
@@ -555,7 +576,7 @@ function renderActs() {
     if (c.panel) { const [ic, n] = g2Split(c.panelN || '창 열기', role); A.push([ic, n, `data-panel="${c.panel}"`, 0, 0]); }
     // 일정에 넣고도 할 일을 안 골랐을 때 (새로 생긴 선택 활동은 그 버튼에 점이 붙는다 — g2PickDot)
     if (c.act && jobSlots(s, role) && !jobTask(s, role)) A.push(['⚠️', '할 일 고르기', `data-job="${role}"`, 1, 0]);
-    const add = (a, dot) => { const [ic, n] = a.emo && !/</.test(a.emo) ? [a.emo, a.t] : g2Split(a.t, role); A.push([ic, n, `data-g2a="${G.push({ a, role, n }) - 1}"`, dot ? 1 : 0, !a.ok, a.sw && a.on ? 1 : 0]); };
+    const add = (a, dot) => { const [ic, n] = a.emo && !/</.test(a.emo) ? [a.emo, a.t] : g2Split(a.t, role); A.push([ic, n, `data-g2a="${G.push({ a, role, n }) - 1}"`, dot ? 1 : 0, !a.ok, a.sw && a.on ? 1 : 0, a.ok ? '' : a.why || '']); };
     // 골라서 하는 일 (직업 창 '선택 활동'): 그 일이 일정에 있어야 한다 (jobTaskHTML과 같은 조건)
     try {
       const P = c.picks ? c.picks(s, t) || [] : [];
@@ -565,9 +586,22 @@ function renderActs() {
   }
   // 5~6개는 작은 버튼 두 줄(세 칸씩). 더 많으면 다섯 개 + '더 보기'(그 직업 창)
   const B = A.length > 6 ? A.slice(0, 5).concat([['⋯', `더 보기 ${A.length - 5}`, `data-job="${role}"`, A.slice(5).some(x => x[3]) ? 1 : 0, 0]]) : A;
-  g2Set('#g2-acts', B.map(([ic, n, at, dot, off, on]) => `<button type="button" class="g2-db${off ? ' off' : ''}${on ? ' on' : ''}" ${at}>${dot ? '<i class="rdot"></i>' : ''}${on ? '<u>켜 둠</u>' : ''}<em>${ic}</em><b>${U.esc(n)}</b></button>`).join(''));
+  // v244: 못 쓰는 단추도 그대로 두고, 언제 쓸 수 있는지 짧게 적는다 (목표로 삼게)
+  g2Set('#g2-acts', B.map(([ic, n, at, dot, off, on, why]) => { const w = off ? g2LockW(why) : ''; return `<button type="button" class="g2-db${off ? ' off' : ''}${on ? ' on' : ''}" ${at}${why ? ` title="${U.esc(evPlain(why))}"` : ''}>${dot ? '<i class="rdot"></i>' : ''}${on ? '<u>켜 둠</u>' : ''}<em>${ic}</em><span class="g2-dbt"><b>${U.esc(n)}</b>${w ? `<small>🔒 ${U.esc(w)}</small>` : ''}</span></button>`; }).join(''));
   const el = $('#g2-acts'); if (el) el.className = B.length > 4 ? 'two' : '';
   const bot = $('#g2-bot'); if (bot) bot.classList.toggle('noact', !B.length);
+}
+// 못 쓰는 까닭을 단추 안에 들어갈 만큼 줄인다 ('작곡 특기가 있어야 한다' → '작곡 특기', '2가지까지만 켜 둘 수 있다' → '이미 2개 켜 둠')
+function g2LockW(w) {
+  w = evPlain(String(w || '')).replace(/[.。]\s*$/, '').trim(); let m;
+  if (!w) return '';
+  if (/일정에.*넣/.test(w)) return '일정에 넣으면';
+  if ((m = /^(.+?) 특기가 있어야/.exec(w))) return `${m[1]} 특기`;
+  if ((m = /(\d+)가지까지만/.exec(w))) return `이미 ${m[1]}개 켜 둠`;
+  if ((m = /(\d+)세(부터|가 되면|이 되면)/.exec(w))) return `${m[1]}세부터`;
+  if ((m = /^(.+?)한 뒤에/.exec(w))) return `${m[1]} 뒤에`;
+  if ((m = /^(.+?)(?:을|를) 배워야/.exec(w))) return `${m[1]} 배우면`;
+  return w.length > 13 ? w.slice(0, 12) + '…' : w;
 }
 // 행동 버튼을 눌렀을 때 (직업 창 '하기' 버튼과 같은 순서 — ui.js data-act). 못 하는 일은 까닭을 알려 주고, 설명이 있는 일은 한 번 묻는다
 function g2ActRun(x) {
@@ -1106,6 +1140,7 @@ function noJobLabel(s) {
   if (y < 10 || (!s.edu.graduated && y <= 12) || inUni(s)) return ['🎒', '학생'];
   return ['🧑', '무직'];
 }
+const G2_APPLY_AGE = 8, G2_CO_AGE = 19;
 function renderJobsCard() {
   const s = S;
   if (!$('#g2-roles')) return;
@@ -1134,8 +1169,9 @@ function renderJobsCard() {
   }
   g2Set('#g2-roles', h);
   // 역할 아래: 구직활동 · 회사 설립 · 공개 예정 작품 · 맡은 작품 · 광고 · 논란 · 자숙 · 결과를 기다리는 곳
-  let m = typeof jobApplies === 'function' ? `<button type="button" class="g2-add" id="btn-applyjob" data-panel="applyjob"><em>📝</em>구직활동</button>` : '';
-  if (!trackOn(s, 'agency') && typeof CO_SEED !== 'undefined') {
+  // v244: 나이가 안 되면 숨긴다 — 구직활동은 가장 이른 지원(아역 배우 오디션)이 열리는 8세부터, 회사 설립은 성인(19세)부터 (20세에 차릴 수 있다)
+  let m = typeof jobApplies === 'function' && age(s) >= G2_APPLY_AGE ? `<button type="button" class="g2-add" id="btn-applyjob" data-panel="applyjob"><em>📝</em>구직활동</button>` : '';
+  if (!trackOn(s, 'agency') && typeof CO_SEED !== 'undefined' && age(s) >= G2_CO_AGE) {
     if (s.money < CO_SEED) m += `<div class="g2-add lk"><em>🏢</em>회사 설립<small>자본금 ${fmtWon(CO_SEED)}부터</small></div>`;
     else { const w = coFoundWhy(s); m += w ? `<div class="g2-add lk"><em>🏢</em>회사 설립<small>${U.esc(w)}</small></div>` : `<button type="button" class="g2-add" data-cofound="new"><em>🏢</em>회사 설립<small>자본금 ${fmtWon(CO_SEED)}부터</small></button>`; }
   }
