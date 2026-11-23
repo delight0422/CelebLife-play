@@ -64,7 +64,8 @@ function albSong(s, x, kind, used) {
 // 사내 프로듀서가 쓴 곡 (v155): 회사 사람이라 아껴 둔 곡 없이 제 실력대로, 고른 컨셉 가운데 자기가 가장 잘 아는 컨셉으로 쓴다
 function albInSong(s, x, P) {
   const cm = coCm(P), c = x.cs.slice().sort((a, b) => cm[b] - cm[a])[0];
-  return { cid: P.id, q: Math.round(U.clamp(lv(P, 'compose') * 0.6 + (cm[c] - 30) / 6 + U.normal(0, 7) + 4, 5, 90)), c, m: cm[c], price: 0, title: songTitle(c), src: 'in' };
+  // x.inQ: 그 프로듀서에게 붙는 덤 (대표 회사의 작업실, company.js coWorkQ)
+  return { cid: P.id, q: Math.round(U.clamp(lv(P, 'compose') * 0.6 + (cm[c] - 30) / 6 + U.normal(0, 7) + 4 + (x.inQ ? x.inQ(P) || 0 : 0), 5, 90)), c, m: cm[c], price: 0, title: songTitle(c), src: 'in' };
 }
 // ② 모인 데모곡 전부
 function albDemos(s, x) {
@@ -77,24 +78,28 @@ function albDemos(s, x) {
     const n = Math.max(1, albSrcCnt(x, z, x.cs.length) + (z.k === 'open' ? U.int(-1, 1) : 0));
     for (let i = 0; i < n; i++) out.push(albSong(s, x, z.k, used));
   }
+  // x.more: 밖에서 모으는 곡이 그만큼 더 온다 (대표 회사의 회의실, company.js coMeetMore). 공모를 골랐으면 공모로, 아니면 고른 곳 가운데 첫째로
+  if (x.more) { const k = ['open'].concat(ALB_SRC.map(z => z.k)).find(k => x.src.includes(k) && !['me', 'in', 'mem'].includes(k)); if (k) for (let i = 0; i < x.more; i++) out.push(albSong(s, x, k, used)); }
   return out;
 }
 // ③ 심사: 듣는 사람의 귀만큼 흐리게 들린다 (스카우트 · 작곡이 높을수록 정확). 내 곡(대표 · 전담 프로듀서의 곡)은 심사 없이 올라간다
 // 심사하는 사람은 회사 형편도 본다: 타이틀곡으로 쓰기엔 너무 비싼 곡(x.budget 넘는 곡)은 웬만큼 좋지 않으면 올리지 않는다
 // 심사하는 사람이 없거나 곡이 다섯 곡 이하면 전부 올라간다. lost: 떨어뜨린 곡이 올린 곡들보다 눈에 띄게 좋았을 때
 function albEarSd(p) { return (30 - 25 * U.clamp(scoutLv(p, 'compose'), 0, 100) / 100) * 0.45; }
+function albKeepN(x) { return ALB_KEEP + ((x && x.more) || 0); }
 function albScreen(s, x, demos, judge) {
-  if (!judge || demos.length <= ALB_KEEP) return { five: demos.slice(), lost: null };
+  const keep = albKeepN(x); // x.more: 그만큼 더 추려 온다 (대표 회사의 회의실)
+  if (!judge || demos.length <= keep) return { five: demos.slice(), lost: null };
   const sd = albEarOf(judge);
   const over = d => x.budget != null && d.price > x.budget ? 20 + Math.min(30, (d.price / Math.max(1, x.budget) - 1) * 15) : 0;
   const seen = demos.map(d => ({ d, v: d.mine || d.pass ? 999 : d.q + U.normal(0, sd) + (x.cs.includes(d.c) ? 3 : 0) + (d.fav || 0) - over(d) })).sort((a, b) => b.v - a.v);
-  const five = seen.slice(0, ALB_KEEP).map(z => z.d);
+  const five = seen.slice(0, keep).map(z => z.d);
   // 값이 헐한 곡도 둘은 있게: 올린 곡이 죄다 비싸면 가장 아쉬운 비싼 곡을 빼고 회사 크기 · 형편에 맞는 곡을 끼워 온다
   if (x.budget != null) {
     // 헐한 곡이 둘도 안 모였으면 모인 곡 가운데 가장 싼 두 곡을 헐한 곡으로 친다
     const line = Math.min(x.budget, Math.max(ALB_CHEAP[x.tier], x.budget * 0.1)), low = demos.slice().sort((a, b) => a.price - b.price).slice(0, 2);
     const fit = demos.filter(d => d.mine || d.price <= line).length >= 2 ? d => d.mine || d.price <= line : d => low.includes(d);
-    for (const z of seen.slice(ALB_KEEP).filter(z => fit(z.d))) {
+    for (const z of seen.slice(keep).filter(z => fit(z.d))) {
       if (five.filter(fit).length >= 2) break;
       let i = five.length - 1; while (i >= 0 && fit(five[i])) i--;
       if (i < 0) break;

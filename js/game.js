@@ -1888,6 +1888,9 @@ function migrate(s) {
     for (const r of s.led || []) if (r) { ren(r.dv); txt(r, 'x'); }
     s.popRen = 1;
   }
+  // v242: 회사가 있으면 불러온 자리에서 바로 회사 데이터를 맞춘다 (사옥이 없는 옛 저장에 사옥을 만들어, 첫 달이 지나기 전에도 꼭 나가는 돈에 임대료가 보이고 대표 화면에 사옥이 뜬다)
+  //   coFix는 달마다 · 회사 창을 열 때마다 도는 것이라 여러 번 불러도 한 번만 고친다. 여기서 오류가 나도 저장은 그대로 불러온다
+  if (typeof coFix === 'function' && s.tracks.agency && s.tracks.agency.st === 'active' && s.tracks.agency.f) { try { coFix(s, s.tracks.agency); } catch (e) { console.error('회사 데이터 맞추기 오류', e); } }
   return s;
 }
 // ───── 경력: 예전에 했던 일을 기간과 함께 남긴다 ─────

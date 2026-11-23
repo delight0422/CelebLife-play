@@ -344,7 +344,8 @@ function goBtnSync() { const b = $('#btn-go'); if (!b) return; const w = !!(S &&
 function render() {
   if (!S) return;
   // 박스 하나를 그리다 오류가 나도 나머지는 그리고 게임은 계속 간다 (오류는 콘솔에 남긴다)
-  for (const f of [renderTop, renderSchedule, renderSide, renderMid, renderRight, renderActs, g2Paint]) { try { f(); } catch (e) { console.error('화면 그리기 오류', f.name, e); } }
+  UI.ceoD = null; // v242: 대표 화면 데이터는 그릴 때마다 한 번 새로 만든다 (g2CeoData)
+  for (const f of [renderTop, renderSchedule, renderSide, renderMid, renderRight, renderActs, renderBld, g2Paint]) { try { f(); } catch (e) { console.error('화면 그리기 오류', f.name, e); } }
   $('#ended-bar').classList.toggle('hidden', !S.ended);
   goBtnSync();
   rtDrain(S);
@@ -375,9 +376,12 @@ function g2Paint() { if (typeof chLoad !== 'function') return; chLoad(); if (CH.
 function g2Fit() {
   const el = $('#g2'); if (!el) return;
   const W = window.innerWidth, H = window.innerHeight;
-  if (W <= 1150) { el.style.transform = ''; el.style.left = ''; el.style.top = ''; return; }
+  // v242: 대표 화면의 창(.g2w — 방 창 · 증축 창 · 사옥 고르기 창)도 무대와 같은 배율 · 같은 자리에 뜨게 배율(--g2k)과 무대 위쪽 끝(--g2y)을 알려 준다
+  const R = document.documentElement.style;
+  if (W <= 1150) { el.style.transform = ''; el.style.left = ''; el.style.top = ''; R.setProperty('--g2k', '1'); R.setProperty('--g2y', '0px'); return; }
   const k = Math.min(W / 1600, H / 900);
   el.style.transform = `scale(${k})`; el.style.left = `${Math.round((W - 1600 * k) / 2)}px`; el.style.top = `${Math.round((H - 900 * k) / 2)}px`;
+  R.setProperty('--g2k', k.toFixed(4)); R.setProperty('--g2y', `${Math.round((H - 900 * k) / 2)}px`);
 }
 window.addEventListener('resize', g2Fit);
 function renderTop() {
@@ -406,7 +410,8 @@ function renderTop() {
 // 가운데 위: 요즘 유행 · 눈에 띄어야 하는 상태(군 복무 · 병 · 임신)
 function renderMid() {
   const s = S;
-  let h = trendRowHTML(s);
+  // v242: 대표 화면(사옥 단면)에서는 유행 줄을 두지 않는다 (지붕 줄 자리). 군 복무 · 병 · 임신 알림만 건물 위에 띄운다
+  let h = g2CeoOn(s) ? '' : trendRowHTML(s);
   if (s.army) h += `<button type="button" class="g2-al" data-trk="army">🪖 군 복무 중 · 전역까지 ${s.army.left}개월</button>`;
   if (s.ill) h += `<button type="button" class="g2-al" data-trk="ill">${s.ill.wander ? '🌀' : '🏥'} ${U.esc(s.ill.n)} · ${s.ill.wander ? '끝날 때까지' : '회복까지'} ${s.ill.left}개월</button>`;
   // v214: 임신 (내가 임신했으면 직업 활동을 쉰다)
@@ -506,6 +511,8 @@ function g2RightHTML(s, role, lv) {
   const L = aaList(s, role).filter(a => applyOKNow(s, a)), F = aaFresh(s, role);
   if (F.length) h += `<button type="button" class="g2-card g2p g2-quest" data-job="${role}" data-jt="apply"><span class="g2-ct">📢 새로 지원할 수 있는 곳<i>${F.length}곳</i></span><b class="g2-big">${U.esc(`${F[0].ic || ''} ${F[0].n}`.trim())}</b><span class="g2-bt">지원하기</span></button>`;
   else if (L.length) h += `<button type="button" class="g2-card g2p g2-apply" data-job="${role}" data-jt="apply"><em>📝</em><span><b>지원</b><small>지원할 수 있는 곳 ${L.length}곳</small></span><i>›</i></button>`;
+  // v242: 회사 대표 — 회사 · 이번 달 회사 일 · 소속 그룹 · 사옥 카드 (특기 카드는 두지 않는다)
+  if (role === 'agency' && g2CeoOn(s)) return h + g2CeoCards(s, lv);
   if (role !== 'none') {
     const N = g2Now(s, role), st = CAREERS[role].status ? careerStatus(s, role) : '';
     h += `<button type="button" class="g2-card g2p g2-job" data-job="${role}"><span class="g2-ct">${jobIc(role)} ${U.esc(jobName(role))}<i>›</i></span>`
@@ -524,7 +531,6 @@ function g2RightHTML(s, role, lv) {
 }
 function renderRight() {
   const s = S, role = g2Role(s), R = $('#g2-right');
-  const co = $('#co-card'); if (co) co.classList.toggle('hidden', role !== 'agency' || !trackOn(s, 'agency'));
   for (let lv = 0; lv <= 5; lv++) { g2Set('#g2-rcards', g2RightHTML(s, role, lv)); if (!R || window.innerWidth <= 1150 || R.scrollHeight <= R.clientHeight + 2) break; }
 }
 // 아래 가운데: 지금 보는 역할에서 할 수 있는 일. 누르면 바로 한다 (설명이 있으면 한 번 묻는다). 자동으로 하는 활동은 일정 칸에 보이므로 여기 두지 않는다
@@ -540,6 +546,9 @@ function g2PickDot(s, id, P) {
 }
 function renderActs() {
   const s = S, role = g2Role(s), A = [], G = UI.g2acts = [];
+  // v242: 대표 화면은 아래 줄에 인간관계 + 에고서칭만 둔다 (#g2-bot.ceo). 회사 일은 사옥의 방을 눌러서 한다
+  const ceo = g2CeoOn(s), bt = $('#g2-bot'); if (bt) bt.classList.toggle('ceo', ceo);
+  if (ceo) { g2Set('#g2-acts', ''); if (bt) bt.classList.remove('noact'); return; }
   if (role !== 'none') {
     const c = CAREERS[role], t = s.tracks[role];
     // 창 이름 앞에 그림이 붙어 있으면(「🏢 회사 창 열기」) 그 그림을 버튼 그림으로 쓴다
@@ -582,6 +591,340 @@ function g2ActRun(x) {
   const q = a.confirm || (a.h ? `${x.n}\n${evPlain(a.h)}\n\n${a.sw ? (a.on ? '이제 그만할까요?' : '매달 꾸준히 할까요?') : '지금 할까요?'}` : '');
   if (q) askConfirm(q, go); else go();
 }
+
+// ───── v242: 대표 화면 — 사옥 단면 · 방 창 · 증축 창 · 사옥 고르기 창 ─────
+// 왼쪽 역할 배지에서 회사 대표를 고르면 가운데가 사옥 단면으로 바뀐다 (캐릭터 · 집 배경 대신). 층마다 4칸. 방을 누르면 방 창(할 일 + 여기 있는 사람), 빈 칸을 누르면 증축 창
+// 오른쪽 카드는 회사 · 이번 달 회사 일 · 소속 그룹 · 사옥 (특기 카드 없음), 아래 줄은 인간관계 + 에고서칭만 (행동 버튼 · 생활 버튼 없음 — 할 일은 방을 눌러서 한다)
+// 규칙 · 데이터는 company.js '사옥 · 방' 블록이 준다 (coBldView · coRoomActs · coRoomMgmt · coBuildList · coSeatTargets …). 여기서는 그리기와 누르기만
+// 화면 글: 방 설명 글 · '켜 둠' 표시는 넣지 않는다. 할 일 줄에는 값 · 인원 같은 데이터만 (g2ActShort)
+function g2CeoOn(s) { if (!s || typeof coBldView !== 'function' || g2Role(s) !== 'agency' || !trackOn(s, 'agency')) return false; const t = coT(s); return !!t.f && !!coBldB(t, coMainF(t)); }
+// 지금 보는 사옥 (지붕 줄의 탭 — 본사 · 따로 사옥을 얻은 자회사). 없어진 사옥이면 본사로
+function g2CeoB(t) { const L = coBlds(t).filter(b => coBldB(t, b)); if (!L.includes(UI.bld)) UI.bld = L[0]; return UI.bld; }
+// 방 사진: [그림, 한 칸 너비의 몇 배로 깔까, 가로 위치 %, 세로 위치 %] — 바닥이 보이게 고른 값. 그림이 생기면 이 표만 바꾼다. null(녹음실)은 CSS로 그린다 (.booth: 흡음판 + 창문)
+const G2_ROOM_BG = {
+  lobby: ['sc/fansign', 2.8, 0, 62], ceo: ['bg/l', 2.1, 30, 62], meet: ['sc/meeting', 2.4, 22, 58], office: ['sc/meeting', 3.8, 100, 52],
+  work: ['st/solohall', 2.6, 50, 70], wait: ['sc/waiting', 2.36, 40, 60], prac: ['sc/practice', 2.3, 20, 62], dance: ['sc/practice', 2.36, 50, 62],
+  vocal: null, band: ['st/soloclub', 2.2, 50, 70], show: ['sc/waiting', 2.6, 92, 60], game: ['bg/m', 2.2, 60, 66],
+};
+function g2RoomBg(k, w) { const B = G2_ROOM_BG[k]; return B ? `background-image:url('img/${B[0]}.webp');background-size:${Math.max(104, Math.round(B[1] / w * 100))}% auto;background-position:${B[2]}% ${B[3]}%` : ''; }
+// 할 일 줄의 그림: 이름 앞에 붙은 그림 → 이름에 든 말 → 그 방 그림
+const G2_CO_IC = [[/데뷔평가/, '🏆'], [/데뷔조|밴드 만들기/, '👥'], [/오디션/, '🎤'], [/돈 넣기/, '💰'], [/돈 꺼내기/, '💸'], [/준비$/, '🎵'], [/프로듀서/, '🎧'], [/굿즈/, '🛍️'], [/콘서트|라이브/, '🎪'], [/헤드헌터/, '🔍'], [/마케터/, '📣'], [/A&R/, '💿'], [/PD/, '🎬'], [/트레이너/, '🧑‍🏫'], [/편집자/, '✂️'], [/영입/, '🤝'], [/합동/, '🎬'], [/행사/, '🎉'], [/3D/, '🧊'], [/자회사/, '🏬']];
+function g2CoIc(t, dflt) { const m = /^([^\w가-힣\s「『(]+)\s+(.+)$/.exec(t || ''); if (m && m[1] !== '＋') return [m[1], m[2]]; if (m) t = m[2]; const x = G2_CO_IC.find(([re]) => re.test(t || '')); return [x ? x[1] : dflt, t || '']; }
+// 할 일 줄 아랫글: 설명은 빼고 값 · 인원 · 주기 같은 데이터 조각만 (숫자나 ↑ · ↓가 든 짧은 조각, 세 개까지). 전체 글은 줄에 마우스를 올리면 보인다
+function g2Plain(h) { return String(h || '').replace(/\u0005[^\u0006]*\u0006/g, '').replace(/[\u0001-\u0007]/g, '').replace(/💸\s*/g, ''); }
+function g2ActShort(h) { return g2Plain(h).split(' · ').map(x => x.trim()).filter(x => x === '없음' || ((/\d|[↑↓]/.test(x)) && x.length <= 34 && !/^자동:/.test(x))).slice(0, 3).join(' · '); }
+// 못 하는 까닭을 버튼에 들어갈 만큼 짧게 (긴 까닭은 누르면 알려 준다)
+function g2WhyShort(w) { w = String(w || ''); return /이미 있다/.test(w) ? '이미 있음' : /모자라|모자란/.test(w) && /자본금|돈/.test(w) ? '돈이 모자람' : /옆 칸/.test(w) ? '옆 칸 없음' : /빈 칸/.test(w) ? '칸이 모자람' : /최고 등급/.test(w) ? '최고 등급' : /가장 큰/.test(w) ? '가장 큰 크기' : /지금 사옥/.test(w) ? '지금 사옥' : /다 들어가지 않는다/.test(w) ? '다 안 들어감' : /먼저 다른 방으로/.test(w) ? '사람이 있음' : /CEO/.test(w) ? 'CEO가 맡음' : '할 수 없음'; }
+// 그 사람 · 그룹이 지금 들어갈 수 있는 방 (자리 없는 사람을 넣을 곳)
+function g2SeatRoom(s, t, b, u) { const B = coBldB(t, b), occ = coBldOcc(s, t, b); return (B && B.rooms.find(R => !coSeatWhy(s, t, u, R, occ))) || null; }
+// 한 번 그릴 때 쓰는 회사 데이터: 사옥마다 보기 데이터(V) · 이번 달 회사 일(todo) · 방마다 지금 할 일 글(hot → 방의 '!' · 노란 칩)
+// 이번 달 회사 일 = 방마다 할 일(coRoomActs) 가운데 지금 할 수 있는 때맞춘 일(now) + 자리 없는 사람 · 그만둘까 고민하는 연습생 · 여섯 달 안에 끝나는 그룹 계약
+//   연습실류는 어느 방에서나 같은 일이 나오므로 사람이 가장 많은 방 하나에만 단다. 그리기 한 번에 한 번만 만든다 (render가 UI.ceoD를 비운다)
+function g2CeoData(s) {
+  if (UI.ceoD) return UI.ceoD;
+  const t = coT(s), D = { t, V: {}, todo: [], hot: {} }, m = coMainF(t);
+  for (const b of coBlds(t)) {
+    const B = coBldB(t, b), V = B && coBldView(s, t, b); if (!V) continue;
+    // 본사 밖 사옥의 일은 방 이름 앞에 사옥(회사) 이름을 붙인다. 같은 일이 여러 방에서 나오면(사무실 둘의 영입 제안) 첫 방에만 단다
+    const at0 = b === m ? '' : ((t.bldN && t.bldN[b]) || coFName(t, b)) + ' ', seen = new Set();
+    D.V[b] = V;
+    if (V.unseated.length && !coCeo(t, b)) {
+      const n = V.unseated.reduce((a, u) => a + u.n, 0), R = g2SeatRoom(s, t, b, V.unseated[0].u);
+      D.todo.push({ ic: '⚠️', n: `자리 없는 사람 ${n}명`, at: at0 + (R ? coRoomName(t, b, R) : '증축'), b, rid: R ? R.id : null, br: 1, build: !R, warn: 1 });
+      if (R) D.hot[R.id] = '자리 없는 사람이 있음';
+    }
+    const pr = V.rooms.filter(R => CO_PRAC_K.includes(R.k)).sort((a, c) => c.n - a.n || c.w - a.w)[0];
+    for (const RV of V.rooms) {
+      if (CO_PRAC_K.includes(RV.k) && RV !== pr) continue;
+      let A = []; try { A = coRoomActs(s, t, b, B.rooms.find(x => x.id === RV.id)) || []; } catch (e) { console.error('방 할 일 오류', RV.k, e); }
+      for (const a of A) if (a.now) { const n = g2CoIc(a.t, RV.ic)[1]; if (seen.has(n)) continue; seen.add(n); D.todo.push({ ic: RV.ic, n, at: at0 + RV.name, b, rid: RV.id }); if (!D.hot[RV.id]) D.hot[RV.id] = a.chip || n; }
+    }
+  }
+  const W = coTrainees(s).filter(x => x.co.worry && !coCeo(t, x.co.f || coFOfKind(x.co.kind)));
+  if (W.length) { const b = coUnitB(t, W[0]), R = coRoomById(t, b, W[0].co.rm); D.todo.push({ ic: '⚠️', n: `그만둘까 고민하는 연습생 ${W.length}명`, at: R ? coRoomName(t, b, R) : '', b, rid: R ? R.id : null, warn: 1 }); }
+  for (const g of t.groups || []) {
+    const left = g.cEnd - g.months, f = coFOfKind(g.kind);
+    if (g.proj || !(left > 0 && left <= 6) || coCeo(t, f)) continue;
+    const b = coBld(t, f), R = coRoomById(t, b, g.rm);
+    D.todo.push({ ic: '📄', n: `「${g.name}」 계약 만료`, at: `${left}개월 뒤`, b, rid: R ? R.id : null, gid: g.id });
+  }
+  return UI.ceoD = D;
+}
+// 건물 크기 (1600×900 무대 기준, 시안 3): 가운데 898×668 자리. 층 높이는 층수에 맞춰 나누되 196을 넘기지 않는다 — 2층 사옥은 낮은 건물이 되어 길 위에 선다
+const G2B = { W: 898, H: 668, PAD: 10, ROOF: 46, GAP: 8, FN: 40, FH: 196 };
+// 방에 세울 사람들: 그룹은 그룹 옷(그룹 색깔에 맞춘 옷 CH_COS, 없으면 평상복), 연습생은 연습복, 직원은 정장
+function g2RoomChars(s, R) {
+  const P = [], one = (x, hue, gk, cos) => P.push(liveChar('co/' + x.id, hue, gk, { sx: x.g === '여' ? 'f' : 'm', cos }));
+  for (const u of R.units) {
+    if (u.grp) { const g = u.u, cos = (typeof CH_COS !== 'undefined' && CH_COS[g.sig]) || ''; for (const x of coP(s, g.members)) one(x, hashN('hue' + g.id) % 360, 'cg/' + g.id, cos); }
+    else { const x = u.u, c = x.co || {}; if (c.kind === 'cr') one(x, hashN('hue' + x.id) % 360, 'cr/' + x.id, ''); else if (c.job) one(x, 230, 'co/staff', 'mature'); else one(x, 215, 'co/tr', 'practice'); }
+  }
+  return P;
+}
+function g2RoomCard(s, t, R, o) {
+  const rw = o.cw * R.w + G2B.GAP * (R.w - 1) - 4, P = typeof liveChar === 'function' ? g2RoomChars(s, R) : [];
+  if (o.me) P.unshift(g2Me(me(s), { cos: 'mature' }));
+  // 방 너비에 들어가는 만큼만 세우고, 넘치면 오른쪽 아래에 '+N명'
+  const step = o.chW * 0.84, fitN = room => Math.max(1, Math.floor((room - o.chW) / step) + 1);
+  let fit = fitN(rw - 16); if (P.length > fit) fit = fitN(rw - 58);
+  const more = Math.max(0, P.length - fit), g = (R.units.find(u => u.grp) || {}).u;
+  const gst = g ? (coCbBusy(s, g) ? `${g.name} ${g.debuted ? '앨범' : '데뷔'} 준비` : g.promo > 0 ? `${g.name} 활동 중` : '') : '';
+  const chip = R.w >= 2 ? (o.hot ? `<i class="hot">${U.esc(o.hot)}</i>` : gst ? `<i>${U.esc(gst)}</i>` : '') : '';
+  return `<button type="button" class="g2b-rm s${R.w}${R.k === 'vocal' ? ' booth' : ''}" data-broom="${R.id}" style="${g2RoomBg(R.k, R.w)}">`
+    + `<span class="g2b-lb${o.hot ? ' hb' : ''}"><b>${R.ic} ${U.esc(R.name)}</b>${R.lvN ? `<i class="lv">${R.lvN}</i>` : ''}${chip}</span>`
+    + (R.k === 'vocal' ? '<i class="g2b-win"></i>' : '')
+    + (P.length ? `<span class="g2b-ppl${more ? ' ov' : ''}">${P.slice(0, fit).join('')}</span>` : '')
+    + (R.cap ? `<span class="g2b-cap${R.n >= R.cap ? ' full' : ''}">👥 ${R.n}/${R.cap}</span>` : '')
+    + (o.hot ? '<em class="g2b-bang">!</em>' : '') + (more ? `<span class="g2b-more">+${more}명</span>` : '') + `</button>`;
+}
+function g2BldHTML(s) {
+  const D = g2CeoData(s), t = D.t, m = coMainF(t), b = g2CeoB(t), V = D.V[b], ro = !!coCeo(t, b);
+  // 군 복무 · 병 · 임신 알림 줄(#g2-mid)이 있으면 그만큼 건물을 낮춘다
+  const top = s.army || s.ill || s.preg ? 38 : 0;
+  const fh = Math.min(G2B.FH, Math.floor((G2B.H - top - G2B.PAD - G2B.ROOF - G2B.GAP * V.fl) / V.fl)), cw = (G2B.W - G2B.PAD * 2 - G2B.FN - G2B.GAP * CO_BLD_W) / CO_BLD_W;
+  // 캐릭터 키: 층 높이의 70% (6층이면 방이 납작해져 캐릭터도 작아진다)
+  const chH = Math.round(U.clamp(fh * 0.7, 44, 138)), chW = chH * (typeof CH_PARTS !== 'undefined' ? CH_PARTS.w / CH_PARTS.h : 0.49);
+  const RM = Object.fromEntries(V.rooms.map(R => [R.id, R])), meR = b === m ? V.rooms.find(R => R.k === 'ceo') || V.rooms.find(R => R.k === 'lobby') : null;
+  const L = coBlds(t).filter(x => D.V[x]);
+  const tabs = L.map(x => { const n = (t.bldN && t.bldN[x]) || (x === m ? '본사' : coFName(t, x)), ic = x === m ? '🏢' : CO_FIELDS[x].ic; return `<button type="button" class="${x === b ? 'on' : ''}" data-bld="${x}" title="${U.esc(coBldN(t, x))}">${ic}${x === b || L.length <= 2 ? ' ' + U.esc(n) : ''}</button>`; }).join('');
+  let h = `<div class="g2b-sky"></div><i class="g2b-city" style="left:0;width:110px;height:250px"></i><i class="g2b-city" style="left:118px;width:90px;height:330px"></i><i class="g2b-city" style="left:216px;width:80px;height:210px"></i>`
+    + `<i class="g2b-city" style="left:1226px;width:100px;height:300px"></i><i class="g2b-city" style="left:1334px;width:84px;height:230px"></i><i class="g2b-city" style="left:1426px;width:174px;height:350px"></i><div class="g2b-street"></div>`;
+  h += `<div class="g2b${fh < 110 ? ' sm' : ''}" style="--fh:${fh}px;--chh:${chH}px;--chov:${(-chW * 0.16).toFixed(1)}px">`
+    + `<div class="g2b-roof"><div class="g2b-tabs">${tabs}${t.hire ? '' : `<button type="button" class="g2b-ren" data-bldren="${b}" title="사옥 이름 짓기">✏️</button>`}</div><div class="g2b-sign">${U.esc(coFName(t, b))}</div><div class="g2b-inf">${V.sizeN} · ${V.fl}층</div></div>`;
+  for (let fl = V.fl - 1; fl >= 0; fl--) {
+    h += `<div class="g2b-fl"><div class="g2b-fn">${fl + 1}F</div>`;
+    for (let x = 0; x < CO_BLD_W; x++) {
+      const id = V.grid[fl][x];
+      if (!id) { h += ro ? '<span class="g2b-ex ro"></span>' : `<button type="button" class="g2b-ex" data-bcell="${fl},${x}"><i>＋</i><b>증축</b></button>`; continue; }
+      const R = RM[id]; if (R && R.x === x) h += g2RoomCard(s, t, R, { cw, chW, hot: D.hot[id], me: !!meR && meR.id === id });
+    }
+    h += `</div>`;
+  }
+  return h + `</div>`;
+}
+function renderBld() {
+  const s = S, el = $('#g2-bld'), gs = $('#game-screen'); if (!el || !gs) return;
+  const on = g2CeoOn(s);
+  gs.classList.toggle('g2-ceo', on); el.classList.toggle('hidden', !on);
+  if (!on) { if (el._h) { el._h = ''; el.innerHTML = ''; } return; }
+  g2Set('#g2-bld', g2BldHTML(s));
+}
+// 오른쪽 카드 4장: 회사(누르면 회사 창 · 그룹이면 그룹 창) · 이번 달 회사 일(누르면 그 방 창) · 소속 그룹(누르면 그 그룹이 있는 방) · 사옥(누르면 회사 창 사옥 탭)
+// 넘치면 덜 중요한 것부터 줄인다 (lv 1: 사옥 카드 한 줄로 · 2: 그룹 3팀까지 · 3: 회사 일 3건까지 · 4: 사옥 카드 뺌 · 5: 그룹 · 회사 일 2줄까지)
+function g2CeoCards(s, lv) {
+  const D = g2CeoData(s), t = D.t, m = coMainF(t), grp = coIsGrp(t), b = g2CeoB(t), V = D.V[b];
+  const L0 = Object.values(t.lastL || {}), net = L0.reduce((a, v) => a + v, 0), out = -L0.filter(v => v < 0).reduce((a, v) => a + v, 0);
+  const rk = (k, v, c) => `<span class="g2-rk"><span>${k}</span><b${c ? ` class="${c}"` : ''}>${U.esc(v)}</b></span>`;
+  const nv = t.groups.filter(g => g.kind === 'vt').length, nm = t.groups.length - nv;
+  let h = `<button type="button" class="g2-card g2p g2-co" data-panel="${grp ? 'group' : 'company'}"${grp ? '' : ` data-cofx="${m}"`}><span class="g2-ct">🏢 ${U.esc(grp ? coGrpName(t) : t.name)}<i>${U.esc(grp ? `회사 ${coFields(t).length}곳` : coSizeN(t, m))}</i></span>`
+    + `<span class="g2-sub">${grp ? '그룹 자본금' : '자본금'}</span><b class="g2-big${t.money < 0 ? ' neg' : ''}">${fmtWon(t.money)}</b>`
+    + rk('지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg')
+    + (net < 0 && out > 0 ? rk('버틸 수 있는 기간', t.money > 0 ? `약 ${Math.floor(t.money / out)}개월` : '바닥났다', 'neg') : '')
+    + rk('회사 평판', `${Math.round(t.f[m].rep)}`)
+    + (coTrFields(t).length ? rk(`연습생 · ${coGrpWord(t)}`, [`${coTrainees(s).length}명`, t.f.music && (nm || !nv) ? `${nm}팀` : '', t.f.vidol && (nv || !t.f.music) ? `${nv}개` : ''].filter(Boolean).join(' · ')) : '')
+    + (t.f.mcn ? rk('크리에이터', `${(t.crs || []).length}명`) : '')
+    + (t.f.video ? rk('작품', `${(t.vdone || []).length}편${(t.vw || []).length ? ` · 만드는 중 ${t.vw.length}편` : ''}`) : '')
+    + (t.f.anime ? rk('애니', `${(t.adone || []).length}편${(t.aw || []).length ? ` · 만드는 중 ${t.aw.length}편` : ''}`) : '')
+    + rk('직원', `${coStaff(s).length}명`) + `</button>`;
+  const T = D.todo, nT = lv >= 5 ? 2 : lv >= 3 ? 3 : 5;
+  if (T.length) h += `<div class="g2-card g2p g2-todo"><span class="g2-ct">📌 이번 달 회사 일${T.length > nT ? `<i>${T.length}건</i>` : ''}</span>${T.slice(0, nT).map((x, i) => `<button type="button" class="g2-wr${x.warn ? ' warn' : ''}" data-btodo="${i}"><span>${x.ic} ${U.esc(x.n)}</span><b>${U.esc(x.at)}</b></button>`).join('')}</div>`;
+  const G = t.groups || [], nG = lv >= 5 ? 2 : lv >= 2 ? 3 : 6;
+  if (G.length) h += `<div class="g2-card g2p g2-todo"><span class="g2-ct">👥 소속 ${coGrpWord(t)}${G.length > nG ? `<i>${G.length}팀</i>` : ''}</span>${G.slice(0, nG).map(g => {
+    const R = g.proj ? null : coRoomById(t, coBld(t, coFOfKind(g.kind)), g.rm), bb = coBld(t, coFOfKind(g.kind));
+    const at = g.proj ? '프로젝트 그룹' : R ? coRoomName(t, bb, R) : '자리 없음';
+    return `<button type="button" class="g2-wr" data-bgrp="${g.id}"><span>${g.proj ? '🔀' : g.kind === 'band' ? '🎸' : g.kind === 'vt' ? '🎙️' : '🎤'} ${U.esc(g.name)}<small>${U.esc(at)}</small></span><b>${g.debuted ? (g.kind === 'vt' ? `구독자 ${fmtFans(coVSubs(s, g))}` : `팬 ${fmtFans(coGFans(g))}`) : '데뷔 준비 중'}</b></button>`;
+  }).join('')}</div>`;
+  if (lv < 4) h += `<button type="button" class="g2-card g2p" data-cbld="${b}"><span class="g2-ct">🏗️ 사옥<i>${V.sizeN} · ${V.fl}층</i></span>${rk('빈 칸', `${V.free}칸`)}${lv < 1 ? rk('매달 임대료', fmtWon(V.rent)) + rk('매달 방 유지비', fmtWon(V.up)) : ''}</button>`;
+  return h;
+}
+// 이번 달 회사 일 · 소속 그룹 줄을 눌렀을 때: 그 일이 있는 방 창을 연다
+function g2TodoGo(i) {
+  const x = ((UI.ceoD || {}).todo || [])[i]; if (!x || !S || S.ended || !coOn(S)) return;
+  if (x.rid) { g2RoomOpen(x.b, x.rid, { br: x.br }); return; }
+  if (x.build) { const p = coBldSpot(coBldB(coT(S), x.b), 1); UI.bld = x.b; if (p) g2BuildOpen(x.b, p.fl, p.x); else { toast('빈 칸이 없다. 더 큰 사옥으로 이사하면 칸이 는다'); render(); } return; }
+  if (x.gid) g2GrpGo(x.gid);
+}
+function g2GrpGo(gid) {
+  if (!S || S.ended || !coOn(S)) return;
+  const t = coT(S), g = coGroup(S, gid); if (!g) return;
+  const f = coFOfKind(g.kind), b = coBld(t, f);
+  if (!g.proj && coRoomById(t, b, g.rm)) { g2RoomOpen(b, g.rm); return; }
+  UI.coF = f; UI.coTab = 'grp'; UI.coGrp = g.id; openPanel('company');
+}
+
+// ───── 방 창 (UI.cr = { b: 사옥, rid: 방, mv: 옮길 사람 · 그룹 키, br: 데려오기 목록 }) ─────
+// 위: 방 사진 띠 + 이름 · 크기 · 등급. 왼쪽 '할 일'(coRoomActs + 방 손보기 coRoomMgmt), 오른쪽 '여기 있는 사람'(자리가 있는 방만 — 옮기기 · 데려오기). 대표실 · 회의실은 할 일만 넓게
+function g2RoomOpen(b, rid, o) {
+  if (!S || S.ended || !coOn(S) || !coRoomById(coT(S), b, rid)) return;
+  UI.bld = b; UI.cr = { b, rid, mv: null, br: !!(o && o.br) };
+  if (UI.overlay) { UI.overlay = 'coroom'; renderPanel(); } else openPanel('coroom');
+}
+function g2Face(x) { return `<span class="rw-face">${typeof liveChar === 'function' ? liveChar('co/' + x.id, 0, 'co/' + x.id, { sx: x.g === '여' ? 'f' : 'm' }) : ''}</span>`; }
+// 사람 줄 아랫글: 직원은 자리 이름 + 그 일에 쓰는 특기, 연습생 · 멤버는 주특기 (높은 것부터 세 개), 크리에이터는 채널 · 구독자
+function g2PplSub(s, x) {
+  const c = x.co || {};
+  if (c.kind === 'cr' && x.yt) return `${mcnCrName(x)} · 구독자 ${fmtFans(x.yt.subs)}`;
+  const ks = (c.job ? coStKs(x) : coSkillsOf(x)).slice().sort((a, k) => lv(x, k) - lv(x, a)).slice(0, c.job ? 2 : 3).map(k => `${SKILLS[k].n} ${lvi(x, k)}`);
+  return (c.job ? [coStaffN(x)] : []).concat(ks).join(' · ');
+}
+// 사람 · 그룹 한 줄 (그룹은 얼굴을 겹쳐 한 줄로). pre = 아랫글 앞에 붙일 말 (데려오기 목록의 '지금 있는 방')
+function g2UnitRow(s, t, u, btn, pre) {
+  pre = pre ? pre + ' · ' : '';
+  if (u.grp) {
+    const g = u.u, P = coP(s, g.members), st = g.promo > 0 ? ` · 활동 ${g.promo}개월 남음` : coCbBusy(s, g) ? ` · ${g.debuted ? '앨범' : '데뷔'} 준비 중` : '';
+    return `<div class="rw-r pp grp"><span class="rw-faces">${P.slice(0, 4).map(x => g2Face(x)).join('')}</span><span class="rw-tx"><b>${g.kind === 'band' ? '🎸' : g.kind === 'vt' ? '🎙️' : '🎤'} ${U.esc(g.name)}</b><small>${U.esc(pre + u.what + st)}</small></span>${btn}</div>`;
+  }
+  const x = u.u;
+  return `<div class="rw-r pp"><button type="button" class="rw-who" data-pinfo="${x.id}">${g2Face(x)}<span class="rw-tx"><b>${U.esc(x.name)}${x.co.worry ? '<i class="rw-tg">고민 중</i>' : ''}</b><small>${U.esc(pre + g2PplSub(s, x))}</small></span></button>${btn}</div>`;
+}
+// 할 일 한 줄: 그림 · 이름 · 값 줄 · 버튼. 지금 할 일(now)은 노란 테두리 + '이번 달', 못 하는 것은 흐리게 (누르면 까닭)
+// 누를 일은 UI.cra에 모아 둔다 (data-cract). a.sub = 미리 지은 값 줄, a.offBtn = 못 할 때 버튼 글, a.panel = 회사 창 열기
+function g2ActRowHTML(a, dflt) {
+  const [ic, n] = a.emo ? [a.emo, a.t] : g2CoIc(a.t, dflt), sub = a.sub != null ? a.sub : g2ActShort(a.h);
+  const reg = x => UI.cra.push({ x, t: n, why: a.why || x.why || '' }) - 1;
+  let btns = '', dim = false;
+  if (a.panel) btns = `<button type="button" class="rw-b s" data-panel="company" data-cofx="${a.panel}">열기</button>`;
+  else if (a.opts) { dim = !a.opts.some(o => o.ok); btns = a.opts.map((o, i) => { const au = /^🔁/.test(o.btn || ''); return `<button type="button" class="rw-b${au || o.confirm || (i > 0 && !o.on) ? ' s' : ''}${au && o.on ? ' on' : ''}${o.ok ? '' : ' off'}" data-cract="${reg(o)}">${U.esc(o.btn || '하기')}</button>`; }).join(''); }
+  else { dim = !a.ok; btns = `<button type="button" class="rw-b${a.danger || (a.sw && a.on) ? ' s' : ''}${a.ok ? '' : ' off'}" data-cract="${reg(a)}">${U.esc(!a.ok && a.offBtn ? a.offBtn : a.btn || (a.danger ? '실행' : '하기'))}</button>`; }
+  const tip = g2Plain(a.h);
+  return `<div class="rw-r${a.now ? ' hot' : ''}${dim ? ' off' : ''}${a.sw && a.on ? ' on' : ''}"${tip ? ` title="${U.esc(tip)}"` : ''}><em>${ic}</em><span class="rw-tx"><b>${U.esc(n)}${a.now ? '<i class="rw-tg">이번 달</i>' : ''}</b>${sub ? `<small>${U.esc(sub)}</small>` : ''}</span>${btns}</div>`;
+}
+// 방 손보기 줄 (coRoomMgmt)의 값 줄 · 못 할 때 버튼 글을 방 창에 맞게 짧게 짓는다
+function g2MgmtRows(s, t, b, R) {
+  const C = coCeo(t, b), nm = C ? (ceoP(s, C) || {}).name || 'CEO' : '';
+  return coRoomMgmt(s, t, b, R).map(a0 => {
+    const a = C ? coCeoRO(a0, nm) : a0;
+    const sub = a.t === '등급 올리기' ? (R.lv >= 3 ? CO_RLV_N[3] : `${CO_RLV_N[R.lv]} → ${CO_RLV_N[R.lv + 1]} · ${fmtWon(coUpgCost(R))}`) : a.t === '방 넓히기' ? (R.w >= 3 ? '3칸' : `${R.w + 1}칸 · 최대 ${coRoomCapW(R.k, R.w + 1)}명 · ${fmtWon(coWidenCost(R))}`) : g2ActShort(a.h);
+    return Object.assign({}, a, { sub, offBtn: g2WhyShort(a.why) });
+  });
+}
+function panel_coroom() {
+  const s = S, c = UI.cr, t = s && coOn(s) ? coT(s) : null, R = t && c ? coRoomById(t, c.b, c.rid) : null;
+  UI.cra = [];
+  if (!R) return '<div class="rw-none">방이 없다.</div>';
+  const b = c.b, V = coRoomView(s, t, b, R), bg = G2_ROOM_BG[R.k], ro = !!coCeo(t, b);
+  let h = `<div class="rw-h${bg ? '' : ' booth'}"${bg ? ` style="background-image:url('img/${bg[0]}.webp')"` : ''}><div class="rw-t"><b>${V.ic} ${U.esc(V.name)}</b><span>${V.w}칸</span>${V.lvN ? `<span class="lv">${V.lvN}</span>` : ''}</div><button type="button" class="rw-x" data-close>✕</button></div>`;
+  let A = []; try { A = coRoomActs(s, t, b, R) || []; } catch (e) { console.error('방 할 일 오류', R.k, e); }
+  // 대표실(없으면 로비) 할 일 맨 아래: 회사 창으로 가는 길
+  if (R.k === 'ceo' || (R.k === 'lobby' && !coRoomHas(t, b, 'ceo'))) A = A.concat([{ emo: '🏢', t: '회사 창 열기', ok: true, panel: b }]);
+  A = A.concat(g2MgmtRows(s, t, b, R));
+  let left = '';
+  for (const a of A) { if (a.sec) left += `<div class="rw-sec">${U.esc(a.sec)}</div>`; left += g2ActRowHTML(a, V.ic); }
+  if (!V.cap) return h + `<div class="rw-cols one"><div><div class="rw-sh">📋 할 일</div><div class="rw-list two">${left}</div></div></div>`;
+  // 오른쪽: 여기 있는 사람 / 옮길 방 고르기 / 데려오기 (10줄부터는 두 줄로 촘촘하게 — .rw-list.cmp)
+  let right = '';
+  const mvU = c.mv ? coUnitByKey(s, c.mv) : null;
+  if (mvU && coSeatOf(mvU) === R.id) {
+    const T = coSeatTargets(s, t, mvU).filter(o => o.R.id !== R.id).sort((x, y) => (y.ok ? 1 : 0) - (x.ok ? 1 : 0));
+    right = `<div class="rw-sh">↪ ${U.esc(coUnitName(mvU))} 옮길 방<button type="button" class="rw-bk back-btn" data-crback>← 뒤로</button></div><div class="rw-list">`
+      + (T.length ? T.map(o => `<div class="rw-r pp${o.ok ? '' : ' off'}"><em>${coRK(o.R.k).ic}</em><span class="rw-tx"><b>${U.esc(o.name)}</b><small>${U.esc(o.ok ? `${o.R.fl + 1}층 · ${o.n}/${o.cap}명` : o.why)}</small></span>${o.ok ? `<button type="button" class="rw-b" data-crto="${o.R.id}">여기로</button>` : `<button type="button" class="rw-b s off" data-g2why="${U.esc(o.why)}">${o.n}/${o.cap}명</button>`}</div>`).join('') : '<div class="rw-none">옮길 수 있는 다른 방이 없다.</div>') + `</div>`;
+  } else if (c.br) {
+    c.mv = null;
+    const occ = coBldOcc(s, t, b), rank = u => (coRoomById(t, b, coSeatOf(u)) ? 1 : 0);
+    const L = coBldUnits(s, t, b).filter(u => coSeatOf(u) !== R.id && !coSeatWhy(s, t, u, R, occ)).sort((x, y) => rank(x) - rank(y) || coUnitRank(y) - coUnitRank(x));
+    right = `<div class="rw-sh">＋ 데려올 사람<button type="button" class="rw-bk back-btn" data-crback>← 뒤로</button></div><div class="rw-list${L.length >= 10 ? ' cmp' : ''}">`
+      + (L.length ? L.map(u => { const R0 = coRoomById(t, b, coSeatOf(u)), uv = coUnitView(s, t, u); return g2UnitRow(s, t, uv, `<button type="button" class="rw-b" data-crin="${uv.key}">데려오기</button>`, R0 ? coRoomName(t, b, R0) : '자리 없음'); }).join('') : '<div class="rw-none">지금 이 방으로 올 수 있는 사람이 없다.</div>') + `</div>`;
+  } else {
+    c.mv = null;
+    right = `<div class="rw-sh">👥 여기 있는 사람<span>${V.n} / ${V.cap}명</span></div><div class="rw-list${V.units.length >= 10 ? ' cmp' : ''}">`
+      + V.units.map(u => g2UnitRow(s, t, u, ro ? '' : `<button type="button" class="rw-b s" data-crmv="${u.key}">옮기기</button>`)).join('')
+      + (ro ? '' : `<button type="button" class="rw-add" data-crbr>＋ 데려오기</button>`) + `</div>`;
+  }
+  return h + `<div class="rw-cols"><div><div class="rw-sh">📋 할 일</div><div class="rw-list">${left || '<div class="rw-none">여기서 할 일이 없다.</div>'}</div></div><div>${right}</div></div>`;
+}
+// 방 창의 할 일 버튼 (회사 창 '하기' 버튼과 같은 순서 — data-act). 못 하는 일은 까닭을 알려 주고, 사건 창이 뜨는 일은 마친 뒤 이 방 창으로 돌아온다 (S.uiOpen)
+function g2CrAct(i) {
+  const c = (UI.cra || [])[i]; if (!c || !S || S.ended) return;
+  const a = c.x, key = UI.overlay === 'coroom' && UI.cr ? `coroom:${UI.cr.b}:${UI.cr.rid}` : '';
+  if (!a.ok) { toast(c.why || '지금은 할 수 없다'); return; }
+  const go = () => {
+    const L0 = S.log[S.log.length - 1], p0 = S.pending;
+    CH_RAND = 0; const r = a.run(S); UI.actUnc = CH_RAND > 0;
+    applyLocks(S); if (S.pending && S.pending !== p0) UI.minimized = false;
+    if (r) addLog(S, r, 'ev');
+    actAuto(S); save(S); UI.ceoD = null;
+    actDone(L0, c.t, () => { if (key) S.uiOpen = key; });
+    // 방이 없어졌으면(허물기 · 회사 정리) 창을 닫는다
+    if (UI.overlay === 'coroom' && !(coOn(S) && UI.cr && coRoomById(coT(S), UI.cr.b, UI.cr.rid))) closePanel();
+  };
+  if (a.confirm) askConfirm(a.confirm, go); else go();
+}
+// 사람 · 그룹을 방으로 옮긴다 (옮기기에서 고른 방 · 데려오기). 기록에는 남기지 않고 알림만 띄운다 (자리만 바뀌는 일이라)
+function g2SeatDo(key, rid) {
+  const s = S; if (!s || s.ended || !coOn(s) || !UI.cr) return;
+  const t = coT(s), u = coUnitByKey(s, key), R = coRoomById(t, UI.cr.b, rid); if (!u || !R) return;
+  const why = coCeo(t, UI.cr.b) ? 'CEO가 맡고 있다' : coUnitB(t, u) !== UI.cr.b ? '다른 사옥에 있다' : coSeatWhy(s, t, u, R);
+  if (why) { toast(why); return; }
+  const r = coSeatMove(s, t, u, R);
+  save(s); UI.cr.mv = null; UI.ceoD = null;
+  if (r) toast(r);
+  renderPanel(); render();
+}
+
+// ───── 증축 창 (UI.cb = { b: 사옥, fl: 층, x: 누른 칸, a · e: 그 칸에서 이어진 빈 칸의 처음 · 끝, w: 고른 크기 }) ─────
+// 크기(1 · 2 · 3칸)를 고르고 들일 방을 누르면 바로 들인다. 누른 칸이 들어가게, 이어진 빈 칸 안에서 자리를 잡는다 (g2BuildX)
+function g2BuildOpen(b, fl, x) {
+  if (!S || S.ended || !coOn(S)) return;
+  const t = coT(S), B = coBldB(t, b); if (!B || coCeo(t, b) || !coCellsFree(B, fl, x, 1)) return;
+  let a = x, e = x; while (a > 0 && coCellsFree(B, fl, a - 1, 1)) a--; while (e < CO_BLD_W - 1 && coCellsFree(B, fl, e + 1, 1)) e++;
+  UI.bld = b; UI.cb = { b, fl, x, a, e, w: Math.min(2, e - a + 1, 3) };
+  if (UI.overlay) { UI.overlay = 'cobuild'; renderPanel(); } else openPanel('cobuild');
+}
+function g2BuildX(c, w) { return Math.max(c.a, Math.min(c.x, c.e - w + 1)); }
+function g2BuildW(c) { return Math.max(1, Math.min(c.w, c.e - c.a + 1, 3)); }
+function panel_cobuild() {
+  const s = S, c = UI.cb, t = s && coOn(s) ? coT(s) : null, B = t && c ? coBldB(t, c.b) : null;
+  if (!B) return '<div class="rw-none">사옥이 없다.</div>';
+  const seg = Math.min(3, c.e - c.a + 1), w = g2BuildW(c), L = coBuildList(s, t, c.b, w, c.fl, g2BuildX(c, w)).filter(o => o.k !== 'lobby');
+  let h = `<div class="bw-hd"><b>🔨 증축 · ${c.fl + 1}층</b><span class="bw-seg">${[1, 2, 3].map(n => `<button type="button" class="${n === w ? 'on' : n > seg ? 'off' : ''}" data-cbw="${n}">${n}칸</button>`).join('')}</span><span class="bw-m">💰 자본금 <b>${fmtWon(coM(t, c.b))}</b></span><button type="button" class="rw-x" data-close>✕</button></div>`;
+  h += `<div class="bw-grid">` + L.map(o => {
+    const poor = !o.ok && /자본금/.test(o.why), has = !o.ok && /이미 있다/.test(o.why);
+    return `<button type="button" class="bw-c${o.ok ? '' : ' off'}" data-cbk="${o.k}"><em>${o.ic}</em><span class="rw-tx"><b>${U.esc(o.n)}${o.w !== w ? '<u>1칸</u>' : ''}</b><small>${U.esc(o.eff).replace(/([↑↓])/g, '<i>$1</i>')}${o.cap ? ` · 최대 ${o.cap}명` : ''}</small></span>`
+      + `<span class="bw-p"><b>${has ? '이미 있음' : !o.ok && !poor ? g2WhyShort(o.why) : fmtWon(o.price)}</b>${has ? '' : `<small${poor ? ' class="neg"' : ''}>${poor ? '자본금이 모자라다' : `매달 ${fmtWon(o.up)}`}</small>`}</span></button>`;
+  }).join('') + `</div>`;
+  return h;
+}
+function g2BuildDo(k) {
+  const s = S, c = UI.cb; if (!s || s.ended || !coOn(s) || !c) return;
+  const t = coT(s), w = coRK(k).fix ? 1 : g2BuildW(c), x0 = g2BuildX(c, w), why = coCeo(t, c.b) ? 'CEO가 맡고 있다' : coBuildWhy(s, t, c.b, k, w, c.fl, x0);
+  if (why) { toast(why); return; }
+  const L0 = s.log[s.log.length - 1], r = coBuild(s, t, c.b, k, w, c.fl, x0);
+  if (r) addLog(s, r, 'ev');
+  actAuto(s); save(s); UI.ceoD = null;
+  closePanel();
+  const L = logsAfter(s, L0); if (L.length) ctoastShow({ title: '증축', L, all: true });
+}
+
+// ───── 사옥 고르기 창 (회사 차리기 co_bld_pick · 사옥 이사 co_bld_move · 자회사 사옥 옮기기 co_own) ─────
+// 선택지에 사옥 규모 줄(c.bld)이 실린 사건은 사건 창을 집 고르기처럼 그린다 (showEventRaw). 입지 탭(c.locTab) · 규모 줄(c.bld) · 있는 사옥으로 옮기는 줄(c.to), 마지막 선택지(그만두기)는 ✕
+function g2BldPickHTML(s, id, d, C) {
+  const t = coOn(s) ? coT(s) : null, pick = id === 'co_bld_pick', own = id === 'co_own', f = own || pick ? d.f : d.b;
+  const head = pick ? ['🏢 사옥 고르기', `${CO_FIELDS[f].ic} ${CO_FIELDS[f].n}`] : own ? ['🚚 사옥 옮기기', `${CO_FIELDS[f].ic} ${coFName(t, f)}`] : ['🚚 사옥 이사', `🏢 ${coBldN(t, f)}`];
+  const plain = C.map((c, i) => i).filter(i => !C[i].bld && !C[i].locTab && !C[i].to), iX = plain.length ? plain[plain.length - 1] : -1;
+  let h = `<div class="bw-hd"><b>${head[0]}</b><span class="bw-chip">${U.esc(head[1])}</span><button type="button" class="rw-x"${iX >= 0 ? ` data-choice="${iX}"` : ' data-min'}>✕</button></div>`;
+  if (C.some(c => c.locTab)) {
+    const cur = t ? coLocRid(t) : '', ord = (CO_LOC[s.region] ? [s.region] : []).concat(CO_LOC_ORD.filter(r => r !== s.region));
+    h += `<div class="fw-tabs">${ord.map(r => { const i = C.findIndex(c => c.locTab === r), n = `${REGION_BY[r].n}${!pick && r === cur ? ' (지금 사옥)' : r === s.region ? ' (지금 사는 곳)' : ''}`; return r === d.loc ? `<span class="on">${n}</span>` : i >= 0 ? `<button type="button" data-choice="${i}">${n}</button>` : ''; }).join('')}</div>`;
+  }
+  const first = pick || own ? ` · 로비 · ${coRK(coBldFirstK(f)).n} 1칸` : '';
+  h += `<div class="fw-list">` + C.map((c, i) => {
+    const ok = !c.ok || c.ok(s);
+    if (c.bld) {
+      const o = c.bld, why = o.why || '고를 수 없다';
+      const big = pick ? fmtWon(o.start) : o.cur ? '' : o.cost >= 0 ? fmtWon(o.cost) : `${fmtWon(-o.cost)} 돌려받는다`;
+      // 값 줄은 조각마다 끊기지 않게 싸 둔다 (길면 조각 사이에서 두 줄로 넘어간다)
+      const sm = (pick ? [`보증금 ${fmtWon(o.dep)}`, `매달 임대료 ${fmtWon(o.rent)}`] : o.cur ? [`매달 임대료 ${fmtWon(o.rent)}`] : [`보증금 ${fmtWon(o.dep)}`, `이사비 ${fmtWon(o.fee)}`, own && o.rooms ? `방 ${fmtWon(o.rooms)}` : '', o.back ? `돌려받는 보증금 ${fmtWon(o.back)}` : '', `매달 임대료 ${fmtWon(o.rent)}`]).filter(Boolean).map(x => `<i>${x}</i>`).join(' · ');
+      return `<div class="fw-r${ok ? '' : ' off'}"><span class="fw-ico">${'<i></i>'.repeat(o.fl)}</span><span class="rw-tx"><b>${U.esc(o.n)} · ${o.fl}층</b><small>${o.cells}칸${first}</small></span><span class="fw-m"><b>${big}</b><small>${sm}</small></span>`
+        + (ok ? `<button type="button" class="fw-b" data-choice="${i}">고르기</button>` : `<button type="button" class="fw-b off" data-g2why="${U.esc(why)}">${g2WhyShort(why)}</button>`) + `</div>`;
+    }
+    if (c.to) return `<div class="fw-r${ok ? '' : ' off'}"><span class="fw-ico one">🏢</span><span class="rw-tx"><b>${U.esc(coBldN(t, c.to))}</b><small>${U.esc(c.h || '')}</small></span>` + (ok ? `<button type="button" class="fw-b" data-choice="${i}">옮기기</button>` : `<button type="button" class="fw-b off" data-g2why="${U.esc(c.h || '')}">옮길 수 없음</button>`) + `</div>`;
+    return '';
+  }).join('') + `</div>`;
+  h += `<div class="fw-ft">${plain.slice(0, -1).map(i => `<button type="button" class="rw-b s" data-choice="${i}">${U.esc(C[i].t)}</button>`).join('')}<span>💰 ${pick ? '내 돈' : `「${U.esc(coFName(t, f))}」 자본금`} <b>${fmtWon(pick ? s.money : coM(t, f))}</b></span></div>`;
+  return h;
+}
+// 캐릭터 그림 칠하기: 그 창 안의 것만 (방 창의 얼굴)
+function g2PaintIn(q) { if (typeof chLoad !== 'function' || !document.querySelector(q + ' canvas.lv-chc')) return; chLoad(); if (CH.ok) document.querySelectorAll(q + ' canvas.lv-chc').forEach(chPaint); }
 
 // 고정된 칸의 이유 (그 칸 바로 아래에 보인다)
 function lockWhy(s, lock) {
@@ -695,7 +1038,7 @@ function trendRowHTML(s, only) {
 }
 // 오른쪽·왼쪽 박스들. 박스 하나를 그리다 오류가 나도 나머지는 그린다 (오류는 콘솔과 UI.drawErr에 남긴다)
 function renderSide() {
-  for (const f of [renderJobsCard, renderPeopleCard, renderStatusCard, renderMoneyCard, renderLifeCard, renderCoCard]) {
+  for (const f of [renderJobsCard, renderPeopleCard, renderStatusCard, renderMoneyCard, renderLifeCard]) {
     try { f(); } catch (e) { console.error('화면 그리기 오류', f.name, e); (UI.drawErr = UI.drawErr || []).push(`${f.name}: ${e.message}`); }
   }
 }
@@ -856,51 +1199,7 @@ function coNewBannerHTML(sub, why) {
   const t = sub ? '자회사 설립' : '회사 설립', h = sub ? `설립 비용 ${fmtWon(CO_ADD_COST)} (그룹 자본금)` : `자본금 ${fmtWon(CO_SEED)}부터 (입지마다 다름 · 내 돈)`;
   return `<button class="co-new${why ? ' chainlk' : ''}"${why ? '' : ` data-cofound="${sub ? 'sub' : 'new'}"`}><span class="co-new-t">＋ ${t}</span><span class="co-new-h">${h}</span>${why ? `<span class="co-why">${U.esc(why)}</span>` : ''}</button>`;
 }
-function renderCoCard() {
-  const s = S, el = $('#co-card');
-  if (!el || !s) return;
-  const t = trackOn(s, 'agency') ? s.tracks.agency : null;
-  el.removeAttribute('data-panel');
-  if (!t) {
-    // 회사가 없을 때: 현금이 1억 원 이상이면 '회사 설립 가능' 배너, 아니면 잠긴 박스
-    // v239: 회사가 없으면 박스를 비운다 (회사 설립 버튼은 왼쪽 역할 아래 — renderJobsCard)
-    el.className = 'card co-card hidden'; delete el.dataset.cofx; el.innerHTML = '';
-    return;
-  }
-  // v191: '회사/그룹' 칸 = 사옥 상자들. 사옥 상자: 사옥 이름 · 연습실 정원 · 사옥 전체 자본금 · 지난달 순수익, 안에 회사 배너(작게: 어떤 회사 · 직원 수 · 기획 중인지)
-  //   회사 배너를 누르면 그 회사 창, 배너 밖(사옥 상자 · 빈 곳)을 누르면 그룹 창 (회사가 하나면 그 회사 창). 사옥 상자는 따로 눌리지 않는다
-  const fs = coFields(t), main = coMainF(t), grp = typeof coIsGrp === 'function' && coIsGrp(t);
-  el.className = 'card co-card bn-card co-wrap' + (g2Role(s) === 'agency' ? '' : ' hidden'); el.dataset.panel = grp ? 'group' : 'company';
-  if (grp) delete el.dataset.cofx; else el.dataset.cofx = main;
-  const B = typeof coBlds === 'function' ? coBlds(t) : [main];
-  let h = `<div class="card-h">🏢 회사/그룹${grp ? `<span class="sub">${U.esc(coGrpName(t))} · 회사 ${fs.length}곳</span>` : ''}</div>`;
-  h += B.map(b => {
-    const bf = typeof coBldFs === 'function' ? coBldFs(t, b) : fs, money = bf.reduce((a, f) => a + (t.f[f].money || 0), 0);
-    const net = bf.reduce((a, f) => a + coNetRow(Object.fromEntries(Object.entries(t.f[f].lastL || {}).filter(([k]) => !CO_IO.includes(k))))[0], 0), rt = typeof coRoomTxt === 'function' ? coRoomTxt(s, t, b) : '';
-    return `<div class="co-bld"><div class="co-bld-h">🏢 ${U.esc(typeof coBldN === 'function' ? coBldN(t, b) : '본사 사옥')}${t.hire ? '' : ` <button type="button" class="bld-ren" data-bldren="${b}" title="사옥 이름 짓기">✏️</button>`}${rt ? ` <span class="${/꽉/.test(rt) ? 'neg' : ''}">· ${U.esc(rt)}</span>` : ''}</div>`
-      + coBnFacts([['자본금', fmtWon(money), money < 0 ? 'neg' : ''], ['지난달 순수익', `${net >= 0 ? '+' : '-'}${fmtWon(Math.abs(net))}`, net >= 0 ? 'pos' : 'neg']])
-      + `<div class="co-minis">${bf.map(f => coMiniHTML(s, t, f)).join('')}</div></div>`;
-  }).join('');
-  el.innerHTML = h;
-}
-// 사옥 상자 안 회사 배너 (v191): 이름 · 어떤 회사 · 직원 수 · 기획 중이면 표시 (영상 · 애니는 만드는 작품 수도)
-function coMiniHTML(s, t, f) {
-  const n = coStaff(s, null, f).length, tags = coPlanTags(s, t, f).map(x => `<span class="cm-tag">${U.esc(x)}</span>`).join('');
-  const dot = typeof coCbManual === 'function' && t.groups.some(g => coFOfKind(g.kind) === f && g.cbRd === 1 && coCbManual(s, t, g));
-  return `<button type="button" class="co-mini" data-cof="${f}">${dot ? '<i class="rdot"></i>' : ''}<span class="cm-ic">${CO_FIELDS[f].ic}</span><span class="cm-b"><b>${U.esc(coFName(t, f))}</b>${tags}<span class="cm-s">${f === coMainF(t) && coIsGrp(t) ? '모회사 · ' : ''}${TIER_N[t.f[f].tier]} ${CO_TYPE_N[f] || CO_FIELDS[f].n} · 직원 ${n}명</span></span><span class="sb-n">›</span></button>`;
-}
-// 그 회사에서 지금 기획하는 것: 작품 기획 회의 · 컴백 회의가 열려 있으면 '기획 중', 영상 · 애니는 만드는 작품 수
-function coPlanTags(s, t, f) {
-  const Q = [s.pending].concat(s.queue || []).filter(Boolean), R = [];
-  const vf = q => q.d && q.d.P ? (q.d.P.f === 'anime' ? 'anime' : 'video') : /^co_a/.test(q.id) ? 'anime' : 'video';
-  const plan = Q.some(q => (typeof CO_V_CHAIN !== 'undefined' && CO_V_CHAIN.includes(q.id) && vf(q) === f) || ((q.id === 'co_plan' || q.id === 'co_pick') && q.d && t.groups.some(g => g.id === q.d.gid && coFOfKind(g.kind) === f)));
-  if (plan) R.push('기획 중');
-  // v211: 컴백 · 데뷔 준비를 시작할 수 있는 팀 (직접 하는 그룹)
-  if (f === 'music' && typeof coCbManual === 'function') { const n = t.groups.filter(g => coFOfKind(g.kind) === f && coCbManual(s, t, g) && !coCbWhy(s, t, g)).length; if (n) R.push(`준비 가능 ${n}팀`); }
-  const w = f === 'video' ? (t.vw || []).length : f === 'anime' ? (t.aw || []).length : 0;
-  if (w) R.push(`제작 중 ${w}편`);
-  return R;
-}
+// v242: 메인 화면의 옛 사옥 상자(renderCoCard · coMiniHTML · coPlanTags, #co-card)는 없앴다. 대표 화면의 사옥 단면(renderBld)과 오른쪽 카드(g2CeoCards)가 그 자리를 맡는다
 // 상태: 군 복무·병은 맨 위에 눈에 띄게 (누르면 자세히)
 // 집에 따라 바뀌는 배경 (v151): img/bg/ 안에 그림이 있으면 게임 화면 뒤에 깐다. 없으면 지금 바탕 그대로. 원본은 img/home/ 에 두고 python dev/make_bg.py 로 가볍게 줄여 img/bg/ 에 만든다 (v152)
 // 그림 이름: parents(본가) · dorm(기획사 숙소) · s(원룸) · m(투룸 · 아파트) · l(넓은 아파트) + .webp
@@ -909,8 +1208,9 @@ function homeBgSync() {
   const el = $('#game-screen'); if (!el || !S) return;
   UI.bgOK = UI.bgOK || {}; UI.bgLum = UI.bgLum || {};
   // v240: 고른 직업의 장면(g2SceneKey)을 먼저, 그 그림이 없으면 집. v239: 배경이 어두우면 밝은 배너로 (g2-light) — 그림의 평균 밝기를 한 번 재 둔다 (못 재면 어두운 배너 그대로)
+  // v242: 대표 화면은 하늘 배경이라 밝다 → 늘 어두운 배너
   const keys = () => { const a = g2SceneKey(S), h = 'bg/' + homeBgKey(S); return a === h ? [h] : [a, h]; };
-  const set = () => { const kk = keys().find(k => UI.bgOK[k] === 1), lm = kk ? UI.bgLum[kk] : null; el.classList.toggle('has-bg', !!kk); el.classList.toggle('g2-light', !!kk && lm != null && lm < 0.42); if (kk) el.style.setProperty('--home-bg', `url("img/${kk}.webp")`); };
+  const set = () => { const kk = keys().find(k => UI.bgOK[k] === 1), lm = kk ? UI.bgLum[kk] : null; el.classList.toggle('has-bg', !!kk); el.classList.toggle('g2-light', !g2CeoOn(S) && !!kk && lm != null && lm < 0.42); if (kk) el.style.setProperty('--home-bg', `url("img/${kk}.webp")`); };
   const lum = (k, im) => { try { const c = document.createElement('canvas'); c.width = 16; c.height = 9; const x = c.getContext('2d'); x.drawImage(im, 0, 0, 16, 9); const d = x.getImageData(0, 0, 16, 9).data; let t = 0; for (let i = 0; i < d.length; i += 4) t += d[i] * .299 + d[i + 1] * .587 + d[i + 2] * .114; UI.bgLum[k] = t / (d.length / 4) / 255; } catch (e) { } };
   for (const k of keys()) if (UI.bgOK[k] == null) { UI.bgOK[k] = 0; const im = new Image(); im.onload = () => { UI.bgOK[k] = 1; lum(k, im); set(); }; im.onerror = () => { UI.bgOK[k] = -1; set(); }; im.src = `img/${k}.webp`; }
   set();
@@ -1019,6 +1319,8 @@ function showEventRaw() {
     if (sp && liveWant(sp)) { $('#modal').classList.add('hidden'); liveOpen(sp, () => showEvent()); return; }
   }
   if (liveOn()) return;
+  // v242: 사옥 고르기 창 (회사 차리기 · 사옥 이사 · 자회사 사옥 옮기기) — 선택지에 사옥 규모 줄(c.bld)이 실린 사건은 집 고르기처럼 따로 그린다 (g2BldPickHTML). 고르는 버튼은 그대로 data-choice
+  if (!ev.form && !ev.tbl && ev.ch) { const CB = evChoices(s); if (CB.some(c => c.bld)) { UI.res = null; $('#mcard').className = 'mcard g2w fw'; $('#mcard').innerHTML = g2BldPickHTML(s, s.pending.id, d, CB); $('#modal').classList.remove('hidden'); return; } }
   const hx = ev.html ? ev.html(s, d) : '';
   UI.res = null;
   let h = `${scBandHTML(s.pending.id, ev, s, d)}<button class="m-min" data-min>창 내리기</button><div class="m-cat">${U.esc(evCat(ev, s, d))}</div><div class="m-title">${U.esc(typeof ev.title === 'function' ? ev.title(s, d) : ev.title)}</div>${hx ? `<div class="m-html">${hx}</div>` : `<div class="m-text">${rich(ev.text(s, d))}</div>`}`;
@@ -1159,6 +1461,8 @@ function afterChoiceGo() {
   if (S.pending) { showEvent(); return; }
   // 사건에서 '지원 창 열기' 같은 걸 골랐으면 그 창을 연다
   // v238: 'job:직업:탭' — 그 직업 창(none이면 무직 창)의 그 탭을 연다 (지원 알림의 '지원하러 가기'). 예전 세이브의 'applyact'(없앤 활동 지원 창)도 이리로
+  // v242: 'coroom:사옥:방' — 방 창에서 연 사건을 마치면 그 방 창으로 돌아온다 (방이 없어졌으면 열지 않는다)
+  if (S.uiOpen && /^coroom:/.test(S.uiOpen)) { const m = /^coroom:([^:]+):(.+)$/.exec(S.uiOpen); delete S.uiOpen; if (m) g2RoomOpen(m[1], m[2]); }
   if (S.uiOpen) { const k = S.uiOpen; delete S.uiOpen; const m = /^job:([^:]+):?(.*)$/.exec(k === 'applyact' ? `job:${aaHome(S)}:apply` : k); if (m) { UI.jobId = m[1]; UI.jobFrom = ''; UI.jobTab = m[2] || 'act'; openPanel('job'); } else openPanel(k); }
   startLoop();
 }
@@ -1454,9 +1758,12 @@ function renderPanel() {
   else if (typeof window['panel_' + k] === 'function') h += window['panel_' + k]();
   $('#pcard').classList.toggle('wide', k === 'company' || k === 'group'); // 회사 창은 넓게 (v131)
   $('#pcard').classList.toggle('p-small', k === 'menu' || k === 'pastecode'); // v205: 메뉴 · 세이브 코드 창은 작게 그대로
+  // v242: 방 창 · 증축 창은 대표 화면 모양 (.g2w — 무대와 같은 배율로 뜬다)
+  for (const [c, on] of [['g2w', k === 'coroom' || k === 'cobuild'], ['rw', k === 'coroom'], ['bw', k === 'cobuild']]) $('#pcard').classList.toggle(c, on);
   $('#panel').classList.toggle('top', panelTop(k));
   $('#pcard').innerHTML = h;
   apPlace();
+  if (k === 'coroom') g2PaintIn('#pcard');
   if (k === 'pick') { const q = $('#pick-q'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }
 }
 // 위쪽에 붙는 창 (v183): 탭 · 펼치기 · 찾기 · 행동 결과 띠로 높이가 바뀌는 창은 가운데 정렬이면 누를 때마다 위치가 튄다.
@@ -3078,6 +3385,22 @@ document.addEventListener('click', e => {
   if (t.dataset.love != null) { openPanel('love'); return; }
   // v239: 역할 배지 — 다른 역할이면 그 역할 화면으로 바꾸고, 이미 보고 있는 역할이면 그 직업 창을 연다
   if (t.dataset.g2a != null) { const x = (UI.g2acts || [])[+t.dataset.g2a]; if (x) g2ActRun(x); return; }
+  // v242: 대표 화면 — 사옥 탭 · 방 · 빈 칸 · 이번 달 회사 일 · 소속 그룹 · 사옥 카드, 방 창(할 일 · 옮기기 · 데려오기), 증축 창(크기 · 들일 방)
+  if (t.dataset.bld) { UI.bld = t.dataset.bld; render(); return; }
+  if (t.dataset.broom) { g2RoomOpen(UI.bld, t.dataset.broom); return; }
+  if (t.dataset.bcell) { const [fl, x] = t.dataset.bcell.split(',').map(Number); g2BuildOpen(UI.bld, fl, x); return; }
+  if (t.dataset.btodo != null) { g2TodoGo(+t.dataset.btodo); return; }
+  if (t.dataset.bgrp) { g2GrpGo(t.dataset.bgrp); return; }
+  if (t.dataset.cbld) { if (!S || !coOn(S)) return; UI.coF = t.dataset.cbld; UI.coTab = 'room'; UI.coGrp = null; openPanel('company'); return; }
+  if (t.dataset.cract != null) { g2CrAct(+t.dataset.cract); return; }
+  if (t.dataset.crmv) { if (UI.cr) { UI.cr.mv = t.dataset.crmv; UI.cr.br = false; renderPanel(); } return; }
+  if (t.dataset.crbr != null) { if (UI.cr) { UI.cr.br = true; UI.cr.mv = null; renderPanel(); } return; }
+  if (t.dataset.crback != null) { if (UI.cr) { UI.cr.mv = null; UI.cr.br = false; renderPanel(); } return; }
+  if (t.dataset.crto) { if (UI.cr) g2SeatDo(UI.cr.mv, t.dataset.crto); return; }
+  if (t.dataset.crin) { if (UI.cr) g2SeatDo(t.dataset.crin, UI.cr.rid); return; }
+  if (t.dataset.cbw) { const c = UI.cb, n = +t.dataset.cbw; if (!c) return; if (n > c.e - c.a + 1) { toast(`이 자리에는 빈 칸이 ${c.e - c.a + 1}칸만 이어져 있다`); return; } c.w = n; renderPanel(); return; }
+  if (t.dataset.cbk) { g2BuildDo(t.dataset.cbk); return; }
+  if (t.dataset.g2why != null) { toast(t.dataset.g2why || '지금은 할 수 없다'); return; }
   if (t.dataset.role) { if (UI.role !== t.dataset.role) { UI.role = t.dataset.role; render(); return; } UI.jobId = t.dataset.role; UI.jobFrom = ''; UI.jobTab = t.dataset.role === 'none' ? 'apply' : 'act'; openPanel('job'); return; }
   if (t.dataset.job) { UI.jobId = t.dataset.job; UI.jobFrom = t.dataset.from || ''; UI.jobTab = t.dataset.jt || (t.dataset.job === 'none' ? 'apply' : 'act'); openPanel('job'); return; } // v238: 무직 배너는 지원 탭부터
   if (t.dataset.jobtab) { UI.jobTab = t.dataset.jobtab; renderPanel(); return; }
