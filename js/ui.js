@@ -1725,7 +1725,7 @@ function showEnding(preview) {
 
 // ───── 패널 ─────
 // v194: 인간관계 창은 다시 열어도 저번에 펼치고 접은 그대로 (UI.pplOpen을 지우지 않는다). 스크롤만 맨 위로 (top0)
-function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people') UI.pplAll = false; if (kind === 'people' && S.pplSeenT !== S.t) { S.pplSeenT = S.t; renderPeopleCard(); } UI.overlay = kind; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
+function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people') UI.pplTab = '0'; if (kind === 'people' && S.pplSeenT !== S.t) { S.pplSeenT = S.t; renderPeopleCard(); } UI.overlay = kind; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
 function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.apjFrom = null; UI.skFrom = null; UI.pickNew = null; UI.aaNew = null; UI.skDrop = false; UI.pickSlot = null; if (S) render(); }
 // 행동 버튼 한 줄. 버튼이 누를 일은 UI.acts(창) 또는 UI.lacts(오른쪽 생활 카드)에 모아 둔다
 function actRow(a) {
@@ -2322,10 +2322,20 @@ function pplCmp(s, a, b) {
 }
 function panelPeople() {
   const s = S;
-  let h = `<h2>인간관계</h2><p class="p-intro">관계는 살면서 생기는 일들로 바뀐다. 연인·배우자는 반년, 나머지는 1년 넘게 연락하지 않으면 멀어진다.<br><b>${contactLeftLine(s)}</b></p>`;
   // v241: 고른 직업 배지와 관련 있는 사람만 보인다 (가족 · 연인은 늘). 직업이 없으면(무직 · 학생 · 군 복무) 다 보인다. '전체'를 누르면 모두
-  const role = g2Role(s), rf = role !== 'none' && !UI.pplAll;
-  if (role !== 'none') h += `<div class="ap-row pf-tabs">${[['0', `${jobIc(role)} ${U.esc(role === 'agency' && typeof coOn === 'function' && coOn(s) ? coT(s).name : jobName(role))}`], ['1', '👥 전체']].map(([v, n]) => `<button class="ap-tab ${(v === '1') === !rf ? 'on' : ''}" data-pall="${v}">${n}</button>`).join('')}</div>`;
+  // v243: 탭 셋 — 고른 직업 ('0') · 👥 전체 ('1') · ⭐ 업계 인물 ('n'). 업계 인물 탭은 아는 업계 인물이 있거나 고른 직업에 업계 인물 분야가 있을 때만
+  const role = g2Role(s), nOn = pplNpcOn(s, role);
+  let tab = UI.pplTab || '0';
+  if (tab === 'n' && !nOn) tab = '0';
+  if (tab === '0' && role === 'none') tab = '1';
+  const rf = tab === '0', T = [];
+  if (role !== 'none') T.push(['0', `${jobIc(role)} ${U.esc(role === 'agency' && typeof coOn === 'function' && coOn(s) ? coT(s).name : jobName(role))}`]);
+  T.push(['1', '👥 전체']);
+  if (nOn) T.push(['n', '⭐ 업계 인물']);
+  let h = `<h2>인간관계</h2>`;
+  if (T.length > 1) h += `<div class="ap-row pf-tabs">${T.map(([v, n]) => `<button class="ap-tab ${v === tab ? 'on' : ''}" data-pall="${v}">${n}</button>`).join('')}</div>`;
+  if (tab === 'n') return h + pplNpcHTML(s, role);
+  h += `<p class="p-intro">관계는 살면서 생기는 일들로 바뀐다. 연인·배우자는 반년, 나머지는 1년 넘게 연락하지 않으면 멀어진다.<br><b>${contactLeftLine(s)}</b></p>`;
   h += `<div class="sec-h">가족</div><div class="npc">`;
   for (const p of [mom(s), dad(s)].filter(Boolean)) h += `<div class="npc-d">${p.rel} ${p.name} · ${p.alive ? `${pAge(s, p)}세 · ${U.esc(p.job)} · ${skillLine(p, 2, s)}` : '돌아가셨다'}</div>`;
   if (s.family.single) h += `<div class="npc-d">엄마 혼자 키우신 집이다.</div>`;
@@ -2342,7 +2352,7 @@ function panelPeople() {
   if (rf ? !list.some(n => pplTop(n) !== 'fam') : !list.length) h += `<div class="muted">${rf ? '이 일로 만난 사람이 아직 없다.' : '아직 가까운 사람이 없다.'}</div>`;
   // 트리 뷰 (피드백 26): 가족·연인 · 친구 · 동료(어느 직업으로 만났나) · 지인(그 사람의 직업)
   UI.pplOpen = UI.pplOpen || {};
-  const tog = (key, open, title, n) => `<button class="ap-cat-h ap-tog" data-pgrp="${U.esc(key)}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${title}<span class="hint">${n}명</span></button>`;
+  const tog = pplTog;
   for (const [k, title] of PPL_TOP) {
     const L = list.filter(n => pplTop(n) === k);
     if (!L.length) continue;
@@ -2376,6 +2386,37 @@ function panelPeople() {
   return h;
 }
 const PPL_TOP = [['fam', '👪 가족·연인'], ['friend', '🤝 친구'], ['work', '💼 동료'], ['know', '🙂 지인'], ['etc', '📁 기타']];
+// 묶음 머리 (누르면 펼치고 접는다. UI.pplOpen[key]에 남는다)
+function pplTog(key, open, title, n) { return `<button class="ap-cat-h ap-tog" data-pgrp="${U.esc(key)}" data-open="${open ? 1 : 0}">${open ? '▾' : '▸'} ${title}<span class="hint">${n}명</span></button>`; }
+// ───── v243: 인간관계 창의 ⭐ 업계 인물 탭 (예전 직업 창의 업계 인물 탭을 옮김) ─────
+// 내가 아는 업계 인물(n.kn · n.fol)만, 분야(NPC_F)마다 묶는다. 고른 직업과 관련 있는 분야가 맨 위에 펼쳐져 있다 (관련 분야가 없으면 모두 펼친다)
+// 관련 분야: 그 분야에서 활동하는 직업(NPC_F[f].trk) + 그 분야와 같이 일하는 직업(PPL_NPC_REL) + 내 회사가 하는 분야(PPL_NPC_CO)
+const PPL_NPC_REL = {
+  composer: ['idolg', 'solo', 'band'], lyricist: ['idolg', 'solo', 'band'], producer: ['idolg', 'solo', 'band'], anr: ['idolg', 'solo', 'band'], trainer: ['idolg', 'solo'], dancer: ['idolg', 'solo'],
+  director: ['actor'], writer: ['actor'], acttrainer: ['actor'], editor: ['vtuber', 'actor'], animator: ['voice'], adir: ['voice'],
+};
+const PPL_NPC_CO = { music: ['idolg', 'solo', 'band'], vidol: ['vtuber'], mcn: ['vtuber'], video: ['actor'], anime: ['voice'] };
+function pplNpcFs(s, role) {
+  if (!role || role === 'none') return [];
+  const F = NPC_FIDS.filter(f => NPC_F[f].trk.includes(role)).concat(PPL_NPC_REL[role] || []);
+  if (role === 'agency' && typeof coOn === 'function' && coOn(s)) for (const k of coFields(coT(s))) F.push(...(PPL_NPC_CO[k] || []));
+  return NPC_FIDS.filter(f => F.includes(f));
+}
+function pplNpcKnown(s) { return typeof npcList === 'function' ? npcList(s).filter(n => n.kn || n.fol) : []; }
+function pplNpcOn(s, role) { return typeof npcOn === 'function' && npcOn(s) && (pplNpcKnown(s).length > 0 || pplNpcFs(s, role).length > 0); }
+function pplNpcHTML(s, role) {
+  const K = pplNpcKnown(s);
+  if (!K.length) return `<div class="empty">아직 알게 된 업계 인물이 없다.</div>`;
+  const rel = pplNpcFs(s, role), fs = rel.concat(NPC_FIDS.filter(f => !rel.includes(f))).filter(f => K.some(n => n.f === f));
+  UI.pplOpen = UI.pplOpen || {};
+  let h = '';
+  for (const f of fs) {
+    const L = K.filter(n => n.f === f).sort((a, b) => (b.fol || 0) - (a.fol || 0) || (b.rk ? 1 : 0) - (a.rk ? 1 : 0) || b.pop - a.pop);
+    const key = 'npc:' + f, open = UI.pplOpen[key] != null ? UI.pplOpen[key] : rel.length ? rel.includes(f) : true;
+    h += `<div class="ap-cat">` + pplTog(key, open, `${NPC_F[f].ic} ${NPC_F[f].n}`, L.length) + (open ? npcRowsHTML(s, L) : '') + `</div>`;
+  }
+  return h;
+}
 // v208: 일을 그만두고 은퇴한 사람(은퇴한 직원 등)은 동료 · 지인이 아니라 맨 아래 '기타'로. 가족 · 연인 · 친구는 그대로
 function pplRetired(n) { return /^은퇴한 /.test(n.job || ''); }
 // 내 회사 사람인가 (v134): 직원 · 연습생 · 소속 아티스트 · 크리에이터. 지원자는 뺀다
@@ -2571,10 +2612,10 @@ function careerTab(s) {
 }
 // 직업 창: 직업 활동 박스의 직업 배너(또는 프로필 창의 직업)를 누르면 뜬다
 // 맨 위 그 분야의 유행 → 현황 → 할 일(일정의 직업 활동 칸에서 하는 일) → 그 직업 정보(등급·숙련도·내 실력·계약) → 할 수 있는 일
-// 직업 창 (UI 개편 시안): 행동 · 지원 · 정보 · 소속 · 업계 인물 탭 (v234: 행동 탭이 맨 앞이고, 창을 열면 행동 탭부터 보인다)
+// 직업 창 (UI 개편 시안): 행동 · 지원 · 정보 · 소속 탭 (v234: 행동 탭이 맨 앞이고, 창을 열면 행동 탭부터 보인다. v243: 업계 인물 탭은 인간관계 창으로 옮김)
 // v238: '지원' 탭 — 그 직업이 주인인 한 번 하는 지원(game.js AA_OWN)이 있을 때만 보인다. 행동 탭에는 매달 하는 일만 (사용자 규칙)
 // 직업마다 정보 줄(c.info)을 이름으로 나눈다: 회사 · 그룹 · 팀에 대한 줄은 소속, 나에 대한 줄은 정보
-const JOB_TABS = [['act', '🎬 행동'], ['apply', '📝 지원'], ['info', '📋 정보'], ['grp', '🎤 그룹'], ['org', '🏢 회사'], ['npc', '⭐ 업계 인물']];
+const JOB_TABS = [['act', '🎬 행동'], ['apply', '📝 지원'], ['info', '📋 정보'], ['grp', '🎤 그룹'], ['org', '🏢 회사']];
 const GRP_ROWS = ['그룹 팬', '밴드 팬', '팀워크', '팬덤 · 대표 컨셉', '대표 컨셉', '팬덤', '기수 안 순위', '동기', '선배', '최근 평가'];
 const CO_ROWS = ['소속', '회사', '일하는 곳', '팀장', '고정 일정', '작곡팀', '전담 방송인', 'MCN 지원', '공채'];
 const ORG_ROWS = GRP_ROWS.concat(CO_ROWS);
@@ -2583,7 +2624,6 @@ const MONEY_ROWS = ['계약 기간', '정산', '갚을 비용', '쌓인 트레�
 // 줄 묶음을 소제목 하나 아래에 모은다. 비어 있는 묶음은 빼고
 function infoGroups(G) { return G.filter(([, L]) => L.length).map(([h, L]) => `<div class="ig"><div class="ig-h">${h}</div>${infoTable(L)}</div>`).join(''); }
 const GROUP_JOBS = ['idol', 'band', 'vidol'];
-function jobNpcs(s, id) { return NPC_FIDS.filter(f => NPC_F[f].trk.includes(id)); }
 function panelJob() {
   if (UI.jobId === 'none') return panelNoJob(); // v238: 무직 창
   const s = S, id = UI.jobId, c = CAREERS[id], t = s.tracks[id];
@@ -2616,15 +2656,14 @@ function panelJob() {
   const tk = id === 'prof' ? (t.route === 'grad' ? t.tier || 0 : null) : typeof t.tier === 'number' ? t.tier : null;
   if (tk != null) { const i = info.findIndex(r => Array.isArray(r) && (r[0] === '등급' || r[0] === '자리')); if (i >= 0) info[i] = [info[i][0], info[i][1], tk]; }
   const isG = r => Array.isArray(r) ? GRP_ROWS.includes(r[0]) : r.bars || GRP_HEADS.test(r.h), grp = org.filter(isG), co = org.filter(r => !isG(r));
-  // 탭: 그룹이 없는 직업(배우 등)은 그룹 탭이 없다. 업계 인물이 없는 분야는 업계 인물 탭이 없다
-  const tabs = JOB_TABS.filter(([k]) => (k !== 'grp' || grp.length) && (k !== 'npc' || jobNpcs(s, id).length) && (k !== 'apply' || aaList(s, id).length)), tab = tabs.some(x => x[0] === UI.jobTab) ? UI.jobTab : 'act';
+  // 탭: 그룹이 없는 직업(배우 등)은 그룹 탭이 없다
+  const tabs = JOB_TABS.filter(([k]) => (k !== 'grp' || grp.length) && (k !== 'apply' || aaList(s, id).length)), tab = tabs.some(x => x[0] === UI.jobTab) ? UI.jobTab : 'act';
   let h = back + `<h2>${jobIc(id)} ${U.esc(jobName(id))}</h2>`;
   if (JOB_FIELD[id]) h += trendRowHTML(s, JOB_FIELD[id]);
   if (c.status) h += `<p class="p-intro">${U.esc(careerStatus(s, id))}</p>`;
   h += `<div class="ap-row pf-tabs">${tabs.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-jobtab="${k}">${n}${(k === 'act' && tab !== 'act' && jobDot(s, id)) || (k === 'apply' && tab !== 'apply' && aaFresh(s, id).length) ? '<i class="rdot in"></i>' : ''}</button>`).join('')}</div>`;
   if (tab === 'act') return h + jobActTab(s, id);
   if (tab === 'apply') return h + jobApplyTab(s, id);
-  if (tab === 'npc') return h + jobNpcTab(s, id);
   if (tab === 'grp') return h + infoTable(grp);
   if (tab === 'org') return h + (co.length ? infoTable(co) : `<div class="empty">소속 없이 혼자 하는 일이다.</div>`);
   const isM = r => Array.isArray(r) && MONEY_ROWS.includes(r[0]), isB = r => !Array.isArray(r) && r.bars;
@@ -2648,11 +2687,6 @@ function jobActTab(s, id) {
   if (other.length) h += `<div class="sec-h">할 수 있는 일</div>` + other.map(actRow).join('');
   h += jobAutoApplyHTML(s, id); // v238
   return h || `<div class="empty">지금 할 수 있는 일이 없다.</div>`;
-}
-// 업계 인물 탭: 그 직업 분야의 업계 인물만 (인간관계 창의 업계 인물과 같은 줄)
-function jobNpcTab(s, id) {
-  const fs = jobNpcs(s, id), L = npcList(s).filter(n => fs.includes(n.f) && (n.kn || n.fol)).sort((a, b) => (b.fol || 0) - (a.fol || 0) || (b.rk ? 1 : 0) - (a.rk ? 1 : 0) || b.pop - a.pop);
-  return L.length ? npcRowsHTML(s, L) : `<div class="empty">아직 알게 된 업계 인물이 없다.</div>`;
 }
 // 자동 활동 (v162): 지금 하는 것 하나만, 이름과 내용만 보인다 (고정 일정 · 시기 설명은 빼고)
 function effTxt(x) { return Array.isArray(x.eff) ? x.eff.map(([k, v]) => `${k} ${v}`).join(' · ') : (x.eff || ''); }
@@ -3417,7 +3451,7 @@ document.addEventListener('click', e => {
   if (t.dataset.tsec) { UI.tsec = UI.tsec || {}; UI.tsec[t.dataset.tsec] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.apsz) { UI.apSz = UI.apSz || {}; UI.apSz[t.dataset.apsz] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.homecat) { UI.homeOpen[t.dataset.homecat] = t.dataset.open !== '1'; renderPanel(); return; }
-  if (t.dataset.pall != null) { UI.pplAll = t.dataset.pall === '1'; renderPanel(); return; }
+  if (t.dataset.pall != null) { UI.pplTab = t.dataset.pall; renderPanel(); return; }
   if (t.dataset.pgrp) { UI.pplOpen[t.dataset.pgrp] = t.dataset.open !== '1'; renderPanel(); return; }
   if (t.dataset.apg) { const c = t.dataset.aptab, g = t.dataset.apg; UI.apTab[c] = UI.apTab[c] === g ? null : g; renderPanel(); return; }
   if (t.dataset.trk) { UI.trk = t.dataset.trk; openPanel('trk'); return; }
