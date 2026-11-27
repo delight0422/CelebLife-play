@@ -77,7 +77,7 @@ const EQUIP = {
   acting: { ic: '🎬', n: '셀프테이프 촬영·연기 연습 세트', c: 250, up: 5, k: ['acting'], d: '카메라·조명·전신 거울. 연기 연습' },
   booth: { ic: '🎙️', n: '집 방음 보컬 부스', c: 800, up: 10, k: ['vocal', 'rap'], d: '보컬·랩 연습' },
   studio: { ic: '🎧', n: '홈 레코딩 작업실', c: 800, up: 10, k: ['compose', 'lyric'], d: '작곡·작사 연습' },
-  room: { ic: '🎸', n: '합주실 장기 대여', c: 500, up: 6, k: ['guitar', 'bass', 'piano', 'keyboard', 'drum'], d: '악기 연습', out: true },
+  room: { ic: '🎼', n: '악기 연습실 이용권', c: 500, up: 6, k: ['guitar', 'bass', 'piano', 'keyboard', 'drum'], d: '악기 연습', out: true },
   dance: { ic: '💃', n: '댄스 연습실 장기 대여', c: 800, up: 10, k: ['dance'], d: '댄스 연습', out: true },
   gaming: { ic: '🎮', n: '게이밍 장비 세트', c: 200, up: 3, k: ['game'], d: '게임 연습' },
   editpc: { ic: '🖥️', n: '영상 작업용 PC', c: 250, up: 4, k: ['edit', 'direct'], d: '영상 편집·연출 연습' },
@@ -117,7 +117,7 @@ function eqPct(lv) { return lv ? 25 * Math.pow(2, lv - 1) : 0; }
 function eqUp(id, lv) { return EQUIP[id].up * Math.pow(3, Math.max(0, lv - 1)); }
 function eqCost(id, lv) { return EQUIP[id].c * Math.pow(3, lv); } // lv단계에서 다음 단계로 (0이면 처음 들여놓기)
 // 집에 들일 수 있는 장비 수: 집 크기에 따라 (작은 집 2 · 중간 집 4 · 큰 집 6, 본가는 집안 형편에 따라 2/4/6)
-// 연습실·합주실 장기 대여와 인강 이용권(out)은 집 밖이라 세지 않는다. 밴은 일정 칸 장비라 세지 않는다
+// 댄스 연습실 장기 대여 · 악기 연습실 이용권(v248: 예전 이름 '합주실 장기 대여' — 어린 피아노 학원생이 받아도 어색하지 않게)과 인강 이용권(out)은 집 밖이라 세지 않는다. 밴은 일정 칸 장비라 세지 않는다
 function eqCap(s) { const h = s.home; if (h.mode === 'parents' || !h.type) return s.wealth <= 3 ? 2 : s.wealth <= 7 ? 4 : 6; return SIZE_EQ[homeSize(h)]; }
 function eqHomeIds(s) { return Object.keys(EQUIP).filter(id => !EQUIP[id].slot && !EQUIP[id].out && eqLv(s, id)); }
 // 좁은 집으로 옮기면 둘 자리가 없는 장비를 처분한다 (값이 싼 장비부터). 돌려주는 값: 처분한 장비 이름들

@@ -1168,8 +1168,9 @@ function renderJobsCard() {
   // v238: 하는 직업이 하나도 없으면 '무직'(학생 · 군 복무) 배지. 누르면 무직 창 (panelNoJob) — 직업이 없을 때 하는 지원이 여기 있다
   const nj = any ? null : noJobLabel(s);
   if (nj) {
-    const n = aaList(s, 'none').filter(a => applyOKNow(s, a)).length;
-    h += `<button type="button" class="g2-role on" data-role="none">${aaFresh(s, 'none').length ? '<i class="rdot"></i>' : ''}<span class="g2-ri">${nj[0]}</span><span class="g2-rt"><b>${nj[1]}</b><small>${n ? `지원할 수 있는 곳 ${n}곳` : '지금 지원할 수 있는 곳이 없다'}</small></span></button>`;
+    // v248: 무직 창의 지원은 없어도 구직활동(오디션 · 입사)에 열린 곳이 있으면 그 수를 알려 준다 (예전에는 오디션이 열려 있어도 '없다'고 나왔다)
+    const n = aaList(s, 'none').filter(a => applyOKNow(s, a)).length, jn = n ? 0 : jobApplies(s).filter(a => a.ok(s)).length;
+    h += `<button type="button" class="g2-role on" data-role="none">${aaFresh(s, 'none').length ? '<i class="rdot"></i>' : ''}<span class="g2-ri">${nj[0]}</span><span class="g2-rt"><b>${nj[1]}</b><small>${n ? `지원할 수 있는 곳 ${n}곳` : jn ? `구직활동에 ${jn}곳 열림` : '지금 지원할 수 있는 곳이 없다'}</small></span></button>`;
   }
   g2Set('#g2-roles', h);
   // 역할 아래: 구직활동 · 회사 설립 · 공개 예정 작품 · 맡은 작품 · 광고 · 논란 · 자숙 · 결과를 기다리는 곳
@@ -1308,7 +1309,8 @@ function renderMoneyCard() {
 // 특기 순서 (특기 창)
 // 레벨이 높은 특기부터, 개수에 안 세는 학업 · 외국어는 맨 뒤
 function skOrder(p) { return learnedSkills(p).sort((a, b) => (SK_FREE.includes(a) - SK_FREE.includes(b)) || (p.sk[b].lv - p.sk[a].lv)); }
-function skIc(k) { const c = SKILL_CATS.find(c => c.id === SKILLS[k].cat); return c ? c.ic + ' ' : ''; }
+// v248: 특기마다 제 그림(SKILLS.ic)을 쓴다. 없는 특기만 분류 그림 (예전에는 분류 그림이라 피아노가 🎸로 보였다)
+function skIc(k) { const c = SKILL_CATS.find(c => c.id === SKILLS[k].cat), ic = SKILLS[k].ic || (c && c.ic); return ic ? ic + ' ' : ''; }
 // 특기 창: 두 줄로 이름 · 레벨 · 막대. 오래 안 해서 떨어지는 중이면 레벨 옆에 ↓ (설명은 맨 아래 한 줄)
 // '그만두기'는 맨 아래 '특기 그만두기'를 누르면 특기마다 나온다
 // 재능 및 특기 창 (UI 개편 시안): 재능 탭 · 특기 탭
@@ -1321,7 +1323,7 @@ function skillsTabHTML() {
   const s = S, p = me(s), ks = skOrder(p);
   const dec = k => s.t - p.sk[k].last > 6, drop = ks.some(k => !SK_FREE.includes(k));
   if (!drop) UI.skDrop = false;
-  let h = `<p class="hint">특기는 학업과 외국어를 제외하고 ${SKILL_CAP}개까지 가질 수 있다.</p>`;
+  let h = `<p class="hint">특기는 학업과 외국어를 제외하고 ${SKILL_CAP}개까지 가질 수 있다.${has(p, 'piano') && has(p, 'keyboard') ? ' 함께 배우는 피아노와 키보드는 한 칸으로 센다.' : ''}</p>`;
   if (!ks.length) return h + `<div class="empty">아직 배운 특기가 없다. 특기는 살면서 만나는 선택지로 처음 배운다.</div>`;
   h += `<div class="sk-grid">` + ks.map(k => { const x = p.sk[k]; return `<div class="sk"><div class="row"><span>${skIc(k)}${SKILLS[k].n}</span><b>${Math.floor(x.lv)}레벨${dec(k) ? '<i class="sk-dn" title="오래 안 해서 조금씩 떨어지는 중">↓</i>' : ''}</b></div>${bar(x.lv, 100)}${UI.skDrop && !SK_FREE.includes(k) ? `<div class="sk-foot"><button class="sk-drop" data-skdrop="${k}">그만두기</button></div>` : ''}</div>`; }).join('') + `</div>`;
   if (ks.some(dec) || drop) h += `<div class="sk-legend">${ks.some(dec) ? '<span><i class="sk-dn">↓</i> 오래 안 해서 조금씩 떨어지는 중</span>' : '<span></span>'}${drop ? `<button class="sk-drop" data-skdropmode>${UI.skDrop ? '그만두기 닫기' : '특기 그만두기'}</button>` : ''}</div>`;
@@ -1771,7 +1773,7 @@ function showEnding(preview) {
 // ───── 패널 ─────
 // v194: 인간관계 창은 다시 열어도 저번에 펼치고 접은 그대로 (UI.pplOpen을 지우지 않는다). 스크롤만 맨 위로 (top0)
 function openPanel(kind) { if (!S && kind !== 'hall' && kind !== 'pastecode') return; if (kind === 'people') UI.pplTab = '0'; if (kind === 'people' && S.pplSeenT !== S.t) { S.pplSeenT = S.t; renderPeopleCard(); } UI.overlay = kind; renderPanel(); $('#panel').classList.remove('hidden'); apPlace(); const top0 = () => { $('#pcard').scrollTop = 0; $('#panel').scrollTop = 0; }; top0(); requestAnimationFrame(top0); }
-function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.apjFrom = null; UI.skFrom = null; UI.pickNew = null; UI.aaNew = null; UI.skDrop = false; UI.pickSlot = null; if (S) render(); }
+function closePanel() { $('#panel').classList.add('hidden'); UI.overlay = null; UI.apjFrom = null; UI.dictFrom = null; UI.skFrom = null; UI.pickNew = null; UI.aaNew = null; UI.skDrop = false; UI.pickSlot = null; if (S) render(); }
 // 행동 버튼 한 줄. 버튼이 누를 일은 UI.acts(창) 또는 UI.lacts(오른쪽 생활 카드)에 모아 둔다
 function actRow(a) {
   const reg = UI.rowReg || UI.acts, at = UI.rowReg ? 'lact' : 'act';
@@ -1861,10 +1863,10 @@ function apSorted(s, L) {
 function panelApplyJob() {
   // v206: 지금 지원할 수 없는 곳은 보이지 않는다 (조건은 백과사전에). 숫자는 (지금 지원 가능 / 전체)
   const s = S, list = jobApplies(s), view = UI.apForce || UI.apView || 'co';
-  let h = `${UI.apjFrom ? '<button class="btn sm ghost back-btn" data-dictback>← 백과사전</button>' : ''}<h2>📝 구직활동 <button type="button" class="btn sm ghost ren-btn" data-tstab="tal" data-skfrom="applyjob">🎯 재능/특기 보기</button></h2><p class="hint ap-note">📚 직업마다 지원 조건은 백과사전에서 볼 수 있다.</p><div class="ap-row pf-tabs">${[['co', '🏢 회사별'], ['job', '💼 직업별']].map(([k, n]) => `<button class="ap-tab ${view === k ? 'on' : ''}" data-apview="${k}">${n}</button>`).join('')}</div>`
+  let h = `${UI.apjFrom ? '<button class="btn sm ghost back-btn" data-dictback>← 백과사전</button>' : ''}<h2>📝 구직활동 <button type="button" class="btn sm ghost ren-btn" data-tstab="tal" data-skfrom="applyjob">🎯 재능/특기 보기</button></h2><p class="hint ap-note">${list.some(a => !a.ok(s)) ? `지금 지원할 수 없는 ${list.filter(a => !a.ok(s)).length}곳은 보이지 않는다. ` : ''}직업마다 필요한 나이 · 특기는 백과사전에 있다. <button type="button" class="btn sm primary ren-btn" data-apdict>📚 지원 조건 보기</button></p><div class="ap-row pf-tabs">${[['co', '🏢 회사별'], ['job', '💼 직업별']].map(([k, n]) => `<button class="ap-tab ${view === k ? 'on' : ''}" data-apview="${k}">${n}</button>`).join('')}</div>`
     + `<p class="p-intro">${view === 'co' ? '회사 종류를 누르면 회사가 나오고, 회사를 누르면 그 회사에 지원할 수 있는 자리가 나온다. 회사 없이 혼자 시작하는 일은 맨 위 \'무소속\'에 분야별로 있다.' : '분야를 누르면 직업이 나오고, 직업을 누르면 그 바로 아래에 지원할 수 있는 곳이 나온다. 직업 옆 숫자는 지금 바로 지원할 수 있는 곳의 수다.'}<br>지금 지원할 수 있는 곳만 보인다. 괄호 안은 (지금 지원 가능 / 전체). 직업은 ${JOB_CAP}개까지 같이 할 수 있다.</p>`;
   UI.apjOpen = UI.apjOpen || {};
-  if (!list.some(a => a.ok(s))) return h + `<div class="empty">지금 지원할 수 있는 곳이 없다. 직업마다 조건은 📚 백과사전에서 볼 수 있다.</div>`;
+  if (!list.some(a => a.ok(s))) return h + `<div class="empty">지금 지원할 수 있는 곳이 없다. 위의 '📚 지원 조건 보기'를 누르면 직업마다 조건이 나온다.</div>`;
   if (view === 'co') return h + apCoHTML(s, list);
   for (const [cid, cn] of APPLY_CATS) {
     const all = list.filter(a => applyCatOf(a) === cid), items = all.filter(a => a.ok(s));
@@ -2225,7 +2227,7 @@ const DICT_TABS = [['career', '🧭 진로'], ['life', '🏠 생활']];
 // 직업마다 시작하는 길과 그 조건: [길, 조건]. 지원 항목(JOB_APPLY · ACT_APPLY)의 show · ok · why에서 옮겨 적었다. 조건을 바꾸면 여기도 같이 고친다
 const CAREER_REQ = {
   idol: [['기획사 아이돌 오디션', '11~24세 · 노래 · 랩 · 춤 중 하나를 할 줄 알아야 한다 · 일본 · 미국 기획사는 일본어나 영어도 본다']],
-  band: [['밴드 만들기', '14세부터 · 보컬 · 기타 · 베이스 · 드럼 · 키보드 중 하나가 8레벨 이상'], ['인디 밴드 구인 공고에 지원', '14세부터 · 위 파트 중 하나가 18레벨 이상'], ['기획사 밴드 연습생 오디션', '13~24세 · 보컬이나 악기 하나가 12레벨 이상 · 한국 소형 · 중형 기획사'], ['기획사에 밴드 데모 보내기', '인디 밴드 멤버가 다 모이면']],
+  band: [['밴드 만들기', '14세부터 · 보컬 · 기타 · 베이스 · 드럼 · 키보드 중 하나가 8레벨 이상'], ['인디 밴드 구인 공고에 지원', '14세부터 · 위 파트 중 하나가 18레벨 이상'], ['기획사 밴드 연습생 오디션', '13~24세 · 보컬 · 기타 · 베이스 · 드럼 · 키보드 중 하나가 12레벨 이상 (피아노를 배우면 키보드도 절반씩 는다) · 한국 소형 · 중형 기획사'], ['기획사에 밴드 데모 보내기', '인디 밴드 멤버가 다 모이면']],
   solo: [['인디 가수로 시작하기', '15세부터 · 보컬이나 랩이 12레벨 이상'], ['기획사 솔로 오디션', '15~30세 · 노래나 랩을 할 줄 알아야 한다 · 붙으면 솔로 연습생으로 들어가고, 혼자 설 실력이 되면 회사가 데뷔를 정한다 · 이미 인디 가수로 활동 중이면 붙는 대로 곧바로 계약한다 · 일본 · 미국 기획사는 일본어나 영어도 본다']],
   player: [['연주가로 활동 시작', '14세부터 · 악기 하나가 15레벨 이상']],
   dancer: [['프리랜서 댄서로 시작하기', '15세부터 · 댄스 25레벨 이상'], ['댄스팀 입단 오디션', '15~35세']],
@@ -2279,7 +2281,7 @@ function goApplyJob(id) {
 function dictBack() { const y = UI.apjFrom ? UI.apjFrom.y : 0; UI.apjFrom = null; openPanel('career'); requestAnimationFrame(() => requestAnimationFrame(() => { $('#pcard').scrollTop = y; })); }
 function panelCareer() {
   const tab = UI.dictTab === 'life' ? 'life' : 'career';
-  return `<h2>📚 백과사전</h2><div class="ap-row pf-tabs">${DICT_TABS.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-dicttab="${k}">${n}</button>`).join('')}</div>` + (tab === 'life' ? dictLifeHTML(S) : dictCareerHTML(S));
+  return `${UI.dictFrom === 'applyjob' ? '<button class="btn sm ghost back-btn" data-dictfromback>← 구직활동</button>' : ''}<h2>📚 백과사전</h2><div class="ap-row pf-tabs">${DICT_TABS.map(([k, n]) => `<button class="ap-tab ${tab === k ? 'on' : ''}" data-dicttab="${k}">${n}</button>`).join('')}</div>` + (tab === 'life' ? dictLifeHTML(S) : dictCareerHTML(S));
 }
 // 진로 탭: 예전 진로 백과사전 그대로 + 직업마다 '시작하는 법'
 function dictCareerHTML(s) {
@@ -3417,7 +3419,7 @@ document.addEventListener('click', e => {
   if (t.dataset.skdrop) {
     const k = t.dataset.skdrop, why = skKeepWhy(S, k), n = SKILLS[k].n;
     if (why) { toast(why); return; }
-    askConfirm(`${josa(n, '을를')} 그만둘까요?\n\n${lvi(me(S), k)}레벨이 모두 사라지고, 다시 배우면 1레벨부터예요.`, () => { dropSkill(S, k); save(S); render(); if (UI.overlay === 'skills') renderPanel(); });
+    askConfirm(`${josa(n, '을를')} 그만둘까요?\n\n${lvi(me(S), k)}레벨이 모두 사라지고, 다시 배우면 1레벨부터예요.${SKILL_TWIN[k] && has(me(S), SKILL_TWIN[k]) ? ` 함께 배우는 ${SKILLS[SKILL_TWIN[k]].n} ${lvi(me(S), SKILL_TWIN[k])}레벨도 같이 사라져요.` : ''}`, () => { dropSkill(S, k); save(S); render(); if (UI.overlay === 'skills') renderPanel(); });
     return;
   }
   if (t.id === 'btn-go') { turnGo(turnMax(S)); return; }
@@ -3425,7 +3427,7 @@ document.addEventListener('click', e => {
   if (t.dataset.turnok != null) { turnClose(); return; }
   // v202: 요약 창 두 장 (특별한 일 · 결산표)
   if (t.dataset.tstab && t.closest('#tcard')) { UI.tsTab = t.dataset.tstab; document.querySelectorAll('#tcard [data-tsp]').forEach(e => e.classList.toggle('hidden', e.dataset.tsp !== UI.tsTab)); document.querySelectorAll('#tcard [data-tstab]').forEach(b => b.classList.toggle('on', b.dataset.tstab === UI.tsTab)); return; }
-  if (t.dataset.panel) { UI.apjFrom = null; UI.apForce = null; if (t.dataset.panel === 'group' && !UI.overlay) UI.grpTab = 'home'; if (t.dataset.cofx) { UI.coF = t.dataset.cofx; UI.coTab = 'home'; UI.coGrp = null; } if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
+  if (t.dataset.panel) { UI.apjFrom = null; UI.dictFrom = null; UI.apForce = null; if (t.dataset.panel === 'group' && !UI.overlay) UI.grpTab = 'home'; if (t.dataset.cofx) { UI.coF = t.dataset.cofx; UI.coTab = 'home'; UI.coGrp = null; } if (t.dataset.panel !== 'help' || !UI.overlay) openPanel(t.dataset.panel); else { UI.overlay = 'help'; renderPanel(); } return; }
   if (t.dataset.close != null) return closePanel();
   if (t.dataset.logsize) { setLogSize(+t.dataset.logsize); if (UI.overlay === 'menu') renderPanel(); return; }
   if (t.dataset.min != null) { UI.minimized = true; showEvent(); return; }
@@ -3461,6 +3463,9 @@ document.addEventListener('click', e => {
   if (t.dataset.rectab) { UI.recTab = t.dataset.rectab; renderPanel(); return; }
   if (t.dataset.gojob) { goApplyJob(t.dataset.gojob); return; }
   if (t.dataset.dictback != null) { dictBack(); return; }
+  // v248: 구직활동의 '📚 지원 조건 보기' → 백과사전 진로 탭, '← 구직활동'으로 돌아온다
+  if (t.dataset.apdict != null) { UI.dictFrom = 'applyjob'; UI.dictTab = 'career'; UI.apjFrom = null; UI.overlay = 'career'; renderPanel(); $('#pcard').scrollTop = 0; return; }
+  if (t.dataset.dictfromback != null) { UI.dictFrom = null; UI.overlay = 'applyjob'; renderPanel(); $('#pcard').scrollTop = 0; return; }
   if (t.dataset.dicttab) { UI.dictTab = t.dataset.dicttab; renderPanel(); $('#pcard').scrollTop = 0; return; }
   if (t.dataset.pftab) { if (t.dataset.pftab === 'rec' && !UI.overlay) UI.recTab = 'career'; UI.pfTab = t.dataset.pftab; if (UI.overlay) { UI.overlay = 'profile'; renderPanel(); } else openPanel('profile'); return; }
   if (t.dataset.cotab) { UI.coTab = t.dataset.cotab; renderPanel(); return; }

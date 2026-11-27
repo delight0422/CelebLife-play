@@ -1632,6 +1632,7 @@ function pfRename(o) {
   return o;
 }
 function migrate(s) {
+  twinFix(s); // v248: 피아노 · 키보드는 같이 배운다 — 하나만 가진 사람(예전 저장)에게 다른 쪽을 채운다
   // v230: 같은 회사와 재계약해 활동 개월이 0으로 돌아갔던 솔로 가수 (예전 저장) — 그 전 활동(4년 넘음)을 돌려줘서 신곡 회의에서 다시 의견을 낼 수 있게
   for (const k of ['solo', 'band']) { const t = s.tracks && s.tracks[k]; if (t && t.st === 'indie' && t.exAg == null && t.hist && t.hist.length && typeof AG !== 'undefined') { const n = String(t.hist[t.hist.length - 1]).replace(/ \([^)]*\)$/, ''), a = Object.values(AG).find(x => x && x.n === n); if (a) t.exAg = a.id; } } // v233: 직전 소속사
   { const t = s.tracks && s.tracks.solo; if (t && t.st === 'signed' && t.sayM == null) t.sayM = (s.log || []).some(l => l.e === 'solo_contract' && l.t >= s.t - (t.months || 0) - 1 && /재계약했다/.test(l.x || '')) ? 48 : 0; }

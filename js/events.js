@@ -344,17 +344,30 @@ talentEv('stage_actor', 'express', 'acting', 8, 25, '연기 잘하네', '친구�
 talentEv('sing_choir', ['music', 'voice'], 'vocal', 6, 25, '노래 잘한다는 말', '노래방에서 내가 부르면 다들 조용해진다. 친구가 합창단에 같이 들어가자고 한다.', '들어간다', '합창단에 들어가 처음으로 발성을 배웠다.');
 
 // ════════ 중·고등학교 ════════
-// 중학교 진로 체험의 날 (v117): 하루 동안 직업 하나를 체험한다. 아직 안 배운 특기를 시작할 수 있을 뿐, 성장 속도는 그대로 (동아리와 다르다)
+// 직업 체험 (v117 중학교 진로 체험의 날 → v248 둘로): 하루 동안 직업 하나를 체험한다. 아직 안 배운 특기를 시작할 수 있을 뿐, 성장 속도는 그대로 (동아리와 다르다)
+//   하고 싶은 일의 특기를 스스로 골라 시작하는 길이라 일찍 연다 — 유치원 때 한 번(job_exp_kid, 5~6세) · 초등학교 5학년 때 한 번(job_exp)
+//   예전 저장에서 아직 안 한 중학생은 job_exp를 중학교 3학년까지 만난다. 피아노 · 키보드는 같이 배우니 한 줄로 합쳤다
 const JOB_EXPS = [['방송국 견학 · 영상 편집 체험', 'edit'], ['녹음실 · 작곡가 체험', 'compose'], ['작사가 체험', 'lyric'], ['기획사 연습실 · 댄스 체험', 'dance'], ['보컬 트레이너 체험', 'vocal'], ['힙합 레이블 · 래퍼 체험', 'rap'],
-  ['실용음악 학원 · 기타 체험', 'guitar'], ['실용음악 학원 · 베이스 체험', 'bass'], ['실용음악 학원 · 드럼 체험', 'drum'], ['실용음악 학원 · 키보드 체험', 'keyboard'], ['피아니스트 체험', 'piano'], ['극단 · 배우 체험', 'acting'],
+  ['실용음악 학원 · 기타 체험', 'guitar'], ['실용음악 학원 · 베이스 체험', 'bass'], ['실용음악 학원 · 드럼 체험', 'drum'], ['피아노 · 키보드 연주자 체험', 'piano'], ['극단 · 배우 체험', 'acting'],
   ['예능 PD 체험', 'variety'], ['영화감독 체험', 'direct'], ['드라마 작가 체험', 'script'], ['웹툰 작가 체험', 'art'], ['게임 회사 체험', 'game'], ['캐스팅 매니저 체험', 'scout'], ['선생님 체험', 'edu'], ['스타트업 체험', 'biz']];
+// 베이스는 유치원생 몸에 너무 커서 뺐다 (부모님이 권하는 나이 KID_SKILLS도 10세부터). 초등학교 직업 체험의 날에는 나온다
+const JOB_EXPS_KID = [['가수 체험', 'vocal'], ['댄서 체험', 'dance'], ['기타리스트 체험', 'guitar'], ['드러머 체험', 'drum'], ['피아노 · 키보드 연주자 체험', 'piano'],
+  ['배우 체험', 'acting'], ['만화가 체험', 'art'], ['프로게이머 체험', 'game']];
 E({
-  id: 'job_exp', fixed: true, once: true, cat: '중학교', title: '진로 체험의 날',
-  cond: s => schoolYear(s) >= 7 && schoolYear(s) <= 9 && (schoolYear(s) > 7 || calM(s) >= 8),
+  id: 'job_exp_kid', fixed: true, once: true, cat: '어린 시절', title: '어린이 직업 체험관',
+  cond: s => age(s) >= 5 && age(s) <= 6 && schoolYear(s) < 1,
+  init(s, d) { d.o = fitPick(s, JOB_EXPS_KID.filter(x => !has(me(s), x[1]) && skOpen(s, x[1])), 4); if (!d.o.length) d.skip = true; },
+  text: () => '유치원에서 어린이 직업 체험관에 갔다. 직업 하나를 골라 그 직업의 옷을 입고 체험해 볼 수 있다.',
+  ch: (s, d) => d.o.map(([t, k]) => ({ t, h: gainH(s, k), f: s => `${josa(t, '을를')} 했다. 집에 와서도 한참을 흉내 내며 놀았다.` + learnMe(s, k) }))
+    .concat([{ t: '구경만 하고 온다', f: () => '어린이 직업 체험관에서 이것저것 구경만 하고 왔다.' }]),
+});
+E({
+  id: 'job_exp', fixed: true, once: true, cat: '학창 시절', title: '직업 체험의 날',
+  cond: s => schoolYear(s) >= 5 && schoolYear(s) <= 9 && (schoolYear(s) > 5 || calM(s) >= 4), // calM은 0부터 — 5학년 5월부터
   init(s, d) { d.o = fitPick(s, JOB_EXPS.filter(x => !has(me(s), x[1]) && skOpen(s, x[1])), 4); if (!d.o.length) d.skip = true; },
-  text: () => '학교에서 진로 체험의 날이 열렸다. 하루 동안 직업 하나를 골라 체험해 볼 수 있다.',
+  text: () => '학교에서 직업 체험관으로 현장 학습을 갔다. 하루 동안 직업 하나를 골라 체험해 볼 수 있다.',
   ch: (s, d) => d.o.map(([t, k]) => ({ t, h: gainH(s, k), f: s => `${josa(t, '을를')} 했다. 생각보다 재밌어서 집에 와서도 계속 해 봤다.` + learnMe(s, k) }))
-    .concat([{ t: '구경만 하고 온다', f: () => '진로 체험의 날, 이것저것 구경만 하고 왔다.' }]),
+    .concat([{ t: '구경만 하고 온다', f: () => '직업 체험의 날, 이것저것 구경만 하고 왔다.' }]),
 });
 // 고등학교 동아리 (v117: 중학교에서 옮겼다): 특기마다 하나씩 (공부는 귀가부도 된다)
 // 들어간 동아리의 특기는 고등학교 다니는 동안 CLUB_MULT배 빨리 는다 (학과 · 장비와 곱한다, schoolBonus)
@@ -1200,8 +1213,10 @@ E({
   init(s, d) { if (has(me(s), d.k)) d.skip = true; },
   text: (s, d) => `${josa(SKILLS[d.k].n, '을를')} 배우는 대신 그만둘 특기를 고르자.`,
   ch: (s, d) => {
-    const p = me(s), L = learnedSkills(p).filter(k => !SK_FREE.includes(k)).sort((a, b) => lv(p, a) - lv(p, b));
-    return L.map(k => { const why = skKeepWhy(s, k); return { t: `${SKILLS[k].n} ${lvi(p, k)}레벨`, h: why, ok: () => !why, f: s => { dropSkill(s, k); return `${SKILLS[k].n} 대신 ${josa(SKILLS[d.k].n, '을를')} 배우기로 했다.` + learnMe(s, d.k, d.start); } }; })
+    // v248: 함께 배우는 특기(피아노 · 키보드)는 한 줄로 보여 주고 같이 그만둔다 (capCount도 둘을 한 칸으로 센다)
+    const p = me(s), twOf = k => SKILL_TWIN[k] && has(p, SKILL_TWIN[k]) ? SKILL_TWIN[k] : null;
+    const L = learnedSkills(p).filter(k => !SK_FREE.includes(k) && !(twOf(k) && k > twOf(k))).sort((a, b) => lv(p, a) - lv(p, b));
+    return L.map(k => { const why = skKeepWhy(s, k), tw = twOf(k), nm = SKILLS[k].n + (tw ? ` · ${SKILLS[tw].n}` : ''); return { t: `${SKILLS[k].n} ${lvi(p, k)}레벨${tw ? ` · ${SKILLS[tw].n} ${lvi(p, tw)}레벨` : ''}`, h: why || (tw ? '함께 배우는 특기라 둘 다 그만둔다' : ''), ok: () => !why, f: s => { dropSkill(s, k); return `${nm} 대신 ${josa(SKILLS[d.k].n, '을를')} 배우기로 했다.` + learnMe(s, d.k, d.start); } }; })
       .concat([{ t: '그만두지 않는다', f: () => `${josa(SKILLS[d.k].n, '은는')} 배우지 않기로 했다.` }]);
   },
 });

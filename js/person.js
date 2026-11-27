@@ -81,7 +81,8 @@ function learnedSkills(p) { return SKILL_IDS.filter(k => has(p, k)); }
 // v102: 특기 하나만 권하는 사건(받기 · 안 받기 둘 중 하나)에서 거절하면 그 사건은 평생 다시 안 나온다.
 //       그 특기는 서너 개 중에 고르는 사건이나 '새 특기 배우기'로만 배울 수 있다
 const SKILL_CAP = 10, SK_FREE = ['study', 'en', 'jp'];
-function capCount(p) { return learnedSkills(p).filter(k => !SK_FREE.includes(k)).length; }
+// v248: 함께 배우는 특기(SKILL_TWIN 피아노 · 키보드)는 둘을 한 칸으로 센다
+function capCount(p) { return learnedSkills(p).filter(k => !SK_FREE.includes(k) && !(SKILL_TWIN[k] && has(p, SKILL_TWIN[k]) && k > SKILL_TWIN[k])).length; }
 function skRoom(s, k) { return SK_FREE.includes(k) || capCount(me(s)) < SKILL_CAP; }
 // 예전 세이브의 s.skNo[k]는 숫자(3년 뒤 달)였다. 이제는 값이 있기만 하면 거절한 것으로 본다
 function skDecline(s, k) { if (!has(me(s), k)) (s.skNo = s.skNo || {})[k] = 1; }
@@ -94,23 +95,42 @@ function skAsk(s, k) { return has(me(s), k) || (skSwapOK(s, k) && !skRefused(s, 
 // 서너 개 중에 고르는 사건: 거절한 특기도 나온다. 자리만 있으면 된다 (꽉 찼으면 하나를 그만두고 배운다)
 function skOpen(s, k) { return has(me(s), k) || skSwapOK(s, k); }
 // 그만둘 수 없는 특기: 지금 하는 직업의 대표 특기
-function skKeepWhy(s, k) { for (const id of CAREER_IDS) { const c = CAREERS[id]; if (c && c.mainSk && trackOn(s, id) && c.mainSk(s, s.tracks[id]) === k) return `지금 하는 ${CAREER_SHORT[id] || c.n || '직업'}의 대표 특기라 그만둘 수 없다`; } return ''; }
+// v248: 함께 배우는 특기(피아노 · 키보드)는 한쪽이 대표 특기면 다른 쪽도 그만둘 수 없다 (그만둘 때 둘이 같이 사라지니까)
+function skKeepWhy(s, k) { const tw = SKILL_TWIN[k]; for (const id of CAREER_IDS) { const c = CAREERS[id]; if (!c || !c.mainSk || !trackOn(s, id)) continue; const m = c.mainSk(s, s.tracks[id]); if (m === k) return `지금 하는 ${CAREER_SHORT[id] || c.n || '직업'}의 대표 특기라 그만둘 수 없다`; if (tw && m === tw && has(me(s), tw)) return `지금 하는 ${CAREER_SHORT[id] || c.n || '직업'}의 대표 특기(${SKILLS[tw].n})와 함께 배우는 특기라 그만둘 수 없다`; } return ''; }
 function dropSkill(s, k) {
   const p = me(s);
   if (!has(p, k) || SK_FREE.includes(k) || skKeepWhy(s, k)) return;
-  delete p.sk[k];
-  for (const sl of s.slots || []) if (sl.act === 'p_' + k) { sl.act = 'rest'; delete sl.lesson; delete sl.lesLv; }
-  addLog(s, `${SKILLS[k].n} 특기를 그만뒀다.`);
+  // v248: 함께 배우는 특기(피아노 · 키보드)는 같이 그만둔다
+  const ks = [k].concat(SKILL_TWIN[k] && has(p, SKILL_TWIN[k]) ? [SKILL_TWIN[k]] : []);
+  for (const x of ks) {
+    delete p.sk[x];
+    for (const sl of s.slots || []) if (sl.act === 'p_' + x) { sl.act = 'rest'; delete sl.lesson; delete sl.lesLv; }
+  }
+  addLog(s, `${ks.map(x => SKILLS[x].n).join(' · ')} 특기를 그만뒀다.`);
 }
 
 // 처음 배우기. 사건(선택지)에서만 부른다. 돌려주는 값: 새로 배웠으면 true
+// v248: 피아노 · 키보드(SKILL_TWIN)는 하나를 배우면 다른 쪽도 같이 배운다 (시작 레벨의 절반, 1레벨부터).
+//       늘 같이 있으니 예전의 '나중에 배우는 쪽은 먼저 배운 쪽의 절반에서 시작' 규칙은 없앴다. 예전 저장은 twinFix가 채운다
 function learnSkill(s, p, k, start) {
   if (has(p, k)) return false;
-  let l = start != null ? start : 1;
-  const tw = SKILL_TWIN[k];
-  if (tw && has(p, tw)) l = Math.max(l, Math.floor(p.sk[tw].lv / 2));
+  const l = start != null ? start : 1;
   p.sk[k] = { lv: l, best: l, last: s.t, pot: Math.max(l, rollPot(p, k)) };
+  twinAdd(s, p, k);
   return true;
+}
+function twinAdd(s, p, k) {
+  const tw = SKILL_TWIN[k];
+  if (!tw || !has(p, k) || has(p, tw)) return false;
+  const l = Math.max(1, Math.floor(p.sk[k].lv / 2));
+  p.sk[tw] = { lv: l, best: l, last: s.t, pot: Math.max(l, rollPot(p, tw)) };
+  return true;
+}
+// 예전 저장: 피아노 · 키보드 중 하나만 가진 사람에게 다른 쪽을 절반 레벨로 채운다 (한 번만, game.js migrate)
+function twinFix(s) {
+  if (s.twinFix) return;
+  s.twinFix = 1;
+  for (const p of Object.values(s.people || {})) if (p && p.sk) for (const k of Object.keys(SKILL_TWIN)) twinAdd(s, p, k);
 }
 // 처음 배운 걸 기록과 함께 알려 준다 (주인공용)
 // 사건 선택지로 이미 가진 특기를 또 얻으면 그 특기가 2레벨 오른다. noBump: 회사에 들어가며 자동으로 갖게 되는 특기처럼 오르지 않는 경우
@@ -130,11 +150,12 @@ function learnMe(s, k, start, noBump, force) {
     const d = lvi(p, k) - b, td = tb ? lvi(p, tw) - tb : 0;
     return d ? ` [${SKILLS[k].n} +${d}${td ? ` · ${SKILLS[tw].n} +${td}` : ''}]` : '';
   }
+  const tw0 = SKILL_TWIN[k], twNew = !!tw0 && !has(p, tw0);
   learnSkill(s, p, k, start);
   const l = lvi(p, k);
-  return ` [새 특기: ${SKILLS[k].n}${l > 1 ? ` ${l}레벨부터` : ''}]`;
+  return ` [새 특기: ${SKILLS[k].n}${l > 1 ? ` ${l}레벨부터` : ''}${twNew && has(p, tw0) ? ` · ${SKILLS[tw0].n}${lvi(p, tw0) > 1 ? ` ${lvi(p, tw0)}레벨부터` : ''}` : ''}]`;
 }
-// 피아노·키보드처럼 서로 가까운 특기(SKILL_TWIN)는 둘 다 배웠으면 한쪽이 늘 때 다른 쪽도 절반만큼 는다 (그쪽 포텐까지)
+// 피아노·키보드처럼 서로 가까운 특기(SKILL_TWIN)는 한쪽이 늘 때 다른 쪽도 절반만큼 는다 (그쪽 포텐까지). v248부터 둘은 늘 같이 배운다 (learnSkill)
 function twinGrow(s, p, k, g) {
   const tw = SKILL_TWIN[k];
   if (!tw || !(g > 0) || !has(p, tw)) return;

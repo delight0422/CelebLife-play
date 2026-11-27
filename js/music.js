@@ -629,7 +629,7 @@ for (const ag of musicAgencies().filter(a => a.mkt === 'kr' && a.tier <= 2)) JOB
   show: s => !trackOn(s, 'idol') && !trackOn(s, 'band') && age(s) >= 13 && age(s) <= 26,
   h: s => { const ps = bandTrParts(s); return (ps.length ? ps.map(k => `${partN(k)} ${fmtPct(bandTrP(s, ag, k))}`).join(' · ') + ' · ' : '') + (coMisfit('music', ag.con, 'band') ? '이 회사가 잘 안 뽑는 유형 · ' : '') + '붙으면 연습생이 되고, 회사가 밴드 데뷔조를 꾸린다'; },
   ok: s => !idolBlock(s, true) && !agCut(s, ag.id) && bandTrParts(s).length && !(s.cd['aud_' + ag.id] > s.t),
-  why: s => idolBlock(s, true) || (agCut(s, ag.id) ? AG_CUT_WHY : !bandTrParts(s).length ? '보컬이나 악기 하나는 12레벨 이상이어야 한다' : '같은 회사는 1년 뒤에 다시 볼 수 있다'),
+  why: s => idolBlock(s, true) || (agCut(s, ag.id) ? AG_CUT_WHY : !bandTrParts(s).length ? '보컬 · 기타 · 베이스 · 드럼 · 키보드 중 하나는 12레벨 이상이어야 한다' : '같은 회사는 1년 뒤에 다시 볼 수 있다'),
   run: s => { fireEvent(s, 'bandtr_pick', { ag: ag.id }); return ''; },
 });
 E({
