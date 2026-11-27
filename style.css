@@ -1155,6 +1155,24 @@ kbd { display: inline-block; font-family: ui-monospace, 'SF Mono', Consolas, 'Co
 .lv-stage.ph .lv-lights i { opacity: .6; }
 .lv-stage.stk .lv-crowd i { width: 14px; height: 26px; border-radius: 0; background: var(--stk) center bottom / contain no-repeat; box-shadow: none; }
 @media (max-width: 700px) { .lv-stage.stk .lv-crowd i { width: 10px; height: 19px; } }
+/* v246: 밴드 · 연주가 · 고향 축제 무대(vn-club · vn-hall · vn-fest)에도 사진을 깐다. 사진 밑의 CSS 배경이 비쳐도 어색하지 않게 (축제 배경은 땅과 하늘 사이에 줄이 있어서 줄 없는 색으로), 객석 그늘은 사진이 보일 만큼만 */
+.lv-stage.ph.vn-fest { background: linear-gradient(180deg, #2a2a6a 0%, #1a1022 100%); }
+.lv-stage.ph.vn-fest .lv-crowd { height: 28%; background: linear-gradient(180deg, transparent, rgba(8, 5, 14, .65)); }
+.lv-stage.ph.vn-club .lv-lights i, .lv-stage.ph.vn-hall .lv-lights i, .lv-stage.ph.vn-fest .lv-lights i { opacity: .5; }
+/* v246: 악기 (몸 캔버스 위에 겹친 캔버스 — live.js liveChar). 자리 · 크기는 몸에 대한 %로 적혀 있다. 빛(그림자)은 몸과 악기를 한 덩어리로 보고 한 번만 두른다 */
+.lv-ch .lv-ins { display: none; position: absolute; pointer-events: none; }
+.lv-ch.on .lv-ins { display: block; }
+.lv-ch.ins { width: fit-content; filter: drop-shadow(0 0 calc(10px * var(--glow)) hsla(var(--hue), 90%, 75%, .55)); }
+.lv-ch.ins .lv-chc { filter: none; }
+#g2-char .lv-ch.ins { filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .3)); }
+#g2-char .lv-ch.ins .lv-chc { filter: none; }
+/* 밴드 무대: 드러머(.back)는 줄 가운데에서 한 발 뒤 (조금 위 · 조금 작게), 앞사람보다 뒤에 그린다. --lmh: 무대 위 캐릭터 키 (.lv-ch .lv-chc의 높이와 같은 값) */
+.lv-mem { --lmh: 168px; }
+.lv-mem.bnd { isolation: isolate; }
+.lv-mem.bnd .lm { z-index: 1; }
+.lv-mem.bnd .lm.back { z-index: 0; }
+.lv-mem.bnd .lm.back .lv-ch { bottom: calc(var(--lmh) * .13); transform: scale(.94); transform-origin: 50% 100%; }
+@media (max-width: 700px) { .lv-mem { --lmh: 92px; } }
 .pl-ph { position: absolute; inset: 0; background-size: cover; background-position: center; background-repeat: no-repeat; }
 .pl-like.dn { color: #b9b0d6; }
 .pl-c em .pl-dn { font-style: normal; margin-left: var(--sp-3); }

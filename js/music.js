@@ -2009,6 +2009,7 @@ CAREERS.band = {
     if (t.b.f >= 300) { const live = (45e4 + Math.min(t.b.f, 2e4) * 180 + Math.max(0, t.b.f - 2e4) * 270) * awMul(s, 'band'); if (t.st === 'signed') bandIncome(s, t, live, '공연 정산'); else earn(s, Math.round(live / (mem.length + 1) * coldPayM(s, 'band')), '공연 수입'); }
     addStress(s, PM.st * pm(s, 'crowdStress'));
     if (typeof bandWaysMonth === 'function') bandWaysMonth(s, t); // v245: 켜 둔 일 (idolev.js)
+    if (typeof bandExtraMonth === 'function') bandExtraMonth(s, t); // v246: 단독 공연 (idolev.js)
     t.nextRel--;
     musAlbMonth(s, 'band'); // v154: 인디는 새 곡 기획 창, 회사 소속은 새 곡 회의
     if (t.st === 'indie' && t.b.f >= 3000 && U.chance(0.04)) maybeScout(s, 'band');
@@ -2201,9 +2202,10 @@ function bandArrB(s, t, d) {
 }
 // 밴드 곡 반응 재료: 가장 잘하는 파트 · 가장 처지는 파트 · 곡 · 팬 · 유행 · 팀워크 · 홍보 · 컨셉 궁합 · 편곡 방향
 // 무대 창 (12-3): 밴드 무대. vn: 장소 모양 (club 클럽 · hall 쇼케이스 · fest 페스티벌). 내가 맨 앞(mi 0)
+// v246: 무대 의상 — 회사 소속이거나 큰 무대(페스티벌 · 5,000석부터의 단독 공연)는 록(rock), 인디의 클럽 · 작은 홀은 인디(indie). 부르는 쪽이 o.cos로 정하면 그것을 쓴다. 악기는 파트 이름(mem[i][1])을 보고 무대 창이 그린다 (live.js LV_INST)
 function bandLive(s, t, o) {
   const p = me(s), mem = [[actCall(s, 'band'), partN(t.b.my)]].concat(bandMembers(s, t).map(x => [callName(x.name), partN(t.b.part[x.id])]));
-  return liveStage(Object.assign({ k: 'band', g: t.b.name, cn: t.b.name, mem, mi: 0, sx: liveSx([p].concat(bandMembers(s, t))) }, o, { z: Object.assign({ perf: (bandPower(s, t) - 45) / 18, tw: (twOf(t.b) - 50) / 20, me: (lv(p, t.b.my) - 45) / 18, fans: (Math.log10(1 + t.b.f) - 3.4) / 0.9 }, o.z || {}) }));
+  return liveStage(Object.assign({ k: 'band', g: t.b.name, cn: t.b.name, mem, mi: 0, sx: liveSx([p].concat(bandMembers(s, t))), cos: t.st === 'signed' || o.vn === 'fest' ? 'rock' : 'indie' }, o, { z: Object.assign({ perf: (bandPower(s, t) - 45) / 18, tw: (twOf(t.b) - 50) / 20, me: (lv(p, t.b.my) - 45) / 18, fans: (Math.log10(1 + t.b.f) - 3.4) / 0.9 }, o.z || {}) }));
 }
 function bandReactF(s, t, d, cf) {
   const L = [me(s)].concat(bandMembers(s, t)).map(x => ({ k: bandPl(s, t, x), v: lv(x, bandPl(s, t, x)) })).sort((a, b) => b.v - a.v), hi = L[0], lo = L[L.length - 1];

@@ -444,7 +444,8 @@ function g2Cos(s) {
   const c = (t.alb && typeof CH_COS !== 'undefined' && CH_COS[t.alb.c]) || '';
   if (r === 'idol') return t.st === 'active' && t.promo > 0 ? { cos: c } : { cos: 'practice' };
   if (r === 'solo') return { cos: c, mic: 1 };
-  if (r === 'band') return { cos: c };
+  // v246: 밴드 멤버는 내 파트의 악기를 든다 (보컬은 스탠드 마이크 — live.js liveInst)
+  if (r === 'band') return { cos: c, inst: t.b && typeof liveInst === 'function' ? liveInst(partN(t.b.my)) : '' };
   if (r === 'dancer' || r === 'trainer' || r === 'acttrainer') return { cos: 'practice' };
   return {};
 }
@@ -1259,7 +1260,7 @@ function homeBgSync() {
 const SC_OF = {};
 for (const [k, L] of Object.entries({
   // 회의실: 컴백 · 신곡 · 편곡 회의, 프로듀서 · A&R · 마케터의 기획, 계약 이야기
-  meeting: ['co_plan', 'co_pick', 'idol_cb', 'band_cb', 'band_arr', 'solo_meet', 'band_meet', 'prod_plan', 'prod_song', 'anr_pick', 'mk_promo', 'mk_launch', 'co_aud_pick', 'co_trn_out', 'contract_nego', 'idol_contract', 'solo_contract', 'band_contract', 'idol_renew', 'idol_jp'],
+  meeting: ['co_plan', 'co_pick', 'idol_cb', 'band_cb', 'solo_meet', 'band_meet', 'prod_plan', 'prod_song', 'anr_pick', 'mk_promo', 'mk_launch', 'co_aud_pick', 'co_trn_out', 'contract_nego', 'idol_contract', 'solo_contract', 'band_contract', 'idol_renew', 'idol_jp'],
   // 연습실: 연습생 오디션 · 평가 · 데뷔조 · 방출, 같이 남아서 하는 연습
   practice: ['idol_aud', 'bandtr_pick', 'idol_tosolo', 'solo_togroup', 'idol_team', 'idol_cut', 'idol_teamcut', 'team_stay', 'team_flop', 'tr_eval', 'co_eval', 'co_eval_res', 'co_sq_ready', 'co_tr_left', 'dc_aud'],
   // 길거리: 캐스팅
@@ -1267,10 +1268,15 @@ for (const [k, L] of Object.entries({
   // 음악방송 대기실: 데뷔 날 · 서바이벌 프로그램
   waiting: ['idol_debut', 'band_debut', 'solo_trdebut', 'idol_surv'],
   // fansign(팬사인회장)은 v157 팬사인회 사건에서 쓴다
+  // v246: 녹음실 — 밴드 새 곡 기획 · 실을 곡 정하기 · 편곡 (회사와 하는 새 곡 회의 band_meet · band_cb는 회의실 그대로)
+  studio: ['band_rel', 'band_plan', 'band_sel', 'band_arr'],
+  // v246: 합주실 — 밴드 멤버를 구하거나 잃는 일, 합주에 안 나온 지 오래됐을 때. 인디 밴드의 단독 공연 이야기(band_concert)는 사건에 적어 뒀다 (idolev.js)
+  jamroom: ['band_cands', 'band_join_res', 'band_idle', 'band_leave'],
+  // van(이동하는 차 안)은 v247 투어 사건에서 쓴다 (그림만 미리 읽어 둔다)
 })) for (const id of L) SC_OF[id] = k;
 function scLoad() {
   UI.scOK = UI.scOK || {};
-  for (const k of ['meeting', 'practice', 'street', 'waiting', 'fansign']) {
+  for (const k of ['meeting', 'practice', 'street', 'waiting', 'fansign', 'jamroom', 'studio', 'van']) {
     if (UI.scOK[k] != null) continue;
     UI.scOK[k] = 0; const im = new Image(); im.onload = () => { UI.scOK[k] = 1; }; im.onerror = () => { UI.scOK[k] = -1; }; im.src = `img/sc/${k}.webp`;
   }

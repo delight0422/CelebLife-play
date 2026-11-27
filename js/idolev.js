@@ -190,6 +190,114 @@ function bandWaysMonth(s, t) {
   }
 }
 
+// ───── v246: 밴드 단독 공연 (솔로 가수의 단독 공연과 같은 흐름) ─────
+// 발표곡 2곡 · 밴드 팬 1,500명부터, 한 해에 한 번 (거절하면 반년 뒤). 공연장을 정하고(band_concert) 다음 달에 무대에 선다(band_concertres). 공연장은 솔로와 같은 사다리(SOLO_VENUE)
+//   올 만한 사람: 밴드 팬의 18%쯤(대중 호감도 50일 때. 호감도 0이면 0.6배 · 100이면 1.4배) — 300석 라이브 클럽은 팬 1,500명에 90%가 차고 1,700명쯤이면 매진, 4만 석 돔은 팬 22만 명쯤이어야 매진
+//   표값은 공연장이 클수록 비싸다 (라이브 클럽 4.4만 원 → 돔 9.9만 원). 예매 수수료 10%를 뗀다
+//   돈은 멤버끼리 나눈다. 회사 소속: 대관 · 무대 비용은 회사가 내고, 그 비용을 뺀 나머지를 정산한다 (music.js bandIncome — 회사 몫 → 멤버 수로 나눔 → 갚을 비용. 적자는 회사가 진다)
+//                        인디: 비용을 멤버끼리 똑같이 나눠 먼저 내고(내 몫만 내 돈에서 나간다), 표값도 똑같이 나눈다 (music.js billPay). 취소되면 먼저 낸 내 몫을 돌려받는다
+//   새로 적는 값: t.liveT(다음에 다시 이야기할 달) · t.liveN(단독 공연을 한 횟수). 예전 세이브에는 없다 (없으면 0). 소속 ↔ 인디가 바뀌어도 이어 간다
+const BAND_TICKET = [44000, 55000, 66000, 77000, 88000, 99000]; // SOLO_VENUE 차례대로
+const BAND_LIVE_GAP = 12, BAND_LIVE_REL = 2, BAND_LIVE_FANS = 1500, BAND_LIVE_RATE = 0.18;
+function bandOn(s) { const t = s.tracks.band; return !!t && !!t.b && (t.st === 'indie' || t.st === 'signed'); }
+function bandDemand(s, t) { return t.b.f * BAND_LIVE_RATE * (0.6 + jpop(s, 'band') / 100 * 0.8); }
+// 무대에 설 수 없는 때: 밴드를 쉬거나 그만뒀다 · 군 복무 · 자숙 · 아픔 · 임신 · 꼭 있어야 하는 파트가 비었다
+function bandLiveNo(s, t) { return !bandOn(s) || !!s.army || !!s.hiatus || !!s.ill || pregMe(s) || bandMissing(t).length > 0; }
+// 올 사람 수에 맞는 공연장 (자리가 올 사람의 1.15배를 넘지 않는 가장 큰 곳)
+function bandVenue0(dm) { let v0 = 0; SOLO_VENUE.forEach((V, i) => { if (V.seat <= dm * 1.15) v0 = i; }); return v0; }
+// 열기의 바탕: 밴드 실력이 좋을수록 갈수록 가파르게. 실력 30이면 43 · 50이면 54 · 70이면 67 · 90이면 82 · 100이면 90 (일직선이면 30 → 51 · 50 → 62 · 70 → 73 · 90 → 84)
+function bandHeatBase(pw) { return 34 + 56 * Math.pow(U.clamp(pw, 0, 100) / 100, 1.5); }
+// 먼저 낸 대관비 내 몫 돌려받기 (내 회사 소속이면 회사 돈으로)
+function bandLiveBack(s, d) { if (!d.cost) return; const co = ownCo(s, 'band'); if (co) coIn(co, d.cost, '단독 공연 대관비 환불', ownCoF(s, 'band')); else addMoney(s, d.cost, '단독 공연 대관비 환불'); d.back = d.cost; d.cost = 0; }
+// 매달 (music.js CAREERS.band.monthly에서 부른다): 단독 공연 이야기가 나온다
+function bandExtraMonth(s, t) {
+  if (bandLiveNo(s, t) || !slotsOn(s, 'c_band')) return;
+  if ((t.rel || 0) >= BAND_LIVE_REL && t.b.f >= BAND_LIVE_FANS && !((t.liveT || 0) > s.t) && !hasQ(s, 'band_concert') && !hasQ(s, 'band_concertres') && U.chance(0.25)) queueEv(s, 'band_concert', 0, {});
+}
+E({
+  id: 'band_concert', cat: '단독 공연', title: '밴드 단독 공연을 열까?', tag: 'career',
+  bg: s => s.tracks.band.st === 'signed' ? 'meeting' : 'jamroom',
+  cond: s => bandOn(s),
+  // d.cv: 회사가 잡을 공연장 (올 사람 수에 맞는 곳. 가끔 몸을 사려 한 단계 작은 곳, 자리가 1.7배 안쪽이면 가끔 욕심을 내 한 단계 큰 곳 — 솔로와 같다)
+  init(s, d) { const t = s.tracks.band; d.dm = Math.round(bandDemand(s, t)); d.nth = (t.liveN || 0) + 1; d.v0 = bandVenue0(d.dm); const up = SOLO_VENUE[d.v0 + 1]; d.cv = U.clamp(d.v0 + (up && up.seat <= d.dm * 1.7 && U.chance(0.25) ? 1 : U.chance(0.15) ? -1 : 0), 0, SOLO_VENUE.length - 1); },
+  text: (s, d) => {
+    const t = s.tracks.band, n = bandMembers(s, t).length + 1, nth = d.nth === 1 ? '첫' : `${d.nth}번째`, co = ownCo(s, 'band');
+    return t.st === 'signed' ? `${josa(t.agN, '이가')} 밴드 「${t.b.name}」의 ${nth} 단독 공연을 기획하려 한다. 발표곡 ${t.rel}곡, 밴드 팬 ${fmtFans(t.b.f)}.\n\n공연장과 규모는 회사가 정한다. 대관과 무대 비용을 뺀 수익을 회사와 나누고, 밴드 몫은 멤버 ${n}명이 똑같이 나눈다.${t.debt > 0 ? ' 내 몫은 갚을 비용부터 갚는다.' : ''}`
+      : `밴드 「${t.b.name}」의 이름을 건 ${nth} 단독 공연을 열 때가 됐다. 발표곡 ${t.rel}곡, 밴드 팬 ${fmtFans(t.b.f)}.\n\n공연장이 클수록 많이 벌 수 있지만, 자리가 비면 분위기가 식는다. 대관과 무대 비용은 멤버 ${n}명이 똑같이 나눠 먼저 내고, 표값도 똑같이 나눈다.${co ? ` 내 몫은 내 회사 ${josa(`「${co.name}」`, '이가')} 낸다.` : ''}`;
+  },
+  ch(s, d) {
+    const t = s.tracks.band, n = bandMembers(s, t).length + 1;
+    const later = { h: '반년 뒤에 다시 이야기한다', f: s => { t.liveT = s.t + 6; return '밴드 단독 공연은 다음으로 미뤘다.'; } };
+    // 회사 소속이면 공연장은 회사가 정하고, 나는 할지 말지만 답한다 (인디 · 내 회사 소속은 멤버들과 고른다)
+    if (t.st === 'signed') { const vi = SOLO_VENUE[d.cv] ? d.cv : 0, V = SOLO_VENUE[vi]; return [
+      { t: '하겠다고 한다', h: '공연장은 회사가 잡는다 · 다음 달에 무대에 선다', f: s => { t.liveT = s.t + BAND_LIVE_GAP; queueEv(s, 'band_concertres', 1, { v: vi, signed: true, cut: t.cut || 0, cost: 0 }, true); return `${josa(t.agN, '이가')} ${V.n}(${V.seat.toLocaleString()}석)을 잡았다. 다음 달에 밴드 단독 공연 무대에 선다.`; } },
+      Object.assign({ t: '이번엔 하지 않겠다고 한다' }, later),
+    ]; }
+    const v0 = d.v0 != null ? d.v0 : bandVenue0(d.dm);
+    const C = [v0 - 1, v0, v0 + 1].filter(i => i >= 0 && i < SOLO_VENUE.length).map(i => {
+      const V = SOLO_VENUE[i], r = d.dm / V.seat, my = Math.round(V.cost / n);
+      return { t: `${V.n} (${V.seat.toLocaleString()}석)`, h: `${r >= 1.15 ? '자리가 모자랄 듯하다' : r >= 0.9 ? '자리를 거의 채울 듯하다' : r >= 0.7 ? '자리가 조금 빌 듯하다' : r >= 0.5 ? '자리가 꽤 빌 듯하다' : '절반도 못 채울 듯하다'} · 비용 ${fmtWon(V.cost)} 가운데 내 몫 ${fmtWon(my)}`, ok: s => jobMoney(s, 'band') >= my,
+        f: s => { jobPay(s, my, '단독 공연 대관 · 무대', 'band'); t.liveT = s.t + BAND_LIVE_GAP; queueEv(s, 'band_concertres', 1, { v: i, signed: false, cut: 0, cost: my }, true); return `${V.n}에서 밴드 단독 공연을 열기로 했다. 다음 달에 무대에 선다.`; } };
+    });
+    C.push(Object.assign({ t: '이번엔 열지 않는다' }, later));
+    return C;
+  },
+});
+E({
+  id: 'band_concertres', cat: '단독 공연', title: '밴드 단독 공연', tag: 'career', keepPop: true,
+  live: (s, d) => d.live,
+  init(s, d) {
+    const t = s.tracks.band;
+    // 그사이 무대에 설 수 없게 됐으면(밴드를 그만둠 · 입대 · 자숙 · 병 · 임신 · 빈 파트) 공연은 취소된다. 먼저 낸 내 몫은 돌려받고, 반년 뒤에 다시 이야기한다
+    if (!t || bandLiveNo(s, t)) { const miss = bandOn(s) && bandMissing(t).length > 0; d.skip = true; bandLiveBack(s, d); if (bandOn(s)) t.liveT = s.t + 6; addLog(s, `잡아 둔 밴드 단독 공연이 취소됐다.${miss ? ' 멤버 자리가 비어 무대에 설 수 없었다.' : ''}${d.back ? ' 먼저 낸 대관비는 돌려받았다.' : ''}`, 'career'); return; }
+    const p = me(s), mem = bandMembers(s, t), n = mem.length + 1, vi = SOLO_VENUE[d.v] ? d.v : 0, V = SOLO_VENUE[vi], booked = !!d.signed, big = V.seat >= 5000;
+    d.vn = V.n; d.seat = V.seat;
+    d.sold = Math.max(1, Math.round(Math.min(V.seat, bandDemand(s, t) * U.fl(0.85, 1.15)))); d.fill = d.sold / V.seat;
+    // 열기: 밴드 실력(곡선) · 합 · 대중 호감도 · 자리가 찬 만큼 · 내 스타성. 몹시 지쳐 있으면 깎인다
+    d.heat = Math.round(U.clamp(bandHeatBase(bandPower(s, t)) + (twOf(t.b) - 50) * 0.08 + (jpop(s, 'band') - 50) * 0.15 + (d.fill - 0.75) * 24 + (p.tal.star - 50) * 0.06 - (s.stress >= 70 ? 5 : 0) + U.normal(0, 5), 5, 100));
+    // 표값에서 예매 수수료 10%를 뗀다. 회사가 잡은 공연은 비용을 뺀 나머지를 정산하고(적자는 회사가 진다), 멤버끼리 잡은 공연은 비용을 먼저 냈으니 표값을 그대로 나눈다
+    const tix = Math.round(d.sold * (BAND_TICKET[vi] || BAND_TICKET[0]) * 0.9);
+    let bill = null;
+    if (booked) {
+      const rev = Math.max(0, tix - V.cost);
+      d.lost = !(rev > 0);
+      // 잡을 때는 소속이었는데 그사이 회사를 나왔으면, 잡아 준 회사가 그때 약속한 몫을 가져간다
+      if (t.st === 'signed') { d.pay = bandIncome(s, t, rev, '단독 공연') || 0; bill = rev > 0 ? t.lastBill : null; }
+      else { const r = rev > 0 ? billPay(s, { rev, cut: d.cut || 0, n, team: '밴드', what: '단독 공연', job: 'band' }) : null; d.pay = r ? r.share : 0; bill = r ? r.bill : null; }
+      d.net = d.pay;
+      if (bill) { bill.rows[0][0] = '공연 수익'; bill.rows.unshift(['티켓 판매', bill.rows[0][1] + V.cost], ['대관 · 무대 비용', -V.cost], '-'); }
+    } else {
+      const r = billPay(s, { rev: tix, n, team: '밴드', what: '단독 공연', job: 'band' });
+      d.pay = r.share; bill = r.bill; d.net = Math.round(d.pay - (d.cost || 0));
+      bill.rows[0][0] = '티켓 판매';
+      if (d.cost > 0) bill.note = `먼저 낸 대관 · 무대 비용 내 몫 ${fmtBill(d.cost)}을 빼면 ${d.net >= 0 ? `${fmtBill(d.net)}이 남는다` : `${fmtBill(-d.net)} 적자다`}.`;
+    }
+    if (bill) { bill.t = `${V.n} 단독 공연 정산`; d.bill = bill; }
+    // 팬: 밴드 팬이 늘고, 내 팬은 그 35% (다른 밴드 팬 증가와 같다). 팬 상한(starCap)에 가까울수록 덜 는다
+    d.gain = Math.round(Math.max(0, d.sold * (d.heat - 50) / 40) * Math.max(0, 1 - t.b.f / starCap(60, 'kr'))); t.b.f += d.gain;
+    d.my = Math.round(d.gain * 0.35 * myRoom(s, 'kr')); s.fans.kr += d.my;
+    // 객석을 절반도 못 채우면 열기와 상관없이 대중 호감도가 크게 떨어지고, 스트레스가 크게 오른다 (솔로와 같다)
+    d.empty = d.fill < 0.5;
+    d.pop = jpopAdd(s, 'band', d.empty ? -U.fl(3, 5) : d.heat >= 82 ? U.fl(3, 5) : d.heat >= 67 ? U.fl(1.5, 3) : d.heat >= 52 ? 0.8 : -0.5);
+    t.liveN = (t.liveN || 0) + 1; t.liveT = s.t + BAND_LIVE_GAP;
+    practice(s, p, t.b.my, 2, 1); teamGrow(s, bandTm(s, t), 1, true); addStress(s, d.empty ? 22 : 8);
+    // 큰 무대를 같이 치르면 멤버들과 가까워지고 손발이 맞는다 (객석이 텅 비면 가라앉는다)
+    for (const m of mem) bond(s, m, d.empty ? 0 : d.heat >= 82 ? 5 : 3);
+    twAdd(t.b, d.empty ? -2 : d.heat >= 67 ? 3 : 1);
+    addWork(s, { type: '단독 공연', title: V.n, by: `「${t.b.name}」`, sc: d.heat, pay: d.pay || 0, note: `관객 ${d.sold.toLocaleString()}명 · ${soloHeatW(d.heat)}` });
+    if (t.liveN === 1) milestone(s, `${age(s)}세에 밴드 「${t.b.name}」의 첫 단독 공연을 ${V.n}에서 열었다.`);
+    // 무대 창: 라이브 클럽 · 소극장은 클럽 사진, 중극장 홀은 홀 사진, 5,000석부터는 콘서트 사진. 후렴 반응(q)은 공연 열기를, 객석(fans)은 자리가 찬 만큼을 따른다
+    d.live = bandLive(s, t, { vn: V.seat < 2000 ? 'club' : '', ph: V.seat < 2000 ? 'soloclub' : big ? 'concert' : 'solohall', cos: t.st === 'signed' || big ? 'rock' : 'indie', place: V.n, t: '단독 공연', key: true, sc: d.heat, z: { q: (d.heat - 57) / 20, fans: d.fill * 2 - 1 } });
+  },
+  html: (s, d) => d.bill && typeof billBtnHTML === 'function' ? cardText(s, d) + billBtnHTML(d.bill) + (d.live && typeof liveBtnHTML === 'function' ? ' ' + liveBtnHTML(d.live) : '') : '',
+  text: (s, d) => {
+    const t = s.tracks.band, money = d.signed ? (d.pay > 0 ? `정산 +${fmtWon(d.pay)}` : d.lost ? '정산금 없음 (비용이 표값보다 컸다)' : '정산금 없음') : d.net > 0 ? `내 몫 공연 수익 +${fmtWon(d.net)}` : d.net < 0 ? `내 몫 공연 적자 ${fmtWon(-d.net)}` : '';
+    const fl = [money, d.gain > 0 ? `밴드 팬 +${fmtFans(d.gain)}` : '', d.my > 0 ? `내 팬 +${fmtFans(d.my)}` : '', d.pop > 0.3 ? '대중 호감도 ↑' : d.pop < -0.3 ? '대중 호감도 ↓' : '', d.empty ? '스트레스 ↑↑' : ''].filter(Boolean).join(' · ');
+    return `밴드 「${t.b.name}」의 ${d.vn} 단독 공연을 마쳤다. 관객 ${d.sold.toLocaleString()}명${d.fill >= 0.98 ? ' · 매진' : ` (${d.seat.toLocaleString()}석 가운데 ${Math.round(d.fill * 100)}%)`}. ${soloHeatW(d.heat)}.${d.empty ? '\n\n객석이 절반도 차지 않았다. 무대에서 내려온 멤버들도 말이 없다.' : ''}${fl ? `\n\n${fl}` : ''}${d.signed && d.bill && d.bill.note ? `\n\n${d.bill.note}` : ''}`;
+  },
+  ch: (s, d) => [{ t: '확인', f: () => `${d.vn}에서 밴드 단독 공연을 했다. 관객 ${d.sold.toLocaleString()}명, ${soloHeatW(d.heat)}.${d.empty ? ' 객석이 절반도 차지 않아 마음이 무겁다.' : ''}` }],
+});
+
 // ───── v220: 솔로 가수의 OST · 피처링 · 단독 공연 ─────
 // 첫 곡을 낸 뒤부터. OST · 피처링은 메시지함으로 제안이 오고, 받으면 한두 달 뒤 성적 창이 뜬다. 성적이 좋을수록 팬과 인기가 더 오른다
 // 단독 공연은 2년에 한 번 (발표곡 5곡 · 팬 3만 명부터. v234: 예전 3곡 · 2만 명). 공연장 크기를 고르고 다음 달에 무대에 선다

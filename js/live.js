@@ -113,6 +113,13 @@ function liveBeats(sp) {
 // 요인: perf(연주 실력) · tw(합) · me(내 파트) · q(곡) · fans(우리 팬이 얼마나 왔나) · trend. nw: 우리를 처음 보는 객석 (페스티벌)
 const LV_PART = { 보컬: ['🎤', '목소리 미쳤다!!'], 기타: ['🎸', '기타 솔로 미쳤다!!'], 베이스: ['🎸', '베이스 죽인다!!'], 드럼: ['🥁', '드럼 미쳤다!!'], 키보드: ['🎹', '건반 미쳤다!!'], 피아노: ['🎹', '피아노 미쳤다!!'] };
 function livePartIc(p) { return (LV_PART[p] || ['🎵'])[0]; }
+// v246: 파트 이름 → 악기 그림 (img/src/prop_<악기>, js/chparts.js의 CH_PARTS.inst). 보컬은 스탠드 마이크 (이때 핸드 마이크는 그리지 않는다). 밴드 · 연주가 무대와 메인 화면의 밴드 멤버만 쓴다
+const LV_INST = { 보컬: 'prop_stand', 기타: 'prop_guitar', 베이스: 'prop_bass', 드럼: 'prop_drum', 키보드: 'prop_keys', 피아노: 'prop_keys' };
+function liveInst(part) { const n = LV_INST[part]; return n && typeof CH_PARTS !== 'undefined' && CH_PARTS.inst && CH_PARTS.inst[n] ? n : ''; }
+// 악기가 몸 틀 밖으로 나간 만큼 옆 사람과 떨어뜨린다: [왼쪽, 오른쪽] (캐릭터 키에 대한 비율). 열 칸까지는 겹쳐도 둔다 (기타 · 베이스의 목)
+function liveInstGap(n) { const I = n && CH_PARTS.inst[n]; if (!I) return [0, 0]; const g = v => Math.round(Math.max(0, v - 10) / CH_PARTS.h * 1000) / 1000; return [g(-I[0]), g(I[0] + I[2] - CH_PARTS.w)]; }
+// 사진 무대 (v246): 밴드 · 연주가 무대의 장소 모양(vn) → 깔 사진 (img/st/). 고향 축제 무대(아이돌 · 솔로도 vn: 'fest')도 같이 쓴다
+const LV_VN_PH = { club: 'soloclub', hall: 'solohall', fest: 'festival' };
 function liveBand(sp, R, pk, z, lvl, cn, mine) {
   const B = [], solo = sp.k === 'player', part = (sp.mem[sp.hf != null && sp.mem[sp.hf] ? sp.hf : sp.mi] || [])[1] || '', f = lvl(z('fans'));
   const clap = ['짝짝짝', '짝짝짝짝!'], big = solo ? ['브라보!!', '와아…!', '대단하다!!'] : LV_BIG;
@@ -684,13 +691,13 @@ const CH_HAIR = [[52, 44, 58], [52, 44, 58], [84, 58, 44], [84, 58, 44], [128, 8
 function chLoad() {
   if (CH.started || typeof CH_PARTS === 'undefined') return;
   CH.started = true;
-  const P = CH_PARTS, L = P.body.concat(P.face, P.cos || [], P.prop || [], P.stick || [], ...P.hair.concat(P.hairM || []).map(h => [h + '_b', h + '_f']));
+  const P = CH_PARTS, L = P.body.concat(P.face, P.cos || [], P.prop || [], P.stick || [], Object.keys(P.inst || {}), ...P.hair.concat(P.hairM || []).map(h => [h + '_b', h + '_f']));
   // 한 장이 끝내 안 읽혀도 나머지로 칠한다 (없는 부품은 건너뛴다)
   const done = () => { if (++CH.n === L.length) { CH.ok = true; chPaintAll(); } };
   for (const n of L) { const im = new Image(); im.onload = () => { CH.img[n] = im; done(); }; im.onerror = () => { if (!im.dataset.retry) { im.dataset.retry = 1; im.src = `img/ch/${n}.png`; } else done(); }; im.src = (P.data || {})[n] || `img/ch/${n}.png`; }
 }
 // 의상 색 (v164): 갈색 · 겨자색(색상 12~58도)은 쓰지 않고, 흰 옷 · 검은 옷을 자주 쓴다. 그룹(gkey)마다 하나로 정하고, 컨셉마다 흰 · 검 비율이 다르다 ([흰, 검])
-const CH_BW = { '': [0.25, 0.25], fresh: [0.45, 0.05], strong: [0.1, 0.55], cute: [0.3, 0.05], dreamy: [0.45, 0.1], hiphop: [0.2, 0.45], retro: [0.2, 0.2], teen: [0.3, 0.15], mature: [0.2, 0.45], practice: [0.25, 0.4], project: [0.3, 0.3] };
+const CH_BW = { '': [0.25, 0.25], fresh: [0.45, 0.05], strong: [0.1, 0.55], cute: [0.3, 0.05], dreamy: [0.45, 0.1], hiphop: [0.2, 0.45], retro: [0.2, 0.2], teen: [0.3, 0.15], mature: [0.2, 0.45], practice: [0.25, 0.4], project: [0.3, 0.3], rock: [0.05, 0.7], indie: [0.25, 0.2] };
 function chBrown(h) { h = ((h % 360) + 360) % 360; return h >= 12 && h < 58; }
 // 'w' 흰 옷 · 'b' 검은 옷 · 'c' 그룹 색 옷 (그룹 색이 갈색 쪽이면 흰 옷이나 검은 옷)
 function chFit(g, cos, hue) {
@@ -736,6 +743,9 @@ function chPaint(cv) {
   if (up > 1) { ctx.imageSmoothingEnabled = false; ctx.setTransform(up, 0, 0, up, 0, 0); }
   chLayer(ctx, hair + '_b', 'hair', hc); chLayer(ctx, body, 'fit', { k: chFit(D.g, D.cos, +D.hue), h: +D.hue }); chLayer(ctx, face, ''); chLayer(ctx, hair + '_f', 'hair', hc);
   if (D.mic) chLayer(ctx, 'prop_mic', '');
+  // v246: 악기는 몸 위에 겹친 캔버스(lv-ins)에 원래 색 그대로 그린다 (그룹 색으로 물들이지 않는다)
+  const ic = cv.parentNode.querySelector('canvas.lv-ins');
+  if (ic) { const im = CH.img[ic.dataset.ins], x = ic.getContext('2d'); x.clearRect(0, 0, ic.width, ic.height); if (im) { x.imageSmoothingEnabled = false; x.drawImage(im, 0, 0, ic.width, ic.height); } }
   cv.parentNode.classList.add('on');
 }
 function chPaintAll() { if (!CH.ok) return; document.querySelectorAll('canvas.lv-chc').forEach(chPaint); document.querySelectorAll('[data-stick]').forEach(chStick); }
@@ -763,14 +773,17 @@ function chStick(el) {
   }
   el.style.setProperty('--stk', `url("${CH.stk[ck]}")`); el.classList.add('stk');
 }
-// 무대에 세울 캐릭터 하나의 HTML: 그림이 준비되면 그림, 아니면 도트. o: { sx 성별, cos 의상, mic }
+// 무대에 세울 캐릭터 하나의 HTML: 그림이 준비되면 그림, 아니면 도트. o: { sx 성별, cos 의상, mic, inst 악기(prop_guitar 등 — liveInst) }
 function liveChar(key, hue, gkey, o) {
   o = o || {};
   const fk = chFit(gkey, o.cos, hue);
   if (typeof CH_PARTS === 'undefined') return liveSprite(key, hue, fk);
   // v244: o.up이면 그림 칸을 그 배수(정수)로 키워 그린다 (점 하나가 정확히 up×up 칸). 크게 보이는 곳에서 부드럽게 줄여 쓰면 점 크기가 고르게 보인다
   const up = Math.max(1, Math.round(o.up || 1));
-  return `<span class="lv-ch">${liveSprite(key, hue, fk)}<canvas class="lv-chc" width="${CH_PARTS.w * up}" height="${CH_PARTS.h * up}"${up > 1 ? ` data-up="${up}"` : ''} data-ch="${U.esc(key)}" data-g="${U.esc(gkey)}" data-hue="${hue}"${o.sx ? ` data-sx="${o.sx}"` : ''}${o.cos ? ` data-cos="${U.esc(o.cos)}"` : ''}${o.mic ? ' data-mic="1"' : ''}></canvas></span>`;
+  // v246: 악기(o.inst)는 몸 캔버스 위에 캔버스를 하나 더 겹친다 (드럼 · 키보드는 몸보다 넓어서 몸 틀에 못 넣는다). 자리 · 크기는 몸 틀(CH_PARTS.w × h)에 대한 %라서 몸이 어떤 크기로 보이든 같이 맞는다. 몸 캔버스의 크기 · 자리는 그대로
+  const I = o.inst && CH_PARTS.inst ? CH_PARTS.inst[o.inst] : null, pc = (v, t) => Math.round(v / t * 1e4) / 100;
+  const ins = I ? `<canvas class="lv-ins" width="${I[2] * up}" height="${I[3] * up}" data-ins="${o.inst}" style="left:${pc(I[0], CH_PARTS.w)}%;top:${pc(I[1], CH_PARTS.h)}%;width:${pc(I[2], CH_PARTS.w)}%;height:${pc(I[3], CH_PARTS.h)}%"></canvas>` : '';
+  return `<span class="lv-ch${I ? ' ins' : ''}">${liveSprite(key, hue, fk)}<canvas class="lv-chc" width="${CH_PARTS.w * up}" height="${CH_PARTS.h * up}"${up > 1 ? ` data-up="${up}"` : ''} data-ch="${U.esc(key)}" data-g="${U.esc(gkey)}" data-hue="${hue}"${o.sx ? ` data-sx="${o.sx}"` : ''}${o.cos ? ` data-cos="${U.esc(o.cos)}"` : ''}${o.mic && !I ? ' data-mic="1"' : ''}></canvas>${ins}</span>`;
 }
 
 // ───── 창 ─────
@@ -796,11 +809,18 @@ function liveHTML(sp) {
   const oth = k => [0, 1, 2].map(i => `<span class="lm" style="--i:${i + k}">${liveChar('rival' + sp.seed + (i + k), (sp.hue + 90 + (k ? 110 : 0)) % 360, 'rival' + sp.seed + k)}</span>`).join('');
   // 사진 무대 (v154 보탬): 음악방송 · 콘서트 무대는 사용자가 만든 무대 그림을 깔고, 객석 막대는 응원봉 그림으로 (그림이 없으면 예전 그대로)
   // v234: sp.ph가 있으면 그 그림을 쓴다 (솔로 단독 공연: 라이브 클럽 · 소극장 soloclub / 중극장 홀 · 대형 공연장 solohall / 체육관 · 돔 concert). 그 그림이 아직 없으면 뒤에 깐 concert 그림이 보인다
-  const pop = !sp.vn && (sp.k === 'idol' || sp.k === 'solo' || sp.k === 'meet'), ph = pop ? (sp.ph || (/콘서트|팬미팅|투어/.test(sp.place) ? 'concert' : 'musicshow')) : '';
+  // v246: 사진 무대와 응원봉을 떼어 냈다. 사진은 sp.ph → 노래 · 연주 무대의 장소 모양(vn: club · hall · fest — 밴드 · 연주가 · 고향 축제) → 아이돌 · 솔로 · 팬미팅(pop)의 콘서트 · 음악방송 차례로 고른다. 응원봉은 예전처럼 pop일 때만
+  //   평가 날(k: 'eval', vn: 'hall')처럼 무대가 아닌 곳에는 사진을 깔지 않는다
+  const pop = !sp.vn && (sp.k === 'idol' || sp.k === 'solo' || sp.k === 'meet'), music = sp.k === 'idol' || sp.k === 'solo' || sp.k === 'meet' || sp.k === 'band' || sp.k === 'player';
+  const ph = music ? (sp.ph || LV_VN_PH[sp.vn] || (pop ? (/콘서트|팬미팅|투어/.test(sp.place) ? 'concert' : 'musicshow') : '')) : '';
+  // v246: 밴드 · 연주가는 파트마다 악기를 든다. 드럼은 넓어서 드러머를 줄 가운데 · 한 발 뒤에 세운다 (세 명부터. 앞사람이 드럼 양옆을 살짝 가린다)
+  const bnd = sp.k === 'band' || sp.k === 'player', ins = mem.map(m => bnd ? liveInst(m[1]) : ''), di = sp.k === 'band' && mem.length >= 3 ? ins.indexOf('prop_drum') : -1;
+  const ord = mem.map((m, i) => i).filter(i => i !== di); if (di >= 0) ord.splice(Math.ceil(ord.length / 2), 0, di);
+  const lmSt = i => { const g = i === di ? [0.03, 0.03] : liveInstGap(ins[i]); return (di >= 0 ? `;order:${ord.indexOf(i)}` : '') + (g[0] || g[1] ? `;margin:0 calc(var(--lmh, 168px) * ${g[1]}) 0 calc(var(--lmh, 168px) * ${g[0]})` : ''); };
   return `<div class="lv-top"><span class="lv-place">${U.esc(sp.place)}</span>${sp.cc ? `<span class="lv-t" id="lv-t"></span><span class="lv-heat" id="lv-heat">🔥 열기 <span class="lv-hb"><i></i></span><b>-</b></span>` : sp.t ? `<span class="lv-t">「${U.esc(sp.t)}」</span>` : ''}<span class="lv-g">${U.esc(sp.g)}</span></div>`
-    + `<div class="lv-stage${sp.vn ? ' vn-' + sp.vn : ''}${ph ? ' ph' : ''}${sp.k === 'set' || sp.k === 'show' || sp.k === 'runway' || sp.k === 'booth' || sp.k === 'eval' || (sp.k === 'class' && (sp.x || {}).room === 'ol') ? ' mcon' : ''}${sp.k === 'class' ? ' rm-' + ((sp.x || {}).room || 'uni') : ''}" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"${pop ? ` data-stick="${1 + hashN('stk' + sp.g) % 3}" data-hue="${sp.hue}"` : ''}>${ph ? `<div class="lv-ph" style="background-image:url('img/st/${ph}.webp')${sp.ph && sp.ph !== 'concert' ? ",url('img/st/concert.webp')" : ''}"></div>` : ''}<div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
+    + `<div class="lv-stage${sp.vn ? ' vn-' + sp.vn : ''}${ph ? ' ph' : ''}${sp.k === 'set' || sp.k === 'show' || sp.k === 'runway' || sp.k === 'booth' || sp.k === 'eval' || (sp.k === 'class' && (sp.x || {}).room === 'ol') ? ' mcon' : ''}${sp.k === 'class' ? ' rm-' + ((sp.x || {}).room || 'uni') : ''}" id="lv-stage" style="--hue:${sp.hue};--glow:0.3"${pop ? ` data-stick="${1 + hashN('stk' + sp.g) % 3}" data-hue="${sp.hue}"` : ''}>${ph ? `<div class="lv-ph" style="background-image:url('img/st/${ph}.webp')${ph !== 'concert' && ph !== 'musicshow' ? ",url('img/st/concert.webp')" : ''}"></div>` : ''}<div class="lv-lights"><i></i><i></i><i></i><i></i></div>`
     + `<div class="lv-floor"></div><div class="lv-oth l">${oth(0)}</div><div class="lv-oth r">${oth(3)}</div>`
-    + `<div class="lv-mem">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}" style="--i:${i}">${liveChar(sp.g + '/' + m[0] + i, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? (sp.hue + i * 67) % 360 : sp.hue, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? sp.g + i : sp.g, { sx: liveMemSx(sp, i), cos: sp.cos, mic: sp.mic })}${m[0] || ((sp.k === 'band' || sp.k === 'player') && m[1]) ? `<em>${sp.k === 'band' || sp.k === 'player' ? livePartIc(m[1]) + ' ' : ''}${U.esc(m[0])}</em>` : ''}</span>`).join('')}</div>`
+    + `<div class="lv-mem${bnd ? ' bnd' : ''}">${mem.map((m, i) => `<span class="lm${i === sp.mi ? ' me' : ''}${i === di ? ' back' : ''}" style="--i:${i}${bnd ? lmSt(i) : ''}">${liveChar(sp.g + '/' + m[0] + i, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? (sp.hue + i * 67) % 360 : sp.hue, sp.k === 'set' || sp.k === 'show' || sp.k === 'booth' ? sp.g + i : sp.g, { sx: liveMemSx(sp, i), cos: sp.cos, mic: sp.mic, inst: ins[i] })}${m[0] || ((sp.k === 'band' || sp.k === 'player') && m[1]) ? `<em>${sp.k === 'band' || sp.k === 'player' ? livePartIc(m[1]) + ' ' : ''}${U.esc(m[0])}</em>` : ''}</span>`).join('')}</div>`
     + `<div class="lv-conf">${Array.from({ length: 26 }, (_, i) => `<i style="left:${(i * 41) % 100}%;--d:${(i * 0.17) % 1.4}s;--c:${(i * 67) % 360}"></i>`).join('')}</div>`
     + liveProps(sp)
     + `<div class="lv-crowd">${sticks}</div><div class="lv-bub" id="lv-bub"></div><div class="lv-mc" id="lv-mc"></div></div>`
