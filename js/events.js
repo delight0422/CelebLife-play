@@ -353,34 +353,21 @@ const JOB_EXPS = [['방송국 견학 · 영상 편집 체험', 'edit'], ['녹음
 // 베이스는 유치원생 몸에 너무 커서 뺐다 (부모님이 권하는 나이 KID_SKILLS도 10세부터). 초등학교 직업 체험의 날에는 나온다
 const JOB_EXPS_KID = [['가수 체험', 'vocal'], ['댄서 체험', 'dance'], ['기타리스트 체험', 'guitar'], ['드러머 체험', 'drum'], ['피아노 · 키보드 연주자 체험', 'piano'],
   ['배우 체험', 'acting'], ['만화가 체험', 'art'], ['프로게이머 체험', 'game']];
-// v249: 분야를 먼저 고르고(첫 창), 그 분야에서 재능에 맞는 직업을 4개까지 보여 준다(job_exp_pick). 원하는 분야를 스스로 고를 수 있게 (사용자 결정)
-//   [분야 id, 이름, 유치원 때 이름, 그 분야의 특기]
-const JOB_EXP_F = [['sing', '🎤 노래 · 춤', '🎤 노래 · 춤', ['vocal', 'rap', 'dance']], ['inst', '🎸 악기', '🎸 악기', ['guitar', 'bass', 'drum', 'piano', 'keyboard']], ['write', '✍️ 곡 · 글', '✍️ 곡 · 글', ['compose', 'lyric', 'script']],
-  ['act', '🎬 연기 · 영상', '🎬 연기', ['acting', 'variety', 'direct', 'edit']], ['play', '🎨 그림 · 게임', '🎨 그림 · 게임', ['art', 'game']], ['work', '💼 회사 · 학교 일', '💼 회사 · 학교 일', ['scout', 'edu', 'biz']]]; // 분야마다 4개 이하 — 첫 창 힌트에 보인 직업이 둘째 창에 다 나온다
-function jobExpList(s, kid, f) { const F = JOB_EXP_F.find(x => x[0] === f); return (kid ? JOB_EXPS_KID : JOB_EXPS).filter(x => (!F || F[3].includes(x[1])) && !has(me(s), x[1]) && skOpen(s, x[1])); }
-function jobExpFields(s, kid) { return JOB_EXP_F.filter(F => jobExpList(s, kid, F[0]).length); }
-function jobExpCh(s, kid) { return jobExpFields(s, kid).map(F => ({ t: F[kid ? 2 : 1], h: jobExpList(s, kid, F[0]).map(x => SKILLS[x[1]].n).join(' · '), f: s => { fireEvent(s, 'job_exp_pick', { kid: kid ? 1 : 0, f: F[0] }); return ''; } })); }
 E({
   id: 'job_exp_kid', fixed: true, once: true, cat: '어린 시절', title: '어린이 직업 체험관',
   cond: s => age(s) >= 5 && age(s) <= 6 && schoolYear(s) < 1,
-  init(s, d) { if (!jobExpFields(s, true).length) d.skip = true; },
-  text: () => '유치원에서 어린이 직업 체험관에 갔다. 직업 하나를 골라 그 직업의 옷을 입고 체험해 볼 수 있다. 어느 쪽으로 가 볼까?',
-  ch: s => jobExpCh(s, true).concat([{ t: '구경만 하고 온다', f: () => '어린이 직업 체험관에서 이것저것 구경만 하고 왔다.' }]),
-});
-E({
-  id: 'job_exp_pick', cat: '직업 체험', title: (s, d) => d.kid ? '어린이 직업 체험관' : '직업 체험의 날',
-  init(s, d) { d.o = fitPick(s, jobExpList(s, d.kid, d.f), 4); if (!d.o.length) d.skip = true; },
-  text: (s, d) => { const F = JOB_EXP_F.find(x => x[0] === d.f); return `${F ? F[d.kid ? 2 : 1].replace(/^\S+ /, '') : '직업'} 쪽으로 왔다. 무엇을 체험해 볼까?`; },
-  ch: (s, d) => d.o.map(([t, k]) => ({ t, h: gainH(s, k), f: s => `${josa(t, '을를')} 했다. ` + (d.kid ? '집에 와서도 한참을 흉내 내며 놀았다.' : '생각보다 재밌어서 집에 와서도 계속 해 봤다.') + learnMe(s, k) }))
-    // 열린 분야가 여럿일 때만 첫 창으로 돌아간다 (하나뿐이면 돌아가도 달라지는 게 없으니 구경만 하고 끝낸다)
-    .concat([jobExpFields(s, d.kid).length > 1 ? { t: '다른 쪽을 본다', f: s => { fireEvent(s, d.kid ? 'job_exp_kid' : 'job_exp', {}); return ''; } } : { t: '구경만 하고 온다', f: () => d.kid ? '어린이 직업 체험관에서 이것저것 구경만 하고 왔다.' : '직업 체험의 날, 이것저것 구경만 하고 왔다.' }]),
+  init(s, d) { d.o = fitPick(s, JOB_EXPS_KID.filter(x => !has(me(s), x[1]) && skOpen(s, x[1])), 4); if (!d.o.length) d.skip = true; },
+  text: () => '유치원에서 어린이 직업 체험관에 갔다. 직업 하나를 골라 그 직업의 옷을 입고 체험해 볼 수 있다.',
+  ch: (s, d) => d.o.map(([t, k]) => ({ t, h: gainH(s, k), f: s => `${josa(t, '을를')} 했다. 집에 와서도 한참을 흉내 내며 놀았다.` + learnMe(s, k) }))
+    .concat([{ t: '구경만 하고 온다', f: () => '어린이 직업 체험관에서 이것저것 구경만 하고 왔다.' }]),
 });
 E({
   id: 'job_exp', fixed: true, once: true, cat: '학창 시절', title: '직업 체험의 날',
   cond: s => schoolYear(s) >= 5 && schoolYear(s) <= 9 && (schoolYear(s) > 5 || calM(s) >= 4), // calM은 0부터 — 5학년 5월부터
-  init(s, d) { if (!jobExpFields(s, false).length) d.skip = true; },
-  text: () => '학교에서 직업 체험관으로 현장 학습을 갔다. 하루 동안 직업 하나를 골라 체험해 볼 수 있다. 어느 쪽으로 가 볼까?',
-  ch: s => jobExpCh(s, false).concat([{ t: '구경만 하고 온다', f: () => '직업 체험의 날, 이것저것 구경만 하고 왔다.' }]),
+  init(s, d) { d.o = fitPick(s, JOB_EXPS.filter(x => !has(me(s), x[1]) && skOpen(s, x[1])), 4); if (!d.o.length) d.skip = true; },
+  text: () => '학교에서 직업 체험관으로 현장 학습을 갔다. 하루 동안 직업 하나를 골라 체험해 볼 수 있다.',
+  ch: (s, d) => d.o.map(([t, k]) => ({ t, h: gainH(s, k), f: s => `${josa(t, '을를')} 했다. 생각보다 재밌어서 집에 와서도 계속 해 봤다.` + learnMe(s, k) }))
+    .concat([{ t: '구경만 하고 온다', f: () => '직업 체험의 날, 이것저것 구경만 하고 왔다.' }]),
 });
 // 고등학교 동아리 (v117: 중학교에서 옮겼다): 특기마다 하나씩 (공부는 귀가부도 된다)
 // 들어간 동아리의 특기는 고등학교 다니는 동안 CLUB_MULT배 빨리 는다 (학과 · 장비와 곱한다, schoolBonus)

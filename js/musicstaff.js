@@ -534,6 +534,8 @@ function leaveEmp(s, kind, why) {
   if (kind === 'producer') return pinLeave(s, why);
   // 애니메이터는 회사를 나와도 프리랜서로 이어 간다
   if (kind === 'animator') return anLeave(s, why);
+  // v250: 번역가도 회사를 나오면 프리랜서로 이어 간다 (translator.js)
+  if (kind === 'translator') return tlLeave(s, why);
   const t = s.tracks[kind];
   t.st = 'ended'; t.endNote = `${t.agN} ${EMP_N[kind]} (${why})`;
   if (t.students) for (const id of t.students) { const x = s.people[id]; if (x && x.rel === '제자') x.rel = '지인'; }

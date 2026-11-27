@@ -186,6 +186,8 @@ function jobTeams(s, id) {
     case 'tutor': return t.co ? T((t.mode === 'ol' ? 'ol:' : 'acad:') + t.co, [t.mode === 'ol' ? 'pd' : 'boss']) : [];
     // v207: 마케터는 어느 회사든 (회사 열쇠 coByKey)
     case 'marketer': { const c = coByKey(t.ag); return c && coTeamDef(c.team + '#mk') ? [{ tk: c.team + '#mk', me: 'biz', lead: t.tier >= 4 }] : []; }
+    // v250: 회사 번역가는 따로 팀이 없다. 해외로 나갈 콘텐츠를 함께 다루는 마케팅팀과 일한다 (내가 그 팀 사람은 아니다. 번역팀은 대표 쪽 번역가 자리를 만들 때 정한다)
+    case 'translator': { const c = t.mode === 'emp' ? coByKey(t.ag) : null; return c && coTeamDef(c.team + '#mk') ? [{ tk: c.team + '#mk', me: '', lead: false }] : []; }
   }
   return [];
 }

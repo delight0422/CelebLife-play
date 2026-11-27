@@ -208,7 +208,7 @@ function walkScandal(s, job) {
 E({ id: 'walkout_sc', cat: '논란', cond: s => true, init(s, d) { d.skip = true; walkScandal(s, d.job); } });
 // 지각 (v93): 끈기가 낮으면 일정이 잡힌 달에 가끔 늦는다 (v215: 성실성이 높을수록 드물게)
 // 혼자 하는 일(라이브온 · 글 · 그림 · 작곡 · 작사 · 회사 대표)은 늦을 데가 없어서 뺀다. 12개월 안에 세 번이면, 이름이 알려졌으면 지각 논란
-const LATE_AT = { actor: '촬영장', model: '촬영장', director: '촬영장', variety: '녹화장', voice: '녹음실', producer: '녹음실', idol: '리허설', band: '공연 리허설', solo: '리허설', player: '리허설', dancer: '리허설', vidol: '', anr: '회의', marketer: '회의', editor: '회의', animator: '회의', adir: '회의', trainer: '수업', acttrainer: '수업', prof: '강의', tutor: '강의' };
+const LATE_AT = { actor: '촬영장', model: '촬영장', director: '촬영장', variety: '녹화장', voice: '녹음실', producer: '녹음실', idol: '리허설', band: '공연 리허설', solo: '리허설', player: '리허설', dancer: '리허설', vidol: '', anr: '회의', marketer: '회의', translator: '회의', editor: '회의', animator: '회의', adir: '회의', trainer: '수업', acttrainer: '수업', prof: '강의', tutor: '강의' };
 // v215: 성실성이 낮을수록 가파르게 자주 늦는 한 줄 곡선 (10 → 한 달 13%, 30 → 6%, 50 → 2%, 70 → 0.5%, 90 → 거의 0). 예전엔 50부터 아예 안 늦었다
 function lateP(s) { const g = U.clamp(me(s).tal.grit, 0, 100); return 0.18 * Math.pow((100 - g) / 100, 3); }
 function lateMonth(s) {

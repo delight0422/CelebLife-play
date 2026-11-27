@@ -11,7 +11,7 @@ const INBOX = {};
 const MSG_CEO = { co_vad: 'video', co_aad: 'anime' };
 // 제안이 어느 직업의 일인가 (v237 업계 냉대: 그 직업으로 오는 제안이 드물어진다). 받으면 시작하는 직업(선택지의 nj)도 함께 본다
 const MSG_JOB = { ag_offer: m => m.d.kind, idol_solo: 'idol', band_fest: 'band', session: 'player', recital: 'player', solo_ost: 'solo', solo_feat: 'solo', cast_offer: 'actor', var_fixed: 'variety', dc_offer: 'dancer', mcn_offer: 'youtube',
-  w_name: 'composer', w_adopt: m => m.d.kind, w_team: m => m.d.kind, p_offer: 'producer', choreo: 'trainer', pf_inv: 'prof', tu_ol: 'tutor', ded_offer: 'editor', wb_cp_offer: m => m.d.id, dir_side: 'director', script_order: 'writer', script_fix: 'writer' };
+  w_name: 'composer', w_adopt: m => m.d.kind, w_team: m => m.d.kind, p_offer: 'producer', choreo: 'trainer', pf_inv: 'prof', tu_ol: 'tutor', ded_offer: 'editor', wb_cp_offer: m => m.d.id, dir_side: 'director', script_order: 'writer', script_fix: 'writer', tl_offer: 'translator' }; // v250: 번역 의뢰 (translator.js)
 function msgJobs(s, m) {
   const J = [], x = MSG_JOB[m.kind], j = typeof x === 'function' ? x(m) : x;
   if (j) J.push(j);
@@ -184,7 +184,7 @@ function aaHome(s, ids) {
 function busyWith(s, type) { return s.projects.some(w => w.type === type); }
 // 오디션·채용·한 번 하는 지원이 처음으로 지원 가능해지면 알려 준다 (한 곳마다 한 번만)
 // 혼자 시작하는 일도 처음 할 수 있게 되면 알린다 (돈만 있으면 되는 버튜버 아바타·밴드 데모처럼 자주 바뀌는 것은 뺀다)
-const AP_NOTIFY = new Set(['band_make', 'band_join', 'solo_indie', 'player_start', 'composer_start', 'lyricist_start', 'producer_start', 'actor_music', 'actor_indie', 'variety_start', 'editor_free', 'model_free', 'director_short', 'writer_start', 'webtoon_free', 'webnovel_free', 'illust_start', 'prof_adj']);
+const AP_NOTIFY = new Set(['band_make', 'band_join', 'solo_indie', 'player_start', 'composer_start', 'lyricist_start', 'producer_start', 'actor_music', 'actor_indie', 'variety_start', 'editor_free', 'model_free', 'director_short', 'writer_start', 'webtoon_free', 'webnovel_free', 'illust_start', 'prof_adj', 'translator_free']); // v250: 프리랜서 번역가
 function isAudition(a) { return ACT_APPLY.includes(a) || /오디션|채용/.test(a.n) || AP_NOTIFY.has(a.id); }
 function applyOKNow(s, a) { try { return !!a.ok(s); } catch (e) { return false; } }
 // 예전 세이브: 이미 지원할 수 있는 곳은 알린 것으로 친다
@@ -277,7 +277,7 @@ function negoAsks(d) {
   return A.filter(a => !d.tried.includes(a.k));
 }
 // 계약서로 시작하는 직업 (v104 겸직): 재계약이 아니면 그 직업 · 자리로 겸직 규칙을 본다
-const NEGO_JOB = { idol: ['idol', 'trainee'], band: ['band', 'artist'], solo: ['solo', 'artist'], actor: ['actor', 'artist'], model: ['model', 'artist'], vidol: ['vidol'], dancer: ['dancer'], director: ['director'], mcn: ['youtube'], marketer: ['marketer', 'emp'], anr: ['anr', 'emp'], trainer: ['trainer', 'emp'], acttrainer: ['acttrainer', 'emp'], producer: ['producer', 'emp'], editor: ['editor', 'emp'], animator: ['animator', 'emp'] };
+const NEGO_JOB = { idol: ['idol', 'trainee'], band: ['band', 'artist'], solo: ['solo', 'artist'], actor: ['actor', 'artist'], model: ['model', 'artist'], vidol: ['vidol'], dancer: ['dancer'], director: ['director'], mcn: ['youtube'], marketer: ['marketer', 'emp'], anr: ['anr', 'emp'], trainer: ['trainer', 'emp'], acttrainer: ['acttrainer', 'emp'], producer: ['producer', 'emp'], editor: ['editor', 'emp'], animator: ['animator', 'emp'], translator: ['translator', 'emp'] }; // v250: 회사 번역가
 function negoJobWhy(s, d) { if (d.renew) return ''; const x = d.kind === 'wbcp' ? [d.id] : NEGO_JOB[d.kind]; return x && x[0] ? jobBlock(s, x[0], x.slice(1)) : ''; }
 function startNego(s, d) { const x = Object.assign({ tried: [], lev: 0.3, vb: me(s).tal.verbal }, d); x.orig = x.orig || { sal: x.sal, months: x.months, cut: x.cut, bonus: x.bonus }; fireEvent(s, 'contract_nego', x); return ''; }
 E({

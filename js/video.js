@@ -936,17 +936,19 @@ E({
     fireEvent(s, 'yt_tgt', { mode: 'yt', cat: c }); return '';
   } }; }).concat(d.mode === 'vt' && !d.change ? [] : [{ t: '역시 그만둔다', f: () => '' }]),
 });
-// v207: 방송 타겟 — 국내 · 일본 · 해외(영어권). 외국은 그 나라 말을 잘해야 고를 수 있다 (40레벨부터)
-// 외국은 닿을 수 있는 시청자가 많은 대신, 말을 아주 잘하지 않으면 다 끌어오지 못한다. 회사 소속 버튜버는 회사가 정한다
+// v207: 방송 타겟 — 국내 · 일본 · 해외(영어권). 회사 소속 버튜버는 회사가 정한다
+// v250: 외국 타겟은 그 나라 말 특기가 있기만 하면 고를 수 있다 (예전에는 40레벨부터, 사용자 결정 "본인이 외국어 특기가 있으면 가능하도록")
+//   외국은 닿을 수 있는 시청자가 많은 대신, 말을 아주 잘하지 않으면 다 끌어오지 못한다 (ytTgtMul — 말이 서툴면 국내보다 적게 끌어온다)
 const YT_TGT = { kr: { n: '국내', mul: 1 }, jp: { n: '일본', mul: 1.4, sk: 'jp' }, us: { n: '해외 (영어권)', mul: 2, sk: 'en' } };
-const YT_TGT_LV = 40;
 function ytMk(t) { return t.tgt || (t.jp ? 'jp' : 'kr'); }
 function ytTgtMul(s, t) { const T = YT_TGT[ytMk(t)]; return T.sk ? T.mul * Math.min(1, 0.4 + lv(me(s), T.sk) / 100) : 1; }
-function ytTgtWhy(s, k) { const T = YT_TGT[k]; return T.sk && lv(me(s), T.sk) < YT_TGT_LV ? `${SKILLS[T.sk].n}${josa(SKILLS[T.sk].n, '이가').slice(SKILLS[T.sk].n.length)} ${YT_TGT_LV}레벨 이상이어야 한다` : ''; }
+function ytTgtWhy(s, k) { const T = YT_TGT[k]; return T.sk && !has(me(s), T.sk) ? `${SKILLS[T.sk].n} 특기가 있어야 한다` : ''; }
+// v250: 말이 아직 서툴러 국내보다 덜 모이는 타겟이면 선택지에 알려 준다 (숫자 · 식은 보이지 않는다)
+function ytTgtWeak(s, k) { const T = YT_TGT[k]; return !!T.sk && T.mul * Math.min(1, 0.4 + lv(me(s), T.sk) / 100) < 1; }
 E({
   id: 'yt_tgt', cat: '채널', title: '방송 타겟', tag: 'career',
-  text: (s, d) => d.change ? `방송 타겟을 바꾼다. 지금은 ${YT_TGT[ytMk(s.tracks.youtube)].n}.` : '누구를 보고 방송할까? 외국 시청자를 노리면 더 많은 사람에게 닿을 수 있지만, 그 나라 말을 잘해야 한다.',
-  ch: (s, d) => Object.entries(YT_TGT).filter(([k]) => !d.change || k !== ytMk(s.tracks.youtube)).map(([k, T]) => { const w = ytTgtWhy(s, k); return { t: T.n, ok: () => !w, h: w || (T.sk ? `${SKILLS[T.sk].n} ${lvi(me(s), T.sk)}레벨` : ''), f: s => {
+  text: (s, d) => d.change ? `방송 타겟을 바꾼다. 지금은 ${YT_TGT[ytMk(s.tracks.youtube)].n}.` : '누구를 보고 방송할까? 외국 시청자를 노리면 더 많은 사람에게 닿을 수 있다. 다만 그 나라 말이 서툴면 오히려 덜 모인다.',
+  ch: (s, d) => Object.entries(YT_TGT).filter(([k]) => !d.change || k !== ytMk(s.tracks.youtube)).map(([k, T]) => { const w = ytTgtWhy(s, k); return { t: T.n, ok: () => !w, h: w || (T.sk ? `${SKILLS[T.sk].n} ${lvi(me(s), T.sk)}레벨${ytTgtWeak(s, k) ? ' · 아직 말이 서툴러 국내보다 덜 모인다' : ''}` : ''), f: s => {
     if (d.change) { const t = s.tracks.youtube; t.tgt = k; t.jp = k === 'jp'; t.tgtT = s.t + 12; t.subs = Math.round(t.subs * 0.8); return `방송 타겟을 ${josa(T.n, '으로')} 바꿨다. 예전 시청자 일부가 떠났다.`; }
     fireEvent(s, 'yt_debut', { mode: d.mode, cat: d.cat, tgt: k }); return '';
   } }; }).concat(d.change ? [{ t: '그만둔다', f: () => '' }] : d.mode === 'vt' ? [] : [{ t: '역시 그만둔다', f: () => '' }]),

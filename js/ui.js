@@ -432,6 +432,7 @@ const G2_SCENE = {
   player: 'st/solohall', dancer: 'sc/practice', trainer: 'sc/practice', acttrainer: 'sc/practice',
   actor: 'sc/waiting', model: 'sc/waiting', variety: 'sc/waiting',
   anr: 'sc/meeting', marketer: 'sc/meeting', producer: (s, t) => t.mode === 'in' ? 'sc/meeting' : null,
+  translator: (s, t) => t.mode === 'emp' ? 'sc/meeting' : null, // v250: 회사 번역가는 회의실, 프리랜서는 집
 };
 function g2SceneKey(s) {
   const r = g2Role(s), f = G2_SCENE[r]; let k = null;
@@ -474,6 +475,8 @@ const G2_NOW = {
   webtoon: (s, t) => g2Wb(s, t, 'webtoon'), webnovel: (s, t) => g2Wb(s, t, 'webnovel'),
   tutor: (s, t) => [t.book ? { k: '교재 집필', big: `「${t.book.title}」`, sub: `${t.book.prog}/${t.book.need}개월`, pct: t.book.prog / t.book.need * 100 } : null, t.tv ? { k: '고정 출연', big: `「${t.tv.title}」`, sub: `${t.tv.left}개월 남음` } : null],
   adir: (s, t) => [t.pj ? { k: '만드는 중', big: `「${t.pj.title}」`, sub: `${Math.max(1, t.pj.end - s.t)}개월 남음` } : null],
+  // v250: 번역가 — 프리랜서는 맡은 의뢰, 회사 번역가는 맡은 분야
+  translator: (s, t) => [t.mode === 'emp' ? { k: '맡은 일', big: `${tlFieldsN(t)} 번역` } : t.job ? { k: '번역 중', big: t.job.n, sub: `${t.job.who} · ${t.job.left}개월 남음`, pct: U.clamp((t.job.m - t.job.left) / t.job.m * 100, 5, 95) } : null],
 };
 function g2Now(s, id) {
   const f = G2_NOW[id], t = s.tracks[id]; if (!f || !t) return [];
@@ -484,7 +487,7 @@ const G2_WK = {
   solo: ['싱글', 'OST', '피처링', '단독 공연'], idol: ['데뷔 앨범', '앨범', '프로젝트 앨범'], band: ['밴드 싱글'], player: ['연주 앨범', '독주회', '세션 참여'],
   composer: ['작곡 참여곡'], lyricist: ['작사 참여곡'], producer: ['프로듀싱 앨범'], anr: ['A&R 참여곡'], dancer: ['댄서', '안무'],
   variety: ['예능'], model: ['모델'], voice: ['성우'], vidol: ['오리지널 곡', '단체곡'], webtoon: ['웹툰'], webnovel: ['웹소설'], illust: ['일러스트'],
-  animator: ['작화'], adir: ['애니 연출'], editor: ['영상 편집'], tutor: ['교재', '드라마 특별출연'],
+  animator: ['작화'], adir: ['애니 연출'], editor: ['영상 편집'], tutor: ['교재', '드라마 특별출연'], translator: ['번역'],
   actor: w => w.type === '뮤지컬' || (typeof PJ_TYPES !== 'undefined' && Object.values(PJ_TYPES).some(T => T.n === w.type)),
   director: w => / 연출$/.test(w.type) && w.type !== '애니 연출', writer: w => / 각본/.test(w.type), marketer: w => / (홍보|런칭)$/.test(w.type),
 };
@@ -1937,7 +1940,7 @@ const AP_CO_TY = [['label', '🎤', '기획사'], ['vidol', '🎙️', '버츄�
 const AP_CO_DESC = { web: '작가가 웹툰 · 웹소설을 회차마다 올리고 독자가 돈을 내거나 광고를 보며 읽는 인터넷 사이트 · 앱. 플랫폼 공모전에 붙거나, CP사(작가와 계약해 작품을 다듬고 플랫폼에 연재를 넣어 주는 회사)를 거쳐 연재한다.' };
 const AP_CO_RULE = [[/^(idol|bandtr|bandsign)_|^solo_(?!indie$)/, 'label'], [/^vidol_aud_/, 'vidol'], [/^(mcn_join|editor_mcn)_/, 'mcn'], [/^dancer_dc_/, 'dance'], [/^actor_(?!indie$)/, 'actor'], [/^model_(?!free$)/, 'model'], [/^voice_bc_|^variety_gong$/, 'bc'], [/^(webtoon|webnovel)_contest\d$/, 'web'], [/^prof_/, 'univ'], [/^tutor_/, 'acad']];
 // 프리랜서: 회사 없이 혼자 시작하는 일이 어느 회사 종류 아래에 들어가나
-const AP_FREE = [[/^(band_make|band_join|solo_indie|player_start|composer_start|lyricist_start|producer_start)$/, 'label'], [/^youtube_vt\d$/, 'vidol'], [/^(youtube_open|editor_ded)$/, 'mcn'], [/^dancer_free$/, 'dance'], [/^actor_indie$/, 'actor'], [/^model_free$/, 'model'], [/^(variety_start|voice_free)$/, 'bc'], [/^(editor_free|director_short|writer_start)$/, 'vprod'], [/^(animator_free|adir_short)$/, 'anime'], [/^(webtoon_free|webnovel_free|illust_start)$/, 'web']];
+const AP_FREE = [[/^(band_make|band_join|solo_indie|player_start|composer_start|lyricist_start|producer_start)$/, 'label'], [/^youtube_vt\d$/, 'vidol'], [/^(youtube_open|editor_ded)$/, 'mcn'], [/^dancer_free$/, 'dance'], [/^actor_indie$/, 'actor'], [/^model_free$/, 'model'], [/^(variety_start|voice_free)$/, 'bc'], [/^(editor_free|director_short|writer_start)$/, 'vprod'], [/^(animator_free|adir_short)$/, 'anime'], [/^(webtoon_free|webnovel_free|illust_start)$/, 'web'], [/^translator_free$/, 'etc']]; // v250: 프리랜서 번역가 (무소속 묶음 · 사무직)
 // 지원 하나가 어느 회사의 어떤 자리인가: { ty 회사 종류, co 회사 이름(없으면 그 종류 바로 아래), pos 자리, free 프리랜서 }
 // v207: 회사마다 따로 지원하는 자리(coKey)는 회사 열쇠로 바로 찾는다 (CP사 · 영상 제작사 · 애니 제작사 · 연기 트레이너 · 대학 · 학원 · 마케팅팀 등)
 const AP_KIND_TY = { music: 'label', vtuber: 'vidol', mcn: 'mcn', dance: 'dance', actor: 'actor', model: 'model', bc: 'bc', prod: 'vprod', ani: 'anime', cp: 'web', uni: 'univ', acad: 'acad', ol: 'acad' };
@@ -2243,6 +2246,8 @@ const CAREER_REQ = {
   anr: [['기획사 A&R 채용', '20세부터']],
   trainer: [['기획사 트레이너 채용', '20세부터 · 보컬 · 랩 · 댄스 · 악기 중 하나가 30레벨 이상']],
   marketer: [['기획사 마케팅팀 채용', '20세부터']],
+  // v250: 번역가 (translator.js TL_NEED · tlCoKeys)
+  translator: [['프리랜서 번역가로 시작하기', '18세부터 · 영어나 일본어가 25레벨 이상'], ['회사 번역가 채용', '20세부터 · 영어나 일본어가 35레벨 이상 · 중형 · 대형 기획사 · MCN · CP사 · 영상 제작사 · 애니 제작사 · 방송사']],
   director: [['단편영화 찍으며 시작하기', '16세부터 · 연출 15레벨 이상'], ['영상 제작사 연출부 (조감독)', '20세부터 · 연출 25레벨 이상']],
   writer: [['시나리오 작가로 시작하기', '16세부터 · 작문 15레벨 이상']],
   webtoon: [['도전 만화에 올리기', '14세부터 · 그림 15 · 작문 10레벨 이상'], ['웹툰 공모전', '14세부터 · 그림 25 · 작문 20레벨 이상 · 1년에 한 번'], ['CP사 투고', '16세부터 · 그림 25 · 작문 20레벨 이상']],

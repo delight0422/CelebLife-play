@@ -38,6 +38,8 @@ const CAREER_PLAN = [
   { id: 'trainer', n: '트레이너 (보컬·악기·댄스)', g: 'staff', sub: 'music' },
   // 7-4단계 (js/marketer.js): 기획사 마케팅팀
   { id: 'marketer', n: '마케터', g: 'staff', sub: 'office' },
+  // v250 (js/translator.js): 번역가 — 회사 직원으로 들어가거나 프리랜서로 의뢰를 하나씩 받는다
+  { id: 'translator', n: '번역가', g: 'staff', sub: 'office' },
   { id: 'director', n: '연출감독', g: 'staff', sub: 'video' },
   { id: 'writer', n: '시나리오 작가', g: 'staff', sub: 'video' },
   // 7-2단계 (js/webnovel.js): 웹툰 작가 · 웹소설 작가
@@ -145,6 +147,7 @@ const JOB_RULES = [
   [isArtistT, T => T.has('grad') || T.has('fullprof'), '전속 계약 중인 아티스트는 대학원 · 전임교수를 같이 할 수 없다 (겸임 · 초빙교수는 된다)'],
   [isArtistT, T => T.has('editor') || T.has('animator') || T.has('illust'), '전속 계약 중인 아티스트는 영상 편집 · 애니메이터 · 일러스트 일을 따로 할 수 없다'],
   [isArtistT, T => T.has('producer'), '전속 계약 중인 아티스트는 프로듀서 일을 따로 할 수 없다 (회사가 허락한 프로듀싱 의뢰는 맡을 수 있다)'],
+  [isArtistT, T => T.has('translator'), '전속 계약 중인 아티스트는 번역 일을 따로 할 수 없다'], // v250
   [T => T.has('vidol'), T => T.has('face') || T.has('voice'), '버츄얼 아이돌은 얼굴이 나오는 일이나 성우 일을 같이 할 수 없다'],
   [T => T.has('fullprof'), T => T.has('tutor'), '전임교수는 학원 강의를 같이 할 수 없다'],
   [T => T.has('emp'), T => T.has('prof2'), '회사에 다니면서 시간강사 · 전임교수를 같이 할 수 없다 (대학원 · 겸임 · 초빙교수는 된다)'],
@@ -172,7 +175,7 @@ function njGate(s, L) {
 const JA_TAGS = [
   [/^(idol_|bandtr_)/, ['trainee']],
   [/^(bandsign_|solo_(?!indie$)|model_(?!free$)|actor_(?!music$|indie$))/, ['artist']],
-  [/^(marketer_|anr_|tr_|acttrainer_|pin_|editor_\d|editor_mcn_|animator_\d|adir_ep$|director_ad$|voice_bc_)/, ['emp']],
+  [/^(marketer_|anr_|tr_|acttrainer_|pin_|editor_\d|editor_mcn_|animator_\d|adir_ep$|director_ad$|voice_bc_|translator_(?!free$))/, ['emp']], // v250: 회사 번역가 채용 (translator_회사 열쇠. translator_free는 프리랜서)
   [/^voice_bc_/, ['bcvoice']],
   [/^variety_gong$/, ['gong']],
   [/^prof_grad/, ['grad']],
@@ -188,7 +191,8 @@ const AA_JOB = { drama_aud: 'actor' };
 //   하는 직업이 없으면 none 항목만, 직업이 있으면 그 직업이 주인인 항목만 지원할 수 있다 (자동 지원도 같다 — actAutoMonth가 a.ok를 본다)
 //   새 항목을 만들면 여기에 주인을 적는다. 적지 않으면 none
 const AA_OWN = { drama_aud: ['none', 'actor'], musical: ['none', 'actor'], var_guest: ['none', 'variety'], mask: ['none', 'solo'], tv_aud_vocal: ['none'], tv_aud_rap: ['none'],
-  mcn_collab: ['youtube'], mcn_goods: ['youtube'], mcn_event: ['youtube'], vi_cover: ['vidol'], vi_endure: ['vidol'], band_lesson: ['band'] }; // v245: 밴드 멤버 외부 레슨 (music.js)
+  mcn_collab: ['youtube'], mcn_goods: ['youtube'], mcn_event: ['youtube'], vi_cover: ['vidol'], vi_endure: ['vidol'], band_lesson: ['band'], // v245: 밴드 멤버 외부 레슨 (music.js)
+  tl_find: ['translator'] }; // v250: 프리랜서 번역가의 번역 공고 지원 (translator.js)
 function aaOwners(a) { return AA_OWN[a.id] || ['none']; }
 function aaOwnWhy(s, a) {
   const O = aaOwners(a);
@@ -256,7 +260,7 @@ function coldOfferM(s, id) { return 1 - COLD_OFFER * coldK(s, id); }
 function coldPayM(s, id) { return 1 - COLD_PAY * coldK(s, id); }
 let COLD_AUD = 0; // 구직활동 지원 하나를 보는 동안 그 직업의 냉대 점수 (music.js audP가 뺀다)
 // 업계를 부르는 말 ('가요 업계에서 …'). 없으면 직업 이름 그대로
-const COLD_FIELD = { band: '밴드', solo: '가요', player: '연주', dancer: '댄스', variety: '예능', youtube: '인터넷 방송', voice: '성우', director: '영상 연출', writer: '시나리오', adir: '애니메이션', animator: '애니메이션', illust: '일러스트', tutor: '학원', prof: '대학', anr: '음악 기획', marketer: '마케팅', editor: '영상 편집' };
+const COLD_FIELD = { band: '밴드', solo: '가요', player: '연주', dancer: '댄스', variety: '예능', youtube: '인터넷 방송', voice: '성우', director: '영상 연출', writer: '시나리오', adir: '애니메이션', animator: '애니메이션', illust: '일러스트', tutor: '학원', prof: '대학', anr: '음악 기획', marketer: '마케팅', editor: '영상 편집', translator: '번역' };
 function coldField(id) { return COLD_FIELD[id] || evJobN(id); }
 
 // ───── 기록 ─────
@@ -430,7 +434,7 @@ const EARN_LABEL = {
   '세션 연주비': 'player', '독주회 출연료': 'player', '공연·레슨': 'player',
   '작곡 계약금': 'composer', '작사 계약금': 'lyricist',
   '프로듀싱 비용': 'producer', '성과급': 'producer', 'A&R 성과급': 'anr', '데뷔 성과급': 'trainer', '안무비': 'trainer', '캐스팅 성과급': 'acttrainer',
-  '예능 출연료': 'variety', '방송사 공채 월급': 'variety', '출연료': 'actor', '편집비': 'editor', '전담 편집 월급': 'editor', '모델 출연료': 'model', '댄서 출연료': 'dancer', '안무 창작료': 'dancer', '작화비': 'animator', '일러스트 작업비': 'illust', '교수 월급': 'prof', '강의료': 'prof', '학원 강의료': 'tutor', '인강 수익': 'tutor', '교재 인세': 'tutor', '마케팅 월급': 'marketer', '마케팅 성과급': 'marketer', '이모티콘 판매 수익': 'illust', '웹툰 원고료': 'webtoon', '웹툰 유료 결제': 'webtoon', '웹툰 판권료': 'webtoon', '웹툰 공모전 상금': 'webtoon', '웹소설 원고료': 'webnovel', '웹소설 유료 결제': 'webnovel', '웹소설 판권료': 'webnovel', '웹소설 공모전 상금': 'webnovel', '애니 연출료': 'adir', '성우 출연료': 'voice',
+  '예능 출연료': 'variety', '방송사 공채 월급': 'variety', '출연료': 'actor', '편집비': 'editor', '전담 편집 월급': 'editor', '모델 출연료': 'model', '댄서 출연료': 'dancer', '안무 창작료': 'dancer', '작화비': 'animator', '일러스트 작업비': 'illust', '교수 월급': 'prof', '강의료': 'prof', '학원 강의료': 'tutor', '인강 수익': 'tutor', '교재 인세': 'tutor', '마케팅 월급': 'marketer', '마케팅 성과급': 'marketer', '번역 월급': 'translator', '번역료': 'translator', '이모티콘 판매 수익': 'illust', '웹툰 원고료': 'webtoon', '웹툰 유료 결제': 'webtoon', '웹툰 판권료': 'webtoon', '웹툰 공모전 상금': 'webtoon', '웹소설 원고료': 'webnovel', '웹소설 유료 결제': 'webnovel', '웹소설 판권료': 'webnovel', '웹소설 공모전 상금': 'webnovel', '애니 연출료': 'adir', '성우 출연료': 'voice',
   '3D 데뷔 방송 후원': 'vidol', '굿즈': 'vidol', '3D 라이브': 'vidol', '이적 계약금': 'vidol',
   '광고 모델료': 'brand', '뮤지컬 출연료': 'musical',
 };
@@ -616,6 +620,7 @@ const CO_AFF = {
   youtube: (t, c) => !!c.id && !!t.mcn && t.mcn.id === c.id, dancer: (t, c) => !!c.id && t.crew === c.id, webtoon: (t, c) => !!c.id && t.cp === c.id, webnovel: (t, c) => !!c.id && t.cp === c.id,
   trainer: (t, c) => !!c.id && t.ag === c.id, anr: (t, c) => !!c.id && t.ag === c.id, acttrainer: (t, c) => !!c.id && t.ag === c.id, producer: (t, c) => !!c.id && t.mode === 'in' && t.ag === c.id,
   marketer: (t, c) => t.ag === c.key,
+  translator: (t, c) => t.mode === 'emp' && t.ag === c.key, // v250: 회사 번역가 (프리랜서는 소속이 없다)
   editor: (t, c) => t.mode === 'emp' && (t.mcn ? !!c.id && t.mcn === c.id : c.p === 'prod' && t.agN === c.n),
   director: (t, c) => c.p === 'prod' && (t.mode === 'excl' || t.mode === 'ad') && t.co === c.n,
   animator: (t, c) => c.p === 'ani' && t.mode === 'emp' && t.agN === c.n,
@@ -639,6 +644,7 @@ const CO_CLOSE = {
   anr: (s, t, n, j) => { leaveEmp(s, j, '회사 폐업'); return '일자리를 잃었다.'; },
   acttrainer: (s, t, n, j) => { leaveEmp(s, j, '회사 폐업'); return '일자리를 잃었다.'; },
   marketer: (s, t, n, j) => { leaveEmp(s, j, '회사 폐업'); (t.hist = t.hist || []).push(t.endNote); return '일자리를 잃었다.'; },
+  translator: (s, t, n, j) => { leaveEmp(s, j, '회사 폐업'); return '프리랜서 번역가로 돌아갔다.'; }, // v250 (leaveEmp → translator.js tlLeave)
   producer: (s, t, n, j) => { leaveEmp(s, j, '회사 폐업'); return '프리랜서 프로듀서로 일을 이어 간다.'; },
   editor: (s, t, n) => { t.hist = (t.hist || []).concat(`${n} 편집팀 (회사 폐업)`); Object.assign(t, { mode: 'free', agN: '', lead: false, mcn: null }); return '프리랜서 편집자로 돌아갔다.'; },
   director: (s, t, n) => { if (t.mode === 'excl') { dirGoFree(s, '회사 폐업'); return '프리랜서 감독이 됐다.'; } coLeaveHist(t, `${n} 연출부`, '회사 폐업'); Object.assign(t, { mode: 'indie', co: '', sal: 0 }); return '혼자 단편영화부터 다시 시작한다.'; },
@@ -857,7 +863,7 @@ function jfSync(s) {
   else if (S > T && S > 0) { const r = T / S; for (const k in J) J[k] *= r; }
 }
 // 사건이 어느 직업의 일인가: 사건 이름의 앞머리로 가린다. 모르는 직업 사건은, 하는 일이 하나뿐이면 그 일로 본다
-const EV_JOB_PRE = [['idol_', 'idol'], ['solo_', 'solo'], ['band_', 'band'], ['player_', 'player'], ['actor_', 'actor'], ['drama_', 'actor'], ['var_', 'variety'], ['tv_', 'variety'], ['model_', 'model'], ['vo_', 'voice'], ['voice_', 'voice'], ['dc_', 'dancer'], ['dancer_', 'dancer'], ['yt_', 'youtube'], ['youtube_', 'youtube'], ['mcn_', 'youtube'], ['vi_', 'vidol'], ['dir_', 'director'], ['script_', 'writer'], ['anr_', 'anr'], ['tr_', 'trainer'], ['atr_', 'acttrainer'], ['prod_', 'producer'], ['il_', 'illust'], ['mk_', 'marketer'], ['pf_', 'prof'], ['prof_', 'prof'], ['tu_', 'tutor'], ['an_', 'animator'], ['adir_', 'adir'], ['co_', 'agency'], ['ded_', 'editor'], ['edit', 'editor']];
+const EV_JOB_PRE = [['idol_', 'idol'], ['solo_', 'solo'], ['band_', 'band'], ['player_', 'player'], ['actor_', 'actor'], ['drama_', 'actor'], ['var_', 'variety'], ['tv_', 'variety'], ['model_', 'model'], ['vo_', 'voice'], ['voice_', 'voice'], ['dc_', 'dancer'], ['dancer_', 'dancer'], ['yt_', 'youtube'], ['youtube_', 'youtube'], ['mcn_', 'youtube'], ['vi_', 'vidol'], ['dir_', 'director'], ['script_', 'writer'], ['anr_', 'anr'], ['tr_', 'trainer'], ['atr_', 'acttrainer'], ['prod_', 'producer'], ['il_', 'illust'], ['mk_', 'marketer'], ['tl_', 'translator'], ['pf_', 'prof'], ['prof_', 'prof'], ['tu_', 'tutor'], ['an_', 'animator'], ['adir_', 'adir'], ['co_', 'agency'], ['ded_', 'editor'], ['edit', 'editor']];
 function evJobOf(s, id, d) {
   if (/^w_/.test(id)) return d && CAREERS[d.kind] ? d.kind : null;
   if (/^wb_/.test(id)) return d && CAREERS[d.id] ? d.id : null;
@@ -1866,6 +1872,14 @@ function migrate(s) {
   if (s.eqPar == null) { s.eqPar = {}; if (s.home && s.home.mode !== 'alone') for (const id in s.equip || {}) if (eqLv(s, id) && EQUIP[id] && !EQUIP[id].slot) s.eqPar[id] = true; }
   // v117 학사 일정: 예전 세이브는 생일 때 이미 중 · 고 입학 기록을 남겼다 (3월에 또 남기지 않게)
   if (s.edu && s.edu.midIn == null && s.me && s.people[s.me]) { s.edu.midIn = age(s) >= 13; s.edu.hsIn = age(s) >= 16; }
+  // v250: v249의 직업 체험 '분야 먼저 고르기'를 되돌렸다. 그때 떠 있던(또는 기다리던) 체험 창은 v248 모양으로 다시 준비한다
+  //   둘째 창(job_exp_pick)은 첫 창으로 바꾸고, 선택지(d.o)가 없는 첫 창은 init을 다시 부른다 (안 그러면 once라 체험을 잃는다)
+  for (const q of (s.queue || []).concat(s.pending ? [s.pending] : [])) {
+    if (q.id === 'job_exp_pick') { q.id = q.d && q.d.kid ? 'job_exp_kid' : 'job_exp'; q.d = {}; }
+    if ((q.id === 'job_exp_kid' || q.id === 'job_exp') && (!q.d || !q.d.o)) { q.d = q.d || {}; delete q.d.skip; try { EVENTS[q.id].init(s, q.d); } catch (e) { q.d.skip = true; } }
+  }
+  if (s.pending && s.pending.d && s.pending.d.skip && (s.pending.id === 'job_exp_kid' || s.pending.id === 'job_exp')) s.pending = null;
+  s.queue = (s.queue || []).filter(q => !(q.d && q.d.skip && (q.id === 'job_exp_kid' || q.id === 'job_exp')));
   // 없앤 사건(v117: 수상한 투자 권유 scam)이 기다리던 세이브는 그 창 · 대기열을 지운다
   if (s.pending && !EVENTS[s.pending.id]) s.pending = null;
   s.queue = (s.queue || []).filter(q => EVENTS[q.id]);
@@ -1950,8 +1964,8 @@ function lifeTitle(s) {
 }
 // ───── 인생 결산의 칭호 (12-5) ─────
 // 주 직업: 등급이 가장 높고 오래 한 일. 칭호는 그 직업의 등급으로 정한다 (맨 위 등급이면 직업마다 다른 이름)
-const END_CAT = { idol: 'music', solo: 'music', band: 'music', player: 'music', dancer: 'music', actor: 'screen', variety: 'screen', model: 'screen', voice: 'screen', director: 'screen', writer: 'screen', adir: 'screen', animator: 'screen', youtube: 'stream', vidol: 'stream', webtoon: 'ink', webnovel: 'ink', illust: 'ink', prof: 'teach', tutor: 'teach', trainer: 'teach', acttrainer: 'teach', composer: 'staff', lyricist: 'staff', producer: 'staff', anr: 'staff', editor: 'staff', marketer: 'staff', agency: 'biz' };
-const END_TOP = { idol: '시대의 아이콘', solo: '국민 가수', band: '전설의 밴드', player: '연주의 거장', dancer: '춤의 전설', actor: '국민 배우', variety: '국민 MC', model: '런웨이의 전설', voice: '목소리의 장인', director: '거장 감독', writer: '믿고 보는 작가', adir: '애니메이션의 거장', animator: '작화의 신', youtube: '라이브온의 얼굴', vidol: '버츄얼의 전설', webtoon: '웹툰의 신', webnovel: '웹소설의 신', illust: '그림의 장인', prof: '시대의 석학', tutor: '전설의 일타 강사', trainer: '스타 메이커', acttrainer: '배우들의 스승', composer: '히트곡 제조기', lyricist: '노랫말의 장인', producer: '미다스의 손', anr: '히트곡 사냥꾼', editor: '편집의 장인', marketer: '홍보의 귀재', agency: '엔터 업계의 큰손' };
+const END_CAT = { idol: 'music', solo: 'music', band: 'music', player: 'music', dancer: 'music', actor: 'screen', variety: 'screen', model: 'screen', voice: 'screen', director: 'screen', writer: 'screen', adir: 'screen', animator: 'screen', youtube: 'stream', vidol: 'stream', webtoon: 'ink', webnovel: 'ink', illust: 'ink', prof: 'teach', tutor: 'teach', trainer: 'teach', acttrainer: 'teach', composer: 'staff', lyricist: 'staff', producer: 'staff', anr: 'staff', editor: 'staff', marketer: 'staff', translator: 'staff', agency: 'biz' };
+const END_TOP = { idol: '시대의 아이콘', solo: '국민 가수', band: '전설의 밴드', player: '연주의 거장', dancer: '춤의 전설', actor: '국민 배우', variety: '국민 MC', model: '런웨이의 전설', voice: '목소리의 장인', director: '거장 감독', writer: '믿고 보는 작가', adir: '애니메이션의 거장', animator: '작화의 신', youtube: '라이브온의 얼굴', vidol: '버츄얼의 전설', webtoon: '웹툰의 신', webnovel: '웹소설의 신', illust: '그림의 장인', prof: '시대의 석학', tutor: '전설의 일타 강사', trainer: '스타 메이커', acttrainer: '배우들의 스승', composer: '히트곡 제조기', lyricist: '노랫말의 장인', producer: '미다스의 손', anr: '히트곡 사냥꾼', editor: '편집의 장인', marketer: '홍보의 귀재', translator: '말과 말을 잇는 거장', agency: '엔터 업계의 큰손' };
 // 마지막 한 줄: 분야와 올라간 높이(hi 4등급 이상 · mid 2~3 · low)에 따라
 const END_LINE = {
   music: { hi: '마지막 무대의 조명이 꺼질 때까지 객석의 떼창이 이어졌다.', mid: '작은 공연장에서 마지막 곡을 부르고 마이크를 내려놓았다.', low: '무대에 선 날은 길지 않았지만, 그때 들은 박수는 평생 잊지 않았다.' },
