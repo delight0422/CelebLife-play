@@ -210,9 +210,19 @@ function bandHeatBase(pw) { return 34 + 56 * Math.pow(U.clamp(pw, 0, 100) / 100,
 // 먼저 낸 대관비 내 몫 돌려받기 (내 회사 소속이면 회사 돈으로)
 function bandLiveBack(s, d) { if (!d.cost) return; const co = ownCo(s, 'band'); if (co) coIn(co, d.cost, '단독 공연 대관비 환불', ownCoF(s, 'band')); else addMoney(s, d.cost, '단독 공연 대관비 환불'); d.back = d.cost; d.cost = 0; }
 // 매달 (music.js CAREERS.band.monthly에서 부른다): 단독 공연 이야기가 나온다
+// v247: 이어지는 사건의 뒷일(bandArcMonth) · 단골 클럽 정기 공연(bandRegMonth) · 지방 투어 · 선배 밴드 공연의 오프닝 제의도 여기서 본다 (아래 'v247: 밴드 사건')
+//   단독 공연 · 지방 투어 · 오프닝 무대는 같은 때에 겹치지 않게, 이야기가 오가는 것이 하나라도 있으면 다른 것은 꺼내지 않는다 (BAND_BIG_EVS)
 function bandExtraMonth(s, t) {
+  bandArcMonth(s, t);
   if (bandLiveNo(s, t) || !slotsOn(s, 'c_band')) return;
-  if ((t.rel || 0) >= BAND_LIVE_REL && t.b.f >= BAND_LIVE_FANS && !((t.liveT || 0) > s.t) && !hasQ(s, 'band_concert') && !hasQ(s, 'band_concertres') && U.chance(0.25)) queueEv(s, 'band_concert', 0, {});
+  bandRegMonth(s, t);
+  if (BAND_BIG_EVS.some(id => hasQ(s, id))) return;
+  if ((t.rel || 0) >= BAND_LIVE_REL && t.b.f >= BAND_LIVE_FANS && !((t.liveT || 0) > s.t) && U.chance(0.25)) { queueEv(s, 'band_concert', 0, {}); return; }
+  // 지방 투어: 다음 달에 서기로 한 무대(페스티벌)가 있으면 꺼내지 않는다
+  if ((t.rel || 0) >= BAND_TOUR_REL && t.b.f >= BAND_TOUR_FANS && !((t.tourT || 0) > s.t) && !bandStageAt(s, s.t + 1) && U.chance(BAND_TOUR_P)) { queueEv(s, 'band_tour', 0, {}); return; }
+  // 선배 밴드: 만난 지 석 달이 지나고 사이가 가까우면(BAND_SEN_AFF) 그 밴드 공연의 오프닝 무대 제의가 온다
+  const A = t.b.sen, x = A && A.st === 1 && s.t - A.t >= 3 ? bandPerson(s, A.id) : null;
+  if (x && x.aff >= BAND_SEN_AFF && !bandStageAt(s, s.t + 1) && U.chance(0.2)) { A.st = 2; queueEv(s, 'band_senior_open', 0, {}); }
 }
 E({
   id: 'band_concert', cat: '단독 공연', title: '밴드 단독 공연을 열까?', tag: 'career',
@@ -297,6 +307,550 @@ E({
   },
   ch: (s, d) => [{ t: '확인', f: () => `${d.vn}에서 밴드 단독 공연을 했다. 관객 ${d.sold.toLocaleString()}명, ${soloHeatW(d.heat)}.${d.empty ? ' 객석이 절반도 차지 않아 마음이 무겁다.' : ''}` }],
 });
+
+// ═════════ v247: 밴드 사건 ═════════
+// 이어지는 줄기 넷: ㄱ 선배 밴드 (band_senior → band_senior_open → band_senior_openres) · ㄴ 멤버 갈등 (band_fight → band_fight_end)
+//                  ㄷ 음악성 차이 (band_dir → band_dir_res 또는 band_dir_leave) · ㄹ 지방 투어 (band_tour → band_tour_res)
+// 하나짜리: 후배 밴드 (band_junior) · 솔로 제의 (band_solo) · 단골 클럽 정기 공연 (band_club_reg) · 생계 고민 (band_job). 페스티벌 메인 무대(t.festUp)는 music.js에 있다
+// 줄기의 상태는 밴드(t.b) 아래에 둔다 — 밴드를 새로 만들면 처음부터다. 예전 세이브에는 없다 (없으면 아무 일도 없다)
+//   t.b.sen   { id 선배, nid 업계 밴드, bn 밴드 이름, st 1 알게 됨 · 2 오프닝 제의가 옴 · 3 무대를 잡음, t 달 } · t.b.senLast 지난번에 만난 업계 밴드 (바로 또 만나지 않게)
+//   t.b.fight { a, b, t } 다툰 두 사람 (나와 다퉜으면 b 없음). 뒷일(band_fight_end)이 뜨면 지운다
+//   t.b.dir   { m 멤버, k 방향, st 1 다음 곡을 그 방향으로 · 2 지금 색을 지킴 · 3 · 4 뒷일 창을 기다림, t 달, rel 그때 발표곡 수 }
+//   t.b.reg   { left 남은 달, cn 클럽, x 사장, pay 한 번 출연료, g 그동안 는 팬, t 시작한 달 }
+//   t.b.soloT 솔로 계약을 한 달 (그 뒤 1년 반은 다툼이 잦다) · t.soloAsk 솔로 제의를 다시 할 달 · t.tourT 투어 이야기를 다시 할 달 · t.tourN 투어를 돈 횟수
+// 얼마나 자주 (조건이 맞는 달마다): 선배 5% · 다툼 4.5~12% · 음악성 5% · 후배 2% · 솔로 제의 1.2~4.2% · 정기 공연 6% · 생계 3%. 투어는 한 해에 한 번 (이야기가 나올 수 있는 달마다 15%)
+//   아이돌 사건과 비슷한 크기다. 줄 선 창(새 곡 기획 · 선정 · 편곡 · 성적)이 있는 달에는 무작위 사건이 뜨지 않아서(game.js pickEvent), 뒷일 창 · 투어까지 쳐도 새 창은 여섯 달에 하나쯤이다 (간단히 흉내 낸 계산)
+//   원래 있던 창(페스티벌 · 단독 공연 · 탈퇴 · 팀 사건)과 합치면 두 달 남짓에 하나. 더 자주 · 드물게는 각 사건의 p와 BAND_TOUR_P로 맞춘다
+// 사건이 뜰 수 있는 때: 결성한 밴드 · 그달 일정에 밴드 활동이 있다 · 군 복무 · 자숙 · 아픔 · 임신 중이 아니다. 빈 파트는 사건마다 따로 본다 (무대에 서는 일은 bandLiveNo)
+function bandEvOn(s) { return bandOn(s) && !s.army && !s.hiatus && !s.ill && !pregMe(s) && slotsOn(s, 'c_band') > 0; }
+function bandEvFull(s) { return bandEvOn(s) && !bandMissing(s.tracks.band).length; }
+// 아직 같이 하는 멤버인가 (나갔거나 세상을 떠났으면 null) · 아직 연락이 닿는 사람인가
+function bandMemOf(s, t, id) { const m = id ? s.people[id] : null; return m && m.alive && t.b.members.includes(id) ? m : null; }
+function bandPerson(s, id) { const x = id ? s.people[id] : null; return x && x.alive ? x : null; }
+function bandMatesAll(s, t, dAff, dTw) { for (const m of bandMembers(s, t)) bond(s, m, dAff); if (dTw) twAdd(t.b, dTw); }
+// 한 달 클럽 공연으로 느는 팬(music.js CAREERS.band.monthly의 가운데 값)을 잣대로 쓴다: 투어 · 합동 공연 · 정기 공연으로 느는 팬은 이 값의 몇 배로 정한다 (지방을 도는 일이라 사는 곳은 보지 않는다)
+function bandFanM(s, t) { return Math.max(0, (bandPower(s, t) - 6) * 2.1 * (1 + Math.log10(1 + t.b.f) / 3) * (t.st === 'signed' ? 1.8 : 1) * Math.max(0, 1 - t.b.f / starCap(55, 'kr'))); }
+function bandFansAdd(s, t, g) { g = Math.max(0, Math.round(g)); t.b.f += g; const my = Math.round(g * 0.35 * popSpeed(s) * myRoom(s, 'kr')); s.fans.kr += my; return my; }
+// 같은 달에 무대가 둘 겹치지 않게: 그달에 서기로 한 무대가 있는가 · 단독 공연 · 지방 투어 · 선배 공연 오프닝 이야기가 오가는 중인가
+const BAND_BIG_EVS = ['band_concert', 'band_concertres', 'band_tour', 'band_tour_res', 'band_senior_open', 'band_senior_openres'];
+function bandStageAt(s, at) { return s.queue.some(q => q.at === at && (BAND_BIG_EVS.includes(q.id) || q.id === 'band_fest_play')); }
+
+// ───── ㄱ 선배 밴드 ─────
+// 업계 밴드(npc.js) 가운데 나보다 이름이 알려지고 먼저 결성한 팀의 멤버 한 명을 알게 된다. 석 달 뒤부터, 사이가 가까우면(40부터) 그 밴드 공연의 오프닝 무대 제의가 온다
+//   먼저 다가가 이야기가 잘 풀리면 +14(처음 30 → 44), 공연 영상을 보여 주면 밴드 실력만큼 +7~16(실력 60부터 40을 넘는다), 인사만 하면 +1. 그 뒤 연락하며 가까워져도 된다. 2년이 지나도록 소식이 없으면 인연은 거기까지
+const BAND_SEN_AFF = 40;
+function bandSenPool(s, t) {
+  const f = s.fame || 0, y0 = calY(s) - Math.floor((t.months || 0) / 12), last = (t.b.sen || {}).nid;
+  return npcList(s, 'band').filter(n => n.ph !== 'rest' && n.ph !== 'rookie' && n.pop >= f + 8 && n.by <= y0 && n.n !== t.b.name && n.id !== last && n.id !== t.b.senLast);
+}
+// 먼저 다가갔을 때 이야기가 잘 풀릴 가능성: 전달력 · 유머 감각이 좋을수록 갈수록 가파르게 (둘의 평균 30이면 49% · 50이면 55% · 70이면 65% · 90이면 77%. 외향적이면 8%p 더, 내향적이면 5%p 덜)
+function bandSenTalkP(s) { const p = me(s), q = U.clamp((p.tal.verbal + p.tal.humor) / 200, 0, 1); return U.clamp(0.45 + 0.4 * q * q + (s.persona === 'outgoing' ? 0.08 : s.persona === 'introvert' ? -0.05 : 0), 0.3, 0.9); }
+// 오프닝 무대의 열기: 단독 공연과 같은 바탕(bandHeatBase)에서, 객석이 우리를 처음 보는 만큼 조금 낮게 시작한다
+// 그 객석에서 우리 팬이 되는 비율: 열기가 높을수록 갈수록 가파르게 (열기 50이면 8% · 65면 16% · 80이면 29% · 95면 48%) — 2,000석이면 140명 · 280명 · 520명 · 860명쯤
+function bandOpenConv(h) { return 0.05 + 0.5 * Math.pow(U.clamp((h - 35) / 65, 0, 1), 2); }
+E({
+  id: 'band_senior', cat: '밴드', title: '선배 밴드', tag: 'career', bg: 'waiting', p: 0.05, cd: 18,
+  cond: s => { const t = s.tracks.band; return bandEvFull(s) && (t.rel || 0) >= 1 && !(t.b.sen && t.b.sen.st >= 1 && t.b.sen.st <= 3) && bandSenPool(s, t).length > 0; },
+  init(s, d) {
+    const t = s.tracks.band, n = U.pick(bandSenPool(s, t));
+    if (!n) { d.skip = true; return; }
+    const k = U.chance(0.5) ? t.b.my : U.pick(BAND_NEED);
+    d.fest = calM(s) >= 5 && calM(s) <= 8;
+    const x = makeMusicMate(s, { age: Math.max(22, age(s) + U.int(2, 9)), rel: '선배', job: `밴드 「${n.n}」`, met: d.fest ? '페스티벌 대기실' : '공연장 대기실', aff: 30, tal: k === 'vocal' ? ['music', 'star'] : ['music', 'rhythm'], sk: { [k]: 50 + n.sk * 0.4 } });
+    npcKnow(n);
+    d.x = x.id; d.nid = n.id; d.bn = n.n; d.k = k; d.yr = Math.max(2, calY(s) - n.by + 1); d.big = n.pop >= 70 ? 2 : n.pop >= 45 ? 1 : 0;
+  },
+  text: (s, d) => { const x = s.people[d.x]; return `${d.fest ? '페스티벌 무대 뒤 대기 천막에서' : '합동 공연이 잡힌 공연장 대기실에서'} 선배 밴드 「${d.bn}」의 ${partN(d.k)} ${josa(x.name, '과와')} 마주쳤다. 결성 ${d.yr}년 차, ${['이 바닥에서 오래 버텨 온 밴드다', '단독 공연을 열면 표가 금방 동나는 밴드다', '페스티벌 포스터 맨 윗줄에 이름이 오르는 밴드다'][d.big]}.\n\n${josa(x.name, '은는')} 멤버들과 이야기하다 말고 이쪽을 한번 쳐다봤다.`; },
+  ch: (s, d) => {
+    const t = s.tracks.band, x = s.people[d.x], n = npcBy(s, d.nid);
+    const met = s => { meetAt(s, x, d.fest ? '페스티벌 대기실' : '공연장 대기실', 'band'); t.b.sen = { id: x.id, nid: d.nid, bn: d.bn, st: 1, t: s.t }; t.b.senLast = d.nid; };
+    return [
+      { t: '먼저 다가가 이야기를 나눈다', h: '선배와 가까워질 수 있다', f: s => {
+        met(s);
+        if (U.chance(bandSenTalkP(s))) { bond(s, x, 14); if (n) npcRel(s, n, 6); return `${josa(x.name, '은는')} 한참 이야기를 들어 주더니 번호를 알려 줬다. "공연 잡히면 불러. 보러 갈게."` + fx(s, { stress: -3 }); }
+        bond(s, x, 4); if (n) npcRel(s, n, 2); return `${josa(x.name, '은는')} 짧게 대답하고는 무대 준비를 하러 갔다. 그래도 밴드 이름은 기억해 준 것 같다.`;
+      } },
+      { t: '우리 공연 영상을 보여 주며 조언을 구한다', h: '내 파트 ↑ · 멤버 실력 ↑ · 연주가 좋을수록 눈여겨본다', f: s => {
+        met(s);
+        const pw = U.clamp(bandPower(s, t), 0, 100);
+        practice(s, me(s), t.b.my, 2); teamGrow(s, bandTm(s, t), 0.8, true); twAdd(t.b, 1);
+        bond(s, x, 7 + 9 * Math.pow(pw / 100, 2)); if (n) npcRel(s, n, 4);
+        return `휴대폰으로 우리 공연 영상을 보여 줬다. ${josa(x.name, '은는')} 끝까지 보더니 ${pw >= 60 ? '"합이 좋네. 후렴 들어갈 때 드럼만 조금 더 눌러 봐."' : '"악기끼리 서로를 안 듣고 있어. 합주를 녹음해서 다 같이 들어 봐."'}`;
+      } },
+      { t: '가볍게 인사만 한다', f: s => { met(s); bond(s, x, 1); return `「${d.bn}」 멤버들에게 고개 숙여 인사하고 우리 자리로 돌아왔다.`; } },
+    ];
+  },
+});
+E({
+  id: 'band_senior_open', cat: '밴드', title: '오프닝 무대 제의', tag: 'career', bg: 'waiting',
+  cond: s => bandOn(s),
+  init(s, d) {
+    const t = s.tracks.band, A = t.b.sen, x = A && A.st === 2 ? bandPerson(s, A.id) : null, n = A ? npcBy(s, A.nid) : null;
+    // 선배와 연락이 끊겼거나 그 밴드가 해체했으면 없던 일이 된다. 지금 무대에 설 수 없으면(빈 파트 · 아픔 등) 이야기는 다음으로 미뤄진다
+    if (!x || !n) { d.skip = true; t.b.sen = null; return; }
+    if (bandLiveNo(s, t) || n.ph === 'rest' || bandStageAt(s, s.t + 1)) { d.skip = true; A.st = 1; A.t = s.t; return; }
+    d.x = x.id; d.bn = A.bn; d.v = n.pop >= 80 ? 4 : n.pop >= 60 ? 3 : 2; // 선배 밴드가 클수록 큰 공연장 (중극장 홀 · 대형 공연장 · 체육관)
+    d.fee = Math.round(SOLO_VENUE[d.v].seat * 600 / 1e5) * 1e5;
+  },
+  text: (s, d) => {
+    const t = s.tracks.band, x = s.people[d.x], V = SOLO_VENUE[d.v], n = bandMembers(s, t).length + 1;
+    return `${x.name} 선배에게서 연락이 왔다. 다음 달 「${d.bn}」의 ${V.n} 공연(${V.seat.toLocaleString()}석)에서 오프닝 무대를 맡아 달라고 한다. "너희 무대, 우리 관객한테도 보여 주고 싶어."\n\n객석 대부분은 밴드 ${josa(`「${t.b.name}」`, '을를')} 처음 보는 사람들이다. 세 곡을 연주한다. 출연료는 ${fmtWon(d.fee)}, ${t.st === 'signed' ? `${josa(t.agN, '과와')} 나눈 뒤 밴드 몫을 멤버 ${n}명이 똑같이 나눈다` : `멤버 ${n}명이 똑같이 나눈다`}.`;
+  },
+  ch: (s, d) => {
+    const t = s.tracks.band, x = s.people[d.x], A = t.b.sen || {};
+    return [
+      { t: '오프닝 무대에 선다', h: '다음 달에 무대에 선다 · 처음 보는 관객을 팬으로 만들 기회다', ok: s => !bandLiveNo(s, t), f: s => { A.st = 3; bond(s, x, 3); queueEv(s, 'band_senior_openres', 1, { x: d.x, bn: d.bn, v: d.v, fee: d.fee }, true); return `「${d.bn}」 공연의 오프닝 무대를 맡기로 했다. 다음 달에 무대에 선다.`; } },
+      { t: '일정이 안 맞는다고 한다', f: s => { t.b.sen = null; bond(s, x, -3); return `${x.name} 선배에게 이번에는 일정이 안 맞는다고 했다. 선배는 아쉬워했다.`; } },
+    ];
+  },
+});
+E({
+  id: 'band_senior_openres', cat: '밴드', title: (s, d) => `「${d.bn}」 공연 오프닝`, tag: 'career', keepPop: true,
+  cond: s => trackOn(s, 'band'),
+  live: (s, d) => d.live,
+  init(s, d) {
+    const t = s.tracks.band;
+    if (bandOn(s)) t.b.sen = null; // 줄기는 여기서 끝난다 (다음에는 다른 선배 밴드를 만난다)
+    if (!t || bandLiveNo(s, t)) { d.skip = true; addLog(s, `「${d.bn}」 공연의 오프닝 무대에는 서지 못했다.${bandOn(s) && bandMissing(t).length ? ' 멤버 자리가 비어 무대에 설 수 없었다.' : ''}`, 'career'); return; }
+    const p = me(s), mem = bandMembers(s, t), n = mem.length + 1, V = SOLO_VENUE[d.v] || SOLO_VENUE[2], x = bandPerson(s, d.x), big = V.seat >= 5000;
+    d.vn = V.n; d.seat = V.seat;
+    // 열기: 밴드 실력(곡선) · 합 · 내 스타성. 객석이 우리를 처음 보는 만큼 4 낮게 시작하고, 몹시 지쳐 있으면 더 깎인다
+    d.heat = Math.round(U.clamp(bandHeatBase(bandPower(s, t)) - 4 + (twOf(t.b) - 50) * 0.08 + (p.tal.star - 50) * 0.06 - (s.stress >= 70 ? 5 : 0) + U.normal(0, 6), 5, 100));
+    // 팬: 객석의 일부가 우리 팬이 된다 (bandOpenConv). 팬 상한(starCap)에 가까울수록 덜 는다
+    d.gain = Math.round(V.seat * 0.9 * bandOpenConv(d.heat) * Math.max(0, 1 - t.b.f / starCap(60, 'kr'))); t.b.f += d.gain;
+    d.my = Math.round(d.gain * 0.35 * myRoom(s, 'kr')); s.fans.kr += d.my;
+    // 출연료: 소속은 회사 몫을 떼고(갚을 비용이 있으면 먼저 갚는다), 인디는 멤버끼리 똑같이 나눈다
+    let bill = null;
+    if (t.st === 'signed') { d.signed = true; d.pay = bandIncome(s, t, d.fee, '오프닝 출연료') || 0; bill = t.lastBill; }
+    else { const r = billPay(s, { rev: d.fee, n, team: '밴드', what: '오프닝 출연료', job: 'band' }); d.pay = r.share; bill = r.bill; }
+    if (bill) { bill.t = `「${d.bn}」 공연 오프닝 출연료`; d.bill = bill; }
+    d.pop = jpopAdd(s, 'band', d.heat >= 82 ? U.fl(1.5, 3) : d.heat >= 67 ? 1 : d.heat >= 52 ? 0.3 : -0.5);
+    practice(s, p, t.b.my, 1.5, 1); teamGrow(s, bandTm(s, t), 0.8, true); addStress(s, 6);
+    for (const m of mem) bond(s, m, d.heat >= 67 ? 4 : 2);
+    twAdd(t.b, d.heat >= 67 ? 3 : 1);
+    if (x) bond(s, x, d.heat >= 67 ? 7 : 2);
+    const nb = npcList(s, 'band').find(q => q.n === d.bn); if (nb) npcRel(s, nb, d.heat >= 67 ? 8 : 3);
+    d.xn = x ? x.name : '';
+    milestone(s, `${age(s)}세에 밴드 ${josa(`「${t.b.name}」`, '으로')} 「${d.bn}」 ${V.n} 공연의 오프닝 무대에 섰다.`);
+    // 무대 창: 중요한 순간이라 연다. 객석은 우리를 처음 본다(nw). 중극장 홀은 홀 사진, 5,000석부터는 콘서트 사진
+    d.live = bandLive(s, t, { vn: '', ph: big ? 'concert' : 'solohall', cos: t.st === 'signed' || big ? 'rock' : 'indie', place: `「${d.bn}」 공연 오프닝`, t: '', key: true, nw: true, sc: d.heat, z: { q: (d.heat - 57) / 20, fans: 0.5 } });
+  },
+  html: (s, d) => d.bill && typeof billBtnHTML === 'function' ? cardText(s, d) + billBtnHTML(d.bill) + (d.live && typeof liveBtnHTML === 'function' ? ' ' + liveBtnHTML(d.live) : '') : '',
+  text: (s, d) => {
+    const fl = [d.pay > 0 ? `${d.signed ? '정산' : '내 몫 출연료'} +${fmtWon(d.pay)}` : d.signed ? '정산금 없음' : '', d.gain > 0 ? `밴드 팬 +${fmtFans(d.gain)}` : '', d.my > 0 ? `내 팬 +${fmtFans(d.my)}` : '', d.pop > 0.3 ? '대중 호감도 ↑' : d.pop < -0.3 ? '대중 호감도 ↓' : ''].filter(Boolean).join(' · ');
+    return `「${d.bn}」 ${d.vn} 공연의 오프닝 무대에 섰다. ${d.seat.toLocaleString()}석을 채운 관객 대부분이 우리를 처음 봤다. ${soloHeatW(d.heat)}.${d.xn ? `\n\n${d.heat >= 67 ? `무대에서 내려오자 ${d.xn} 선배가 어깨를 두드렸다. "잘하더라. 다음에 또 같이 하자."` : `무대에서 내려오자 ${d.xn} 선배가 물을 건넸다. "큰 무대는 원래 처음이 제일 어려워."`}` : ''}${fl ? `\n\n${fl}` : ''}${d.signed && d.bill && d.bill.note ? `\n\n${d.bill.note}` : ''}`;
+  },
+  ch: (s, d) => [{ t: '확인', f: () => `「${d.bn}」 ${d.vn} 공연의 오프닝 무대에 섰다. ${soloHeatW(d.heat)}.` }],
+});
+
+// ───── ㄴ 멤버 갈등 ─────
+// 멤버 둘이(또는 한 멤버와 내가) 크게 다툰다. 어떻게 하느냐에 따라 두 달 뒤 화해 · 앙금 · 한 명이 나가겠다고 함으로 갈린다
+// 다툼이 날 가능성 (한 달): 손발이 안 맞거나 사이가 틀어진 멤버가 있을수록 갈수록 가파르게. 솔로 계약을 한 지 1년 반 안이면 1.5배
+//   팀워크 60부터 1배 · 45면 1.1배 · 30이면 1.5배 · 15면 2.1배 · 0이면 3배 / 가장 서먹한 멤버와의 사이 50부터 1배 · 35면 1.1배 · 20이면 1.5배 · 5면 2.2배 (바탕 4.5%, 12%까지)
+function bandFightP(s, t) {
+  const mem = bandMembers(s, t), low = mem.length ? Math.min(...mem.map(m => m.aff)) : 50;
+  const twM = 1 + 2 * Math.pow(U.clamp((60 - twOf(t.b)) / 60, 0, 1), 2), affM = 1 + 1.5 * Math.pow(U.clamp((50 - low) / 50, 0, 1), 2);
+  return Math.min(0.12, 0.045 * twM * affM * (t.b.soloT != null && s.t - t.b.soloT <= 18 ? 1.5 : 1));
+}
+// 이야기를 들어 줬을 때 잘 풀릴 가능성: 내가 그 멤버들과 가깝고 사람을 잘 읽을수록 갈수록 가파르게 (사이 · 통찰력을 6:4로 섞은 값이 30이면 39% · 50이면 46% · 70이면 57% · 90이면 71%. 외향적이면 5%p 더)
+function bandTalkP(s, L) { const q = U.clamp((L.reduce((a, m) => a + m.aff, 0) / L.length * 0.6 + me(s).tal.insight * 0.4) / 100, 0, 1); return U.clamp(0.35 + 0.45 * q * q + (s.persona === 'outgoing' ? 0.05 : 0), 0.2, 0.85); }
+// 다툰 뒤 나가겠다고 할 가능성: 나와의 사이가 50 아래로 틀어져 있을 때만, 나쁠수록 갈수록 가파르게 (사이 40이면 1% · 30이면 5% · 20이면 11% · 10이면 19% · 0이면 30%)
+//   이야기를 들어 줬으면 절반, 내버려 뒀으면 1.3배, 편을 들었으면 반대쪽 멤버가 1.2배 (편을 들 때 그 멤버와의 사이가 이미 내려갔다). 사이가 괜찮은 멤버는 다퉜다고 나가지 않는다
+function bandQuitP(m) { return 0.3 * Math.pow(U.clamp((50 - m.aff) / 50, 0, 1), 2); }
+// 붙잡았을 때 남아 줄 가능성: 사이가 가까울수록 갈수록 가파르게 + 내 전달력 (사이 10이면 24% · 25면 30% · 40이면 41% · 55면 58%, 전달력 50일 때. 전달력 90이면 6%p 더)
+function bandHoldP(s, m) { return U.clamp(0.2 + 0.75 * Math.pow(U.clamp(m.aff, 0, 100) / 80, 2) + 0.1 * Math.pow(me(s).tal.verbal / 100, 2), 0.1, 0.85); }
+const BAND_FIGHT_WHY = {
+  // [멤버 둘이 다퉜을 때 (a, b 이름), 한 멤버와 내가 다퉜을 때 (a 이름)]
+  time: [(a, b) => `${josa(b, '이가')} 요즘 합주에 자꾸 빠지는 걸 두고 ${josa(a, '이가')} 참다못해 한마디 한 것이 시작이었다.`, a => `내가 합주 시간을 더 늘리자고 하자 ${josa(a, '이가')} "지금도 벅차다"며 맞받은 것이 시작이었다.`],
+  money: [(a, b) => `지난 공연 수입을 어떻게 나눌지를 두고 ${josa(a, '과와')} ${b} 사이에 말이 오가다 목소리가 높아졌다.`, a => `공연 수입에서 연습실 비용을 먼저 떼자는 내 말에 ${josa(a, '이가')} 얼굴을 붉혔다.`],
+  late: [(a, b) => `${josa(b, '이가')} 또 한 시간을 늦자 ${josa(a, '이가')} 악기를 내려놓고 쏘아붙였다.`, a => `${josa(a, '이가')} 또 한 시간을 늦은 걸 두고 내가 한마디 한 것이 시작이었다.`],
+  miss: [(a, b) => `지난 공연에서 박자가 무너진 게 누구 탓이냐를 두고 ${josa(a, '과와')} ${b} 사이에 말이 오가다 목소리가 높아졌다.`, a => `지난 공연에서 내가 틀린 부분을 ${josa(a, '이가')} 멤버들 앞에서 하나하나 짚은 것이 시작이었다.`],
+};
+E({
+  id: 'band_fight', cat: '밴드', title: '합주실의 큰 소리', tag: 'career', bg: 'jamroom', cd: 10,
+  p: s => bandFightP(s, s.tracks.band),
+  cond: s => { const t = s.tracks.band; return bandEvOn(s) && bandMembers(s, t).length > 0 && !t.b.fight && !hasQ(s, 'band_fight_end') && !hasQ(s, 'band_leave') && !((s.cd.idol_conflict || 0) > s.t + 4); },
+  init(s, d) {
+    const t = s.tracks.band, mem = bandMembers(s, t);
+    // 사이가 서먹한 멤버일수록 다툼에 끼기 쉽다. 멤버가 둘 이상이면 열에 일곱은 멤버끼리, 나머지는 그 멤버와 내가 다툰다
+    const a = U.wpick(mem, m => 20 + Math.max(0, 80 - m.aff)), rest = mem.filter(m => m !== a);
+    d.a = a.id; d.b = rest.length && U.chance(0.7) ? U.pick(rest).id : null;
+    d.why = U.pick(t.st === 'indie' ? ['time', 'money', 'late', 'miss'] : ['time', 'late', 'miss']);
+    s.cd.idol_conflict = Math.max(s.cd.idol_conflict || 0, s.t + 8); // 비슷한 사건('멤버 사이의 냉기')이 바로 이어 뜨지 않게
+  },
+  text: (s, d) => {
+    const t = s.tracks.band, a = s.people[d.a], b = d.b ? s.people[d.b] : null, W = BAND_FIGHT_WHY[d.why] || BAND_FIGHT_WHY.time;
+    return b ? `합주가 끝나기도 전에 ${partN(t.b.part[a.id])} ${josa(a.name, '과와')} ${partN(t.b.part[b.id])} ${josa(b.name, '이가')} 크게 다퉜다. ${W[0](a.name, b.name)}\n\n${josa(a.name, '은는')} 악기를 챙겨 먼저 나가 버렸고, 합주실에는 무거운 공기만 남았다.`
+      : `합주 중에 ${partN(t.b.part[a.id])} ${josa(a.name, '과와')} 크게 부딪쳤다. ${W[1](a.name)}\n\n다른 멤버들은 악기만 만지작거리고, ${josa(a.name, '은는')} 나와 눈을 마주치지 않는다.`;
+  },
+  ch: (s, d) => {
+    const t = s.tracks.band, a = s.people[d.a], b = d.b ? s.people[d.b] : null;
+    const go = (s, how, side, p) => { t.b.fight = { a: d.a, b: d.b, t: s.t }; queueEv(s, 'band_fight_end', 2, { a: d.a, b: d.b, how, side: side || '', p: p || 0 }, true); };
+    if (b) return [
+      { t: '둘을 불러 이야기를 듣는다', h: '둘과 가까울수록, 사람을 잘 읽을수록 잘 풀린다 · 스트레스 ↑', f: s => { go(s, 'talk', '', bandTalkP(s, [a, b])); return `${josa(a.name, '과와')} ${josa(b.name, '을를')} 따로 불러 늦게까지 이야기를 들었다.` + fx(s, { stress: 4 }); } },
+      { t: `${a.name} 편을 든다`, h: `${josa(a.name, '과와')} 가까워진다 · ${josa(b.name, '과와')}는 멀어진다`, f: s => { bond(s, a, 8); bond(s, b, -12); twAdd(t.b, -3); go(s, 'side', 'a'); return `${a.name} 편을 들었다. ${josa(b.name, '은는')} 아무 말 없이 합주실을 나갔다.`; } },
+      { t: `${b.name} 편을 든다`, h: `${josa(b.name, '과와')} 가까워진다 · ${josa(a.name, '과와')}는 멀어진다`, f: s => { bond(s, b, 8); bond(s, a, -12); twAdd(t.b, -3); go(s, 'side', 'b'); return `${b.name} 편을 들었다. ${josa(a.name, '은는')} 한참 말이 없었다.`; } },
+      { t: '시간이 해결하게 둔다', f: s => { twAdd(t.b, -2); go(s, 'wait'); return '둘 사이의 일은 둘이 풀도록 두기로 했다.' + fx(s, { stress: 2 }); } },
+    ];
+    return [
+      { t: '먼저 찾아가 이야기한다', h: '사이가 가까울수록, 사람을 잘 읽을수록 잘 풀린다 · 스트레스 ↑', f: s => { go(s, 'talk', '', bandTalkP(s, [a])); return `합주가 끝나고 ${a.name}에게 따로 이야기하자고 했다. 늦게까지 서로 할 말을 했다.` + fx(s, { stress: 4 }); } },
+      { t: '내 생각을 굽히지 않는다', h: `${josa(a.name, '과와')} 멀어진다`, f: s => { bond(s, a, -10); twAdd(t.b, -3); go(s, 'side', 'me'); return `${a.name}에게 내 생각은 변함없다고 했다. 합주는 일찍 끝났다.` + fx(s, { stress: -2 }); } },
+      { t: '시간이 해결하게 둔다', f: s => { twAdd(t.b, -2); go(s, 'wait'); return '당분간 그 이야기는 꺼내지 않기로 했다.' + fx(s, { stress: 2 }); } },
+    ];
+  },
+});
+E({
+  id: 'band_fight_end', cat: '밴드', title: (s, d) => d.out === 'good' ? '다시 맞는 합' : d.out === 'leave' ? '멤버가 나가겠다고 한다' : '남은 앙금', tag: 'career', bg: 'jamroom', keepPop: true,
+  cond: s => bandOn(s),
+  init(s, d) {
+    const t = s.tracks.band, a = bandMemOf(s, t, d.a), b = d.b ? bandMemOf(s, t, d.b) : null;
+    t.b.fight = null;
+    if (!a || (d.b && !b)) { d.skip = true; return; } // 그사이 한 사람이 밴드를 떠났다
+    // 나가겠다고 할 수 있는 사람: 편을 들었으면 반대쪽 멤버, 아니면 나와 더 서먹한 쪽
+    const risk = d.side === 'a' ? b : d.side === 'b' || !b ? a : a.aff <= b.aff ? a : b;
+    const pq = bandQuitP(risk) * (d.how === 'talk' ? 0.5 : d.how === 'wait' ? 1.3 : 1.2);
+    const pg = d.how === 'talk' ? d.p || 0.4 : d.how === 'side' ? 0.25 : 0.2 + 0.3 * Math.pow(twOf(t.b) / 100, 2);
+    d.out = U.chance(pq) ? 'leave' : U.chance(pg) ? 'good' : 'grudge';
+    d.lv = risk.id; d.k = t.b.part[risk.id];
+  },
+  text: (s, d) => {
+    const a = s.people[d.a], b = d.b ? s.people[d.b] : null, m = s.people[d.lv];
+    if (d.out === 'leave') return `합주가 끝나고 ${partN(d.k)} ${josa(m.name, '이가')} 잠깐 남아 달라고 했다. "그날 이후로 합주실에 오는 게 즐겁지가 않아. 나, 밴드를 나가려고 해."`;
+    if (b) return d.out === 'good' ? (d.how === 'talk' ? `늦게까지 이야기를 들어 준 그날 뒤로 ${josa(a.name, '과와')} ${josa(b.name, '은는')} 조금씩 말을 섞기 시작했다. 오늘 합주에서는 둘이 먼저 농담을 주고받았다.` : `한동안 필요한 말만 하던 ${josa(a.name, '과와')} ${josa(b.name, '이가')} 오늘은 합주가 끝나고 둘이 밥을 먹으러 갔다. 돌아와서는 아무 일 없었다는 듯 다음 곡을 맞췄다.`)
+      : `${josa(a.name, '과와')} ${josa(b.name, '은는')} 겉으로는 아무 일 없는 듯 합주를 한다. 하지만 서로 필요한 말만 하고, 곡이 끝나면 각자 휴대폰만 본다.`;
+    return d.out === 'good' ? `${josa(a.name, '과와')} 다툰 뒤 한동안 서먹했지만, 오늘 합주가 끝나고 ${josa(a.name, '이가')} 먼저 말을 걸어 왔다. "그날은 나도 말이 심했어."`
+      : `${josa(a.name, '과와')}는 그날 이후로 합주 때 필요한 말만 한다. 눈이 마주치면 서로 먼저 피한다.`;
+  },
+  ch: (s, d) => {
+    const t = s.tracks.band, a = s.people[d.a], b = d.b ? s.people[d.b] : null, m = s.people[d.lv], L = b ? [a, b] : [a];
+    if (d.out === 'good') return [{ t: '확인', f: s => { twAdd(t.b, d.how === 'talk' ? 8 : 6); for (const x of L) bond(s, x, b ? 5 : 8); return (b ? `${josa(a.name, '과와')} ${josa(b.name, '이가')} 화해했다.` : `${josa(a.name, '과와')} 화해했다.`) + ' 합주실 공기가 다시 풀렸다.' + fx(s, { stress: -3 }); } }];
+    if (d.out === 'grudge') return [{ t: '확인', f: s => { twAdd(t.b, -3); for (const x of L) bond(s, x, -2); return (b ? `${josa(a.name, '과와')} ${b.name} 사이에는 앙금이 남았다.` : `${josa(a.name, '과와')}의 사이에는 앙금이 남았다.`) + fx(s, { stress: 2 }); } }];
+    return [
+      { t: '붙잡는다', h: '사이가 가까울수록 마음을 돌리기 쉽다', f: s => { if (bandMemOf(s, t, d.lv) && U.chance(bandHoldP(s, m))) { bond(s, m, 10); twAdd(t.b, -2); return `${josa(m.name, '이가')} 한참 말이 없다가, 조금 더 해 보겠다고 했다.`; } return '붙잡지 못했다. ' + bandMemOut(s, t, m); } },
+      { t: '보내 준다', h: "직업 창 '그룹' 탭에서 새 멤버를 구해야 한다", f: s => bandMemOut(s, t, m) },
+    ];
+  },
+});
+
+// ───── ㄷ 음악성 차이 ─────
+// 작곡을 하는 멤버(없으면 아무 멤버)가 밴드 색을 바꾸자고 한다. 새 곡 작업 중에는 뜨지 않는다 ('다음 곡'이 지금 만드는 곡과 헷갈리지 않게)
+//   그 방향으로 → 다음 새 곡이 나온 다음 달에 반응이 갈린다 (band_dir_res: 그 곡 점수에 운을 얹어 새 팬이 늘거나 · 엇갈리거나 · 오래된 팬이 아쉬워한다)
+//   지금 색을 지킨다 → 그 멤버와 멀어지고, 넉 달 뒤부터 사이가 35 아래면 자기 음악을 하러 나가겠다고 한다 (band_dir_leave). 1년이 지나면 서운함도 가라앉는다
+//   따로 해 보라고 한다 → 그 멤버가 반년 동안 의욕을 낸다(music.js mateMot). 팀워크는 조금 내려간다
+const BAND_DIR = {
+  heavy: { n: '무겁고 거친 소리', q: '기타를 더 낮게 깔고, 지금보다 훨씬 무겁게.' },
+  pop: { n: '따라 부르기 쉬운 소리', q: '후렴을 더 쉽게, 처음 듣는 사람도 따라 부를 수 있게.' },
+  elec: { n: '전자음을 섞은 소리', q: '신시사이저랑 전자 드럼을 섞어서, 요즘 소리로.' },
+  acou: { n: '힘을 뺀 어쿠스틱 소리', q: '힘을 빼고, 통기타랑 목소리가 들리게.' },
+};
+const BAND_DIR_AFF = 35;
+E({
+  id: 'band_dir', cat: '밴드', title: '밴드의 색', tag: 'career', bg: 'jamroom', p: 0.05, cd: 24,
+  cond: s => { const t = s.tracks.band; return bandEvFull(s) && (t.rel || 0) >= 1 && !t.b.dir && bandPhase(s, t) !== 'prep' && !hasQ(s, 'band_leave'); },
+  init(s, d) {
+    const t = s.tracks.band, mem = bandMembers(s, t), w = mem.filter(m => has(m, 'compose')).sort((a, b) => lv(b, 'compose') - lv(a, 'compose'))[0] || U.pick(mem);
+    if (!w) { d.skip = true; return; }
+    d.m = w.id; d.k = U.pick(Object.keys(BAND_DIR));
+  },
+  text: (s, d) => { const t = s.tracks.band, w = s.people[d.m]; return `합주가 끝나고 ${partN(t.b.part[w.id])} ${josa(w.name, '이가')} 휴대폰으로 데모 하나를 들려줬다. "우리 다음 곡은 이런 쪽으로 가 보면 어때? ${BAND_DIR[d.k].q}"\n\n지금까지 해 온 밴드 「${t.b.name}」의 색과는 꽤 다르다. 다른 멤버들은 내 얼굴만 본다.`; },
+  ch: (s, d) => {
+    const t = s.tracks.band, w = s.people[d.m];
+    return [
+      { t: '다음 곡은 그 방향으로 해 본다', h: `${josa(w.name, '과와')} 가까워진다 · 새 곡 반응이 갈릴 수 있다`, f: s => { bond(s, w, 8); t.b.dir = { m: d.m, k: d.k, st: 1, t: s.t, rel: t.rel || 0 }; return `다음 곡은 ${w.name}의 말대로 ${josa(BAND_DIR[d.k].n, '으로')} 가 보기로 했다.`; } },
+      { t: '지금 색을 지킨다', h: `${josa(w.name, '이가')} 서운해한다`, f: s => { bond(s, w, ['ambition', 'perfect', 'sensitive'].includes(w.trait) ? -12 : -8); t.b.dir = { m: d.m, k: d.k, st: 2, t: s.t, rel: t.rel || 0 }; return `우리 색을 지키자고 했다. ${josa(w.name, '은는')} 알겠다고 했지만 데모를 끄는 손이 느렸다.`; } },
+      { t: '그 곡은 따로 해 보라고 한다', h: `${josa(w.name, '과와')} 가까워진다 · 팀워크 조금 ↓`, f: s => { bond(s, w, 6); twAdd(t.b, -3); w.motT = s.t + 6; if (has(w, 'compose')) practice(s, w, 'compose', 2); return `${w.name}에게 그 곡은 밴드 밖에서 따로 내 보라고 했다. ${josa(w.name, '은는')} 눈을 반짝였지만, 합주에 쓰는 시간은 조금 줄 것 같다.`; } },
+    ];
+  },
+});
+E({
+  id: 'band_dir_res', cat: '밴드', title: '달라진 소리', tag: 'career', bg: 'jamroom', keepPop: true,
+  cond: s => bandOn(s),
+  init(s, d) {
+    const t = s.tracks.band, D = t.b.dir, w = D ? bandMemOf(s, t, D.m) : null;
+    t.b.dir = null;
+    if (!D || !w) { d.skip = true; return; }
+    const wk = s.works.slice().reverse().find(x => x.type === '밴드 싱글' && x.by === `「${t.b.name}」`);
+    d.m = w.id; d.k = D.k; d.title = wk ? wk.title : ''; d.sc = wk ? wk.sc : 55;
+    // 곡이 좋았으면 새 소리가 통하고, 아니면 오래된 팬이 아쉬워한다. 운이 조금 섞인다 (점수 ± 8)
+    const r = d.sc + U.normal(0, 8), f0 = t.b.f;
+    d.out = r >= 62 ? 'new' : r >= 48 ? 'mix' : 'old';
+    if (d.out === 'old') { const lost = Math.round(t.b.f * U.fl(0.01, 0.03)); t.b.f -= lost; s.fans.kr = Math.max(0, s.fans.kr - Math.round(lost * 0.2)); d.gain = -lost; }
+    else { const g = Math.round(bandFanM(s, t) * (d.out === 'new' ? U.fl(1.5, 2.5) : U.fl(0.3, 0.7))); d.my = bandFansAdd(s, t, g); d.gain = t.b.f - f0; }
+    if (d.out === 'new') jpopAdd(s, 'band', 1);
+  },
+  text: (s, d) => {
+    const w = s.people[d.m], ti = d.title ? `새 곡 「${d.title}」` : '새 곡', D = BAND_DIR[d.k] || BAND_DIR.pop;
+    const body = d.out === 'new' ? `${ti}의 ${josa(D.n, '이가')} 통했다. 공연장에 처음 보는 얼굴이 눈에 띄게 늘었고, 새 곡 전주가 나오면 객석이 먼저 반응한다.`
+      : d.out === 'mix' ? `${ti}의 ${D.n}에는 반응이 엇갈린다. 새 곡을 듣고 처음 온 관객이 있는가 하면, 공연이 끝나고 예전 곡을 더 해 달라는 오래된 팬도 있다.`
+        : `${ti}의 ${josa(D.n, '은는')} 오래된 팬들에게 낯설었다. 공연이 끝나고 "예전 소리가 좋았는데"라는 말이 들렸고, 늘 맨 앞줄에 서던 얼굴 몇이 보이지 않는다.`;
+    return `${body}\n\n${josa(w.name, '은는')} ${d.out === 'old' ? '말수가 줄었다. 그래도 자기 말을 들어 준 것만은 잊지 않겠다고 했다.' : '합주실에 가장 먼저 와서 다음 데모를 만지고 있다.'}\n\n밴드 팬 ${sgnFans(d.gain || 0)}${d.my > 0 ? ` · 내 팬 +${fmtFans(d.my)}` : ''}`;
+  },
+  ch: (s, d) => {
+    const t = s.tracks.band, w = s.people[d.m];
+    return [{ t: '확인', f: s => { bond(s, w, d.out === 'new' ? 6 : d.out === 'mix' ? 4 : 2); twAdd(t.b, d.out === 'new' ? 2 : d.out === 'old' ? -1 : 0); return d.out === 'new' ? `${w.name}의 말대로 바꾼 소리가 통했다. 새 팬이 늘었다.` : d.out === 'mix' ? '바꾼 소리에 반응이 엇갈렸다.' : '바꾼 소리를 오래된 팬들이 아쉬워했다.'; } }];
+  },
+});
+E({
+  id: 'band_dir_leave', cat: '밴드', title: '자기 음악을 하고 싶다고 한다', tag: 'career', bg: 'jamroom',
+  cond: s => bandOn(s),
+  init(s, d) { const t = s.tracks.band, D = t.b.dir, w = D ? bandMemOf(s, t, D.m) : null; t.b.dir = null; if (!D || !w) { d.skip = true; return; } d.m = w.id; d.k = D.k; d.pk = t.b.part[w.id]; },
+  text: (s, d) => { const w = s.people[d.m]; return `합주가 끝나고 ${partN(d.pk)} ${josa(w.name, '이가')} 잠깐 남아 달라고 했다. "나, 내 음악을 해 보고 싶어. 여기서는 내가 하고 싶은 소리를 못 낼 것 같아."\n\n지난번 데모 이야기를 접은 뒤로 ${josa(w.name, '은는')} 줄곧 말이 없었다.`; },
+  ch: (s, d) => {
+    const t = s.tracks.band, w = s.people[d.m], D = BAND_DIR[d.k] || BAND_DIR.pop;
+    return [
+      { t: '다음 곡은 네 방향으로 해 보자고 붙잡는다', h: '사이가 가까울수록 마음을 돌리기 쉽다 · 남으면 다음 곡은 그 방향으로 간다', f: s => {
+        if (bandMemOf(s, t, d.m) && U.chance(bandHoldP(s, w))) { bond(s, w, 12); t.b.dir = { m: d.m, k: d.k, st: 1, t: s.t, rel: t.rel || 0 }; return `${josa(w.name, '은는')} 한참 생각하더니 고개를 끄덕였다. 다음 곡은 ${josa(D.n, '으로')} 가 보기로 했다.`; }
+        return '마음을 돌리지 못했다. ' + bandMemOut(s, t, w);
+      } },
+      { t: '보내 준다', h: "직업 창 '그룹' 탭에서 새 멤버를 구해야 한다", f: s => { bond(s, w, 5); return `${w.name}의 음악을 응원한다고 했다. ` + bandMemOut(s, t, w); } },
+    ];
+  },
+});
+
+// ───── ㄹ 지방 투어 ─────
+// 발표곡 1곡 · 밴드 팬 500명부터 (단독 공연보다 조금 일찍), 한 해에 한 번 (거절하면 반년 뒤). 지방 서너 곳을 일주일 동안 돌고 다음 달에 결과가 나온다 (band_tour_res). 무대 창은 열지 않는다
+//   공연장은 올 사람 수에 맞춘다 (bandTourV): 지방 클럽(120석)이 바탕이고, 자리가 65%는 찰 듯해야(BAND_TOUR_FILL — 우리 팬 + 단골 손님) 소극장(500석) · 공연장(1,500석)으로 올라간다
+//     대중 호감도 50일 때 소극장은 밴드 팬 1만 6천 명쯤부터(2만 5천 명이면 거의 찬다), 공연장은 5만 3천 명쯤부터(8만 명이면 거의 찬다). 호감도가 낮으면 더 많아야 한다. 한 곳에 찾아오는 우리 팬은 밴드 팬의 1.8%쯤 (대중 호감도 50일 때 — 단독 공연의 열에 하나)이고, 여기에 그 공연장의 단골 손님이 조금 더 온다 (클럽은 자리의 10~30%)
+//   인디: 승합차 · 기름 · 숙소 · 대관 비용을 멤버끼리 똑같이 나눠 먼저 내고(내 몫만 내 돈에서), 표값도 똑같이 나눈다. 팬이 적으면 표값이 비용을 겨우 메운다 (세 곳 180만 원을 넷이 나누면 내 몫 45만 원. 팬 500명이면 한 곳에 5만 원쯤 남거나 밑지고, 1,500명이면 40만 원쯤 · 4,000명이면 130만 원쯤 남는다)
+//   회사 소속: 비용은 회사가 내고, 비용을 뺀 나머지를 정산한다 (적자는 회사가 진다). 단독 공연과 같은 틀
+//   팬: 한 곳마다 한 달 클럽 공연으로 느는 팬(bandFanM)의 0.9배에 그날 열기를 곱한다 (열기 48이면 0.6배 · 60이면 1배 · 75면 1.5배 · 84부터 1.8배) — 네 곳을 무난히 돌면 넉 달 치쯤
+const BAND_TOUR_CITY = ['부산', '대구', '광주', '대전'], BAND_TOUR_CITY2 = ['전주', '울산', '청주', '춘천', '창원'];
+// seat 자리 · cost 한 곳에 드는 돈(차 · 기름 · 숙소 · 대관) · tk 표값 · wk 그 공연장 단골 손님 (자리에 대한 비율, 가장 적을 때 ~ 많을 때)
+const BAND_TOUR_V = [{ n: '클럽', seat: 120, cost: 60e4, tk: 22000, wk: [0.1, 0.3] }, { n: '소극장', seat: 500, cost: 250e4, tk: 44000, wk: [0.03, 0.1] }, { n: '공연장', seat: 1500, cost: 2000e4, tk: 66000, wk: [0, 0.03] }];
+const BAND_TOUR_GAP = 12, BAND_TOUR_REL = 1, BAND_TOUR_FANS = 500, BAND_TOUR_RATE = 0.018, BAND_TOUR_P = 0.15, BAND_TOUR_FANM = 0.9, BAND_TOUR_FILL = 0.65;
+// 한 곳의 예상 채움 (올 만한 우리 팬 + 그 공연장 단골 손님의 가운데 값) · 그 채움이 BAND_TOUR_FILL을 넘는 가장 큰 공연장 (없으면 클럽)
+function bandTourFill(s, t, V) { return bandTourDemand(s, t) / V.seat + (V.wk[0] + V.wk[1]) / 2; }
+function bandTourV(s, t) { let vi = 0; BAND_TOUR_V.forEach((V, i) => { if (bandTourFill(s, t, V) >= BAND_TOUR_FILL) vi = i; }); return vi; }
+function bandTourDemand(s, t) { return t.b.f * BAND_TOUR_RATE * (0.6 + jpop(s, 'band') / 100 * 0.8); }
+function bandTourBack(s, d) { if (!d.cost) return; const co = ownCo(s, 'band'); if (co) coIn(co, d.cost, '지방 투어 비용 환불', ownCoF(s, 'band')); else addMoney(s, d.cost, '지방 투어 비용 환불'); d.back = d.cost; d.cost = 0; }
+E({
+  id: 'band_tour', cat: '투어', title: '지방 투어를 돌까?', tag: 'career', bg: 'van',
+  cond: s => bandOn(s),
+  init(s, d) {
+    const t = s.tracks.band;
+    if (bandLiveNo(s, t)) { d.skip = true; return; }
+    d.vi = bandTourV(s, t);
+    // 사는 곳은 뺀다. 클럽 투어는 세 곳, 그보다 크면 네 곳. 가끔 한 곳은 다른 도시로 바뀐다
+    const home = c => (s.place || '').indexOf(c) === 0, n = d.vi === 0 ? 3 : 4;
+    let C = U.shuffle(BAND_TOUR_CITY.filter(c => !home(c))).slice(0, n);
+    const X = U.shuffle(BAND_TOUR_CITY2.filter(c => !home(c)));
+    while (C.length < n && X.length) C.push(X.pop());
+    if (X.length && U.chance(0.4)) C[C.length - 1] = X.pop();
+    const V = BAND_TOUR_V[d.vi];
+    d.cities = C; d.tot = V.cost * C.length; d.r = bandTourFill(s, t, V);
+  },
+  text: (s, d) => {
+    const t = s.tracks.band, n = bandMembers(s, t).length + 1, V = BAND_TOUR_V[d.vi], co = ownCo(s, 'band'), C = d.cities.join(' · ');
+    return t.st === 'signed' ? `${josa(t.agN, '이가')} 밴드 「${t.b.name}」의 지방 투어를 잡으려 한다. ${C} — ${V.n} ${d.cities.length}곳을 일주일 동안 돈다.\n\n차와 숙소, 대관은 회사가 맡는다. 그 비용을 뺀 수익을 회사와 나누고, 밴드 몫은 멤버 ${n}명이 똑같이 나눈다.${t.debt > 0 ? ' 내 몫은 갚을 비용부터 갚는다.' : ''}`
+      : `지방 ${V.n} 몇 곳에서 밴드 ${josa(`「${t.b.name}」`, '을를')} 불러 주겠다는 연락이 모였다. ${C} — ${d.cities.length}곳을 일주일 동안 도는 일정이다.\n\n승합차를 빌려 악기를 싣고 멤버들이 돌아가며 운전한다. 차와 기름, 숙소, 대관 비용은 멤버 ${n}명이 똑같이 나눠 먼저 내고, 표값도 똑같이 나눈다.${co ? ` 내 몫은 내 회사 ${josa(`「${co.name}」`, '이가')} 낸다.` : ''}`;
+  },
+  ch(s, d) {
+    const t = s.tracks.band, n = bandMembers(s, t).length + 1, my = Math.round(d.tot / n);
+    const seat = d.r >= 0.9 ? '가는 곳마다 자리를 거의 채울 듯하다' : d.r >= 0.6 ? '자리가 조금씩 빌 듯하다' : d.r >= 0.4 ? '자리가 절반쯤 찰 듯하다' : '객석이 한산할 듯하다';
+    const go = (s, x) => { t.tourT = s.t + BAND_TOUR_GAP; queueEv(s, 'band_tour_res', 1, Object.assign({ vi: d.vi, cities: d.cities, tot: d.tot }, x), true); return `${josa(d.cities.join(' · '), '을를')} 도는 지방 투어를 잡았다. 다음 달에 떠난다.`; };
+    const later = { t: '이번엔 가지 않는다', h: '반년 뒤에 다시 이야기한다', f: s => { t.tourT = s.t + 6; return '지방 투어는 다음으로 미뤘다.'; } };
+    if (t.st === 'signed') return [{ t: '가겠다고 한다', h: `${seat} · 다음 달에 떠난다 · 스트레스 ↑`, ok: s => !bandLiveNo(s, t), f: s => go(s, { signed: true, cut: t.cut || 0, cost: 0 }) }, Object.assign({}, later, { t: '이번엔 가지 않겠다고 한다' })];
+    return [{ t: '간다', h: `${seat} · 비용 ${fmtWon(d.tot)} 가운데 내 몫 ${fmtWon(my)} · 다음 달에 떠난다 · 스트레스 ↑`, ok: s => !bandLiveNo(s, t) && jobMoney(s, 'band') >= my, f: s => { jobPay(s, my, '지방 투어 비용', 'band'); return go(s, { signed: false, cut: 0, cost: my }); } }, later];
+  },
+});
+E({
+  id: 'band_tour_res', cat: '투어', title: '지방 투어', tag: 'career', bg: 'van', keepPop: true,
+  init(s, d) {
+    const t = s.tracks.band;
+    // 그사이 무대에 설 수 없게 됐으면 투어는 취소된다. 먼저 낸 내 몫은 돌려받고, 반년 뒤에 다시 이야기한다 (단독 공연과 같다)
+    if (!t || bandLiveNo(s, t)) { const miss = bandOn(s) && bandMissing(t).length > 0; d.skip = true; bandTourBack(s, d); if (bandOn(s)) t.tourT = s.t + 6; addLog(s, `잡아 둔 지방 투어가 취소됐다.${miss ? ' 멤버 자리가 비어 무대에 설 수 없었다.' : ''}${d.back ? ' 먼저 낸 비용은 돌려받았다.' : ''}`, 'career'); return; }
+    const p = me(s), mem = bandMembers(s, t), n = mem.length + 1, V = BAND_TOUR_V[d.vi] || BAND_TOUR_V[0], C = d.cities, booked = !!d.signed, pw = bandPower(s, t), last = C.length - 1;
+    // 길 위에서 생긴 일 하나: 차가 퍼짐(직접 모는 인디만. 회사가 잡은 투어는 길이 막힘) · 휴게소의 밤 · 찾아온 지방 팬 · 멤버의 감기
+    d.road = U.wpick(['van', 'talk', 'fan', 'cold'], k => ({ van: 25, talk: 30, fan: 30, cold: 15 })[k]);
+    if (d.road === 'van' && booked) d.road = 'jam';
+    const dm = bandTourDemand(s, t), M = bandFanM(s, t);
+    let sold = 0, heat = 0, gain = 0;
+    d.rows = C.map((c, i) => {
+      const so = Math.max(1, Math.round(Math.min(V.seat, dm * U.fl(0.6, 1.4) + V.seat * U.fl(V.wk[0], V.wk[1]))));
+      const h = Math.round(U.clamp(bandHeatBase(pw) + (twOf(t.b) - 50) * 0.08 + (so / V.seat - 0.6) * 12 - (s.stress >= 70 ? 4 : 0) - (d.road === 'jam' && i === 0 ? 6 : 0) - (d.road === 'cold' && i === last ? 7 : 0) + U.normal(0, 6), 5, 100));
+      sold += so; heat += h; gain += M * BAND_TOUR_FANM * U.clamp((h - 30) / 30, 0.2, 1.8);
+      return [c, so, h, Math.round(so / V.seat * 100)];
+    });
+    d.sold = sold; d.heat = Math.round(heat / C.length);
+    if (d.road === 'fan') gain += M * 0.4;
+    if (d.road === 'van') { d.rep = Math.round(U.int(20, 45) * 1e4 / n / 1e3) * 1e3; jobPay(s, d.rep, '투어 차량 수리', 'band'); }
+    if (d.road === 'cold') { const m = U.pick(mem); if (m) { d.sick = m.id; bond(s, m, 3); } else d.road = 'talk'; }
+    // 표값에서 예매 수수료 10%를 뗀다. 회사가 잡은 투어는 비용을 뺀 나머지를 정산하고(적자는 회사가 진다), 멤버끼리 잡은 투어는 비용을 먼저 냈으니 표값을 그대로 나눈다
+    const tix = Math.round(sold * V.tk * 0.9);
+    let bill = null;
+    if (booked) {
+      const rev = Math.max(0, tix - d.tot);
+      d.lost = !(rev > 0);
+      // 잡을 때는 소속이었는데 그사이 회사를 나왔으면, 잡아 준 회사가 그때 약속한 몫을 가져간다
+      if (t.st === 'signed') { d.pay = bandIncome(s, t, rev, '지방 투어') || 0; bill = rev > 0 ? t.lastBill : null; }
+      else { const r = rev > 0 ? billPay(s, { rev, cut: d.cut || 0, n, team: '밴드', what: '지방 투어', job: 'band' }) : null; d.pay = r ? r.share : 0; bill = r ? r.bill : null; }
+      d.net = d.pay;
+      if (bill) { bill.rows[0][0] = '투어 수익'; bill.rows.unshift(['티켓 판매', bill.rows[0][1] + d.tot], ['차 · 숙소 · 대관 비용', -d.tot], '-'); }
+    } else {
+      const r = billPay(s, { rev: tix, n, team: '밴드', what: '지방 투어', job: 'band' });
+      d.pay = r.share; bill = r.bill; d.net = Math.round(d.pay - (d.cost || 0) - (d.rep || 0));
+      bill.rows[0][0] = '티켓 판매';
+      if (d.cost > 0) bill.note = `먼저 낸 투어 비용 내 몫 ${fmtBill(d.cost)}${d.rep ? ` · 차 수리비 내 몫 ${fmtBill(d.rep)}` : ''}을 빼면 ${d.net >= 0 ? `${fmtBill(d.net)}이 남는다` : `${fmtBill(-d.net)} 적자다`}.`;
+    }
+    if (bill) { bill.t = '지방 투어 정산'; d.bill = bill; }
+    const f0 = t.b.f; d.my = bandFansAdd(s, t, gain); d.gain = t.b.f - f0;
+    d.pop = jpopAdd(s, 'band', d.heat >= 75 ? 1.5 : d.heat >= 60 ? 0.6 : d.heat >= 48 ? 0 : -0.3);
+    t.tourN = (t.tourN || 0) + 1; t.tourT = s.t + BAND_TOUR_GAP;
+    practice(s, p, t.b.my, 2, 1); teamGrow(s, bandTm(s, t), 1, true); addStress(s, d.road === 'fan' ? 6 : 10);
+    // 일주일을 같이 먹고 자면 가까워지고 손발이 맞는다. 휴게소에서 밤새 이야기한 투어는 더
+    for (const m of mem) bond(s, m, d.road === 'talk' ? 8 : 3);
+    twAdd(t.b, d.road === 'talk' ? 6 : 3);
+    if (t.tourN === 1) milestone(s, `${age(s)}세에 밴드 「${t.b.name}」의 첫 지방 투어를 돌았다.`);
+  },
+  html: (s, d) => d.bill && typeof billBtnHTML === 'function' ? cardText(s, d) + billBtnHTML(d.bill) : '',
+  text: (s, d) => {
+    const t = s.tracks.band, C = d.cities, last = C[C.length - 1], sick = d.sick && s.people[d.sick];
+    const road = d.road === 'van' ? `${josa(C[Math.min(1, C.length - 1)], '으로')} 가는 고속도로에서 승합차가 퍼졌다. 견인차를 부르고 정비소에서 반나절을 보냈다. (수리비 내 몫 ${fmtWon(d.rep || 0)})`
+      : d.road === 'jam' ? `${josa(C[0], '으로')} 가는 길이 사고로 막혀, 첫날은 리허설도 못 하고 무대에 올랐다.`
+        : d.road === 'fan' ? `${last} 공연에는 손수 만든 현수막을 든 사람들이 맨 앞줄에 서 있었다. 첫 곡 때부터 듣고 있었다고 했다.`
+          : d.road === 'cold' && sick ? `투어 중에 ${josa(sick.name, '이가')} 감기에 걸려 마지막 ${last} 무대는 힘에 부쳤다. 그래도 끝까지 자리를 지켰다.`
+            : '돌아오는 길, 휴게소 주차장에서 멤버들과 밤새 이야기를 나눴다. 밴드를 처음 시작하던 때 이야기까지 나왔다.';
+    const money = d.signed ? (d.pay > 0 ? `정산 +${fmtWon(d.pay)}` : d.lost ? '정산금 없음 (비용이 표값보다 컸다)' : '정산금 없음') : d.net > 0 ? `내 몫 투어 수익 +${fmtWon(d.net)}` : d.net < 0 ? `내 몫 투어 적자 ${fmtWon(-d.net)}` : '';
+    const fl = [money, d.gain > 0 ? `밴드 팬 +${fmtFans(d.gain)}` : '', d.my > 0 ? `내 팬 +${fmtFans(d.my)}` : '', d.pop > 0.3 ? '대중 호감도 ↑' : d.pop < -0.3 ? '대중 호감도 ↓' : '', '팀워크 ↑', '스트레스 ↑'].filter(Boolean).join(' · ');
+    return `밴드 「${t.b.name}」의 지방 투어를 마쳤다. 일주일 동안 ${C.length}곳을 돌았다.\n\n${d.rows.map(r => `· ${r[0]} — ${r[3] >= 98 ? '자리가 꽉 찼다' : r[3] >= 75 ? '자리를 거의 채웠다' : r[3] >= 45 ? '자리가 절반쯤 찼다' : '객석이 한산했다'} · ${soloHeatW(r[2])}`).join('\n')}\n\n${road}\n\n${fl}${d.signed && d.bill && d.bill.note ? `\n\n${d.bill.note}` : ''}`;
+  },
+  ch: (s, d) => [{ t: '확인', f: () => `밴드 지방 투어를 마쳤다. ${d.cities.join(' · ')} ${d.cities.length}곳을 돌았다.` }],
+});
+
+// ───── 하나짜리 사건 ─────
+// 후배 밴드: 밴드를 4년 넘게 했고 발표곡 3곡 · 밴드 팬 5,000명부터. 업계 밴드(npc.js)의 신인이 있으면 그 팀, 없으면 새 이름
+E({
+  id: 'band_junior', cat: '밴드', title: '후배 밴드', tag: 'career', bg: 'jamroom', p: 0.02, cd: 30,
+  cond: s => { const t = s.tracks.band; return bandEvFull(s) && (t.months || 0) >= 48 && (t.rel || 0) >= 3 && t.b.f >= 5000; },
+  init(s, d) {
+    const t = s.tracks.band, L = npcList(s, 'band').filter(n => n.ph === 'rookie' && n.n !== t.b.name), n = L.length ? U.pick(L) : null;
+    if (n) { d.nid = n.id; d.jn = n.n; npcKnow(n); }
+    else { const used = new Set(npcList(s, 'band').map(x => x.n).concat(s.usedNames || [], [t.b.name])); d.jn = U.shuffle(BAND_NAMES.filter(x => !used.has(x)))[0] || U.pick(BAND_NAMES) + ' ' + U.int(2, 9); }
+    d.k = U.pick(BAND_NEED);
+    const x = makeMusicMate(s, { age: Math.max(18, age(s) - U.int(3, 8)), rel: '후배', job: `밴드 「${d.jn}」`, met: '합주실에서 만난 후배 밴드', aff: 40, tal: d.k === 'vocal' ? ['music', 'star'] : ['music', 'rhythm'], sk: { [d.k]: 38, compose: 28 } });
+    meetAt(s, x, '합주실에서 만난 후배 밴드', 'band'); d.x = x.id;
+  },
+  text: (s, d) => { const x = s.people[d.x]; return `합주실 복도에서 후배 밴드 「${d.jn}」의 ${partN(d.k)} ${josa(x.name, '이가')} 기다리고 있었다. "선배님 공연을 보고 밴드를 시작했어요."\n\n손에는 데모가 든 USB가 들려 있다. 한번 들어 봐 달라고, 괜찮다면 클럽에서 합동 공연도 같이 해 달라고 한다.`; },
+  ch: (s, d) => {
+    const t = s.tracks.band, x = s.people[d.x], p = me(s), n = d.nid ? npcBy(s, d.nid) : null;
+    return [
+      { t: '합동 공연을 한다', h: '밴드 팬 조금 ↑ · 후배와 많이 가까워진다 · 스트레스 ↑', ok: s => !bandLiveNo(s, t), f: s => { const f0 = t.b.f; bandFansAdd(s, t, bandFanM(s, t) * 0.5); bond(s, x, 12); twAdd(t.b, 1); jpopAdd(s, 'band', 0.4); if (n) npcRel(s, n, 8); return `${josa(`「${d.jn}」`, '과와')} 클럽에서 합동 공연을 했다. 앵콜은 두 밴드가 한 무대에 올라 같이 연주했다. (밴드 팬 +${fmtFans(t.b.f - f0)})` + fx(s, { stress: 4 }); } },
+      { t: '데모를 들어 준다', h: `후배와 가까워진다${has(p, 'edu') ? ' · 교육 ↑' : ''}`, f: s => { bond(s, x, 8); teach(s, p, 1); if (has(p, 'compose')) useSkill(s, p, 'compose', 0.5); if (n) npcRel(s, n, 4); return `데모를 끝까지 듣고 좋은 점과 아쉬운 점을 하나씩 짚어 줬다. ${josa(x.name, '은는')} 수첩에 받아 적었다.`; } },
+      { t: '정중히 거절한다', f: s => { bond(s, x, -1); return '지금은 우리 일정만으로도 벅차다고 정중히 말했다.'; } },
+    ];
+  },
+});
+// 솔로 제의: 밴드를 3년 넘게 했고 발표곡 2곡부터, 내가 보컬이거나 스타성이 70부터. 노래나 랩이 30레벨은 돼야 한다. 스타성이 높을수록 갈수록 자주 (50이면 한 달 2% · 70이면 2.7% · 90이면 3.6%)
+//   회사 소속(내 팬 5,000명부터): 같은 회사가 밴드와 같이 솔로 앨범을 내자고 한다 (아이돌의 '솔로 앨범을 낸다'와 같은 틀 — startSoloSigned withGroup. music.js CAREERS.solo.monthly가 밴드도 본다)
+//   인디(내 팬 8,000명부터 · 다른 전속 계약이나 내 회사가 없을 때만): 다른 기획사가 솔로 전속 계약을 제안한다 (조건은 영입 제안과 같은 scoutOffer). 밴드를 하면서 계약하거나, 밴드를 떠나 솔로로 간다
+//   거절하면 멤버들과 가까워지고 2년 동안 다시 묻지 않는다 (t.soloAsk). 밴드를 하면서 받으면 멤버들이 서운해하고, 1년 반 동안 다툼이 잦다 (t.b.soloT → bandFightP)
+//   겸직: 직업 3개 한도 · 전속 아티스트 규칙(game.js jobBlock)을 본다. 받을 수 있는 길이 하나도 없으면 제의도 오지 않는다
+// 밴드를 떠나 솔로로 갈 때의 겸직 규칙: 밴드를 그만둔 셈 치고 본다
+function bandSoloWhy(s, leave) { const t = s.tracks.band, st = t.st; if (leave) t.st = 'ended'; try { return jobBlock(s, 'solo', ['artist']); } finally { t.st = st; } }
+function bandSoloOk(s) {
+  const t = s.tracks.band, p = me(s);
+  if (!bandEvOn(s) || trackOn(s, 'solo') || (t.soloAsk || 0) > s.t || (t.months || 0) < 36 || (t.rel || 0) < 2) return false;
+  if (age(s) < 15 || Math.max(lv(p, 'vocal'), lv(p, 'rap')) < 30 || !(t.b.my === 'vocal' || p.tal.star >= 70)) return false;
+  if (t.st === 'signed') return !!AG[t.ag] && totalFans(s) >= 5000 && !jobBlock(s, 'solo', ['artist']);
+  return totalFans(s) >= 8000 && !contractWhy(s) && (!jobBlock(s, 'solo', ['artist']) || !bandSoloWhy(s, true));
+}
+E({
+  id: 'band_solo', cat: '밴드', title: '솔로 제의', tag: 'career', bg: 'meeting', cd: 12,
+  p: s => 0.012 + 0.03 * Math.pow(me(s).tal.star / 100, 2),
+  cond: s => bandSoloOk(s),
+  init(s, d) {
+    const t = s.tracks.band;
+    d.type = bestSoloType(s);
+    if (t.st === 'signed') { const b = agBoss(s, t.ag); meetAt(s, b, `${t.agN} 대표`, 'band'); d.sg = 1; d.ag = t.ag; d.x = b.id; return; }
+    const o = scoutOffer(s, 'solo');
+    if (!o) { d.skip = true; return; }
+    const x = pickIndustry(s, 'A&R 담당자'); meetAt(s, x, `${AG[o.ag].n} A&R`, 'band');
+    d.ag = o.ag; d.bonus = o.bonus; d.cut = o.cut; d.months = o.months; d.x = x.id;
+  },
+  text: (s, d) => {
+    const t = s.tracks.band, x = s.people[d.x], ty = soloTypeN(d.type), wh = d.type === 'rap' ? '랩만 따로 듣고 싶다는' : d.type === 'perf' ? '무대만 따로 보고 싶다는' : '목소리만 따로 듣고 싶다는';
+    return d.sg ? `${t.agN} 대표 ${josa(x.name, '이가')} 나만 따로 불렀다. "밴드는 밴드대로 가고, 네 이름으로 앨범을 한 장 내 보자. 네 ${wh} 사람이 많아."\n\n밴드 「${t.b.name}」 활동은 그대로 하면서, 같은 회사 솔로 ${josa(ty, '으로')}도 활동하게 된다. 멤버들이 어떻게 받아들일지는 모르겠다.`
+      : `공연이 끝나고 ${AG[d.ag].n}(${TIER_N[AG[d.ag].tier]} 기획사)의 A&R 담당자 ${josa(x.name, '이가')} 명함을 내밀었다. "밴드 말고, 혼자서 저희와 계약해 보지 않겠어요? ${wh} 사람이 많습니다."\n\n솔로 ${ty} 전속 계약 · 계약금 ${fmtWon(d.bonus)} · 회사 몫 ${pctN(d.cut)} · ${yrs(d.months)}. 밴드 ${josa(`「${t.b.name}」`, '을를')} 하면서 솔로 활동을 같이 해도 되고, 밴드를 떠나 솔로에만 집중해도 된다고 한다.`;
+  },
+  ch: (s, d) => {
+    const t = s.tracks.band, no = { t: '밴드에 집중한다', h: '멤버들과 가까워진다 · 한동안 다시 권하지 않는다', f: s => { t.soloAsk = s.t + 24; bandMatesAll(s, t, 4, 2); return '솔로 제의는 사양했다. 이야기를 전해 들은 멤버들이 말없이 어깨를 쳤다.'; } };
+    const sign = (s, o) => { if (d.bonus && !d.sg) earn(s, d.bonus, '전속 계약금', 'solo'); t.soloAsk = s.t + 24; return startSoloSigned(s, d.ag, o); };
+    if (d.sg) return [
+      { t: '솔로 앨범을 낸다', nj: 'solo', nm: ['artist'], ok: s => bandOn(s) && t.st === 'signed' && t.ag === d.ag && !trackOn(s, 'solo'), h: '밴드와 함께 솔로 가수로도 활동한다 · 멤버들이 서운해할 수 있다', f: s => { bandMatesAll(s, t, -6, -5); t.b.soloT = s.t; return sign(s, { type: d.type, withGroup: true }) + ' 멤버들은 축하한다고 했지만 표정이 밝지만은 않았다.'; } },
+      no,
+    ];
+    const w0 = contractWhy(s), w1 = w0 || bandSoloWhy(s, true), nm = `밴드 「${t.b.name}」`;
+    return [
+      { t: '밴드를 하면서 솔로 계약을 한다', nj: 'solo', nm: ['artist'], ok: s => bandOn(s) && !contractWhy(s) && !trackOn(s, 'solo'), h: w0 || `계약금 ${fmtWon(d.bonus)} · 멤버들이 서운해할 수 있다`, f: s => { bandMatesAll(s, t, -8, -6); t.b.soloT = s.t; return sign(s, { type: d.type, months: d.months, cut: d.cut }) + ' 멤버들은 축하한다고 했지만 표정이 밝지만은 않았다.'; } },
+      { t: '밴드를 떠나 솔로로 계약한다', ok: s => bandOn(s) && !contractWhy(s) && !trackOn(s, 'solo') && !bandSoloWhy(s, true), h: w1 || `계약금 ${fmtWon(d.bonus)} · ${josa(nm, '을를')} 그만둔다`, f: s => { bandMatesAll(s, t, -10, 0); endBand(s, '솔로 전향'); return `${josa(nm, '을를')} 떠났다. ` + sign(s, { type: d.type, months: d.months, cut: d.cut }); } },
+      no,
+    ];
+  },
+});
+// 단골 클럽 정기 공연: 인디 초반(밴드 팬 1,500명 아래). 받으면 반년 동안 매달 작은 출연료와 팬이 조금 (bandRegMonth). 무대에 설 수 없는 달은 쉬고, 열 달이 지나도록 못 채우면 흐지부지 끝난다
+const BAND_CLUBS = ['클럽 모퉁이', '라이브하우스 파랑', '지하 이층', '클럽 스피커', '라이브하우스 온도', '클럽 새벽두시'];
+const BAND_REG_M = 6, BAND_REG_PAY = 30e4;
+E({
+  id: 'band_club_reg', cat: '밴드', title: '단골 클럽의 제안', tag: 'career', bg: 'jamroom', p: 0.06, cd: 24,
+  cond: s => { const t = s.tracks.band; return bandEvFull(s) && t.st === 'indie' && (t.months || 0) >= 3 && t.b.f < 1500 && !t.b.reg; },
+  init(s, d) { const x = pickIndustry(s, '클럽 사장'); meetAt(s, x, '라이브 클럽', 'band'); d.x = x.id; d.cn = U.pick(BAND_CLUBS); d.pay = BAND_REG_PAY; },
+  text: (s, d) => { const t = s.tracks.band, x = s.people[d.x], n = bandMembers(s, t).length + 1; return `공연이 끝나고 「${d.cn}」 사장 ${josa(x.name, '이가')} 음료를 건네며 말했다. "너희, 매달 마지막 금요일에 우리 무대를 맡아 볼래? 올 때마다 손님이 조금씩 붙는 게 보여."\n\n반년 동안 매달 한 번 정기 공연을 한다. 출연료는 한 번에 ${fmtWon(d.pay)}, 멤버 ${n}명이 똑같이 나눈다.`; },
+  ch: (s, d) => {
+    const t = s.tracks.band, x = s.people[d.x];
+    return [
+      { t: '정기 공연을 맡는다', h: '반년 동안 매달 공연 수입 조금 · 밴드 팬 조금 ↑ · 스트레스 조금 ↑', f: s => { t.b.reg = { left: BAND_REG_M, cn: d.cn, x: d.x, pay: d.pay, g: 0, t: s.t }; bond(s, x, 5); return `「${d.cn}」에서 반년 동안 매달 정기 공연을 하기로 했다.`; } },
+      { t: '아직은 여러 무대를 돌고 싶다고 한다', f: s => { bond(s, x, -1); return `「${d.cn}」 정기 공연 제안은 사양했다.`; } },
+    ];
+  },
+});
+function bandRegMonth(s, t) {
+  const R = t.b.reg;
+  if (!R || !(R.left > 0)) return;
+  const n = bandMembers(s, t).length + 1, f0 = t.b.f;
+  earn(s, Math.round(R.pay / n * coldPayM(s, 'band')), '공연 수입', 'band');
+  bandFansAdd(s, t, bandFanM(s, t) * 0.25); R.g = (R.g || 0) + (t.b.f - f0);
+  addStress(s, 1);
+  if (--R.left > 0) return;
+  const x = bandPerson(s, R.x); if (x) bond(s, x, 4);
+  addLog(s, `「${R.cn}」 정기 공연 반년을 마쳤다. 마지막 날에는 단골들이 맨 앞줄을 채웠다. (그동안 밴드 팬 +${fmtFans(R.g)})`, 'career');
+  t.b.reg = null;
+}
+// 생계 고민: 인디이고 밴드 팬이 3,000명 아래일 때, 결성 1년 뒤부터. 나이가 많은 멤버일수록 먼저 흔들린다. 운으로 나가지 않는다 — 내가 붙잡지 않을 때만 나간다
+E({
+  id: 'band_job', cat: '밴드', title: '먹고사는 문제', tag: 'career', bg: 'jamroom', p: 0.03, cd: 18,
+  cond: s => { const t = s.tracks.band; return bandEvFull(s) && t.st === 'indie' && (t.months || 0) >= 12 && t.b.f < 3000 && !hasQ(s, 'band_leave') && !hasQ(s, 'band_fight_end'); },
+  init(s, d) { const t = s.tracks.band, m = U.wpick(bandMembers(s, t), x => Math.max(1, pAge(s, x) - 18)); d.id = m.id; d.k = t.b.part[m.id]; d.amt = U.pick([50e4, 80e4, 100e4]); },
+  text: (s, d) => { const m = s.people[d.id]; return `합주가 끝나고 ${partN(d.k)} ${josa(m.name, '이가')} 어렵게 말을 꺼냈다. "요즘 알바를 두 개 뛰는데도 월세가 밀려. 밴드를 계속해도 되는 건지 모르겠어."\n\n공연 수입만으로는 멤버 누구도 먹고살기 어렵다.`; },
+  ch: (s, d) => {
+    const t = s.tracks.band, m = s.people[d.id];
+    return [
+      { t: '내 돈을 조금 나눠 준다', h: `${fmtWon(d.amt)} · ${josa(m.name, '과와')} 많이 가까워진다`, ok: s => s.money >= d.amt, f: s => { addMoney(s, -d.amt, '멤버 생활비 보탬'); bond(s, m, 12); m.motT = s.t + 6; return `${m.name}에게 ${josa(fmtWon(d.amt), '을를')} 건넸다. ${josa(m.name, '은는')} 한참 받지 않다가, 꼭 갚겠다며 받아 들었다.`; } },
+      { t: '같이 알바 자리를 알아봐 준다', h: `${josa(m.name, '과와')} 가까워진다 · 한동안 ${josa(m.name, '은는')} 연습할 시간이 준다`, f: s => { bond(s, m, 7); m.slumpT = s.t + 3; return `${josa(m.name, '과와')} 합주 시간과 겹치지 않는 일자리를 같이 알아봤다. 당분간은 일에 치여 연습할 시간이 줄 것 같다.` + fx(s, { stress: 2 }); } },
+      { t: '붙잡지 않는다', h: "직업 창 '그룹' 탭에서 새 멤버를 구해야 한다", f: s => `${m.name}에게 무리하지 말라고 했다. ` + bandMemOut(s, t, m) },
+    ];
+  },
+});
+// 매달 (bandExtraMonth에서 부른다): 이어지는 사건의 뒷일. 무대에 설 수 없는 달에도 본다
+function bandArcMonth(s, t) {
+  const B = t.b;
+  // 선배 밴드: 연락이 끊겼거나 2년이 지나도록 소식이 없으면 인연은 거기까지. 제의 창 · 무대가 사라졌으면(밴드를 쉬는 동안 등) 반년 뒤에 지운다
+  const A = B.sen;
+  if (A && (!bandPerson(s, A.id) || s.t - A.t > (A.st === 1 ? 24 : 6) && !hasQ(s, 'band_senior_open') && !hasQ(s, 'band_senior_openres'))) B.sen = null;
+  // 멤버 갈등: 뒷일 창이 사라졌으면 지운다
+  if (B.fight && s.t - B.fight.t > 4 && !hasQ(s, 'band_fight_end')) B.fight = null;
+  // 음악성 차이: 그 방향으로 가기로 했으면 다음 새 곡이 나온 다음 달에 반응이 온다 (1년 반이 지나도록 곡이 안 나오면 없던 일). 색을 지켰으면 넉 달 뒤부터, 사이가 틀어져 있으면 나가겠다고 한다
+  const D = B.dir;
+  if (D) {
+    const w = bandMemOf(s, t, D.m);
+    if (!w) B.dir = null;
+    else if (D.st === 1) { if ((t.rel || 0) > D.rel) { D.st = 3; D.t = s.t; queueEv(s, 'band_dir_res', 0, {}); } else if (s.t - D.t > 18) B.dir = null; }
+    else if (D.st === 2) { if (s.t - D.t > 12) B.dir = null; else if (s.t - D.t >= 4 && w.aff < BAND_DIR_AFF && !hasQ(s, 'band_leave') && U.chance(0.25)) { D.st = 4; D.t = s.t; queueEv(s, 'band_dir_leave', 0, {}); } }
+    else if (s.t - D.t > 4 && !hasQ(s, 'band_dir_res') && !hasQ(s, 'band_dir_leave')) B.dir = null;
+  }
+  // 정기 공연: 인디가 아니게 됐으면 그만둔다. 무대에 못 서는 달이 길어져 열 달이 지나면 흐지부지 끝난다
+  const R = B.reg;
+  if (R && (t.st !== 'indie' || s.t - R.t > BAND_REG_M + 4)) { addLog(s, t.st !== 'indie' ? `회사 소속이 되면서 「${R.cn}」 정기 공연은 그만두게 됐다.` : `「${R.cn}」 정기 공연은 흐지부지 끝났다.`, 'career'); B.reg = null; }
+}
 
 // ───── v220: 솔로 가수의 OST · 피처링 · 단독 공연 ─────
 // 첫 곡을 낸 뒤부터. OST · 피처링은 메시지함으로 제안이 오고, 받으면 한두 달 뒤 성적 창이 뜬다. 성적이 좋을수록 팬과 인기가 더 오른다

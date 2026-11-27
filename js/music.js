@@ -2015,8 +2015,10 @@ CAREERS.band = {
     if (t.st === 'indie' && t.b.f >= 3000 && U.chance(0.04)) maybeScout(s, 'band');
     // 페스티벌 섭외 (v117 밸런스 C2): 페스티벌마다 열리는 달이 정해져 있고, 섭외는 2~4달 전에 온다. 답장 기한은 페스티벌 한 달 전
     if (t.b.f >= 1500 && t.festY !== calY(s) && U.chance(0.15 * offerPopM(s, 'band')) && !s.inbox.some(m => m.kind === 'band_fest') && !hasQ(s, 'band_fest_play')) {
-      const c = BAND_FESTS.filter(x => x.m - calM(s) >= 2 && x.m - calM(s) <= 4 && t.b.f >= x.minF);
-      if (c.length) { const x = U.pick(c); t.festY = calY(s); sendMsg(s, 'band_fest', { from: x.n, title: `${x.m + 1}월 페스티벌 섭외`, months: x.m - calM(s) - 1, d: { festM: x.m, mult: x.mult, fee: Math.round((100 + t.b.f / 50) * (0.5 + 0.5 * x.mult)) * 1e4 } }); }
+      // v247: 지난 페스티벌 무대가 아주 좋았으면(t.festUp: 그 무대에 선 해 — bandFestPlay) 다음 해 섭외는 메인 무대로 온다. 팬이 조금 모자라도(0.6배부터) 더 큰 페스티벌에서 부르고, 새로 반하는 관객 1.3배 · 출연료 1.6배. 2년 안에 섭외가 없으면 사라진다. 예전 세이브에는 없다
+      const up = !!t.festUp && t.festUp < calY(s) && calY(s) - t.festUp <= 2;
+      const c = BAND_FESTS.filter(x => x.m - calM(s) >= 2 && x.m - calM(s) <= 4 && t.b.f >= x.minF * (up ? 0.6 : 1));
+      if (c.length) { const x = up ? c.slice().sort((a, b) => b.mult - a.mult)[0] : U.pick(c); t.festY = calY(s); if (up) t.festUp = 0; sendMsg(s, 'band_fest', { from: x.n, title: up ? `${x.m + 1}월 페스티벌 메인 무대 섭외` : `${x.m + 1}월 페스티벌 섭외`, months: x.m - calM(s) - 1, d: { festM: x.m, mult: x.mult * (up ? 1.3 : 1), up: up ? 1 : 0, fee: Math.round((100 + t.b.f / 50) * (0.5 + 0.5 * x.mult) * (up ? 1.6 : 1)) * 1e4 } }); }
     }
     // 나가겠다는 멤버 (v123): 사이가 틀어졌거나(친밀도 35 아래) 밴드가 먹고살기 힘들 때만(인디 · 팬 5,000명 아래). 잘되는 밴드에서 '먹고살려고' 나가지 않는다
     if (mem.length && t.months >= 24 && (mem.some(m => m.aff < 35) || (t.st === 'indie' && t.b.f < 5000)) && U.chance(0.008)) queueEv(s, 'band_leave', 0);
@@ -2221,14 +2223,14 @@ function bandReactF(s, t, d, cf) {
 INBOX.band_fest = {
   ic: '🎪',
   to: s => `밴드 「${((s.tracks.band || {}).b || {}).name || ''}」`,
-  text: (s, m) => `「${m.from}」에서 밴드 ${josa(`「${(s.tracks.band.b || {}).name || ''}」`, '을를')} 섭외하고 싶다고 한다. ${m.d.festM != null ? `${m.d.festM + 1}월 첫 주말 · ` : ''}출연료 ${fmtWon(m.d.fee)}. ${(m.d.mult || 1) >= 1.5 ? '큰 무대라 새 팬을 모으기 좋다.' : '아담한 무대지만 처음 보는 관객을 만날 수 있다.'}`,
+  text: (s, m) => `「${m.from}」에서 밴드 ${josa(`「${(s.tracks.band.b || {}).name || ''}」`, '을를')} 섭외하고 싶다고 한다. ${m.d.festM != null ? `${m.d.festM + 1}월 첫 주말 · ` : ''}${m.d.up ? '해가 진 뒤 메인 무대 · ' : ''}출연료 ${fmtWon(m.d.fee)}. ${m.d.up ? '지난 페스티벌 무대를 눈여겨봤다며, 이번에는 가장 큰 무대의 좋은 시간을 맡기고 싶다고 한다.' : (m.d.mult || 1) >= 1.5 ? '큰 무대라 새 팬을 모으기 좋다.' : '아담한 무대지만 처음 보는 관객을 만날 수 있다.'}`,
   ch: (s, m) => [
     // 나간다 = 그 자리에서 공연하지 않고, 페스티벌 달에 무대에 서는 일정으로 잡는다. (예전 세이브의 날짜 없는 섭외는 바로 공연)
     { t: '나간다', ok: s => trackOn(s, 'band') && !s.army && (m.d.festM == null || calM(s) <= m.d.festM), f: s => {
-      const d = { from: m.from, fee: m.d.fee, mult: m.d.mult || 1, festM: m.d.festM };
+      const d = { from: m.from, fee: m.d.fee, mult: m.d.mult || 1, festM: m.d.festM, up: m.d.up ? 1 : 0 };
       if (m.d.festM == null || m.d.festM <= calM(s)) { bandFestPlay(s, d); return `「${m.from}」 무대에 섰다.${d.fx}`; }
       queueEv(s, 'band_fest_play', Math.max(0, m.d.festM - calM(s)), d);
-      return `「${m.from}」 ${m.d.festM + 1}월 무대에 서기로 했다.`;
+      return `「${m.from}」 ${m.d.festM + 1}월 ${m.d.up ? '메인 ' : ''}무대에 서기로 했다.`;
     } },
     { t: '거절한다', f: s => `「${m.from}」 섭외를 거절했다.` },
   ],
@@ -2253,8 +2255,10 @@ function bandFestPlay(s, d) {
   const my = Math.round(g * 0.35);
   s.fans.kr += my;
   d.sc = sc; d.g = g; d.my = my;
+  // v247: 객석이 떠나갈 듯한 무대(80점부터)였으면 다음 해 섭외는 메인 무대로 온다 (CAREERS.band.monthly)
+  if (sc >= 80) { t.festUp = calY(s); d.next = 1; }
   // 무대 창 (12-3): 페스티벌. 객석 대부분이 우리를 처음 본다 (nw). 객석 크기는 페스티벌 크기만큼
-  d.live = bandLive(s, t, { vn: 'fest', place: d.from, t: '', sc, nw: t.b.f < 5e4, z: { q: (sc - 60) / 15, fans: t.b.f >= 5e4 ? 1 : 0.5 } });
+  d.live = bandLive(s, t, { vn: 'fest', place: d.up ? `${d.from} 메인 무대` : d.from, t: '', sc, nw: t.b.f < 5e4, z: { q: (sc - 60) / 15, fans: t.b.f >= 5e4 || d.up ? 1 : 0.5 } });
   d.say = sc >= 80 ? '객석이 떠나갈 듯했다.' : sc >= 60 ? '반응이 좋았다.' : '반응이 미지근했다.';
   d.fx = ` ${d.say} (밴드 팬 ${sgnFans(g)} · 내 팬 +${fmtFans(my)} · 정산 ${fmtWon(d.pay)})`;
 }
@@ -2264,9 +2268,16 @@ E({
   init(s, d) { if (!trackOn(s, 'band') || s.army || !s.tracks.band.b) { d.cancel = true; return; } bandFestPlay(s, d); },
   html: (s, d) => d.bill && typeof billBtnHTML === 'function' ? cardText(s, d) + billBtnHTML(d.bill) + (d.live && typeof liveBtnHTML === 'function' ? ' ' + liveBtnHTML(d.live) : '') : '',
   text: (s, d) => d.cancel ? `밴드가 활동을 쉬게 되어 「${d.from}」 무대에 서지 못했다. 주최 측에 출연 취소를 알렸다.`
-    : `「${d.from}」 무대에 섰다. ${d.sc >= 80 ? evG(d.say || '') : d.sc < 60 ? evB(d.say || '') : d.say || ''}\n\n밴드 팬 ${sgnFans(d.g)} · 내 팬 +${fmtFans(d.my || 0)}${d.pay != null ? ` · 정산 ${fmtWon(d.pay)}` : ''}${d.bill && d.bill.note ? `\n\n${d.bill.note}` : ''}`,
+    : `「${d.from}」 ${d.up ? '메인 ' : ''}무대에 섰다. ${d.sc >= 80 ? evG(d.say || '') : d.sc < 60 ? evB(d.say || '') : d.say || ''}${d.next ? ' 무대에서 내려오자 주최 측이 내년에도 꼭 와 달라고 했다.' : ''}\n\n밴드 팬 ${sgnFans(d.g)} · 내 팬 +${fmtFans(d.my || 0)}${d.pay != null ? ` · 정산 ${fmtWon(d.pay)}` : ''}${d.bill && d.bill.note ? `\n\n${d.bill.note}` : ''}`,
   ch: (s, d) => [{ t: '확인', f: () => d.cancel ? `「${d.from}」 출연을 취소했다.` : `「${d.from}」 무대에 섰다.${d.fx}` }],
 });
+// 멤버 한 명이 밴드를 나간다 (v247: band_leave 안에 있던 것을 꺼냈다 — 멤버 갈등 · 음악성 차이 · 생계 고민 사건도 같이 쓴다, idolev.js). 나간 자리는 자동으로 채워지지 않는다. 직업 창 '그룹' 탭에서 다시 구해야 한다
+function bandMemOut(s, t, m) {
+  if (!t.b.members.includes(m.id)) return `${josa(m.name, '은는')} 이미 밴드를 떠났다.`;
+  const k = t.b.part[m.id];
+  t.b.members = t.b.members.filter(x => x !== m.id); delete t.b.part[m.id]; m.rel = '전 멤버'; twAdd(t.b, -10);
+  return `${josa(m.name, '이가')} 밴드를 나갔다. ${partN(k)} 자리가 비었다.${BAND_NEED.includes(k) ? ' 새 멤버를 구하기 전까지는 공연이 예전 같지 않고, 새 곡도 낼 수 없다.' : ''}`;
+}
 E({
   id: 'band_leave', cat: '밴드', title: '멤버가 나가겠다고 한다', tag: 'career',
   cond: s => trackOn(s, 'band') && bandMembers(s, s.tracks.band).length > 0,
@@ -2275,8 +2286,7 @@ E({
   ch(s, d) {
     const m = s.people[d.id], t = s.tracks.band;
     const p = U.clamp(0.2 + m.aff / 150 + (s.rep - 50) / 200, 0.1, 0.8);
-    // 나간 자리는 자동으로 채워지지 않는다. 직업 창 '그룹' 탭에서 다시 구해야 한다
-    const leave = s => { t.b.members = t.b.members.filter(x => x !== d.id); delete t.b.part[d.id]; m.rel = '전 멤버'; twAdd(t.b, -10); return `${josa(m.name, '이가')} 밴드를 나갔다. ${partN(d.k)} 자리가 비었다.${BAND_NEED.includes(d.k) ? ' 새 멤버를 구하기 전까지는 공연이 예전 같지 않고, 새 곡도 낼 수 없다.' : ''}`; };
+    const leave = s => bandMemOut(s, t, m);
     return [
       { t: '붙잡는다', h: `남아 줄 가능성 ${fmtPct(p)}`, f: s => { if (U.chance(p)) { bond(s, m, 10); return `${josa(m.name, '이가')} 조금 더 해 보기로 했다.`; } return '붙잡지 못했다. ' + leave(s); } },
       { t: '보내 준다', h: "직업 창 '그룹' 탭에서 새 멤버를 구해야 한다", f: s => leave(s) },
@@ -2449,7 +2459,8 @@ CAREERS.solo = {
     if (typeof soloWaysMonth === 'function') soloWaysMonth(s, t);
     if (typeof soloExtraMonth === 'function') soloExtraMonth(s, t); // v220: OST · 피처링 · 단독 공연
     if (calM(s) === 11) musicAwards(s, t, actName(s, 'solo'), musicRookie(s, t.rel > 0), 'solo');
-    if (t.withGroup && s.tracks.idol.st !== 'active') t.withGroup = false;
+    // v247: 회사 소속 밴드를 하면서 같은 회사에서 낸 솔로(idolev.js band_solo)도 '그룹 활동과 함께'다. 그 밴드가 그 회사를 떠나거나 끝나면 보통 솔로 계약으로 돌아간다 (아이돌과 같다)
+    if (t.withGroup && s.tracks.idol.st !== 'active' && !(s.tracks.band.st === 'signed' && s.tracks.band.ag === t.ag)) t.withGroup = false;
     // 45세가 넘으면 인기가 꾸준히 떨어진다 (한 살 많을수록 더)
     if (age(s) > 45) { const fd = 1 - Math.min(0.02, (age(s) - 45) * 0.004); MK.forEach(m => { s.fans[m] = Math.round(s.fans[m] * fd); }); jpopAdd(s, 'solo', -0.1); if (!t.oldTold) { t.oldTold = true; addLog(s, '마흔다섯을 넘기자 요즘 노래 반응이 예전 같지 않다.', 'career'); } }
     const n = slotsOn(s, 'c_solo'), p = me(s), mk = t.mkt || 'kr';
